@@ -1,0 +1,17 @@
+/**
+ * React 入口：把 App 挂载到 #root
+ */
+import * as React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+
+const container = document.getElementById('root');
+if (!container) {
+  throw new Error('Root element #root not found');
+}
+
+createRoot(container).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

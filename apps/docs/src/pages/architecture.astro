@@ -1,0 +1,59 @@
+---
+import DocLayout from '../layouts/DocLayout.astro';
+---
+
+<DocLayout title="Architecture - Lokvis Docs">
+  <h1>Architecture</h1>
+
+  <p>
+    Lokvis follows a strict five-layer architecture with one-way dependencies.
+    See <code>docs/whitepaper/04-技术架构设计.md</code> for the full spec.
+  </p>
+
+  <h2>Layers</h2>
+
+  <h3>1. UI Layer</h3>
+  <p>Astro 7 + React 19 + Tailwind v4. Renders the Workspace UI and tool pages.</p>
+
+  <h3>2. Workflow Layer</h3>
+  <p>
+    Linear workflow executor (Year 1 only). Each workflow is a chain of
+    <code>transform</code> nodes connected by edges. No branches, loops,
+    conditions, or parallelism yet.
+  </p>
+
+  <h3>3. Runtime Layer</h3>
+  <p>
+    The "browser operating system". Single responsibility:
+    <code>Input → Run → Output</code>. Manages assets, capabilities, history,
+    and event bus. Never knows about React.
+  </p>
+
+  <h3>4. Capability Layer</h3>
+  <p>
+    <code>&lt;domain&gt;.&lt;action&gt;</code> naming convention (e.g.
+    <code>image.resize</code>, <code>video.transcode</code>). Runtime never
+    knows about FFmpeg — only about capabilities.
+  </p>
+
+  <h3>5. Engine Layer</h3>
+  <p>
+    Pluggable adapters wrap WASM libraries (Squoosh, ffmpeg.wasm, pdf-lib).
+    The MVP image engine uses native browser Canvas + createImageBitmap for
+    zero-dependency fastest first paint.
+  </p>
+
+  <h2>Dependency Rules</h2>
+  <ul>
+    <li><code>lokvis-open</code> never imports from <code>lokvis-cloud</code></li>
+    <li>Runtime never knows about React / Redux</li>
+    <li>Schema never knows about Runtime</li>
+    <li>Plugin never knows about Cloud</li>
+  </ul>
+
+  <h2>Storage</h2>
+  <p>
+    Metadata in IndexedDB (via Dexie in future), large files in OPFS (Origin
+    Private File System). Runtime only manipulates AssetIds — never raw Blobs.
+  </p>
+</DocLayout>

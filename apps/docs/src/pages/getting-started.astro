@@ -1,0 +1,37 @@
+---
+import DocLayout from '../layouts/DocLayout.astro';
+---
+
+<DocLayout title="Getting Started - Lokvis Docs">
+  <h1>Getting Started</h1>
+
+  <h2>Install</h2>
+  <pre><code>pnpm install</code></pre>
+
+  <h2>Run the Web App</h2>
+  <pre><code>pnpm dev --filter @lokvis/web</code></pre>
+
+  <h2>Embed the Runtime</h2>
+  <pre set:html={`import { createLokvis } from '@lokvis/sdk';
+import imageToolsPlugin from '@lokvis/plugin-image';
+
+const lokvis = await createLokvis({
+  plugins: [imageToolsPlugin()],
+});
+
+const assetId = await lokvis.importAsset({ kind: 'file', file });
+const result = await lokvis.run(workflow, [assetId]);`}></pre>
+
+  <h2>Use the Workspace UI</h2>
+  <pre set:html={`import { Workspace } from '@lokvis/ui-react';
+import imageToolsPlugin from '@lokvis/plugin-image';
+
+function App() {
+  return (
+    &lt;Workspace
+      title="My Image Tools"
+      plugins={[imageToolsPlugin()]}
+    /&gt;
+  );
+}`}></pre>
+</DocLayout>
