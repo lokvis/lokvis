@@ -1,0 +1,47 @@
+---
+import DocLayout from '../layouts/DocLayout.astro';
+---
+
+<DocLayout title="Workflows - Lokvis Docs">
+  <h1>Workflows</h1>
+
+  <p>
+    A workflow is a directed acyclic graph of <code>transform</code> nodes.
+    In Year 1, only linear chains are supported.
+  </p>
+
+  <h2>Schema</h2>
+  <pre set:html={`{
+  "id": "wf_abc123",
+  "name": "Compress for Web",
+  "version": "1",
+  "description": "Resize and compress image for web",
+  "author": { "id": "local", "name": "Local User" },
+  "category": "image",
+  "tags": ["web", "compress"],
+  "nodes": [
+    { "id": "n1", "type": "transform", "capability": "image.resize", "params": { "width": 1920, "fit": "inside" } },
+    { "id": "n2", "type": "transform", "capability": "image.compress", "params": { "format": "webp", "quality": 80 } }
+  ],
+  "edges": [
+    { "from": "n1", "to": "n2" }
+  ],
+  "inputs": { "type": "image", "multiple": true },
+  "outputs": { "type": "image" }
+}`}></pre>
+
+  <h2>Executing a Workflow</h2>
+  <pre set:html={`const assetId = await lokvis.importAsset({ kind: 'file', file });
+const result = await lokvis.run(workflow, [assetId]);
+
+console.log(result.status);  // 'completed' | 'failed' | 'cancelled'
+console.log(result.outputs); // AssetId[]
+console.log(result.duration);// ms`}></pre>
+
+  <h2>Year 1 Constraints</h2>
+  <ul>
+    <li>Linear only — no branches, loops, conditions, or parallelism</li>
+    <li>Single input type per workflow</li>
+    <li>Workflow nodes are transform nodes (load/export are implicit)</li>
+  </ul>
+</DocLayout>

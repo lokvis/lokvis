@@ -1,0 +1,22 @@
+{
+  "name": "@lokvis/example-custom-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Example: build a custom workspace UI with only @lokvis/sdk (no @lokvis/ui-react)",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "dev": "vite"
+  },
+  "dependencies": {
+    "@lokvis/sdk": "workspace:*",
+    "@lokvis/runtime": "workspace:*",
+    "@lokvis/plugin-image": "workspace:*",
+    "@lokvis/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0"
+  }
+}

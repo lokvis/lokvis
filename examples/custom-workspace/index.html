@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Custom Workspace Example</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: #f4f4f5;
+        color: #18181b;
+      }
+      .app { max-width: 960px; margin: 0 auto; padding: 24px; }
+      h1 { font-size: 20px; margin: 0 0 16px; }
+      .panel {
+        background: #fff;
+        border: 1px solid #e4e4e7;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      label { font-size: 14px; }
+      input[type="file"] { font-size: 14px; }
+      input[type="number"] {
+        width: 96px;
+        padding: 6px 8px;
+        border: 1px solid #d4d4d8;
+        border-radius: 6px;
+      }
+      button {
+        padding: 8px 14px;
+        border: 0;
+        border-radius: 6px;
+        background: #6366f1;
+        color: #fff;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      button:disabled { background: #c4b5fd; cursor: not-allowed; }
+      .preview { display: flex; gap: 24px; flex-wrap: wrap; }
+      .preview figure { margin: 0; }
+      .preview img {
+        max-width: 320px;
+        max-height: 320px;
+        border: 1px solid #e4e4e7;
+        border-radius: 6px;
+        display: block;
+      }
+      .preview figcaption { font-size: 12px; color: #71717a; margin-top: 4px; }
+      #status { font-size: 13px; color: #71717a; min-height: 18px; }
+      .error { color: #dc2626; }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <h1>Custom Workspace Example</h1>
+
+      <div class="panel">
+        <div class="row">
+          <label for="file-input">Choose an image:</label>
+          <input id="file-input" type="file" accept="image/*" />
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="row">
+          <label>Width <input id="width" type="number" value="800" min="1" /></label>
+          <label>Height <input id="height" type="number" value="600" min="1" /></label>
+          <button id="resize-btn" disabled>Resize</button>
+        </div>
+        <p id="status"></p>
+      </div>
+
+      <div class="panel">
+        <div class="preview">
+          <figure>
+            <img id="original-preview" alt="original" hidden />
+            <figcaption>Original</figcaption>
+          </figure>
+          <figure>
+            <img id="result-preview" alt="result" hidden />
+            <figcaption>Resized</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+
+    <!-- 通过 dev server / bundler 加载 TypeScript 源码（如 Vite） -->
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

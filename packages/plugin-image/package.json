@@ -1,0 +1,32 @@
+{
+  "name": "@lokvis/plugin-image",
+  "version": "0.1.0",
+  "description": "Lokvis Image Tools Plugin - resize / compress / convert / crop / rotate / flip / watermark / background",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@lokvis/schema": "workspace:*",
+    "@lokvis/plugin-sdk": "workspace:*",
+    "@lokvis/capability": "workspace:*",
+    "@lokvis/engine-image": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

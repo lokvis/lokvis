@@ -1,0 +1,8 @@
+dist/
+build/
+.astro/
+.turbo/
+node_modules/
+coverage/
+*.config.mjs
+*.config.js

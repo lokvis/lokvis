@@ -1,0 +1,46 @@
+---
+import DocLayout from '../layouts/DocLayout.astro';
+---
+
+<DocLayout title="Lokvis Docs - Overview">
+  <h1>Lokvis</h1>
+  <p class="text-zinc-500">
+    <strong>Local-first Browser Workspace.</strong> Everything runs in your browser.
+    No uploads. No servers. No compromises.
+  </p>
+
+  <h2>What is Lokvis?</h2>
+  <p>
+    Lokvis is an open-core platform for building file-processing tools that run
+    entirely in the browser. Image conversion, video compression, PDF merging,
+    audio editing — all done locally without uploading files to a server.
+  </p>
+
+  <h2>Five-Layer Architecture</h2>
+  <ol>
+    <li><strong>UI Layer</strong> — Astro 7 + React 19 + Tailwind v4</li>
+    <li><strong>Workflow Layer</strong> — Linear workflow executor (Year 1)</li>
+    <li><strong>Runtime Layer</strong> — Browser-local execution engine</li>
+    <li><strong>Capability Layer</strong> — Standardized capability abstractions</li>
+    <li><strong>Engine Layer</strong> — Pluggable engines (Canvas, Squoosh, ffmpeg.wasm, ...)</li>
+  </ol>
+
+  <h2>Open Core</h2>
+  <p>
+    <code>lokvis-open</code> (MIT) provides the runtime, schema, plugins, and
+    official UI. <code>lokvis-cloud</code> (closed-source) adds commercial
+    services: API, Marketplace, Dashboard, Billing, Sync, AI.
+  </p>
+
+  <h2>Quick Start</h2>
+  <pre><code>pnpm install
+pnpm dev --filter @lokvis/web</code></pre>
+
+  <h2>Next Steps</h2>
+  <ul>
+    <li><a href="/docs/architecture">Read the Architecture guide</a></li>
+    <li><a href="/docs/getting-started">Get started with the SDK</a></li>
+    <li><a href="/docs/capabilities">Browse the Capability catalog</a></li>
+    <li><a href="/docs/plugins">Build your first plugin</a></li>
+  </ul>
+</DocLayout>

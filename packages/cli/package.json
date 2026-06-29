@@ -1,0 +1,35 @@
+{
+  "name": "@lokvis/cli",
+  "version": "0.1.0",
+  "description": "Lokvis CLI - Run workflows, list capabilities, scaffold plugins from the terminal",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "lokvis": "./bin/lokvis.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "bin", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "lokvis": "./bin/lokvis.js"
+  },
+  "dependencies": {
+    "@lokvis/schema": "workspace:*",
+    "@lokvis/runtime": "workspace:*",
+    "@lokvis/sdk": "workspace:*",
+    "@lokvis/capability": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

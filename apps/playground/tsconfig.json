@@ -1,0 +1,18 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "baseUrl": ".",
+    "paths": {
+      "@lokvis/schema": ["../../packages/schema/src"],
+      "@lokvis/runtime": ["../../packages/runtime/src"],
+      "@lokvis/sdk": ["../../packages/sdk/src"],
+      "@lokvis/ui-core": ["../../packages/ui-core/src"],
+      "@lokvis/ui-react": ["../../packages/ui-react/src"],
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*", "env.d.ts"],
+  "exclude": ["dist", "node_modules"]
+}

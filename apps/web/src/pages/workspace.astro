@@ -1,0 +1,8 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { Workspace } from '../components/Workspace.tsx';
+---
+
+<BaseLayout title="Workspace - Lokvis">
+  <Workspace client:only="react" />
+</BaseLayout>
