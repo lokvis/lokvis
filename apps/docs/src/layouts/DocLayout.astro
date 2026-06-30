@@ -283,5 +283,29 @@ const navItems = [
         document.body.appendChild(toggle);
       });
     </script>
+    <script type="module">
+      // Mermaid 图表渲染:加载后遍历 ```mermaid 代码块并渲染为 SVG
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+
+      function renderMermaid() {
+        const blocks = document.querySelectorAll('pre code.language-mermaid');
+        blocks.forEach((block, idx) => {
+          const pre = block.parentElement;
+          if (!pre) return;
+          const source = block.textContent || '';
+          const container = document.createElement('div');
+          container.className = 'mermaid';
+          container.id = `mermaid-${idx}`;
+          container.textContent = source;
+          pre.replaceWith(container);
+        });
+        if (blocks.length > 0) {
+          mermaid.run({ querySelector: '.mermaid' });
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', renderMermaid);
+    </script>
   </body>
 </html>
