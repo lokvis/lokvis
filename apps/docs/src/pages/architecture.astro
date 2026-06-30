@@ -56,4 +56,39 @@ import DocLayout from '../layouts/DocLayout.astro';
     Metadata in IndexedDB (via Dexie in future), large files in OPFS (Origin
     Private File System). Runtime only manipulates AssetIds — never raw Blobs.
   </p>
+
+  <h2 id="worker-isolation">Worker 隔离(Worker Isolation)</h2>
+  <p>
+    所有重计算(图像编解码、未来 WASM 引擎)运行在独立 Web Worker 内,
+    与主线程 UI 解耦,避免长任务阻塞渲染(对应白皮书 T1
+    「浏览器内存/性能 ★★★★★」)。跨域隔离(COOP/COEP)在
+    <code>apps/web/public/_headers</code> 配置,启用
+    <code>SharedArrayBuffer</code> 供多线程 WASM 使用。
+  </p>
+
+  <h3>通信协议(<code>@lokvis/runtime</code> worker-protocol)</h3>
+  <p>纯 JSON 消息,按流向分两组:</p>
+  <ul>
+    <li><strong>Host → Worker</strong>:<code>request</code>(带 id 的方法调用)、<code>ping</code>(心跳)</li>
+    <li><strong>Worker → Host</strong>:<code>response</code>(按 id 关联)、<code>pong</code>、<code>event</code>(进度等)、<code>ready</code>(握手)、<code>error</code>(致命错误)</li>
+  </ul>
+  <p>
+    Worker 启动后主动发 <code>ready</code>(携带协议版本),Host 校验版本后才开始发送请求。
+  </p>
+
+  <h3>Host 管理(<code>WorkerHost</code>)</h3>
+  <ul>
+    <li><strong>Request/Response</strong>:每个请求唯一 id,响应按 id 关联;每请求独立超时(默认 60s)。</li>
+    <li><strong>心跳与超时</strong>:Host 周期性 <code>ping</code>(默认 5s),Worker 必须在超时(默认 15s)内 <code>pong</code>,否则视为崩溃。</li>
+    <li><strong>崩溃重启</strong>:传输层 error / 心跳超时 → 终止当前 Worker、拒绝所有 pending、重建新 Worker(最多 <code>maxRestarts</code> 次,默认 3)。超过上限进入 <code>dead</code>,交由上层降级。</li>
+    <li><strong>传输层抽象</strong>:<code>WorkerTransport</code> 接口屏蔽浏览器 Worker / 测试 Fake 差异,使协议与重启逻辑可在 Node 单测中验证。</li>
+  </ul>
+
+  <h3>Engine in Worker(<code>@lokvis/engine-image</code> worker-adapter)</h3>
+  <p>
+    图像操作在 Worker 内基于 <code>OffscreenCanvas</code> + <code>createImageBitmap</code> 渲染。
+    Worker 入口调用 <code>startImageWorker()</code> 完成 ready 握手、ping→pong、request→response 接线;
+    方法名与能力名对齐(<code>image.resize</code> / <code>image.compress</code> / …)。
+    该模块仅依赖 <code>@lokvis/schema</code>,消息结构与 runtime 协议兼容,不反向依赖 runtime。
+  </p>
 </DocLayout>
