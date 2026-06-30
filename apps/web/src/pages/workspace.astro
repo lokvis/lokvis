@@ -4,5 +4,7 @@ import { Workspace } from '../components/Workspace.tsx';
 ---
 
 <BaseLayout title="Workspace - Lokvis">
-  <Workspace client:only="react" />
+  <div class="h-screen w-full overflow-hidden">
+    <Workspace client:only="react" />
+  </div>
 </BaseLayout>

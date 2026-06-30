@@ -1,7 +1,9 @@
 /**
  * Toolbar - 工作台顶部工具栏
  *
- * 显示 Logo、状态、运行按钮、清空按钮。
+ * 左：Logo + 标题
+ * 中：状态消息
+ * 右：操作按钮组
  */
 
 import * as React from 'react';
@@ -9,15 +11,14 @@ import { Button } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store.js';
 
 export interface ToolbarProps {
-  /** Logo 文字 */
   title?: string;
-  /** 额外的右侧操作 */
   rightExtra?: React.ReactNode;
 }
 
 export function Toolbar({ title = 'Lokvis Workspace', rightExtra }: ToolbarProps) {
   const running = useWorkspaceStore((s) => s.running);
   const statusMessage = useWorkspaceStore((s) => s.statusMessage);
+  const error = useWorkspaceStore((s) => s.error);
   const nodes = useWorkspaceStore((s) => s.nodes);
   const selectedAssetId = useWorkspaceStore((s) => s.selectedAssetId);
   const run = useWorkspaceStore((s) => s.run);
@@ -35,15 +36,31 @@ export function Toolbar({ title = 'Lokvis Workspace', rightExtra }: ToolbarProps
   }
 
   return (
-    <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
-      <div className="flex items-center gap-2">
-        <span className="text-base" aria-hidden>◆</span>
-        <span className="font-semibold">{title}</span>
+    <header className="flex h-12 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 dark:border-zinc-800 dark:bg-zinc-900">
+      {/* Left: Brand */}
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span
+          className="shrink-0 text-base font-bold leading-none"
+          style={{
+            background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
+          ◆
+        </span>
+        <span className="truncate text-sm font-semibold tracking-tight">{title}</span>
       </div>
-      <div className="flex flex-1 items-center justify-center text-xs text-zinc-500">
-        {statusMessage}
+
+      {/* Center: Status */}
+      <div className="flex flex-1 items-center justify-center px-4 min-w-0">
+        <span className={`truncate text-xs ${error ? 'text-red-500' : 'text-zinc-400'}`}>
+          {statusMessage}
+        </span>
       </div>
-      <div className="flex items-center gap-2">
+
+      {/* Right: Actions */}
+      <div className="flex items-center gap-1.5 shrink-0">
         {rightExtra}
         {nodes.length > 0 && (
           <Button

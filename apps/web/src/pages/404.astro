@@ -4,16 +4,29 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
 <BaseLayout title="404 - Lokvis">
   <main class="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-6 text-center">
-    <div class="mb-4 text-6xl">◆</div>
-    <h1 class="mb-4 text-4xl font-bold">404</h1>
-    <p class="mb-8 text-zinc-600 dark:text-zinc-400">
-      The page you're looking for doesn't exist.
-    </p>
-    <a
-      href="/"
-      class="rounded-md bg-indigo-600 px-6 py-3 text-white hover:bg-indigo-500"
-    >
-      Back to Home
-    </a>
+    <div class="mb-6 animate-fade-in-up">
+      <div class="relative mx-auto mb-8 flex h-24 w-24 items-center justify-center">
+        <div class="absolute inset-0 rounded-full bg-indigo-100 dark:bg-indigo-950/50"></div>
+        <span class="relative text-4xl text-gradient">◆</span>
+      </div>
+      <h1 class="mb-3 text-5xl font-bold tracking-tight">404</h1>
+      <p class="mb-8 text-lg text-lokvis-muted">
+        This page doesn't exist &mdash; or it wandered off.
+      </p>
+    </div>
+    <div class="flex items-center gap-4 animate-fade-in-up">
+      <a
+        href="/"
+        class="rounded-xl bg-indigo-600 px-6 py-3 font-medium text-white shadow-lg shadow-indigo-500/30 transition-all hover:bg-indigo-500 hover:shadow-xl hover:shadow-indigo-500/40"
+      >
+        Back to Home
+      </a>
+      <a
+        href="/workspace"
+        class="rounded-xl border border-lokvis-border px-6 py-3 font-medium transition-all hover:border-zinc-300 hover:shadow-sm dark:hover:border-zinc-600"
+      >
+        Open Workspace
+      </a>
+    </div>
   </main>
 </BaseLayout>

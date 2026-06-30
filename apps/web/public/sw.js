@@ -12,6 +12,8 @@ const APP_SHELL = [
   '/',
   '/workspace',
   '/manifest.webmanifest',
+  '/icon.svg',
+  '/icon-maskable.svg',
   '/offline.html',
 ];
 

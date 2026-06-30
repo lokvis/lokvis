@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime } from '@lokvis/runtime';
 import imageToolsPlugin from '@lokvis/plugin-image';
@@ -8,32 +8,44 @@ import { Button } from '@lokvis/ui-core';
 /**
  * Lokvis Playground
  *
- * 一个简化的代码编辑器，让用户在浏览器里尝试 @lokvis/sdk API。
- * 左侧代码，右侧输出。
+ * A browser-based code playground for trying @lokvis/sdk API.
+ * Left: code editor. Right: output console.
  */
 
 const DEFAULT_CODE = `// Lokvis Playground
-// 在浏览器中尝试 Lokvis SDK
+// Try the Lokvis SDK in your browser
 
 const lokvis = await createLokvis({
   plugins: [imageToolsPlugin(), devToolsPlugin()],
 });
 
-// 列出所有能力
+// List all registered capabilities
 const caps = await lokvis.capabilities();
-console.log('已注册能力：', caps.length, '个');
+console.log('Registered capabilities:', caps.length);
 
-// 导入示例图片（用 fetch 替代 File）
+// List capability names
+caps.forEach(c => console.log('  -', c.name));
+
+// Import a sample image
 // const blob = await fetch('/sample.png').then(r => r.blob());
 // const id = await lokvis.importAsset({ kind: 'blob', blob, name: 'sample.png' });
 // console.log('Asset ID:', id);
 `;
 
+interface LogEntry {
+  id: number;
+  text: string;
+  type: 'log' | 'error' | 'event';
+}
+
+let logIdCounter = 0;
+
 export function Playground() {
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
   const [code, setCode] = useState(DEFAULT_CODE);
-  const [output, setOutput] = useState<string[]>([]);
+  const [output, setOutput] = useState<LogEntry[]>([]);
   const [running, setRunning] = useState(false);
+  const [tab, setTab] = useState<'editor' | 'output'>('editor');
 
   useEffect(() => {
     (async () => {
@@ -43,27 +55,28 @@ export function Playground() {
         });
         setRuntime(rt);
         rt.eventBus.onAny((e) => {
-          setOutput((prev) => [
-            ...prev,
-            `[event] ${e.type}`,
-          ]);
+          addLog(`[event] ${e.type}`, 'event');
         });
       } catch (err) {
-        setOutput((prev) => [
-          ...prev,
-          `[error] ${err instanceof Error ? err.message : String(err)}`,
-        ]);
+        addLog(`[error] ${err instanceof Error ? err.message : String(err)}`, 'error');
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const addLog = useCallback((text: string, type: LogEntry['type'] = 'log') => {
+    setOutput((prev) => [...prev, { id: ++logIdCounter, text, type }]);
   }, []);
 
   async function handleRun() {
     if (!runtime) return;
     setRunning(true);
     setOutput([]);
+
     const originalLog = console.log;
     const originalError = console.error;
     const logs: string[] = [];
+
     console.log = (...args) => {
       logs.push(args.map(String).join(' '));
       originalLog(...args);
@@ -72,8 +85,8 @@ export function Playground() {
       logs.push(`[error] ${args.map(String).join(' ')}`);
       originalError(...args);
     };
+
     try {
-      // 用 new Function 在隔离作用域执行
       const fn = new Function(
         'createLokvis',
         'imageToolsPlugin',
@@ -87,39 +100,132 @@ export function Playground() {
     } finally {
       console.log = originalLog;
       console.error = originalError;
-      setOutput(logs);
+      setOutput(logs.map((text, i) => ({ id: i, text, type: text.startsWith('[error]') ? 'error' : text.startsWith('[event]') ? 'event' : 'log' })));
       setRunning(false);
     }
   }
 
   return (
-    <div className="flex h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-2 dark:border-zinc-800">
-        <div className="flex items-center gap-2">
-          <span>◆</span>
-          <span className="font-semibold">Lokvis Playground</span>
+    <div className="flex h-screen flex-col bg-[#09090b] text-zinc-100">
+      {/* Header */}
+      <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950 px-5 py-3">
+        <div className="flex items-center gap-3">
+          <span className="text-lg font-bold" style={{background: 'linear-gradient(135deg, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>◆</span>
+          <span className="text-sm font-semibold tracking-tight">Lokvis Playground</span>
           {runtime && (
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+            <span className="flex items-center gap-1.5 rounded-full bg-emerald-950 px-2.5 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-800">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+              </span>
               Runtime ready
             </span>
           )}
         </div>
-        <Button onClick={handleRun} loading={running} size="sm">
-          Run
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setOutput([])}
+            className="rounded-md px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+          >
+            Clear
+          </button>
+          <button
+            onClick={handleRun}
+            disabled={running || !runtime}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {running ? (
+              <>
+                <svg className="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                Running...
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Run
+              </>
+            )}
+          </button>
+        </div>
       </header>
+
+      {/* Tabs - mobile */}
+      <div className="flex border-b border-zinc-800 bg-zinc-950/50 md:hidden">
+        <button
+          onClick={() => setTab('editor')}
+          className={`flex-1 py-2 text-xs font-medium transition-colors ${tab === 'editor' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+        >
+          Editor
+        </button>
+        <button
+          onClick={() => setTab('output')}
+          className={`flex-1 py-2 text-xs font-medium transition-colors ${tab === 'output' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+        >
+          Output {output.length > 0 && `(${output.length})`}
+        </button>
+      </div>
+
+      {/* Editor + Output */}
       <div className="flex flex-1 overflow-hidden">
-        <textarea
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          spellCheck={false}
-          className="flex-1 resize-none bg-zinc-50 p-4 font-mono text-sm dark:bg-zinc-950"
-        />
-        <pre className="flex-1 overflow-auto bg-zinc-900 p-4 text-xs text-zinc-100">
-          {output.length === 0
-            ? '/* output will appear here */'
-            : output.join('\n')}
-        </pre>
+        {/* Code Editor */}
+        <div className={`flex flex-1 flex-col overflow-hidden border-r border-zinc-800 ${tab !== 'editor' ? 'hidden md:flex' : ''}`}>
+          <div className="flex items-center justify-between border-b border-zinc-800/50 px-4 py-1.5">
+            <span className="flex items-center gap-2 text-[11px] text-zinc-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              editor.js
+            </span>
+            <span className="text-[11px] text-zinc-600">JavaScript</span>
+          </div>
+          <textarea
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            spellCheck={false}
+            className="flex-1 resize-none bg-transparent p-4 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 focus:outline-none"
+            placeholder="Write your code here..."
+          />
+        </div>
+
+        {/* Output */}
+        <div className={`flex flex-1 flex-col overflow-hidden ${tab !== 'output' ? 'hidden md:flex' : ''}`}>
+          <div className="flex items-center justify-between border-b border-zinc-800/50 px-4 py-1.5">
+            <span className="flex items-center gap-2 text-[11px] text-zinc-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+              output
+            </span>
+            {output.length > 0 && (
+              <span className="text-[11px] text-zinc-600">{output.length} lines</span>
+            )}
+          </div>
+          <div className="flex-1 overflow-auto bg-zinc-950 p-4">
+            {output.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-zinc-600">
+                <div className="text-center">
+                  <svg className="mx-auto mb-2 h-8 w-8 text-zinc-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"/></svg>
+                  <p className="text-xs">Output will appear here</p>
+                  <p className="mt-1 text-[10px] text-zinc-700">Press Run to execute your code</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-px">
+                {output.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className={`flex items-start gap-2 rounded px-2 py-0.5 text-xs font-mono ${
+                      entry.type === 'error'
+                        ? 'bg-red-950/30 text-red-400'
+                        : entry.type === 'event'
+                        ? 'bg-indigo-950/30 text-indigo-400'
+                        : 'text-zinc-400'
+                    }`}
+                  >
+                    <span className="flex-shrink-0 w-5 text-right text-zinc-600">{entry.id + 1}</span>
+                    <span className="whitespace-pre-wrap break-all">{entry.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

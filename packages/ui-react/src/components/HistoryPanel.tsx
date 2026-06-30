@@ -47,9 +47,9 @@ export function HistoryPanel({ className = '', maxItems = 50 }: HistoryPanelProp
 
   return (
     <aside
-      className={`flex w-72 flex-col border-t border-zinc-200 dark:border-zinc-800 ${className}`}
+      className={`flex h-32 flex-col border-t border-zinc-200 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-950/50 ${className}`}
     >
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2 dark:border-zinc-800">
+      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-1.5 dark:border-zinc-800">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
           History
         </h3>
@@ -63,23 +63,25 @@ export function HistoryPanel({ className = '', maxItems = 50 }: HistoryPanelProp
           </button>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto px-2 py-2">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden px-2 py-1.5">
         {items.length === 0 ? (
           <p className="px-2 text-xs text-zinc-400">No history yet</p>
         ) : (
-          <ul className="space-y-1">
+          <ul className="flex h-full items-stretch gap-1.5">
             {items.map((item) => (
               <li
                 key={item.id}
-                className="rounded px-2 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="flex w-56 flex-none flex-col justify-between rounded border border-zinc-200 bg-white px-2 py-1 text-xs dark:border-zinc-800 dark:bg-zinc-900"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-[10px] text-zinc-400">
                     {new Date(item.timestamp).toLocaleTimeString()}
                   </span>
                   <span className="font-mono text-[10px] text-zinc-400">{item.type}</span>
                 </div>
-                <div className="text-zinc-600 dark:text-zinc-300">{item.message}</div>
+                <div className="truncate text-zinc-600 dark:text-zinc-300" title={item.message}>
+                  {item.message}
+                </div>
               </li>
             ))}
           </ul>
