@@ -16,9 +16,12 @@ import type { LokvisRuntime, RuntimeConfig, RuntimeStatus } from './types.js';
 import type { EventBus } from '@lokvis/schema';
 import { createEventBus } from './event-bus.js';
 import {
+  createAssetStore,
   createMemoryAssetStore,
+  checkStorageQuota,
   type AssetStore,
 } from './asset-store.js';
+import { HistoryStack } from './history.js';
 import { CapabilityRegistry } from './capability-registry.js';
 import { WorkflowExecutor } from './executor.js';
 
@@ -34,7 +37,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   private assetStore: AssetStore;
   private capabilityRegistry: CapabilityRegistry;
   private executor: WorkflowExecutor;
-  private historyMap = new Map<string, HistoryEntry[]>();
+  private historyStacks = new Map<string, HistoryStack>();
 
   constructor(config: RuntimeConfig = {}) {
     this.config = {
@@ -46,8 +49,10 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
 
     this.eventBus = createEventBus();
 
-    // 第一版使用内存 AssetStore，后续支持 OPFS
-    this.assetStore = createMemoryAssetStore();
+    // 使用工厂自动探测最佳存储后端(OPFS → IDB → 内存)
+    this.assetStore = this.config.enableOpfs
+      ? createAssetStore({ preferOpfs: true, storageQuota: this.config.storageQuota })
+      : createMemoryAssetStore();
 
     this.capabilityRegistry = new CapabilityRegistry();
 
@@ -69,10 +74,19 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     workflow: Workflow,
     inputs: AssetId[] | Asset[]
   ): Promise<WorkflowResult> {
+    // 存储配额校验
+    await checkStorageQuota(this.config.storageQuota);
+
     this._status = 'running';
     try {
       const result = await this.executor.execute(workflow, inputs);
       this._status = result.status === 'failed' ? 'error' : 'idle';
+
+      // 成功完成后记录历史
+      if (result.status === 'completed') {
+        this.recordHistory(workflow, inputs, result);
+      }
+
       return result;
     } catch (error) {
       this._status = 'error';
@@ -95,17 +109,18 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   // ─── 历史与撤销 ──────────────────────────────────────
 
   async history(workflowId: string): Promise<HistoryEntry[]> {
-    return this.historyMap.get(workflowId) ?? [];
+    const stack = this.historyStacks.get(workflowId);
+    return stack ? stack.getAll() : [];
   }
 
   async undo(workflowId: string): Promise<void> {
-    // TODO: 实现基于历史记录的撤销
-    void workflowId;
+    const stack = this.getOrCreateHistoryStack(workflowId);
+    stack.undo();
   }
 
   async redo(workflowId: string): Promise<void> {
-    // TODO: 实现基于历史记录的重做
-    void workflowId;
+    const stack = this.getOrCreateHistoryStack(workflowId);
+    stack.redo();
   }
 
   // ─── Asset 管理 ──────────────────────────────────────
@@ -167,6 +182,63 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   /** 获取 CapabilityRegistry（内部用） */
   _getCapabilityRegistry(): CapabilityRegistry {
     return this.capabilityRegistry;
+  }
+
+  // ─── 历史记录内部实现 ──────────────────────────────────
+
+  /** 获取或创建工作流对应的 HistoryStack */
+  private getOrCreateHistoryStack(workflowId: string): HistoryStack {
+    let stack = this.historyStacks.get(workflowId);
+    if (!stack) {
+      stack = new HistoryStack({
+        eventBus: this.eventBus,
+        workflowId,
+        onEvict: (evicted) => {
+          // LRU 淘汰时清理不再引用的输出资产
+          for (const entry of evicted) {
+            for (const outputId of entry.outputs) {
+              this.assetStore.remove(outputId).catch(() => {});
+            }
+          }
+        },
+      });
+      this.historyStacks.set(workflowId, stack);
+    }
+    return stack;
+  }
+
+  /** 工作流执行成功后记录历史 */
+  private recordHistory(
+    workflow: Workflow,
+    inputs: AssetId[] | Asset[],
+    result: WorkflowResult,
+  ): void {
+    const workflowId = workflow.id;
+    const stack = this.getOrCreateHistoryStack(workflowId);
+
+    // 将输入统一为 AssetId[]
+    const inputIds: AssetId[] = inputs.length > 0 && typeof inputs[0] === 'string'
+      ? (inputs as AssetId[])
+      : (inputs as Asset[]).map((a) => a.id);
+
+    // 为工作流的每个 transform 节点记录一条历史
+    const transformNodes = workflow.nodes.filter((n) => n.type === 'transform');
+    const outputIds = result.outputs;
+
+    for (let i = 0; i < transformNodes.length; i++) {
+      const node = transformNodes[i]!;
+      const entry: HistoryEntry = {
+        id: `${workflowId}:${node.id}:${Date.now()}:${i}`,
+        workflowId,
+        nodeId: node.id,
+        capability: node.capability,
+        params: node.params ?? {},
+        inputs: inputIds,
+        outputs: outputIds,
+        timestamp: Date.now(),
+      };
+      stack.append(entry);
+    }
   }
 }
 

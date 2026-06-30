@@ -126,17 +126,17 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 2.1 | `HistoryStack` 类:append-only 日志 | P0 | 4h | ⬜ | `runtime/src/history.ts` |
-| 2.2 | undo/redo 实现:回滚到上一步输出 Asset | P0 | 4h | ⬜ | 同上 |
-| 2.3 | `LokvisRuntimeImpl.undo/redo` 接通(当前 TODO) | P0 | 2h | ⬜ | `runtime.ts` |
-| 2.4 | 历史上限 10 步,LRU 淘汰 + OPFS 清理 | P0 | 2h | ⬜ | 同上 |
-| 2.5 | `event-bus` 新增 `history:changed` 事件 | P0 | 2h | ⬜ | `event-bus.ts` |
-| 2.6 | `OpfsAssetStore` 实现(`FileSystemSyncAccessHandle`) | P0 | 6h | ⬜ | `runtime/src/opfs-asset-store.ts` |
-| 2.7 | OPFS 不可用降级到 IndexedDB(Dexie) | P0 | 4h | ⬜ | `runtime/src/idb-asset-store.ts` |
-| 2.8 | `AssetStore` 工厂:`createAssetStore({preferOpfs})` 自动探测 | P0 | 2h | ⬜ | `asset-store.ts` |
-| 2.9 | Runtime `storageQuota` 校验,超限抛 `QuotaExceededError` | P0 | 2h | ⬜ | `runtime.ts` |
-| 2.10 | 单测:HistoryStack、OPFS mock、降级链 | P0 | 6h | ⬜ | `__tests__/history.test.ts` |
-| 2.11 | 集成测试:resize→compress→undo→redo(vitest browser) | P0 | 4h | ⬜ | `__tests__/integration/undo-redo.test.ts` |
+| 2.1 | `HistoryStack` 类:append-only 日志 | P0 | 4h | ✅ | `runtime/src/history.ts` |
+| 2.2 | undo/redo 实现:回滚到上一步输出 Asset | P0 | 4h | ✅ | 同上 |
+| 2.3 | `LokvisRuntimeImpl.undo/redo` 接通(当前 TODO) | P0 | 2h | ✅ | `runtime.ts` |
+| 2.4 | 历史上限 10 步,LRU 淘汰 + OPFS 清理 | P0 | 2h | ✅ | 同上 |
+| 2.5 | `event-bus` 新增 `history:changed` 事件 | P0 | 2h | ✅ | `event-bus.ts` |
+| 2.6 | `OpfsAssetStore` 实现(`FileSystemSyncAccessHandle`) | P0 | 6h | ✅ | `runtime/src/opfs-asset-store.ts` |
+| 2.7 | OPFS 不可用降级到 IndexedDB(Dexie) | P0 | 4h | ✅ | `runtime/src/idb-asset-store.ts` |
+| 2.8 | `AssetStore` 工厂:`createAssetStore({preferOpfs})` 自动探测 | P0 | 2h | ✅ | `asset-store.ts` |
+| 2.9 | Runtime `storageQuota` 校验,超限抛 `QuotaExceededError` | P0 | 2h | ✅ | `runtime.ts` |
+| 2.10 | 单测:HistoryStack、OPFS mock、降级链 | P0 | 6h | ✅ | `__tests__/history.test.ts` |
+| 2.11 | 集成测试:resize→compress→undo→redo(vitest browser) | P0 | 4h | ✅ | `__tests__/integration/undo-redo.test.ts` |
 | 2.12 | 缓冲 | P0 | 2h | ⬜ | — |
 
 ### W3 · Runtime 加固:Streaming + 内存防御(40h)
@@ -516,6 +516,14 @@
 | 2026-06-30 | 1.9 | ✅ 完成 | 4h | worker-host 18 测 + worker-adapter 8 测;FakeTransport / FakeScope 注入;修复 timer 推进同步拒绝的 unhandled rejection |
 | 2026-06-30 | 1.10 | ✅ 完成 | 2h | `architecture.astro` 新增「Worker 隔离」章节(通信协议 / Host 管理 / Engine in Worker) |
 | 2026-06-30 | W1 | 🎉 收尾 | 38h | typecheck ✅(36 tasks)、build ✅(20 tasks)、test:coverage ✅(152 测试,lines 64.3%);1.11 缓冲未消耗,节省 2h 转入 W2 |
+| 2026-06-30 | 2.1-2.5 | ✅ 完成 | 10h | HistoryStack:append-only 日志 + cursor undo/redo + redo 分支截断 + LRU 淘汰(maxEntries 默认 10)+ onEvict 回调 + history:changed 事件 |
+| 2026-06-30 | 2.6 | ✅ 完成 | 6h | OpfsAssetStore:navigator.storage.getDirectory + createWritable,opfs:// 前缀,isOpfsAvailable 探测;修复 FileSystemDirectoryHandle 类型兼容 |
+| 2026-06-30 | 2.7 | ✅ 完成 | 4h | IDB 降级:Dexie 双表(assets + blobs ArrayBuffer),idb:// 前缀,事务删除保证一致性 |
+| 2026-06-30 | 2.8-2.9 | ✅ 完成 | 4h | createAssetStore 工厂:OPFS→IDB→内存三级降级;checkStorageQuota + QuotaExceededError |
+| 2026-06-30 | 2.3 | ✅ 完成 | 2h | Runtime.run 后自动 recordHistory;undo/redo 接通 HistoryStack;LRU 淘汰时清理输出资产 |
+| 2026-06-30 | 2.10 | ✅ 完成 | 6h | history.test.ts 17 测:基本操作/undo-redo/分支截断/LRU/事件/clear |
+| 2026-06-30 | 2.11 | ✅ 完成 | 4h | undo-redo.test.ts 5 测:resize 记录历史/undo 游标/redo 恢复/多工作流独立/history:changed 事件 |
+| 2026-06-30 | W2 | 🎉 收尾 | 36h | typecheck ✅(36 tasks)、test ✅(174 测试,新增 22 测);2.12 缓冲未消耗,节省 2h 转入 W3 |
 
 ---
 
@@ -533,6 +541,7 @@
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
+| 2026-06-30 | v1.3 | W2 完成:2.1-2.11 全部 ✅;HistoryStack(undo/redo + LRU 淘汰 + history:changed 事件)+ OpfsAssetStore + IDB 降级(Dexie)+ createAssetStore 三级降级工厂 + storageQuota 校验;Runtime 接通 undo/redo;174 测试全绿 |
 | 2026-06-30 | v1.2 | W1 完成:1.1-1.10 全部 ✅;Worker 隔离层(worker-protocol / worker-host / engine-image worker-adapter)+ CI/CD + COOP/COEP 落地;覆盖率阈值基线 60%(实测 64.3%),ratchet 至 70% 留 W2-W3 推进 |
 | 2026-06-30 | v1.1 | 增加任务状态列与优先级列;调整优先级(plugin-dev→P3、Plugin SDK→P1 Alpha、CLI→P1 最小版、EXIF/旋转/滤镜→P1、Sentry 前置 W12);新增执行日志/阻塞清单/变更记录章节 |
 | 2026-06-30 | v1.0 | 初版,基于白皮书 00/03/04/06/07 拆分 Phase 1 全周期任务 |
