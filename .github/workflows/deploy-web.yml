@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
   PNPM_VERSION: '9.12.0'
   # Cloudflare Pages 项目名(在 Cloudflare 控制台创建后填入,或用环境变量覆盖)
   CF_PAGES_PROJECT: lokvis-web
