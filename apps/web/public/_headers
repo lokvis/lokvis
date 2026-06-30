@@ -1,0 +1,25 @@
+# Cloudflare Pages 自定义响应头
+# https://developers.cloudflare.com/pages/configuration/headers/
+
+# ─── 跨域隔离(Cross-Origin Isolation)─────────────────────────
+# 必需:SharedArrayBuffer / ffmpeg.wasm / 多线程 WASM 依赖 crossOriginIsolated。
+# 依据:PROJECT_PLAN.md A10(白皮书 07 §架构地基)。
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Resource-Policy: same-origin
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# ─── 静态资产(Astro 哈希指纹,永久缓存)─────────────────────────
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Service Worker 不缓存(始终拉最新)
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# manifest 同样不长期缓存
+/manifest.webmanifest
+  Cache-Control: no-cache
