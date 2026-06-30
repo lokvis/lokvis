@@ -1,0 +1,537 @@
+# lokvis-open 项目规划与任务拆分
+
+> 基于 `docs/whitepaper/` 白皮书(00/03/04/06/07)对 **lokvis-open 开源仓库**的独立规划。
+> 覆盖 Phase 1(2026.07–2026.12)Image Workspace MVP 全周期,按 **小时级** 拆分。
+> 团队假设:1 名全栈(主)+ 兼职设计(月 20h),与白皮书 07 §2.5 一致。
+>
+> 时间口径:1 个工作日 = 8h,1 周 = 5 工作日 = 40h。任务块以 **2h** 为最小粒度。
+
+---
+
+## 状态图例与优先级定义
+
+### 任务状态
+
+| 标记 | 含义 | 说明 |
+|---|---|---|
+| ⬜ | 待开始 | 未启动 |
+| 🔄 | 进行中 | 正在执行 |
+| ✅ | 已完成 | 已交付并通过验收 |
+| ⛔ | 阻塞 | 等待依赖/外部条件 |
+| ⏭️ | 已跳过/延后 | 移至下一阶段或取消 |
+
+### 优先级
+
+| 级别 | 含义 | Phase 1 末要求 |
+|---|---|---|
+| **P0** | 必交付(Must) | 必须完成,否则 MVP 不成立 |
+| **P1** | 应交付(Should) | 工期紧可砍,但需记录到 Phase 2 |
+| **P2** | 可选(Nice) | 延后到 Phase 2+ |
+| **P3** | 明确延后 | 不在 Phase 1,列入后续阶段路线 |
+
+### 执行跟踪规则
+
+1. 每开始一个任务,把状态从 ⬜ 改为 🔄,并在「执行日志」表记录开始时间。
+2. 完成后改为 ✅,记录完成时间与实际工时。
+3. 遇阻塞改 ⛔,在「阻塞清单」记录原因与待解决项。
+4. 每周一回顾:统计 ✅ 数量、预算燃烧率,必要时调整后续 P1/P2。
+5. 状态字段位置:每个任务表格的「状态」列。
+
+---
+
+## 0. 当前仓库基线(2026-06 末快照)
+
+| 模块 | 状态 | 说明 |
+|---|---|---|
+| `packages/schema` | ✅ 已实现 | Workflow/Asset/Capability/Plugin/Event Zod schema + 单测 |
+| `packages/runtime` | 🟡 部分实现 | 调度/事件总线/AssetStore/CapabilityRegistry 已实现;**undo/redo 是 TODO**;**仅内存 AssetStore**;无 Web Worker 隔离 |
+| `packages/capability` | ✅ 已实现 | names/helpers/presets + 单测 |
+| `packages/sdk` | ✅ 已实现 | createLokvis/loadPlugin + PluginContext |
+| `packages/plugin-sdk` | ✅ 已实现 | definePlugin/PluginContext 类型 |
+| `packages/engine-image` | ✅ 已实现 | Canvas + createImageBitmap,零 WASM |
+| `packages/plugin-image` | ✅ 已实现 | 8 个能力,接 canvas engine + 单测 |
+| `packages/engine-pdf` | 🔴 stub | 接口完整,所有操作抛 Not Implemented |
+| `packages/engine-video` | 🔴 stub | ffmpeg.wasm/webcodecs 占位 |
+| `packages/engine-audio` | 🔴 stub | 空壳 |
+| `packages/engine-ai` | 🔴 stub | 空壳 |
+| `packages/plugin-pdf` / `plugin-video` | 🟡 骨架 | plugin.ts 已定义,operations 调 stub engine |
+| `packages/plugin-dev` | 🟡 骨架 | 占位 |
+| `packages/cli` | 🟡 骨架 | run/capabilities/plugin-create 命令骨架,未连 sdk |
+| `packages/ui-core` / `ui-react` | 🟡 部分 | 基础组件 + Workspace SPA 壳已搭,PipelineBar/Canvas 已重构 |
+| `apps/web` | 🟡 部分 | 首页/分类页/6 工具页占位;Workspace 页可渲染;PWA manifest/SW 已配;SEO 内容空白 |
+| `apps/docs` | 🟡 部分 | Astro 文档站骨架,内容待补 |
+| `apps/playground` | 🟡 占位 | 仅壳 |
+| `examples/*` | ✅ 已有 | cli-automation/custom-workspace/embedding 三例 |
+| 工程化 | 🟡 | turbo/vitest/tsconfig 已配;**无 CI/CD**;**无 COOP/COEP**;**无 WASM 加载策略** |
+
+---
+
+## 1. 优先级调整说明(相对白皮书原计划的修订)
+
+> 依据:白皮书 07 §10.2「O1 独立开发者精力瓶颈 ★★★★★」明确要求"MVP 严格瘦身,砍掉所有非必需功能"。以下调整把有限工时压到 P0 主线。
+
+| # | 调整项 | 原位置 | 调整后 | 依据 |
+|---|---|---|---|---|
+| A1 | `plugin-dev`(Developer Workspace: Regex/Diff/Base64/Hash) | W20 | **P3 延后到 Phase 4** | 白皮书 07 §5:Developer Workspace 是 Phase 4 交付 |
+| A2 | Plugin SDK 正式发布 | W18-20 | **P1,Phase 1 仅出 Alpha 预览** | 白皮书 07 §3:M2.3 Plugin SDK v1 在 2027.06,Phase 1 不发正式版 |
+| A3 | CLI 正式发布 | W20 | **P1,Phase 1 仅最小 `run` 命令** | 白皮书 07 §5:CLI 工具发布在 Phase 4 |
+| A4 | EXIF 查看/编辑、旋转/翻转、简单滤镜 | W7 | **P1**(原 P0 候选降级) | 白皮书 07 §2.2:P1 应交付,工期紧可砍 |
+| A5 | GIF 制作、图片拼接 | — | **P2 不排期** | 白皮书 07 §2.2:P2 可选 |
+| A6 | 浏览器扩展、多语言 | — | **P2 不排期** | 白皮书 07 §2.2:P2 |
+| A7 | 预设库 20+ 平台 | W8 | **维持 P0** | 白皮书 03 §5.1 明确"20+ 预设"是 MVP 卖点 |
+| A8 | 对比页 10 篇 | W14 | **维持 P0** | 白皮书 07 §2.2 P0 清单 |
+| A9 | Sentry 监控 | W12 | **P0 前置到 W12**(原 W21) | 崩溃率 <3% 是 M1.2 验收硬指标,需提前接入 |
+| A10 | COOP/COEP 跨域隔离 | W1 | **P0 前置到 W1** | FFmpeg.wasm 依赖 SharedArrayBuffer,架构地基 |
+| A11 | 批量上限免费 10/Pro 无限 | W6 | **P0**(原隐含) | 白皮书 06 §B2:批量是 Pro 核心钩子 |
+| A12 | 隐私声明"文件未上传"指示器 | W8 | **P0 提前到 W8** | 白皮书 06 §M3:可视化信任建立是核心差异化 |
+
+**净影响:** Phase 1 主创工时从原 880h 压缩到约 **820h P0 + 60h P1**,留出 ~10% 余量给 P1 兜底。P3 项移入「后续阶段预告」。
+
+---
+
+## 2. Phase 1 总览(24 周 ≈ 960h,主创有效工时约 820h P0 + 60h P1)
+
+| 月 | 周次 | 主题 | open 侧关键交付 | P0 工时 | P1 工时 |
+|---|---|---|---|---|---|
+| M1 07 | W1-4 | 基础设施 + Runtime 加固 | CI/CD、COOP/COEP、Web Worker 隔离、undo/redo、OPFS AssetStore、SDK API 冻结 | 152h | 8h |
+| M2 08 | W5-8 | Image 工具完善 + 批量 + 历史 | 6 工具连真实处理、批量队列、水印、历史 10 步、预设库 20+ | 142h | 18h |
+| M3 09 | W9-12 | Workspace UI + Workflow Layer | SPA 主界面打磨、拖拽编辑器、5 步编排、JSON 导入导出、Alpha | 156h | 4h |
+| M4 10 | W13-16 | SEO 内容 + PWA | 50 工具页/30 教程/10 对比模板、JSON-LD、SW 预缓存、安装提示、离线指示、Beta | 160h | 0h |
+| M5 11 | W17-20 | SDK 公开 + 文档 + Pro 对接点 | SDK npm 发布、Pro 门控、开发者文档站、Plugin SDK Alpha | 100h | 60h |
+| M6 12 | W21-24 | 优化 + 发布 | WASM 懒加载、首屏 <2.5s、崩溃率 <1%、文档定稿、开源发布 | 110h | 0h |
+
+> P1 工时在工期紧张时整体可砍,不影响 M1.3 发布硬指标。
+
+---
+
+## 3. M1 · 基础设施 + Runtime 加固(W1-4,160h)
+
+### W1 · 项目脚手架与 CI/CD(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 1.1 | GitHub Actions: `lint` / `typecheck` / `test` / `build` 四流水线,PR 必跑 | P0 | 4h | ⬜ | `.github/workflows/ci.yml` |
+| 1.2 | GitHub Actions: 自动部署 `apps/web` 到 Cloudflare Pages(dev → preview,main → prod) | P0 | 4h | ⬜ | `.github/workflows/deploy-web.yml` |
+| 1.3 | `apps/web` 配置 COOP/COEP 安全头(via `_headers`) | P0 | 2h | ⬜ | `apps/web/public/_headers` |
+| 1.4 | vitest 补 `coverage` 阈值(lines 70%) | P1 | 2h | ⬜ | `vitest.config.ts` |
+| 1.5 | 依赖审计:锁定 `pnpm-lock.yaml`,Astro 7/React 19/Tailwind v4 | P0 | 2h | ⬜ | lockfile |
+| 1.6 | `packages/runtime` Web Worker 隔离:`worker-host.ts` | P0 | 8h | ⬜ | `runtime/src/worker-host.ts` |
+| 1.7 | Worker 通信协议:Request/Response + 心跳/超时 | P0 | 4h | ⬜ | `runtime/src/worker-protocol.ts` |
+| 1.8 | Engine Image 在 Worker 内运行(OffscreenCanvas) | P0 | 6h | ⬜ | `engine-image/src/worker-adapter.ts` |
+| 1.9 | 单测:Worker 协议、心跳超时、崩溃重启 | P0 | 4h | ⬜ | `__tests__/worker-host.test.ts` |
+| 1.10 | 文档:架构页"Worker 隔离"章节 | P1 | 2h | ⬜ | `apps/docs` |
+| 1.11 | 缓冲(集成调试) | P0 | 4h | ⬜ | — |
+
+### W2 · Runtime 核心:undo/redo + OPFS(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 2.1 | `HistoryStack` 类:append-only 日志 | P0 | 4h | ⬜ | `runtime/src/history.ts` |
+| 2.2 | undo/redo 实现:回滚到上一步输出 Asset | P0 | 4h | ⬜ | 同上 |
+| 2.3 | `LokvisRuntimeImpl.undo/redo` 接通(当前 TODO) | P0 | 2h | ⬜ | `runtime.ts` |
+| 2.4 | 历史上限 10 步,LRU 淘汰 + OPFS 清理 | P0 | 2h | ⬜ | 同上 |
+| 2.5 | `event-bus` 新增 `history:changed` 事件 | P0 | 2h | ⬜ | `event-bus.ts` |
+| 2.6 | `OpfsAssetStore` 实现(`FileSystemSyncAccessHandle`) | P0 | 6h | ⬜ | `runtime/src/opfs-asset-store.ts` |
+| 2.7 | OPFS 不可用降级到 IndexedDB(Dexie) | P0 | 4h | ⬜ | `runtime/src/idb-asset-store.ts` |
+| 2.8 | `AssetStore` 工厂:`createAssetStore({preferOpfs})` 自动探测 | P0 | 2h | ⬜ | `asset-store.ts` |
+| 2.9 | Runtime `storageQuota` 校验,超限抛 `QuotaExceededError` | P0 | 2h | ⬜ | `runtime.ts` |
+| 2.10 | 单测:HistoryStack、OPFS mock、降级链 | P0 | 6h | ⬜ | `__tests__/history.test.ts` |
+| 2.11 | 集成测试:resize→compress→undo→redo(vitest browser) | P0 | 4h | ⬜ | `__tests__/integration/undo-redo.test.ts` |
+| 2.12 | 缓冲 | P0 | 2h | ⬜ | — |
+
+### W3 · Runtime 加固:Streaming + 内存防御(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 3.1 | `ReadableStream → WritableStream` 接口规范 | P0 | 4h | ⬜ | `engine-image/src/types.ts` |
+| 3.2 | Engine Image streaming 改造:大图按行分片(>500MB) | P0 | 6h | ⬜ | `engine-image/src/operations.ts` |
+| 3.3 | 内存阈值监测:超 512MB 中间结果落 OPFS | P0 | 4h | ⬜ | `runtime/src/memory-guard.ts` |
+| 3.4 | 能力降级阶梯:L1 完整 / L2 分片 / L3 降级输出 / L4 拒绝+引导 | P0 | 6h | ⬜ | `runtime/src/degradation.ts` |
+| 3.5 | `cancel()` 真正生效:AbortController 贯穿 Worker | P0 | 4h | ⬜ | `executor.ts` |
+| 3.6 | `pause/resume` 实现 | P1 | 4h | ⬜ | 同上 |
+| 3.7 | 单测:streaming、内存阈值、降级、cancel | P0 | 8h | ⬜ | 多 test 文件 |
+| 3.8 | 文档:Runtime 章节回写实际实现 | P1 | 2h | ⬜ | docs |
+| 3.9 | 缓冲 | P0 | 2h | ⬜ | — |
+
+### W4 · SDK API 冻结 + 基础 UI 组件库(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 4.1 | `@lokvis/sdk` 公开 API 审查,`// @public` 标记 | P0 | 2h | ⬜ | `sdk/src/index.ts` |
+| 4.2 | SDK 错误类型:`LokvisError` 体系 | P0 | 4h | ⬜ | `sdk/src/errors.ts` |
+| 4.3 | SDK README + API 表 + 3 个 example 完善 | P0 | 6h | ⬜ | examples + README |
+| 4.4 | `ui-core` 补齐:Slider/Toggle/Select/Tabs/Dialog/Tooltip | P0 | 8h | ⬜ | `ui-core/src/components/*` |
+| 4.5 | 设计 Token:`--lokvis-*` CSS 变量 + Tailwind v4 `@theme`,暗色模式 | P0 | 4h | ⬜ | `ui-core/src/styles/tokens.css` |
+| 4.6 | `ui-react` 组件单测(@testing-library/react) | P0 | 6h | ⬜ | `ui-react/src/__tests__/` |
+| 4.7 | Astro playground 展示组件 | P1 | 4h | ⬜ | `apps/playground` |
+| 4.8 | `apps/docs` Getting Started / SDK / Architecture 三页 | P0 | 4h | ⬜ | docs 页 |
+| 4.9 | 缓冲 | P0 | 2h | ⬜ | — |
+
+---
+
+## 4. M2 · Image 工具完善 + 批量 + 历史(W5-8,160h)
+
+### W5 · 6 核心工具连真实处理(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 5.1 | `image/compress.astro` 接 `@lokvis/sdk`:导入→compress→预览→下载 | P0 | 6h | ⬜ | 工具页 |
+| 5.2 | `image/resize.astro`:尺寸/比例/DPI + 平台预设 | P0 | 6h | ⬜ | 工具页 |
+| 5.3 | convert 工具页:JPEG/PNG/WebP/AVIF/GIF 互转 | P0 | 4h | ⬜ | 工具页 |
+| 5.4 | crop 工具页:自由裁剪 + 预设比例 | P0 | 6h | ⬜ | 工具页 |
+| 5.5 | watermark 工具页:文字/图片/位置/透明度 | P0 | 6h | ⬜ | 工具页 |
+| 5.6 | 批量入口:拖拽多文件 → 队列 UI → 并发 4 | P0 | 6h | ⬜ | `BatchQueue.tsx` |
+| 5.7 | 下载管理器:单/批量 zip 打包(JSZip) | P0 | 4h | ⬜ | `DownloadManager.tsx` |
+| 5.8 | 缓冲 | P0 | 2h | ⬜ | — |
+
+### W6 · 批量队列 + Asset Model + OPFS 集成(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 6.1 | `BatchProcessor` 类:并发控制、进度、失败重试(3 次) | P0 | 6h | ⬜ | `runtime/src/batch.ts` |
+| 6.2 | 批量上限:免费 10 文件、Pro 无限 | P0 | 2h | ⬜ | 同上 |
+| 6.3 | 批量进度事件:`batch:progress` / `batch:completed` | P0 | 2h | ⬜ | event-bus |
+| 6.4 | `Asset.metadata` 完整化:dimensions/duration/pages/format | P0 | 2h | ⬜ | schema |
+| 6.5 | Asset 列表 UI:缩略图网格、筛选、删除 | P0 | 6h | ⬜ | `AssetPanel.tsx` |
+| 6.6 | OPFS 持久化:刷新后 Asset 列表恢复 | P0 | 4h | ⬜ | opfs-asset-store |
+| 6.7 | 存储配额 UI:已用/总额,接近上限警告 | P0 | 4h | ⬜ | StatusBar |
+| 6.8 | 单测:BatchProcessor 并发/重试/上限 | P0 | 6h | ⬜ | `__tests__/batch.test.ts` |
+| 6.9 | 集成测试:50+ 图片批量 resize 不 OOM | P0 | 6h | ⬜ | integration test |
+| 6.10 | 缓冲 | P0 | 2h | ⬜ | — |
+
+### W7 · 历史记录 + EXIF + 水印增强(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 7.1 | History Panel UI:列表、跳转、undo/redo 按钮 | P0 | 6h | ⬜ | HistoryPanel.tsx |
+| 7.2 | 历史持久化到 IndexedDB,跨会话保留 | P0 | 4h | ⬜ | runtime |
+| 7.3 | EXIF 读取(exifr) | P1 | 4h | ⬜ | `engine-image/src/exif.ts` |
+| 7.4 | EXIF 查看/编辑面板 | P1 | 4h | ⬜ | Inspector.tsx |
+| 7.5 | 水印图片支持:PNG 叠加,9 宫格位置 | P0 | 4h | ⬜ | operations.ts |
+| 7.6 | 水印批量应用到队列所有图 | P0 | 2h | ⬜ | BatchProcessor |
+| 7.7 | 旋转/翻转(P1):任意角度、flip H/V/both | P1 | 4h | ⬜ | operations.ts |
+| 7.8 | 简单滤镜(P1):黑白/棕褐/模糊 | P1 | 4h | ⬜ | operations.ts |
+| 7.9 | 单测:EXIF、水印位置、旋转、滤镜 | P0 | 6h | ⬜ | tests |
+| 7.10 | 缓冲 | P0 | 2h | ⬜ | — |
+
+### W8 · 预设库 + 工具页打磨(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 8.1 | 预设库数据:20+ 平台(YouTube/TikTok/IG/Shopify/Etsy/Twitter/LinkedIn) | P0 | 4h | ⬜ | `capability/src/presets-platform.ts` |
+| 8.2 | 预设选择器 UI(resize/crop 页内) | P0 | 4h | ⬜ | 工具页 |
+| 8.3 | 自定义预设保存(免费 3 个,Pro 无限) | P0 | 4h | ⬜ | runtime + UI |
+| 8.4 | DPI 输入(72/150/300/自定义) | P0 | 2h | ⬜ | resize 页 |
+| 8.5 | 质量滑块 + 目标体积模式(compress 到 <100KB) | P0 | 4h | ⬜ | compress 页 |
+| 8.6 | 输出格式默认智能:PNG 透明→保留,否则 WebP | P0 | 2h | ⬜ | operations |
+| 8.7 | 工具页 SEO 元数据:title/description/og-image 自动生成 | P0 | 4h | ⬜ | ToolLayout |
+| 8.8 | 隐私声明"文件未上传"指示器 + 断网验证 | P0 | 4h | ⬜ | `PrivacyBadge.tsx` |
+| 8.9 | 单测:预设数据、目标体积压缩算法 | P0 | 4h | ⬜ | tests |
+| 8.10 | 缓冲 | P0 | 4h | ⬜ | — |
+
+---
+
+## 5. M3 · Workspace UI + Workflow Layer(W9-12,160h)
+
+### W9 · Workspace SPA 主界面(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 9.1 | 布局重构:左 Asset / 中 Canvas / 右 Inspector / 底 History / 顶 Toolbar | P0 | 6h | ⬜ | Workspace.tsx |
+| 9.2 | 工具选择器(Command Palette 风格,⌘K) | P0 | 6h | ⬜ | `CommandPalette.tsx` |
+| 9.3 | 文件拖拽区:全屏 dropzone,类型校验,多文件 | P0 | 4h | ⬜ | AssetPanel |
+| 9.4 | 处理结果预览:before/after 对比滑块 | P0 | 6h | ⬜ | Canvas |
+| 9.5 | 下载管理器集成 | P0 | 4h | ⬜ | DownloadManager |
+| 9.6 | 状态栏:当前工具/进度/存储/在线状态 | P0 | 4h | ⬜ | StatusBar |
+| 9.7 | 暗色模式切换 UI + 持久化 | P0 | 2h | ⬜ | Toolbar |
+| 9.8 | 响应式断点:桌面/平板/移动 | P0 | 4h | ⬜ | 全组件 |
+| 9.9 | 缓冲 | P0 | 4h | ⬜ | — |
+
+### W10 · Workflow Layer 实现(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 10.1 | `WorkflowBuilder` 类:链式 add/remove/move,最多 5 步 | P0 | 4h | ⬜ | `runtime/src/workflow-builder.ts` |
+| 10.2 | Workflow 校验:节点顺序、capability 兼容 | P0 | 4h | ⬜ | schema |
+| 10.3 | Workflow 执行器增强:线性执行,中间 Asset 自动传递 | P0 | 4h | ⬜ | executor.ts |
+| 10.4 | 工作流编辑器 UI(拖拽式):能力列表 → 画布 → 连线 | P0 | 8h | ⬜ | `WorkflowEditor.tsx` |
+| 10.5 | 节点参数表单(ParamForm + Zod 自动生成) | P0 | 6h | ⬜ | ParamForm.tsx |
+| 10.6 | 5 个工作流槽位:本地保存,免费 5 个 | P0 | 4h | ⬜ | runtime + UI |
+| 10.7 | 工作流 JSON 导入/导出 | P0 | 2h | ⬜ | UI |
+| 10.8 | 单测:Builder、校验、执行器 | P0 | 6h | ⬜ | tests |
+| 10.9 | 缓冲 | P0 | 2h | ⬜ | — |
+
+### W11 · Workflow 编辑器打磨 + Alpha(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 11.1 | 节点删除/插入/重排交互 | P0 | 4h | ⬜ | WorkflowEditor |
+| 11.2 | 实时预览:修改参数即时重跑当前节点 | P0 | 6h | ⬜ | Canvas |
+| 11.3 | 错误处理:节点失败高亮、错误信息、跳过/停止 | P0 | 4h | ⬜ | UI |
+| 11.4 | 工作流模板:5 个内置(Web 优化/社媒批量/电商主图/打印预处理/截图压缩) | P0 | 4h | ⬜ | data |
+| 11.5 | 分享链接(本地 base64 URL,可选 cloud 短链) | P1 | 4h | ⬜ | runtime |
+| 11.6 | 进度条 + 取消按钮 | P0 | 2h | ⬜ | UI |
+| 11.7 | Alpha 内部测试:5 人 1 天,收集清单 | P0 | 8h | ⬜ | 测试报告 |
+| 11.8 | Bug 修复(Alpha 反馈) | P0 | 6h | ⬜ | 多处 |
+| 11.9 | 缓冲 | P0 | 2h | ⬜ | — |
+
+### W12 · M1.1 Alpha 里程碑 + 缓冲(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 12.1 | Alpha 验收清单跑通(6 工具+批量+历史+workflow) | P0 | 8h | ⬜ | 验收报告 |
+| 12.2 | 性能基线:首屏 LCP / WASM 加载 / 50 图批量耗时 | P0 | 4h | ⬜ | 性能报告 |
+| 12.3 | Sentry 监控接入(open 侧,提前到 W12) | P0 | 4h | ⬜ | `apps/web` 集成 |
+| 12.4 | 文档:Architecture / Getting Started / SDK 三页定稿 | P0 | 6h | ⬜ | docs |
+| 12.5 | README 根目录重写:介绍/架构图/快速开始/贡献指南 | P0 | 4h | ⬜ | README.md |
+| 12.6 | LICENSE 审计:确认 MIT,第三方 WASM 协议清单 | P0 | 4h | ⬜ | `THIRD_PARTY_LICENSES.md` |
+| 12.7 | 缓冲/技术债 | P0 | 10h | ⬜ | — |
+
+> **里程碑 M1.1 MVP Alpha(2026.09.30)**:6 工具可用、内部测试通过。失败应对:延期 1 月,砍 P1(旋转/滤镜/EXIF)。
+
+---
+
+## 6. M4 · SEO 内容 + PWA(W13-16,160h)
+
+### W13 · SEO 内容架构 + 工具页模板(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 13.1 | SEO 关键词研究(50 工具 + 30 教程 + 10 对比) | P0 | 4h | ⬜ | `docs/seo-keywords.csv` |
+| 13.2 | 工具页模板:数据驱动生成(content collection) | P0 | 6h | ⬜ | 模板 |
+| 13.3 | 50 工具页内容(每页 300-500 字 + FAQ),AI 辅助初稿 | P0 | 16h | ⬜ | 50 页 |
+| 13.4 | JSON-LD:SoftwareApplication / HowTo / BreadcrumbList | P0 | 4h | ⬜ | 组件 |
+| 13.5 | sitemap.xml + robots.txt 自动生成 | P0 | 2h | ⬜ | 集成 |
+| 13.6 | OG image 自动生成(per page) | P0 | 4h | ⬜ | `src/pages/og/[...slug].png.ts` |
+| 13.7 | 缓冲 | P0 | 4h | ⬜ | — |
+
+### W14 · 教程 + 对比页(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 14.1 | 教程页模板 + content collection | P0 | 4h | ⬜ | 模板 |
+| 14.2 | 30 教程文章(800-1500 字,AI 初稿 + 人工校) | P0 | 20h | ⬜ | 30 篇 |
+| 14.3 | 对比页模板 + 10 篇(vs TinyPNG/Compressor.io/Squoosh/ILoveIMG...) | P0 | 10h | ⬜ | 10 篇 |
+| 14.4 | 内链策略:工具页↔教程↔对比自动交叉链接 | P0 | 4h | ⬜ | 组件 |
+| 14.5 | 缓冲 | P0 | 2h | ⬜ | — |
+
+### W15 · PWA 完善(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 15.1 | Service Worker 预缓存:app shell + top 5 engine | P0 | 4h | ⬜ | sw.js |
+| 15.2 | WASM 懒加载:用户触发工具才加载,prefetchOnHover | P0 | 6h | ⬜ | `engine-image/src/lazy.ts` |
+| 15.3 | WASM immutable 缓存 + 失败重试 + 备用 CDN | P0 | 4h | ⬜ | sw.js |
+| 15.4 | `beforeinstallprompt` 捕获 + 自定义安装提示 UI | P0 | 6h | ⬜ | `InstallPrompt.tsx` |
+| 15.5 | 离线状态指示:`navigator.onLine` + 事件 | P0 | 4h | ⬜ | StatusBar |
+| 15.6 | 离线 fallback 页 | P0 | 2h | ⬜ | `public/offline.html` |
+| 15.7 | PWA 安装后预加载 top 5 engine(后台静默) | P0 | 4h | ⬜ | sw.js |
+| 15.8 | 首次加载 Engine 介绍动画 + 进度条 + 预估时间 | P0 | 6h | ⬜ | `EngineLoader.tsx` |
+| 15.9 | 缓冲 | P0 | 4h | ⬜ | — |
+
+### W16 · M1.2 Beta 里程碑(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 16.1 | Beta 部署到 lokvis.com(生产环境) | P0 | 4h | ⬜ | 上线 |
+| 16.2 | 50 人内测邀请 + 反馈表单 | P0 | 4h | ⬜ | 表单 |
+| 16.3 | 崩溃率监控验证(<3%) | P0 | 4h | ⬜ | 报告 |
+| 16.4 | SEO 索引验证(Search Console) | P0 | 4h | ⬜ | 报告 |
+| 16.5 | Lighthouse 跑分:LCP <2.5s / FID <100ms / CLS <0.1 | P0 | 6h | ⬜ | 报告 |
+| 16.6 | Bug 修复(Beta 反馈) | P0 | 12h | ⬜ | 多处 |
+| 16.7 | 缓冲 | P0 | 6h | ⬜ | — |
+
+> **里程碑 M1.2 MVP Beta(2026.10.31)**:50 人内测,崩溃率 <3%。失败应对:延期 2 周,扩大测试。
+
+---
+
+## 7. M5 · SDK 公开 + 文档 + Pro 对接点(W17-20,160h)
+
+> 注:账号/支付/同步在 cloud 仓库,本月 open 侧主要做开发者生态准备 + Pro 对接点。
+
+### W17 · SDK 公开 + Pro 对接点(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 17.1 | SDK 发布到 npm(`@lokvis/sdk` 0.1.0),CI 自动发布 | P0 | 4h | ⬜ | npm |
+| 17.2 | SDK 类型导出审查,`d.ts` 完整 | P0 | 4h | ⬜ | build |
+| 17.3 | `createLokvis({auth?})` 钩子:接收 cloud 注入的 session/token | P0 | 4h | ⬜ | sdk |
+| 17.4 | `runtime.isPro` 标志:影响 batch 上限/workflow 槽位/预设数 | P0 | 4h | ⬜ | runtime |
+| 17.5 | Pro 功能门控:批量无限制/无限 workflow/高级预设 | P0 | 4h | ⬜ | runtime |
+| 17.6 | examples 升级:embedding 示例接 cloud auth | P1 | 6h | ⬜ | examples |
+| 17.7 | SDK CHANGELOG + 迁移指南 | P0 | 4h | ⬜ | docs |
+| 17.8 | 单测:Pro 门控逻辑 | P0 | 4h | ⬜ | tests |
+| 17.9 | 缓冲 | P0 | 6h | ⬜ | — |
+
+### W18 · Plugin SDK Alpha + 示例插件(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 18.1 | `@lokvis/plugin-sdk` 发布到 npm(0.1.0-alpha) | P1 | 4h | ⬜ | npm |
+| 18.2 | Plugin SDK 文档:Manifest / Context / 权限模型 / 生命周期 | P1 | 6h | ⬜ | docs |
+| 18.3 | 示例插件:`plugin-grayscale`(教学用) | P1 | 6h | ⬜ | `examples/plugin-grayscale` |
+| 18.4 | 示例插件:`plugin-batch-watermark`(实用) | P1 | 8h | ⬜ | `examples/plugin-batch-watermark` |
+| 18.5 | Plugin 脚手架:`pnpm create @lokvis/plugin` | P1 | 6h | ⬜ | cli |
+| 18.6 | Plugin 权限沙箱:network:none 强制、filesystem 限制 | P0 | 6h | ⬜ | runtime |
+| 18.7 | 缓冲 | P1 | 4h | ⬜ | — |
+
+### W19 · 开发者文档站(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 19.1 | `apps/docs` 升级 Starlight 或自建导航 | P0 | 4h | ⬜ | docs |
+| 19.2 | 文档结构:Getting Started / Concepts / API Ref / Guides / Plugins / Examples | P0 | 4h | ⬜ | docs |
+| 19.3 | API Reference 自动生成(从 tsdoc) | P0 | 6h | ⬜ | `docs/api/` |
+| 19.4 | Guides:嵌入 SDK / 写第一个插件 / 自定义 Workspace / CLI 自动化 | P0 | 8h | ⬜ | docs |
+| 19.5 | Architecture 深度文:Runtime/Engine/Capability/Plugin 四层 | P0 | 4h | ⬜ | docs |
+| 19.6 | 交互式 Playground 增强:可编辑代码 + 实时运行 | P1 | 8h | ⬜ | apps/playground |
+| 19.7 | 搜索功能(Pagefind) | P0 | 2h | ⬜ | docs |
+| 19.8 | 缓冲 | P0 | 4h | ⬜ | — |
+
+### W20 · CLI 最小版 + 缓冲(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 20.1 | `packages/cli` 最小版:`lokvis run workflow.json --input x.png --output y.png` | P1 | 8h | ⬜ | cli |
+| 20.2 | `lokvis capabilities` 列出已注册能力 | P1 | 2h | ⬜ | cli |
+| 20.3 | `lokvis plugin create [name]` 脚手架 | P1 | 4h | ⬜ | cli |
+| 20.4 | CLI 集成测试(真实跑 resize) | P1 | 4h | ⬜ | tests |
+| 20.5 | CLI README + 帮助文本 | P1 | 2h | ⬜ | docs |
+| 20.6 | `examples/cli-automation` 升级:GitHub Actions 示例 | P1 | 4h | ⬜ | examples |
+| 20.7 | ~~`plugin-dev` Developer Workspace~~ | **P3** | 0h | ⏭️ | 延后到 Phase 4 |
+| 20.8 | 缓冲(吸收 W17-19 溢出) | P0 | 16h | ⬜ | — |
+
+---
+
+## 8. M6 · 优化 + 发布(W21-24,110h P0)
+
+### W21 · 性能优化(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 21.1 | 首屏 LCP <2.5s:关键 CSS 内联、字体 swap、图片 lazy | P0 | 6h | ⬜ | apps/web |
+| 21.2 | WASM 加载 <5s:分片、HTTP/2、预加载 | P0 | 6h | ⬜ | engine |
+| 21.3 | Bundle 分析 + 代码分割 | P0 | 4h | ⬜ | build |
+| 21.4 | Runtime 性能:Worker 通信开销优化(Transferable) | P0 | 6h | ⬜ | runtime |
+| 21.5 | 大文件 streaming 优化:4K 图/长 PDF | P0 | 4h | ⬜ | engine |
+| 21.6 | 内存泄漏排查:长时间使用 heap snapshot | P0 | 6h | ⬜ | 全栈 |
+| 21.7 | Lighthouse 跑分验证 | P0 | 4h | ⬜ | 报告 |
+| 21.8 | 缓冲 | P0 | 4h | ⬜ | — |
+
+### W22 · Bug 修复 + 稳定性(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 22.1 | Sentry 错误聚合 Top 20 修复 | P0 | 12h | ⬜ | 多处 |
+| 22.2 | 跨浏览器测试:Chrome/Edge P0、Safari P1、Firefox P2 | P0 | 8h | ⬜ | 测试报告 |
+| 22.3 | Safari 降级路径:WebCodecs→Canvas、OPFS→IndexedDB | P0 | 6h | ⬜ | engine/runtime |
+| 22.4 | Firefox 降级提示 UI | P1 | 2h | ⬜ | apps/web |
+| 22.5 | 端到端测试(Playwright)覆盖 6 工具主流程 | P0 | 8h | ⬜ | e2e |
+| 22.6 | 缓冲 | P0 | 4h | ⬜ | — |
+
+### W23 · 文档定稿 + 开源发布准备(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 23.1 | README 终版:GIF 演示、特性矩阵、徽章 | P0 | 4h | ⬜ | README |
+| 23.2 | CONTRIBUTING.md + 贡献者协议 | P0 | 4h | ⬜ | docs |
+| 23.3 | CODE_OF_CONDUCT.md | P0 | 2h | ⬜ | docs |
+| 23.4 | Issue/PR 模板(`.github/`) | P0 | 2h | ⬜ | .github |
+| 23.5 | 文档站公开(docs.lokvis.dev 或 lokvis.dev/docs) | P0 | 4h | ⬜ | 部署 |
+| 23.6 | 开源协议审计终版:THIRD_PARTY_LICENSES | P0 | 4h | ⬜ | docs |
+| 23.7 | GitHub Releases v0.1.0 changelog | P0 | 4h | ⬜ | release |
+| 23.8 | Discord 社区频道搭建 | P0 | 4h | ⬜ | 外部 |
+| 23.9 | 缓冲 | P0 | 8h | ⬜ | — |
+
+### W24 · M1.3 发布 + 缓冲(40h)
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 24.1 | Product Hunt 发布物料(标题/描述/图/视频) | P0 | 8h | ⬜ | 物料 |
+| 24.2 | Hacker News Show HN 帖子 | P0 | 2h | ⬜ | 帖子 |
+| 24.3 | Reddit(r/webdev, r/SideProject) | P0 | 2h | ⬜ | 帖子 |
+| 24.4 | 发布日监控 + 热修复 | P0 | 12h | ⬜ | — |
+| 24.5 | 发布后 1 周数据复盘 | P0 | 4h | ⬜ | 报告 |
+| 24.6 | Phase 1 复盘文档 + Phase 2 规划输入 | P0 | 4h | ⬜ | docs |
+| 24.7 | 缓冲 | P0 | 8h | ⬜ | — |
+
+> **里程碑 M1.3 MVP 发布(2026.12.15)**:Product Hunt 发布,1000+ 访问。失败应对:重新评估方向。
+
+---
+
+## 9. 关键里程碑与 Go/No-Go
+
+| 里程碑 | 目标日期 | open 侧验收标准 | 失败应对 |
+|---|---|---|---|
+| M1.1 Alpha | 2026.09.30 | 6 工具+批量+历史+workflow 可用 | 延期 1 月,砍 P1 |
+| M1.2 Beta | 2026.10.31 | 50 人内测,崩溃率 <3% | 延期 2 周,扩大测试 |
+| M1.3 发布 | 2026.12.15 | PH 发布,1000+ 访问 | 重新评估方向 |
+| M1.4 首个 $1K MRR | 2027.02.28 | 30+ Pro 付费(cloud 侧验证) | 加大内容投入 |
+
+---
+
+## 10. 风险应对(open 侧)
+
+| 风险 | 等级 | open 侧应对 | 触发任务 |
+|---|---|---|---|
+| T1 浏览器内存/性能 | ★★★★★ | Streaming-First、OPFS 虚拟内存、降级阶梯、Worker 隔离 | W3、W6 |
+| T2 API 兼容性 | ★★★★ | 降级链 WebCodecs→Wasm→Canvas、Safari 渐进增强 | W22 |
+| T3 WASM 体积 | ★★★★ | 懒加载、分片、SW 预缓存、安装后预加载 | W15、W21 |
+| O1 精力瓶颈 | ★★★★★ | MVP 严格瘦身、砍 Video/PDF/AI 到 Phase 2、CI/CD 自动化 | 全程 |
+| L1 协议合规 | ★★★ | MIT、THIRD_PARTY 清单、GPL 引擎 Worker 隔离 | W12、W23 |
+
+---
+
+## 11. 不做清单(Phase 1 明确排除)
+
+- ❌ Video/PDF/Audio/AI Workspace(Phase 2+)
+- ❌ Branch/Loop/Condition/Parallel Workflow(第二年)
+- ❌ Cloud 侧功能(API/Marketplace/Auth/Billing/Sync/Analytics)— 属 cloud 仓库
+- ❌ `plugin-dev` Developer Workspace(Phase 4)
+- ❌ CLI 正式发布(Phase 4,Phase 1 仅最小 `run` 命令 P1)
+- ❌ Plugin SDK v1 正式(Phase 2,Phase 1 仅 Alpha P1)
+- ❌ 桌面版(Tauri,Phase 4)
+- ❌ 公共 API / Webhook / 嵌入式 Widget(Phase 4)
+- ❌ GIF 制作 / 图片拼接(P2)
+- ❌ 多语言 / 浏览器扩展(P2)
+- ❌ 展示广告(破坏 PWA 体验)
+- ❌ 云端处理(违背 Local-first)
+
+---
+
+## 12. 执行日志(随执行追加)
+
+> 每开始/完成任务时在此追加一行。格式:`| 日期 | 任务ID | 动作 | 实际工时 | 备注 |`
+
+| 日期 | 任务ID | 动作 | 实际工时 | 备注 |
+|---|---|---|---|---|
+| — | — | — | — | (尚未开始执行) |
+
+---
+
+## 13. 阻塞清单(随执行追加)
+
+> 遇阻塞时在此记录。格式:`| 日期 | 任务ID | 阻塞原因 | 待解决项 | 状态 |`
+
+| 日期 | 任务ID | 阻塞原因 | 待解决项 | 状态 |
+|---|---|---|---|---|
+| — | — | — | — | — |
+
+---
+
+## 14. 变更记录
+
+| 日期 | 版本 | 变更 |
+|---|---|---|
+| 2026-06-30 | v1.1 | 增加任务状态列与优先级列;调整优先级(plugin-dev→P3、Plugin SDK→P1 Alpha、CLI→P1 最小版、EXIF/旋转/滤镜→P1、Sentry 前置 W12);新增执行日志/阻塞清单/变更记录章节 |
+| 2026-06-30 | v1.0 | 初版,基于白皮书 00/03/04/06/07 拆分 Phase 1 全周期任务 |
+
+---
+
+## 15. 后续阶段预告(非 Phase 1,仅存档)
+
+- **Phase 2(2027.01-06)**:PDF Workspace(M7-8)、Video Workspace(M9-10)、Plugin SDK v1 正式(M11-12)
+- **Phase 3(2027.07-2028.06)**:Marketplace、Audio/AI Workspace、国际化
+- **Phase 4(2028.07-2029.06)**:桌面版(Tauri)、Developer Workspace(`plugin-dev`)、CLI 正式、公共 API
+
+详见 `docs/whitepaper/07-路线图与里程碑.md`。
