@@ -39,7 +39,6 @@ export default function App(): React.ReactElement {
         <Workspace
           title="Lokvis Workspace"
           plugins={plugins}
-          showHistory
           showStatusBar
         />
       </main>

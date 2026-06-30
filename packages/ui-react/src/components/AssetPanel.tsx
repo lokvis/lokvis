@@ -1,6 +1,7 @@
 /**
  * AssetPanel - 左侧资产面板
  *
+ * 紧凑布局：section header + 上传按钮 + 资产列表。
  * 支持拖拽导入、点击选择、缩略图预览。
  */
 
@@ -35,7 +36,6 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
     for (const asset of assets) {
       if (thumbnails[asset.id]) continue;
       if (asset.type !== 'image') continue;
-      // 异步生成缩略图
       (async () => {
         try {
           const blob = await runtime.exportAsset(asset.id);
@@ -51,7 +51,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
 
   return (
     <aside
-      className={`flex w-64 flex-col border-r border-zinc-200 dark:border-zinc-800 ${className}`}
+      className={`flex w-56 shrink-0 flex-col border-r border-zinc-200 dark:border-zinc-800 ${className}`}
       onDragOver={(e) => {
         e.preventDefault();
         setDragging(true);
@@ -63,18 +63,20 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
         void handleFiles(e.dataTransfer.files);
       }}
     >
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2 dark:border-zinc-800">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 h-10 shrink-0 border-b border-zinc-200 dark:border-zinc-800">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
           Assets
-        </h2>
-        <span className="text-xs text-zinc-400">{assets.length}</span>
+        </span>
+        <span className="text-[11px] tabular-nums text-zinc-400">{assets.length}</span>
       </div>
 
+      {/* Upload zone */}
       <label
-        className={`m-3 block cursor-pointer rounded-md border border-dashed px-3 py-5 text-center text-xs transition-colors ${
+        className={`m-2 block cursor-pointer rounded-lg border border-dashed px-2 py-3 text-center transition-all ${
           dragging
-            ? 'border-indigo-500 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30'
-            : 'border-zinc-300 text-zinc-500 hover:border-indigo-500 hover:text-indigo-500 dark:border-zinc-700'
+            ? 'border-indigo-400 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30'
+            : 'border-zinc-200 text-zinc-400 hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-500 dark:border-zinc-700 dark:hover:border-indigo-800 dark:hover:bg-indigo-950/20'
         }`}
       >
         <input
@@ -83,14 +85,22 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
-        + Drop or click to import
+        <svg className="mx-auto h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        <span className="mt-1 block text-[10px] font-medium">
+          {dragging ? 'Drop here' : 'Add files'}
+        </span>
       </label>
 
-      <div className="flex-1 overflow-y-auto px-3 pb-3">
+      {/* Asset list */}
+      <div className="flex-1 overflow-y-auto px-2 pb-2">
         {assets.length === 0 ? (
-          <p className="px-2 text-xs text-zinc-400">No assets yet</p>
+          <p className="px-1 py-4 text-center text-[10px] text-zinc-400">
+            No assets imported
+          </p>
         ) : (
-          <ul className="space-y-1.5">
+          <ul className="space-y-1">
             {assets.map((asset) => {
               const selected = asset.id === selectedAssetId;
               const thumb = thumbnails[asset.id];
@@ -98,24 +108,24 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
                 <li
                   key={asset.id}
                   onClick={() => selectAsset(asset.id)}
-                  className={`group flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-xs transition-colors ${
+                  className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-all ${
                     selected
-                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30'
-                      : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700'
+                      ? 'bg-indigo-50 ring-1 ring-indigo-200 dark:bg-indigo-950/30 dark:ring-indigo-800'
+                      : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'
                   }`}
                 >
-                  <div className="flex h-9 w-9 flex-none items-center justify-center overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
                     {thumb ? (
                       <img src={thumb} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <span className="text-zinc-400">{asset.metadata.format.slice(0, 3)}</span>
+                      <span className="text-[10px] font-medium text-zinc-400">{asset.metadata.format.slice(0, 3).toUpperCase()}</span>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-mono font-medium">
+                    <div className="truncate text-[11px] font-medium">
                       {asset.metadata.format}
                     </div>
-                    <div className="text-zinc-400">
+                    <div className="text-[10px] text-zinc-400">
                       {(asset.metadata.size / 1024).toFixed(1)} KB
                     </div>
                   </div>
@@ -125,10 +135,10 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
                       e.stopPropagation();
                       void removeAsset(asset.id);
                     }}
-                    className="invisible text-zinc-400 hover:text-red-500 group-hover:visible"
+                    className="shrink-0 rounded p-0.5 text-zinc-300 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 dark:text-zinc-600 dark:hover:bg-red-950/30"
                     aria-label="Remove asset"
                   >
-                    ×
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                   </button>
                 </li>
               );

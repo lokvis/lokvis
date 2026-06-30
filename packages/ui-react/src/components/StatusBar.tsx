@@ -1,7 +1,7 @@
 /**
  * StatusBar - 底部状态栏
  *
- * 显示 Runtime 状态、错误信息、资产数量等。
+ * 紧凑单行：左侧状态指示，右侧资源统计。
  */
 
 import { useWorkspaceStore } from '../store.js';
@@ -21,36 +21,42 @@ export function StatusBar({ className = '' }: StatusBarProps) {
 
   return (
     <footer
-      className={`flex items-center justify-between border-t border-zinc-200 bg-zinc-50 px-4 py-1.5 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 ${className}`}
+      className={`flex h-7 shrink-0 items-center justify-between border-t border-zinc-200 bg-zinc-50 px-3 dark:border-zinc-800 dark:bg-zinc-950 ${className}`}
     >
-      <div className="flex items-center gap-3">
+      {/* Left: Status */}
+      <div className="flex items-center gap-2 min-w-0">
         <span className="flex items-center gap-1.5">
           <span
-            className={`h-1.5 w-1.5 rounded-full ${
+            className={`h-1.5 w-1.5 rounded-full shrink-0 ${
               error
                 ? 'bg-red-500'
                 : running
-                ? 'bg-amber-500'
+                ? 'bg-amber-500 animate-pulse'
                 : 'bg-emerald-500'
             }`}
           />
-          {error ? 'error' : running ? 'running' : 'ready'}
+          <span className={`truncate text-[10px] ${error ? 'text-red-500' : 'text-zinc-500'}`}>
+            {statusMessage}
+          </span>
         </span>
-        <span>{statusMessage}</span>
         {error && (
           <button
             type="button"
             onClick={() => setError(null)}
-            className="text-red-500 hover:underline"
+            className="shrink-0 text-[10px] text-red-500 underline decoration-red-300 hover:text-red-600 dark:decoration-red-800"
           >
-            dismiss error
+            dismiss
           </button>
         )}
       </div>
-      <div className="flex items-center gap-4 text-zinc-400">
-        <span>{assets.length} assets</span>
-        <span>{capabilities.length} caps</span>
-        <span>{nodes.length} steps</span>
+
+      {/* Right: Stats */}
+      <div className="flex items-center gap-3 shrink-0 text-[10px] text-zinc-400 tabular-nums">
+        <span>{assets.length} asset{assets.length !== 1 ? 's' : ''}</span>
+        <span className="text-zinc-300 dark:text-zinc-700">|</span>
+        <span>{capabilities.length} cap{capabilities.length !== 1 ? 's' : ''}</span>
+        <span className="text-zinc-300 dark:text-zinc-700">|</span>
+        <span>{nodes.length} step{nodes.length !== 1 ? 's' : ''}</span>
       </div>
     </footer>
   );
