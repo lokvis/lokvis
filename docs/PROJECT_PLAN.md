@@ -5,6 +5,8 @@
 > 团队假设:1 名全栈(主)+ 兼职设计(月 20h),与白皮书 07 §2.5 一致。
 >
 > 时间口径:1 个工作日 = 8h,1 周 = 5 工作日 = 40h。任务块以 **2h** 为最小粒度。
+>
+> **⚠️ 2026-07-01 调整**：基于 [AI生态冲击调整方案](./AI生态冲击调整方案.md)，部分任务优先级与新增任务已调整。变更记录见文末「变更记录」章节。
 
 ---
 
@@ -538,18 +540,57 @@
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
+| 2026-07-01 | v1.5 | **AI 生态冲击调整**：基于 [AI生态冲击调整方案](./AI生态冲击调整方案.md)，新增 MCP server 设计任务（W11-W12，6h P1）、营销对比任务（W17/W19，10h）；Plugin SDK v1 降级（18.4/18.5 延后 Phase 2）；engine-ai 定位为"AI 辅助 workflow 设计"；Phase 2 新增 `@lokvis/mcp-server` 包（76h P0）；新增 3 条 ADR-O1/O2/O3 |
 | 2026-07-01 | v1.4 | W2 完成:2.1-2.11 全部 ✅(2.12 缓冲保留);Runtime 核心 undo/redo + OPFS 落地——`HistoryStack` 游标模式 + 事件驱动历史(`node:finished` 自动记录);`OpfsAssetStore`(异步 `FileSystemFileHandle`)+ `IdbAssetStore`(Dexie 4.4.4)+ `createAssetStore` 工厂(OPFS→IndexedDB→Memory 降级链);Runtime `storageQuota` 校验(`QuotaExceededError`);`createRuntime` 改为 async;新增依赖 `dexie@^4`;202 测试通过(新增 50),覆盖率 lines 75.26% / branches 82.85% |
 | 2026-07-01 | v1.3 | 架构改进:5 个大文件按类型拆分(presets/operations/store/capabilities/diagrams),外部 API 不变;docs 迁移至 Starlight 0.41(i18n/Pagefind/editLink/TOC/暗色切换);4.8 ✅、19.1 ✅、19.7 ✅(提前完成 W19 两项);W2-W3 仍待开始(undo/redo/OPFS/streaming 未实现) |
 | 2026-06-30 | v1.2 | W1 完成:1.1-1.10 全部 ✅;Worker 隔离层(worker-protocol / worker-host / engine-image worker-adapter)+ CI/CD + COOP/COEP 落地;覆盖率阈值基线 60%(实测 64.3%),ratchet 至 70% 留 W2-W3 推进 |
 | 2026-06-30 | v1.1 | 增加任务状态列与优先级列;调整优先级(plugin-dev→P3、Plugin SDK→P1 Alpha、CLI→P1 最小版、EXIF/旋转/滤镜→P1、Sentry 前置 W12);新增执行日志/阻塞清单/变更记录章节 |
 | 2026-06-30 | v1.0 | 初版,基于白皮书 00/03/04/06/07 拆分 Phase 1 全周期任务 |
 
+### 14.1 AI 生态冲击调整明细（v1.4）
+
+**新增任务**（从 Buffer 扣除，不影响 P0 主线）：
+
+| 任务 ID | 任务 | 优先级 | 估时 | 周次 |
+|---|---|---|---|---|
+| 11.6 | MCP server 接口设计草案 | P1 | 4h | W11 |
+| 12.8 | MCP server 接口设计评审 | P1 | 2h | W12 |
+| 17.10 | 首页"AI 做不到的 6 件事"section | P0 | 4h | W17 |
+| 17.11 | ToolLayout vs AI 文案 | P0 | 2h | W17 |
+| 19.10 | `/mcp` 落地页 | P1 | 4h | W19 |
+
+**优先级降级**：
+
+| 任务 ID | 原任务 | 原优先级 | 新优先级 |
+|---|---|---|---|
+| 18.4 | 示例插件 `plugin-batch-watermark` | P1 | ⏭️ Phase 2（改为 MCP tool） |
+| 18.5 | Plugin 脚手架 `pnpm create @lokvis/plugin` | P1 | ⏭️ Phase 2（优先 MCP server） |
+
+**Phase 2 新增预告**：
+
+| 任务 | 优先级 | 估时 |
+|---|---|---|
+| `@lokvis/mcp-server` 包骨架 + stdio 传输 + Node 降级引擎（sharp） | P0 | 24h |
+| `@lokvis/mcp-browser-client` 浏览器 WebSocket 连接 + ToolRouter | P0 | 16h |
+| image tools 实现（compress/resize/convert）+ 浏览器优先路由 | P0 | 16h |
+| batch + workflow tools + 文件访问混合方案 | P0 | 12h |
+| resources + prompts 注册 | P1 | 8h |
+| Claude Desktop 集成测试 + npm 发布 | P0 | 12h |
+| `runtime.toMcpManifest()` API 实现 | P0 | 8h |
+| `examples/mcp-claude-desktop` 示例 | P1 | 4h |
+| **合计** | | **96h P0 + 12h P1** |
+
 ---
 
 ## 15. 后续阶段预告(非 Phase 1,仅存档)
 
-- **Phase 2(2027.01-06)**:PDF Workspace(M7-8)、Video Workspace(M9-10)、Plugin SDK v1 正式(M11-12)
-- **Phase 3(2027.07-2028.06)**:Marketplace、Audio/AI Workspace、国际化
+- **Phase 2(2027.01-06)**:
+  - PDF Workspace(M7-8)、Video Workspace(M9-10)
+  - **`@lokvis/mcp-server` v1（新增，P0）** —— MCP server 实现 + Claude Desktop 集成
+  - **Plugin SDK v1 → 降级为 Alpha**（优先 MCP server）
+  - **Marketplace Alpha → 改为免费社区分享**
+  - **engine-ai cloudProxyEngine 实现**（AI 辅助 workflow 设计）
+- **Phase 3(2027.07-2028.06)**:Marketplace、Audio/AI Workspace、国际化、MCP SSE 模式
 - **Phase 4(2028.07-2029.06)**:桌面版(Tauri)、Developer Workspace(`plugin-dev`)、CLI 正式、公共 API
 
-详见 `docs/whitepaper/07-路线图与里程碑.md`。
+详见 `docs/whitepaper/07-路线图与里程碑.md` 与 [AI生态冲击调整方案.md](./AI生态冲击调整方案.md)。
