@@ -26,6 +26,7 @@ export default defineConfig({
         { label: 'Architecture', slug: 'architecture' },
         { label: 'Capabilities', slug: 'capabilities' },
         { label: 'Plugins', slug: 'plugins' },
+        { label: 'MCP Integration', slug: 'mcp' },
         { label: 'Workflows', slug: 'workflows' },
         { label: 'SDK', slug: 'sdk' },
         { label: 'CLI', slug: 'cli' },

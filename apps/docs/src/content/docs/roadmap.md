@@ -27,7 +27,8 @@ See `docs/whitepaper/07-路线图与里程碑.md` for the full plan.
 - Video Workspace (ffmpeg.wasm)
 - PDF Workspace (pdf-lib)
 - Audio Workspace (Web Audio API)
-- Plugin Marketplace (closed beta)
+- **MCP Server v1 (new, P0)** — expose Lokvis capabilities to Claude / ChatGPT / Cursor via the Model Context Protocol. See [MCP Integration](./mcp).
+- Plugin SDK v1 → **downgraded to Alpha**; MCP-first. Marketplace → free community sharing.
 - User accounts & sync
 
 ## Phase 3 — Intelligence (Months 7-9)

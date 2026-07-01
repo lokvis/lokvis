@@ -1,0 +1,165 @@
+---
+title: MCP Integration
+description: Expose Lokvis capabilities to AI clients (Claude / ChatGPT / Cursor) via the Model Context Protocol.
+draft: false
+head: []
+---
+
+import Mermaid from '../../components/Mermaid.astro';
+import MermaidScript from '../../components/MermaidScript.astro';
+
+<MermaidScript />
+
+# MCP Integration
+
+Lokvis provides an MCP (Model Context Protocol) server that lets AI clients — Claude Desktop, ChatGPT, Cursor, Windsurf — invoke Lokvis's local file-processing capabilities directly. Files stay on the user's machine; nothing is uploaded.
+
+> **Status:** Phase 2 P0. The `@lokvis/mcp-server` package skeleton is in this repo; tool implementations and Claude Desktop integration tests land in Phase 2 W5-W12. See [`docs/AI生态冲击调整方案.md`](https://github.com/lokvis/lokvis/blob/dev/docs/AI生态冲击调整方案.md) for the full design.
+
+## Why MCP?
+
+The AI ecosystem shifted in 2026: MCP became the de facto standard for tool integration, and AI agents can now orchestrate one-off tasks on their own. Rather than compete with AI, Lokvis positions itself as **the local execution engine for AI** — handling the things AI can't do well:
+
+- Batch processing 100+ files
+- Large files (>50MB video)
+- Privacy-sensitive scenarios (files never leave the browser)
+- Deterministic workflows (audit-friendly)
+- Offline scenarios
+- Fine-grained parameter control (DPI / EXIF / color space)
+
+## Architecture
+
+Lokvis uses a **hybrid architecture (mode E)**: browser-first with Node.js fallback.
+
+<Mermaid source={`graph LR
+  A[AI Client] -->|MCP Protocol<br/>JSON-RPC over stdio| B[@lokvis/mcp-server<br/>Node.js]
+  B -->|Internal API| C[@lokvis/sdk Runtime]
+  C --> D[engine-image / engine-pdf]
+  D --> E[Local WASM/Canvas Processing]
+`} />
+
+### Mode 1: Browser connection (full capabilities)
+
+When the user has `lokvis.app` open in a browser tab, the MCP server forwards tool calls to the browser via WebSocket. The browser runtime uses WASM/Canvas/OPFS — the full capability set.
+
+### Mode 2: Node.js fallback (basic capabilities)
+
+When no browser is connected, the MCP server executes directly in Node.js using `sharp` (image) and `pdf-lib` (PDF). Video and audio are unsupported in this mode.
+
+The `ToolRouter` picks the path automatically: browser-first, Node-fallback, error if neither supports the capability.
+
+## Quick Start
+
+### 1. Install
+
+```bash
+npm install @lokvis/mcp-server
+# or run without installing
+npx @lokvis/mcp-server
+```
+
+### 2. Claude Desktop configuration
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or the equivalent on your platform:
+
+```json
+{
+  "mcpServers": {
+    "lokvis": {
+      "command": "npx",
+      "args": ["-y", "@lokvis/mcp-server"],
+      "env": {
+        "LOKVIS_WORKDIR": "/Users/you/Documents"
+      }
+    }
+  }
+}
+```
+
+### 3. Cursor configuration
+
+Edit `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "lokvis": {
+      "command": "npx",
+      "args": ["-y", "@lokvis/mcp-server@latest"]
+    }
+  }
+}
+```
+
+Restart the AI client and Lokvis tools become available.
+
+## Available Tools
+
+| Tool | Description | Example prompt |
+|---|---|---|
+| `lokvis_compress_image` | Compress an image locally (target size / quality / format) | "Compress image.jpg to under 100KB" |
+| `lokvis_resize_image` | Resize an image (preset or custom dimensions) | "Resize to 1920x1080" |
+| `lokvis_convert_image` | Convert format (WebP / AVIF / PNG / JPEG) | "Convert PNG to WebP" |
+| `lokvis_batch_process` | Batch process up to 100 files | "Compress all images in /photos" |
+| `lokvis_run_workflow` | Execute a saved workflow | "Run my web-optimize workflow" |
+
+## Resources
+
+The server also exposes two MCP resources:
+
+- `lokvis://capabilities` — JSON list of all available capabilities
+- `lokvis://workflows` — JSON list of saved workflows
+
+## Runtime API: `toMcpManifest()`
+
+The Lokvis Runtime exposes a `toMcpManifest()` method that returns a manifest describing which capabilities can be exposed via MCP. This is useful for:
+
+1. The MCP server probing capabilities before registering tools
+2. Dashboards showing "AI-callable capabilities"
+3. Docs site auto-generating the tool list
+
+```typescript
+import { createLokvis } from '@lokvis/sdk';
+
+const lokvis = await createLokvis({ plugins: [pluginImage] });
+const manifest = lokvis.toMcpManifest();
+
+console.log(manifest.tools);
+// [
+//   { name: 'lokvis_image_resize', description: '...', inputSchema: {...}, capabilities: ['image.resize'] },
+//   { name: 'lokvis_image_compress', ... },
+//   ...
+// ]
+```
+
+Capabilities can opt out of MCP exposure via the optional `mcpExposure` field:
+
+- `'public'` (default) — exposed to MCP
+- `'private'` — never exposed (internal / dangerous capabilities)
+- `'batch-only'` — only exposed in batch mode
+
+## Run Modes
+
+### stdio mode (default, recommended)
+
+For desktop AI clients (Claude Desktop, Cursor, Windsurf). The server reads JSON-RPC requests from stdin and writes responses to stdout.
+
+### SSE mode (experimental, Phase 2.5+)
+
+For web-based AI clients. The server exposes an HTTP/SSE endpoint. Status: experimental, depends on MCP web ecosystem maturity.
+
+## Security Model
+
+| Threat | Mitigation |
+|---|---|
+| Malicious MCP client exfiltrates files | Tool allowlist; file paths constrained to workdir; `..` rejected |
+| Local process connects to WebSocket | Origin check (only `lokvis.app`) + connection token |
+| Browser tab controlled by malicious page | WebSocket only accepts `lokvis.app` origin |
+| AI calls dangerous operation | Dangerous tools require user confirmation in browser |
+| Node fallback `sharp` RCE | Mature library; Zod-validated params |
+
+## Learn More
+
+- [AI 生态冲击调整方案](https://github.com/lokvis/lokvis/blob/dev/docs/AI生态冲击调整方案.md) — full strategic context and architecture comparison
+- [Plugins](./plugins) — Plugin SDK vs MCP Server comparison
+- [Roadmap](./roadmap) — Phase 2 MCP milestones

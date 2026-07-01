@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "lokvis": {
+      "command": "npx",
+      "args": ["-y", "@lokvis/mcp-server"],
+      "env": {
+        "LOKVIS_WORKDIR": "/Users/your-username/Documents",
+        "LOKVIS_DOMAINS": "image",
+        "LOKVIS_MODE": "stdio"
+      }
+    }
+  }
+}

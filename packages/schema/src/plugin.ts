@@ -65,6 +65,10 @@ export interface PanelDefinition {
  *
  * Plugin 只能看到受限的 Runtime API，看不到 React/Redux/Cloud。
  * 通过 runtime 读写 Asset，通过 registerCapability 注册能力实现。
+ *
+ * 注意:Plugin SDK 已定位为浏览器内嵌入的兼容层(见
+ * docs/AI生态冲击调整方案.md §4)。若目标是让 AI 客户端调用本地能力,
+ * 推荐使用 @lokvis/mcp-server(MCP 标准),而非 Plugin SDK。
  */
 export interface PluginContext {
   /** Runtime 受限 API */

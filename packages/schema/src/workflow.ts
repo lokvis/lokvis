@@ -128,3 +128,85 @@ export interface WorkflowResult {
   /** 错误信息（status=failed 时） */
   error?: string;
 }
+
+/**
+ * Workflow 的 AI 指令描述(见 docs/AI生态冲击调整方案.md §7.2)。
+ * 把 Workflow JSON 转换为 AI Agent 可理解的指令格式,
+ * 供 MCP server 在 prompt 模板 / resource 中暴露给 AI 客户端。
+ */
+export interface WorkflowAiInstruction {
+  /** 人类可读的指令描述,如 "Execute 2-step workflow: image.resize with {...} → image.compress with {...}" */
+  instruction: string;
+  /** 涉及的 Lokvis capability 名(去重) */
+  capabilities: string[];
+  /** 输入参数 JSON Schema(描述 workflow 需要的输入) */
+  inputSchema: object;
+  /** 示例调用(供 AI 学习调用方式) */
+  example: {
+    input: Record<string, unknown>;
+    expectedOutput: string;
+  };
+}
+
+/**
+ * 把 Workflow 转换为 AI 可理解的指令描述。
+ *
+ * 注意:此函数仅做结构转换,不执行 workflow。
+ * AI 生成的 workflow 仍由确定性 Runtime 执行(见方案 §5.3 设计原则)。
+ *
+ * @param workflow 已定义的 Workflow
+ * @returns AI 指令描述,含人类可读指令、依赖能力、输入 schema、示例
+ */
+export function workflowToAiInstruction(workflow: Workflow): WorkflowAiInstruction {
+  const steps = workflow.nodes
+    .filter((n) => n.capability)
+    .map((n) => `${n.capability} with params ${JSON.stringify(n.params ?? {})}`);
+
+  // 从节点中收集依赖的 capability 名(去重,保留顺序)
+  const seen = new Set<string>();
+  const capabilities: string[] = [];
+  for (const node of workflow.nodes) {
+    if (node.capability && !seen.has(node.capability)) {
+      seen.add(node.capability);
+      capabilities.push(node.capability);
+    }
+  }
+
+  // 期望输出反映 workflow 实际输出类型/格式(而非硬编码占位),
+  // 供 AI 理解调用后的产物。注意:此处仅描述,实际执行由确定性 Runtime 完成。
+  const outputFormat = workflow.outputs.format ?? workflow.outputs.type;
+
+  return {
+    instruction:
+      `Execute ${workflow.nodes.length}-step workflow "${workflow.name}": ${steps.join(' → ')}`,
+    capabilities,
+    inputSchema: workflowInputsToJsonSchema(workflow),
+    example: {
+      input: { input_path: `/path/to/input.${workflow.inputs.type}` },
+      expectedOutput: `Processed ${workflow.inputs.type} saved as ${outputFormat}`,
+    },
+  };
+}
+
+/** 把 Workflow 的输入定义转为 JSON Schema(供 AI 理解输入约束) */
+function workflowInputsToJsonSchema(workflow: Workflow): object {
+  const inputDef = workflow.inputs;
+  const schema: Record<string, unknown> = {
+    type: 'object',
+    properties: {
+      input_path: {
+        type: 'string',
+        description: `Path or asset ID of the input ${inputDef.type} file${inputDef.multiple ? '(s)' : ''}`,
+      },
+    },
+    required: ['input_path'],
+  };
+  if (inputDef.multiple) {
+    (schema.properties as Record<string, unknown>).input_path = {
+      type: 'array',
+      items: { type: 'string' },
+      description: `List of input ${inputDef.type} file paths${inputDef.maxCount ? ` (max ${inputDef.maxCount})` : ''}`,
+    };
+  }
+  return schema;
+}

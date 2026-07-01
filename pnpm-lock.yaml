@@ -237,6 +237,8 @@ importers:
         specifier: ^5.4.0
         version: 5.4.21(@types/node@24.13.2)(lightningcss@1.32.0)
 
+  examples/mcp-claude-desktop: {}
+
   packages/capability:
     dependencies:
       '@lokvis/schema':
@@ -315,6 +317,22 @@ importers:
         specifier: workspace:*
         version: link:../schema
     devDependencies:
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
+  packages/mcp-server:
+    dependencies:
+      '@lokvis/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@lokvis/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.0
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
