@@ -10,31 +10,120 @@ import type {
   AssetSource,
   Capability,
   HistoryEntry,
+  LokvisEvent,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { LokvisRuntime, RuntimeConfig, RuntimeStatus } from './types.js';
 import type { EventBus } from '@lokvis/schema';
 import { createEventBus } from './event-bus.js';
 import {
+  createAssetStore,
   createMemoryAssetStore,
   type AssetStore,
 } from './asset-store.js';
 import { CapabilityRegistry } from './capability-registry.js';
 import { WorkflowExecutor } from './executor.js';
+import { HistoryStack, type HistoryStackConfig } from './history.js';
 
 export const RUNTIME_VERSION = '0.1.0';
+
+/** 默认历史记录上限 */
+const DEFAULT_MAX_HISTORY = 10;
+
+/** 存储配额超限时抛出(W2.9) */
+export class QuotaExceededError extends Error {
+  readonly usage: number;
+  readonly delta: number;
+  readonly quota: number;
+  constructor(usage: number, delta: number, quota: number) {
+    super(
+      `Storage quota exceeded: usage=${usage} + delta=${delta} > quota=${quota}`
+    );
+    this.name = 'QuotaExceededError';
+    this.usage = usage;
+    this.delta = delta;
+    this.quota = quota;
+  }
+}
+
+/** 从 AssetSource 估算导入字节数(url/opfs 未知,返回 0 由导入后补记) */
+function estimateSourceSize(source: AssetSource): number {
+  if (source.kind === 'file') return source.file.size;
+  if (source.kind === 'blob') return source.blob.size;
+  return 0;
+}
+
+/**
+ * 用配额校验包裹 AssetStore:import/create 超限抛 QuotaExceededError(W2.9)。
+ * 内部维护运行中的已用字节数,remove 时回退。
+ */
+function wrapAssetStoreWithQuota(inner: AssetStore, quota: number): AssetStore {
+  let usage = 0;
+  let initialized = false;
+
+  async function ensureInit(): Promise<void> {
+    if (initialized) return;
+    const all = await inner.list();
+    usage = all.reduce((sum, a) => sum + a.metadata.size, 0);
+    initialized = true;
+  }
+
+  function assertQuota(delta: number): void {
+    if (usage + delta > quota) {
+      throw new QuotaExceededError(usage, delta, quota);
+    }
+  }
+
+  return {
+    async import(source) {
+      await ensureInit();
+      assertQuota(estimateSourceSize(source));
+      const asset = await inner.import(source);
+      usage += asset.metadata.size;
+      return asset;
+    },
+    async get(id) {
+      return inner.get(id);
+    },
+    async getBlob(handle) {
+      return inner.getBlob(handle);
+    },
+    async remove(id) {
+      const existing = await inner.get(id);
+      await inner.remove(id);
+      if (existing) {
+        usage = Math.max(0, usage - existing.metadata.size);
+      }
+    },
+    async list() {
+      return inner.list();
+    },
+    async create(blob, metadata, type) {
+      await ensureInit();
+      assertQuota(blob.size);
+      const asset = await inner.create(blob, metadata, type);
+      usage += asset.metadata.size;
+      return asset;
+    },
+  };
+}
 
 /** Runtime 实现类 */
 export class LokvisRuntimeImpl implements LokvisRuntime {
   readonly version = RUNTIME_VERSION;
   readonly eventBus: EventBus;
 
-  private config: Required<RuntimeConfig>;
+  private config: Required<Omit<RuntimeConfig, 'assetStore'>>;
   private _status: RuntimeStatus = 'idle';
   private assetStore: AssetStore;
   private capabilityRegistry: CapabilityRegistry;
   private executor: WorkflowExecutor;
-  private historyMap = new Map<string, HistoryEntry[]>();
+  /** 每个工作流独立的 HistoryStack */
+  private historyStacks = new Map<string, HistoryStack>();
+  /** 记录每个工作流的初始输入 AssetId(undo 回到初始时使用) */
+  private initialInputsMap = new Map<string, AssetId[]>();
+  /** 记录每个工作流当前的输出 AssetId(undo/redo 后切换"当前") */
+  private currentOutputsMap = new Map<string, AssetId[]>();
 
   constructor(config: RuntimeConfig = {}) {
     this.config = {
@@ -46,8 +135,9 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
 
     this.eventBus = createEventBus();
 
-    // 第一版使用内存 AssetStore，后续支持 OPFS
-    this.assetStore = createMemoryAssetStore();
+    // 注入或降级到内存 store;随后用配额校验包裹(W2.9)
+    const rawStore = config.assetStore ?? createMemoryAssetStore();
+    this.assetStore = wrapAssetStoreWithQuota(rawStore, this.config.storageQuota);
 
     this.capabilityRegistry = new CapabilityRegistry();
 
@@ -56,6 +146,11 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       capabilityRegistry: this.capabilityRegistry,
       eventBus: this.eventBus,
       enableLog: this.config.enableLog,
+    });
+
+    // 监听 node:finished 事件,自动 append 到 HistoryStack
+    this.eventBus.on('node:finished', (event) => {
+      this.recordHistoryFromNodeEvent(event as Extract<LokvisEvent, { type: 'node:finished' }>);
     });
   }
 
@@ -70,9 +165,20 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     inputs: AssetId[] | Asset[]
   ): Promise<WorkflowResult> {
     this._status = 'running';
+
+    // 记录初始输入 AssetId(用于 undo 回到初始状态)
+    const inputIds = await this.collectInputAssetIds(inputs);
+    this.initialInputsMap.set(workflow.id, inputIds);
+    // 初始当前输出 = 初始输入
+    this.currentOutputsMap.set(workflow.id, inputIds);
+
     try {
       const result = await this.executor.execute(workflow, inputs);
       this._status = result.status === 'failed' ? 'error' : 'idle';
+      // 成功完成后,记录最终输出为当前
+      if (result.status === 'completed' && result.outputs.length > 0) {
+        this.currentOutputsMap.set(workflow.id, result.outputs);
+      }
       return result;
     } catch (error) {
       this._status = 'error';
@@ -95,17 +201,41 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   // ─── 历史与撤销 ──────────────────────────────────────
 
   async history(workflowId: string): Promise<HistoryEntry[]> {
-    return this.historyMap.get(workflowId) ?? [];
+    return this.getOrCreateHistoryStack(workflowId).list();
   }
 
   async undo(workflowId: string): Promise<void> {
-    // TODO: 实现基于历史记录的撤销
-    void workflowId;
+    const stack = this.getOrCreateHistoryStack(workflowId);
+    const result = stack.undo();
+    if (result === undefined) return; // 无可 undo
+
+    // 更新当前输出:
+    //   - null 表示回到初始状态,使用 initialInputs
+    //   - entry 表示回退到该条目的 outputs
+    const newCurrent = result === null
+      ? (this.initialInputsMap.get(workflowId) ?? [])
+      : result.outputs;
+    this.currentOutputsMap.set(workflowId, newCurrent);
+
+    this.eventBus.emit({
+      type: 'history:changed',
+      workflowId,
+      entries: stack.list(),
+    });
   }
 
   async redo(workflowId: string): Promise<void> {
-    // TODO: 实现基于历史记录的重做
-    void workflowId;
+    const stack = this.getOrCreateHistoryStack(workflowId);
+    const entry = stack.redo();
+    if (entry === undefined) return; // 无可 redo
+
+    this.currentOutputsMap.set(workflowId, entry.outputs);
+
+    this.eventBus.emit({
+      type: 'history:changed',
+      workflowId,
+      entries: stack.list(),
+    });
   }
 
   // ─── Asset 管理 ──────────────────────────────────────
@@ -168,9 +298,96 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   _getCapabilityRegistry(): CapabilityRegistry {
     return this.capabilityRegistry;
   }
+
+  /** 获取工作流当前输出 AssetId（undo/redo 后的"当前"状态,内部用） */
+  _getCurrentOutputs(workflowId: string): AssetId[] {
+    return this.currentOutputsMap.get(workflowId) ?? [];
+  }
+
+  // ─── 私有：历史栈管理 ──────────────────────────────
+
+  /** 获取或创建工作流对应的 HistoryStack */
+  private getOrCreateHistoryStack(workflowId: string): HistoryStack {
+    let stack = this.historyStacks.get(workflowId);
+    if (!stack) {
+      const stackConfig: Partial<HistoryStackConfig> = {
+        maxEntries: DEFAULT_MAX_HISTORY,
+        onEvict: (entry) => {
+          // 淘汰条目时清理其 outputs 资产(避免 OPFS 泄漏)
+          // 注意:此时条目已从栈中移除,且 undo 不会再回到它
+          for (const assetId of entry.outputs) {
+            // 静默移除,忽略不存在的情况
+            this.assetStore.remove(assetId).catch(() => {});
+          }
+        },
+        onChanged: (wfId, entries) => {
+          this.eventBus.emit({
+            type: 'history:changed',
+            workflowId: wfId,
+            entries,
+          });
+        },
+      };
+      stack = new HistoryStack(workflowId, stackConfig);
+      this.historyStacks.set(workflowId, stack);
+    }
+    return stack;
+  }
+
+  /** 将输入归一化为 AssetId[]（run() 入参可为 AssetId[] 或 Asset[]） */
+  private async collectInputAssetIds(
+    inputs: AssetId[] | Asset[]
+  ): Promise<AssetId[]> {
+    if (inputs.length === 0) return [];
+    if (typeof inputs[0] === 'string') {
+      return inputs as AssetId[];
+    }
+    return (inputs as Asset[]).map((a) => a.id);
+  }
+
+  /** 监听 node:finished 事件,自动 append 到对应工作流的 HistoryStack */
+  private recordHistoryFromNodeEvent(
+    event: Extract<LokvisEvent, { type: 'node:finished' }>
+  ): void {
+    if (!event.outputs || event.outputs.length === 0) return;
+
+    const stack = this.getOrCreateHistoryStack(event.workflowId);
+    const outputs = event.outputs.map((a) => a.id);
+    const now = Date.now();
+
+    // node 的 inputs = 上一步的 outputs(或初始输入)
+    const inputs = this.currentOutputsMap.get(event.workflowId) ?? [];
+
+    const entry: HistoryEntry = {
+      id: `hist_${now}_${event.nodeId}`,
+      workflowId: event.workflowId,
+      nodeId: event.nodeId,
+      capability: event.capability,
+      params: event.params,
+      inputs,
+      outputs,
+      timestamp: now,
+    };
+
+    stack.append(entry);
+    // 更新当前输出为该 node 的 outputs
+    this.currentOutputsMap.set(event.workflowId, outputs);
+  }
 }
 
-/** 创建 Runtime 实例 */
-export function createRuntime(config?: RuntimeConfig): LokvisRuntime {
-  return new LokvisRuntimeImpl(config);
+/**
+ * 创建 Runtime 实例(W2.8 + W2.9)。
+ *
+ * 默认通过 createAssetStore 工厂按 OPFS → IndexedDB → Memory 降级创建 AssetStore,
+ * 并用配额校验包裹。也可通过 config.assetStore 注入自定义 store。
+ *
+ * 注:此函数为 async(工厂需异步探测环境)。SDK 的 createLokvis 已是 async。
+ */
+export async function createRuntime(
+  config?: RuntimeConfig
+): Promise<LokvisRuntime> {
+  const assetStore =
+    config?.assetStore ??
+    (await createAssetStore({ preferOpfs: config?.enableOpfs ?? true }));
+  return new LokvisRuntimeImpl({ ...config, assetStore });
 }

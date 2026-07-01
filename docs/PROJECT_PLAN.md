@@ -126,17 +126,17 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 2.1 | `HistoryStack` 类:append-only 日志 | P0 | 4h | ⬜ | `runtime/src/history.ts` |
-| 2.2 | undo/redo 实现:回滚到上一步输出 Asset | P0 | 4h | ⬜ | 同上 |
-| 2.3 | `LokvisRuntimeImpl.undo/redo` 接通(当前 TODO) | P0 | 2h | ⬜ | `runtime.ts` |
-| 2.4 | 历史上限 10 步,LRU 淘汰 + OPFS 清理 | P0 | 2h | ⬜ | 同上 |
-| 2.5 | `event-bus` 新增 `history:changed` 事件 | P0 | 2h | ⬜ | `event-bus.ts` |
-| 2.6 | `OpfsAssetStore` 实现(`FileSystemSyncAccessHandle`) | P0 | 6h | ⬜ | `runtime/src/opfs-asset-store.ts` |
-| 2.7 | OPFS 不可用降级到 IndexedDB(Dexie) | P0 | 4h | ⬜ | `runtime/src/idb-asset-store.ts` |
-| 2.8 | `AssetStore` 工厂:`createAssetStore({preferOpfs})` 自动探测 | P0 | 2h | ⬜ | `asset-store.ts` |
-| 2.9 | Runtime `storageQuota` 校验,超限抛 `QuotaExceededError` | P0 | 2h | ⬜ | `runtime.ts` |
-| 2.10 | 单测:HistoryStack、OPFS mock、降级链 | P0 | 6h | ⬜ | `__tests__/history.test.ts` |
-| 2.11 | 集成测试:resize→compress→undo→redo(vitest browser) | P0 | 4h | ⬜ | `__tests__/integration/undo-redo.test.ts` |
+| 2.1 | `HistoryStack` 类:append-only 日志 | P0 | 4h | ✅ | `runtime/src/history.ts` |
+| 2.2 | undo/redo 实现:回滚到上一步输出 Asset | P0 | 4h | ✅ | 同上 |
+| 2.3 | `LokvisRuntimeImpl.undo/redo` 接通(当前 TODO) | P0 | 2h | ✅ | `runtime.ts` |
+| 2.4 | 历史上限 10 步,LRU 淘汰 + OPFS 清理 | P0 | 2h | ✅ | 同上 |
+| 2.5 | `event-bus` 新增 `history:changed` 事件 | P0 | 2h | ✅ | `event-bus.ts` |
+| 2.6 | `OpfsAssetStore` 实现(`FileSystemSyncAccessHandle`) | P0 | 6h | ✅ | `runtime/src/opfs-asset-store.ts` |
+| 2.7 | OPFS 不可用降级到 IndexedDB(Dexie) | P0 | 4h | ✅ | `runtime/src/idb-asset-store.ts` |
+| 2.8 | `AssetStore` 工厂:`createAssetStore({preferOpfs})` 自动探测 | P0 | 2h | ✅ | `asset-store.ts` |
+| 2.9 | Runtime `storageQuota` 校验,超限抛 `QuotaExceededError` | P0 | 2h | ✅ | `runtime.ts` |
+| 2.10 | 单测:HistoryStack、OPFS mock、降级链 | P0 | 6h | ✅ | `__tests__/history.test.ts` |
+| 2.11 | 集成测试:resize→compress→undo→redo(vitest browser) | P0 | 4h | ✅ | `__tests__/integration/undo-redo.test.ts` |
 | 2.12 | 缓冲 | P0 | 2h | ⬜ | — |
 
 ### W3 · Runtime 加固:Streaming + 内存防御(40h)
@@ -518,6 +518,9 @@
 | 2026-06-30 | W1 | 🎉 收尾 | 38h | typecheck ✅(36 tasks)、build ✅(20 tasks)、test:coverage ✅(152 测试,lines 64.3%);1.11 缓冲未消耗,节省 2h 转入 W2 |
 | 2026-07-01 | 架构 | 🔧 模块拆分 | — | 5 个大文件按类型拆分:`capability/presets` → 6 文件、`engine-image/operations` → 5 实现 + 2 预留、`ui-react/store` → 4 个 Zustand slice、`plugin-dev/capabilities` → 4 文件 + `plugin.ts` 缩至 53 行、`docs/diagrams` → 5 文件;外部 API 不变,152 测试全过 |
 | 2026-07-01 | 4.8/19.1/19.7 | ✅ 完成 | — | docs 迁移至 Starlight 0.41(Content Layer API `docsLoader`、i18n `locales.root`、Pagefind 搜索、editLink、TOC、暗色切换);9 个内容文件(8 .md + 1 .mdx,含 9 个 Mermaid 图表);解决 5 个构建错误(版本兼容、social 语法、Content Layer API、MDX 花括号、draft/head 默认值);10 页构建,全量 20/20 包 + 152/152 测试通过 |
+| 2026-07-01 | 2.1-2.5 | ✅ 完成 | 14h | `HistoryStack` 游标模式(cursor 指向最后已应用条目,append 截断 redo 分支);Runtime 监听 `node:finished` 事件自动 append 历史;`undo` 返回 null 表示回到初始输入;`onEvict` 回调清理 OPFS 资产、`onChanged` 转发为 `history:changed` 事件;schema `node:finished` 新增 `capability`+`params` 字段 |
+| 2026-07-01 | 2.6-2.9 | ✅ 完成 | 16h | `OpfsAssetStore`(异步 `FileSystemFileHandle`,rootHandle 可注入便于测试);`IdbAssetStore`(Dexie 4.4.4,元数据+Blob 持久化);`createAssetStore({preferOpfs})` 工厂按 OPFS→IndexedDB→Memory 降级,任一阶段失败自动降级并 warn;Runtime 用配额校验包裹 store(`QuotaExceededError`,`import`/`create` 超限抛错,`remove` 释放配额);`createRuntime` 改为 async 调用工厂 |
+| 2026-07-01 | 2.10-2.11 | ✅ 完成 | 10h | 单测 50 个:HistoryStack 23(append/undo/redo/截断/LRU/onEvict/onChanged/jumpTo/clear/snapshot)+ OPFS mock 19(FakeOpfsDir 注入,完整 CRUD + 降级链 4 场景)+ 集成 8(resize→compress→undo→redo 全链路 + storageQuota 3 场景);全量 202/202 测试通过,覆盖率 lines 75.26% / branches 82.85%(超阈值) |
 
 ---
 
@@ -535,6 +538,7 @@
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
+| 2026-07-01 | v1.4 | W2 完成:2.1-2.11 全部 ✅(2.12 缓冲保留);Runtime 核心 undo/redo + OPFS 落地——`HistoryStack` 游标模式 + 事件驱动历史(`node:finished` 自动记录);`OpfsAssetStore`(异步 `FileSystemFileHandle`)+ `IdbAssetStore`(Dexie 4.4.4)+ `createAssetStore` 工厂(OPFS→IndexedDB→Memory 降级链);Runtime `storageQuota` 校验(`QuotaExceededError`);`createRuntime` 改为 async;新增依赖 `dexie@^4`;202 测试通过(新增 50),覆盖率 lines 75.26% / branches 82.85% |
 | 2026-07-01 | v1.3 | 架构改进:5 个大文件按类型拆分(presets/operations/store/capabilities/diagrams),外部 API 不变;docs 迁移至 Starlight 0.41(i18n/Pagefind/editLink/TOC/暗色切换);4.8 ✅、19.1 ✅、19.7 ✅(提前完成 W19 两项);W2-W3 仍待开始(undo/redo/OPFS/streaming 未实现) |
 | 2026-06-30 | v1.2 | W1 完成:1.1-1.10 全部 ✅;Worker 隔离层(worker-protocol / worker-host / engine-image worker-adapter)+ CI/CD + COOP/COEP 落地;覆盖率阈值基线 60%(实测 64.3%),ratchet 至 70% 留 W2-W3 推进 |
 | 2026-06-30 | v1.1 | 增加任务状态列与优先级列;调整优先级(plugin-dev→P3、Plugin SDK→P1 Alpha、CLI→P1 最小版、EXIF/旋转/滤镜→P1、Sentry 前置 W12);新增执行日志/阻塞清单/变更记录章节 |

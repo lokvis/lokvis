@@ -194,6 +194,8 @@ export class WorkflowExecutor {
           type: 'node:finished',
           workflowId,
           nodeId: node.id,
+          capability: node.capability,
+          params: node.params ?? {},
           outputs: currentAssets,
           duration: Date.now() - nodeStart,
         });
