@@ -5,7 +5,10 @@ draft: false
 head: []
 ---
 
-import { Mermaid } from '@astrojs/starlight/components';
+import Mermaid from '../../components/Mermaid.astro';
+import MermaidScript from '../../components/MermaidScript.astro';
+
+<MermaidScript />
 
 # MCP Integration
 
@@ -28,8 +31,7 @@ The AI ecosystem shifted in 2026: MCP became the de facto standard for tool inte
 
 Lokvis uses a **hybrid architecture (mode E)**: browser-first with Node.js fallback.
 
-<Mermaid chart={`
-graph LR
+<Mermaid source={`graph LR
   A[AI Client] -->|MCP Protocol<br/>JSON-RPC over stdio| B[@lokvis/mcp-server<br/>Node.js]
   B -->|Internal API| C[@lokvis/sdk Runtime]
   C --> D[engine-image / engine-pdf]
