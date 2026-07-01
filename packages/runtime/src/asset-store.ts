@@ -12,12 +12,6 @@ import type { Asset, AssetId, AssetMetadata, AssetSource, BlobHandle } from '@lo
 import { createOpfsAssetStore, isOpfsSupported } from './opfs-asset-store.js';
 import { createIdbAssetStore, isIdbSupported } from './idb-asset-store.js';
 
-/** Asset Store 配置 */
-export interface AssetStoreConfig {
-  enableOpfs: boolean;
-  storageQuota: number;
-}
-
 /** Asset 存储接口 */
 export interface AssetStore {
   /** 导入资产（从 File / Blob / URL） */

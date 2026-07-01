@@ -1,8 +1,10 @@
 /**
  * OPFS Asset Store
  *
- * 大文件存 OPFS(Origin Private File System),元数据存内存 Map。
- * OPFS 是浏览器私有文件系统,数据持久化但不可被用户直接访问,适合中间产物。
+ * 大文件(blob)存 OPFS(Origin Private File System),元数据存内存 Map。
+ * OPFS 是浏览器私有文件系统,blob 持久化(刷新后文件仍在),但元数据仅在内存 ——
+ * 刷新后 list() 会返回空、get(id) 返回 undefined(除非元数据由上层持久化)。
+ * 完整元数据持久化建议叠加 IdbAssetStore 或在 W3 补强。
  *
  * 注:任务规格提及 FileSystemSyncAccessHandle(Worker 内同步句柄),
  * 但 AssetStore 接口本身为 async,主线程仅可使用 FileSystemFileHandle 异步 API,
@@ -180,10 +182,10 @@ export async function createOpfsAssetStore(
 
 /** 从 BlobHandle.path 解析出 AssetId */
 function parseOpfsPath(path: string): AssetId {
-  // path 形如 `opfs://{id}` 或直接是文件名
+  // path 形如 `opfs://{id}`(由 buildAsset 生成,id 为 UUID)
   const prefix = `${OPFS_PATH_PREFIX}://`;
   if (path.startsWith(prefix)) {
     return path.slice(prefix.length);
   }
-  return path.replace(new RegExp(`${OPFS_FILE_SUFFIX}$`), '');
+  return path;
 }

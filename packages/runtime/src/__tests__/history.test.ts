@@ -136,6 +136,36 @@ describe('HistoryStack 截断 redo 分支', () => {
     expect(s.currentIndex).toBe(1);
   });
 
+  it('截断 redo 分支时应触发 onEvict 清理被丢弃条目的 outputs 资产', () => {
+    const evicted: HistoryEntry[] = [];
+    const s = new HistoryStack(WF, {
+      onEvict: (e) => evicted.push(e),
+    });
+    s.append(entry(0));
+    s.append(entry(1));
+    s.append(entry(2));
+    s.undo(); // cursor=1, redo 分支=[entry(2)]
+    s.undo(); // cursor=0, redo 分支=[entry(1), entry(2)]
+    const fresh = entry(99, WF, ['out-fresh']);
+    s.append(fresh);
+    // 被丢弃的 entry(1) 和 entry(2) 都应通过 onEvict 通知清理
+    expect(evicted).toEqual([entry(1), entry(2)]);
+    expect(s.list()).toEqual([entry(0), fresh]);
+  });
+
+  it('截断 redo 分支时 onEvict 抛错不应阻断 append', () => {
+    const s = new HistoryStack(WF, {
+      onEvict: () => {
+        throw new Error('cleanup failed');
+      },
+    });
+    s.append(entry(0));
+    s.append(entry(1));
+    s.undo(); // cursor=0, redo 分支=[entry(1)]
+    expect(() => s.append(entry(2, WF, ['fresh']))).not.toThrow();
+    expect(s.list()).toEqual([entry(0), entry(2, WF, ['fresh'])]);
+  });
+
   it('连续 undo 多步后 append 只保留 cursor 之前的', () => {
     const s = new HistoryStack(WF);
     s.append(entry(0));
@@ -271,10 +301,17 @@ describe('HistoryStack jumpTo / clear / snapshot', () => {
     expect(s2.canRedo).toBe(true);
   });
 
-  it('restore cursor 超出范围应被截断到合法值', () => {
+  it('restore cursor 超出范围应被截断到合法值(上界)', () => {
     const s = new HistoryStack(WF);
     s.restore({ entries: [entry(0)], cursor: 99 });
     expect(s.currentIndex).toBe(0);
+  });
+
+  it('restore cursor 损坏为负值应 clamp 到 -1(下界)', () => {
+    const s = new HistoryStack(WF);
+    s.restore({ entries: [entry(0)], cursor: -5 });
+    expect(s.currentIndex).toBe(-1);
+    expect(s.canUndo).toBe(false);
   });
 });
 
