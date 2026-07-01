@@ -221,8 +221,8 @@ describe('集成:resize → compress → undo → redo', () => {
     await runtime.undo(WF_ID);
     await runtime.redo(WF_ID);
 
-    // undo + redo 各触发一次 onChanged → 至少 2 次
-    expect(changedEvents.length).toBeGreaterThanOrEqual(2);
+    // undo + redo 各触发一次 onChanged(单发,避免双发语义错误)
+    expect(changedEvents.length).toBe(2);
     expect(changedEvents[0]!.workflowId).toBe(WF_ID);
   });
 });
@@ -278,5 +278,27 @@ describe('集成:Runtime storageQuota 校验(W2.9)', () => {
       name: 'b.png',
     });
     expect(id2).toBeTruthy();
+  });
+
+  it('并发导入应串行化校验,超限操作必须抛 QuotaExceededError', async () => {
+    // D1 修复验证:两个并发 import 各 8 字节,配额 10 字节
+    // 串行化后第二个必须基于第一个已更新的 usage(=8)校验 → 8+8>10 抛错
+    const runtime = new LokvisRuntimeImpl({
+      assetStore: createMemoryAssetStore(),
+      storageQuota: 10,
+    });
+    const blob = () => new Blob([new Uint8Array(8)], { type: 'image/png' });
+    // 并发发起两个 import(Promise.all 不 await 单独)
+    const p1 = runtime.importAsset({ kind: 'blob', blob: blob(), name: 'a.png' });
+    const p2 = runtime.importAsset({ kind: 'blob', blob: blob(), name: 'b.png' });
+    const results = await Promise.allSettled([p1, p2]);
+    // 恰好一个成功、一个因超限失败
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(
+      QuotaExceededError
+    );
   });
 });

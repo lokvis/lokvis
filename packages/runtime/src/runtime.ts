@@ -19,6 +19,7 @@ import { createEventBus } from './event-bus.js';
 import {
   createAssetStore,
   createMemoryAssetStore,
+  generateId,
   type AssetStore,
 } from './asset-store.js';
 import { CapabilityRegistry } from './capability-registry.js';
@@ -46,7 +47,11 @@ export class QuotaExceededError extends Error {
   }
 }
 
-/** 从 AssetSource 估算导入字节数(url/opfs 未知,返回 0 由导入后补记) */
+/**
+ * 从 AssetSource 估算导入字节数用于配额预检。
+ * url/opfs 源大小未知,返回 0 跳过预检 —— 真实大小在 import 完成后
+ * 通过 `usage += asset.metadata.size` 补记到账面,后续操作仍受配额约束。
+ */
 function estimateSourceSize(source: AssetSource): number {
   if (source.kind === 'file') return source.file.size;
   if (source.kind === 'blob') return source.blob.size;
@@ -56,10 +61,15 @@ function estimateSourceSize(source: AssetSource): number {
 /**
  * 用配额校验包裹 AssetStore:import/create 超限抛 QuotaExceededError(W2.9)。
  * 内部维护运行中的已用字节数,remove 时回退。
+ *
+ * 并发安全:import/create 通过 promise 链串行化,避免 check 与 update 之间
+ * 的 TOCTOU 窗口导致两个并发操作都基于旧 usage 通过校验。
  */
 function wrapAssetStoreWithQuota(inner: AssetStore, quota: number): AssetStore {
   let usage = 0;
   let initialized = false;
+  /** 串行化 import/create 的 chain tail,确保 check-update 原子性 */
+  let chain: Promise<unknown> = Promise.resolve();
 
   async function ensureInit(): Promise<void> {
     if (initialized) return;
@@ -74,13 +84,26 @@ function wrapAssetStoreWithQuota(inner: AssetStore, quota: number): AssetStore {
     }
   }
 
+  /** 将 import/create 串行化:依次 await init → assert → inner op → update usage */
+  function runExclusive<T>(op: () => Promise<T>): Promise<T> {
+    const run = chain.then(op, op);
+    // chain 仅用于排队,不传播 rejection(避免一次失败阻塞后续)
+    chain = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
+  }
+
   return {
     async import(source) {
-      await ensureInit();
-      assertQuota(estimateSourceSize(source));
-      const asset = await inner.import(source);
-      usage += asset.metadata.size;
-      return asset;
+      return runExclusive(async () => {
+        await ensureInit();
+        assertQuota(estimateSourceSize(source));
+        const asset = await inner.import(source);
+        usage += asset.metadata.size;
+        return asset;
+      });
     },
     async get(id) {
       return inner.get(id);
@@ -99,11 +122,13 @@ function wrapAssetStoreWithQuota(inner: AssetStore, quota: number): AssetStore {
       return inner.list();
     },
     async create(blob, metadata, type) {
-      await ensureInit();
-      assertQuota(blob.size);
-      const asset = await inner.create(blob, metadata, type);
-      usage += asset.metadata.size;
-      return asset;
+      return runExclusive(async () => {
+        await ensureInit();
+        assertQuota(blob.size);
+        const asset = await inner.create(blob, metadata, type);
+        usage += asset.metadata.size;
+        return asset;
+      });
     },
   };
 }
@@ -201,7 +226,8 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   // ─── 历史与撤销 ──────────────────────────────────────
 
   async history(workflowId: string): Promise<HistoryEntry[]> {
-    return this.getOrCreateHistoryStack(workflowId).list();
+    // 避免对从未运行过的工作流创建空栈:先查 Map,无则直接返回空数组
+    return this.historyStacks.get(workflowId)?.list() ?? [];
   }
 
   async undo(workflowId: string): Promise<void> {
@@ -216,12 +242,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       ? (this.initialInputsMap.get(workflowId) ?? [])
       : result.outputs;
     this.currentOutputsMap.set(workflowId, newCurrent);
-
-    this.eventBus.emit({
-      type: 'history:changed',
-      workflowId,
-      entries: stack.list(),
-    });
+    // history:changed 事件由 stack 的 onChanged 回调统一发射,避免双发
   }
 
   async redo(workflowId: string): Promise<void> {
@@ -230,12 +251,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     if (entry === undefined) return; // 无可 redo
 
     this.currentOutputsMap.set(workflowId, entry.outputs);
-
-    this.eventBus.emit({
-      type: 'history:changed',
-      workflowId,
-      entries: stack.list(),
-    });
+    // history:changed 事件由 stack 的 onChanged 回调统一发射,避免双发
   }
 
   // ─── Asset 管理 ──────────────────────────────────────
@@ -359,7 +375,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     const inputs = this.currentOutputsMap.get(event.workflowId) ?? [];
 
     const entry: HistoryEntry = {
-      id: `hist_${now}_${event.nodeId}`,
+      id: generateId(),
       workflowId: event.workflowId,
       nodeId: event.nodeId,
       capability: event.capability,

@@ -61,8 +61,8 @@ export class AssetDatabase extends Dexie {
   constructor(name = 'lokvis-assets') {
     super(name);
     this.version(1).stores({
-      // 主键 id;额外索引 type 用于按类型筛选(可选)
-      assets: 'id, asset.type',
+      // 仅主键 id;按 type 查询由上层过滤 list() 实现,无需二级索引
+      assets: 'id',
     });
   }
 }
