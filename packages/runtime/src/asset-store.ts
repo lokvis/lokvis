@@ -70,6 +70,41 @@ export function extractBlobFromSource(source: AssetSource): {
   );
 }
 
+/** prepareImport 返回值:统一构造的导入数据(供三个 store 复用) */
+export interface PreparedImport {
+  id: AssetId;
+  blob: Blob;
+  metadata: AssetMetadata;
+  type: Asset['type'];
+}
+
+/**
+ * 从 AssetSource 准备导入数据(共享逻辑,供 Memory/OPFS/IDB store 复用):
+ * 提取 blob + MIME、生成 id、推断 type、构造 metadata。
+ * 各 store 只需负责"写入 blob + 存元数据"。
+ */
+export function prepareImport(source: AssetSource): PreparedImport {
+  const { blob, mimeType: rawMime } = extractBlobFromSource(source);
+  const id = generateId();
+  const mimeType = rawMime || 'application/octet-stream';
+  const type = inferAssetType(mimeType);
+  const metadata: AssetMetadata = {
+    mimeType,
+    size: blob.size,
+    format: getFormatFromMime(mimeType),
+  };
+  return { id, blob, metadata, type };
+}
+
+/** 从 BlobHandle.path 解析出 AssetId(共享,各 store 按 prefix 调用) */
+export function parseBlobPath(path: string, prefix: string): AssetId {
+  const fullPrefix = `${prefix}://`;
+  if (path.startsWith(fullPrefix)) {
+    return path.slice(fullPrefix.length);
+  }
+  return path;
+}
+
 /** 构造完整 Asset 元数据 + 默认字段(共享工厂) */
 export function buildAsset(
   id: AssetId,
@@ -95,6 +130,9 @@ export function buildAsset(
   };
 }
 
+/** Memory store 的 BlobHandle.path 前缀 */
+const MEMORY_PATH_PREFIX = 'memory';
+
 /** 创建内存版 AssetStore（降级方案，不持久化） */
 export function createMemoryAssetStore(): AssetStore {
   const assets = new Map<AssetId, Asset>();
@@ -102,42 +140,9 @@ export function createMemoryAssetStore(): AssetStore {
 
   return {
     async import(source) {
-      let blob: Blob;
-
-      if (source.kind === 'file') {
-        blob = source.file;
-      } else if (source.kind === 'blob') {
-        blob = source.blob;
-      } else {
-        throw new Error(`Asset source kind "${source.kind}" not supported in memory store`);
-      }
-
-      const id = generateId();
-      const mimeType = blob.type || 'application/octet-stream';
-      const type = inferAssetType(mimeType);
-      const format = getFormatFromMime(mimeType);
-      const metadata: AssetMetadata = {
-        mimeType,
-        size: blob.size,
-        format,
-      };
-
+      const { id, blob, metadata, type } = prepareImport(source);
       blobs.set(id, blob);
-      const now = Date.now();
-      const asset: Asset = {
-        id,
-        type,
-        metadata,
-        blob: {
-          path: `memory://${id}`,
-          size: blob.size,
-          mimeType,
-        },
-        history: [],
-        tags: [],
-        createdAt: now,
-        updatedAt: now,
-      };
+      const asset = buildAsset(id, blob, metadata, type, MEMORY_PATH_PREFIX);
       assets.set(id, asset);
       return asset;
     },
@@ -147,7 +152,7 @@ export function createMemoryAssetStore(): AssetStore {
     },
 
     async getBlob(handle) {
-      const id = handle.path.replace('memory://', '');
+      const id = parseBlobPath(handle.path, MEMORY_PATH_PREFIX);
       const blob = blobs.get(id);
       if (!blob) throw new Error(`Blob not found for path: ${handle.path}`);
       return blob;
@@ -165,21 +170,7 @@ export function createMemoryAssetStore(): AssetStore {
     async create(blob, metadata, type) {
       const id = generateId();
       blobs.set(id, blob);
-      const now = Date.now();
-      const asset: Asset = {
-        id,
-        type,
-        metadata,
-        blob: {
-          path: `memory://${id}`,
-          size: blob.size,
-          mimeType: metadata.mimeType,
-        },
-        history: [],
-        tags: [],
-        createdAt: now,
-        updatedAt: now,
-      };
+      const asset = buildAsset(id, blob, metadata, type, MEMORY_PATH_PREFIX);
       assets.set(id, asset);
       return asset;
     },

@@ -8,18 +8,13 @@
  */
 
 import Dexie, { type Table } from 'dexie';
-import type {
-  Asset,
-  AssetId,
-  AssetMetadata,
-} from '@lokvis/schema';
+import type { Asset, AssetId } from '@lokvis/schema';
 import type { AssetStore } from './asset-store.js';
 import {
   buildAsset,
-  extractBlobFromSource,
   generateId,
-  getFormatFromMime,
-  inferAssetType,
+  parseBlobPath,
+  prepareImport,
 } from './asset-store.js';
 
 /** IndexedDB 不可用时抛出 */
@@ -87,16 +82,7 @@ export async function createIdbAssetStore(
 
   return {
     async import(source) {
-      const { blob, mimeType: rawMime } = extractBlobFromSource(source);
-      const id = generateId();
-      const mimeType = rawMime || 'application/octet-stream';
-      const type = inferAssetType(mimeType);
-      const metadata: AssetMetadata = {
-        mimeType,
-        size: blob.size,
-        format: getFormatFromMime(mimeType),
-      };
-
+      const { id, blob, metadata, type } = prepareImport(source);
       const asset = buildAsset(id, blob, metadata, type, IDB_PATH_PREFIX);
       await db.assets.put({ id, asset, blob });
       return asset;
@@ -108,7 +94,7 @@ export async function createIdbAssetStore(
     },
 
     async getBlob(handle) {
-      const id = parseIdbPath(handle.path);
+      const id = parseBlobPath(handle.path, IDB_PATH_PREFIX);
       const record = await db.assets.get(id);
       if (!record) {
         throw new Error(`Blob not found in IndexedDB for path: ${handle.path}`);
@@ -132,13 +118,4 @@ export async function createIdbAssetStore(
       return asset;
     },
   };
-}
-
-/** 从 BlobHandle.path 解析出 AssetId */
-function parseIdbPath(path: string): AssetId {
-  const prefix = `${IDB_PATH_PREFIX}://`;
-  if (path.startsWith(prefix)) {
-    return path.slice(prefix.length);
-  }
-  return path;
 }

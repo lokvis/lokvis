@@ -103,6 +103,8 @@ function topologicalSort(nodes: WorkflowNode[], edges: WorkflowEdge[]): Workflow
 export class WorkflowExecutor {
   private config: ExecutorConfig;
   private running = new Map<string, RunningWorkflow>();
+  /** 暂停时挂起的 resolve:resume/cancel 唤醒之,避免轮询 */
+  private resumeResolvers = new Map<string, () => void>();
 
   constructor(config: ExecutorConfig) {
     this.config = config;
@@ -158,11 +160,13 @@ export class WorkflowExecutor {
 
       // 依次执行每个 transform 节点
       for (const node of transformNodes) {
-        if (state.status === 'cancelled') {
-          break;
-        }
+        // 暂停则挂起,等待 resume/cancel 唤醒(Promise resolver,无轮询)
         if (state.status === 'paused') {
           await this.waitForResume(workflowId);
+        }
+        // 唤醒后或每轮起始,若已被取消立即跳出(避免执行多余节点)
+        if (state.status === 'cancelled') {
+          break;
         }
 
         state.currentNodeId = node.id;
@@ -175,10 +179,14 @@ export class WorkflowExecutor {
           inputs: currentAssets,
         });
 
-        // 解析能力实现
-        const impl = this.config.capabilityRegistry.resolve(node.capability);
+        // 解析能力实现(transform 节点必须有 capability)
+        const capability = node.capability;
+        if (!capability) {
+          throw new Error(`Transform node "${node.id}" has no capability`);
+        }
+        const impl = this.config.capabilityRegistry.resolve(capability);
         if (!impl) {
-          throw new Error(`No implementation registered for capability "${node.capability}"`);
+          throw new Error(`No implementation registered for capability "${capability}"`);
         }
 
         // 执行能力
@@ -194,7 +202,7 @@ export class WorkflowExecutor {
           type: 'node:finished',
           workflowId,
           nodeId: node.id,
-          capability: node.capability,
+          capability,
           params: node.params ?? {},
           outputs: currentAssets,
           duration: Date.now() - nodeStart,
@@ -240,6 +248,7 @@ export class WorkflowExecutor {
       return result;
     } finally {
       this.running.delete(workflowId);
+      this.resumeResolvers.delete(workflowId);
     }
   }
 
@@ -249,6 +258,8 @@ export class WorkflowExecutor {
     if (!state) return;
     state.status = 'cancelled';
     state.abortController.abort();
+    // 唤醒可能暂停中的执行循环,使其跳出
+    this.resolveResume(workflowId);
     this.config.eventBus.emit({ type: 'workflow:cancelled', workflowId });
   }
 
@@ -265,23 +276,28 @@ export class WorkflowExecutor {
     const state = this.running.get(workflowId);
     if (!state || state.status !== 'paused') return;
     state.status = 'running';
+    // 唤醒挂起的 waitForResume,无需轮询
+    this.resolveResume(workflowId);
     this.config.eventBus.emit({ type: 'workflow:resumed', workflowId });
   }
 
-  /** 等待恢复（简化实现，轮询状态） */
+  /**
+   * 挂起当前执行直到 resume/cancel 唤醒(Promise resolver 模式)。
+   * 相比轮询(setTimeout)无延迟、无 CPU 占用;resume/cancel 通过
+   * resolveResume 触发 resolver。
+   */
   private waitForResume(workflowId: string): Promise<void> {
-    return new Promise((resolve) => {
-      const check = () => {
-        const state = this.running.get(workflowId);
-        if (!state || state.status === 'running') {
-          resolve();
-        } else if (state.status === 'cancelled') {
-          resolve();
-        } else {
-          setTimeout(check, 100);
-        }
-      };
-      check();
+    return new Promise<void>((resolve) => {
+      this.resumeResolvers.set(workflowId, resolve);
     });
+  }
+
+  /** 唤醒挂起的 waitForResume(若存在) */
+  private resolveResume(workflowId: string): void {
+    const resolve = this.resumeResolvers.get(workflowId);
+    if (resolve) {
+      this.resumeResolvers.delete(workflowId);
+      resolve();
+    }
   }
 }

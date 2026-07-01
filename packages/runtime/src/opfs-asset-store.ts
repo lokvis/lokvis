@@ -13,18 +13,13 @@
  * 降级链(W2.8 工厂):OPFS → IndexedDB → Memory
  */
 
-import type {
-  Asset,
-  AssetId,
-  AssetMetadata,
-} from '@lokvis/schema';
+import type { Asset, AssetId } from '@lokvis/schema';
 import type { AssetStore } from './asset-store.js';
 import {
   buildAsset,
-  extractBlobFromSource,
   generateId,
-  getFormatFromMime,
-  inferAssetType,
+  parseBlobPath,
+  prepareImport,
 } from './asset-store.js';
 
 /** OPFS 不可用或初始化失败时抛出 */
@@ -118,16 +113,7 @@ export async function createOpfsAssetStore(
 
   return {
     async import(source) {
-      const { blob, mimeType: rawMime } = extractBlobFromSource(source);
-      const id = generateId();
-      const mimeType = rawMime || 'application/octet-stream';
-      const type = inferAssetType(mimeType);
-      const metadata: AssetMetadata = {
-        mimeType,
-        size: blob.size,
-        format: getFormatFromMime(mimeType),
-      };
-
+      const { id, blob, metadata, type } = prepareImport(source);
       const handle = await writeOpfsFile(assetsDir, fileName(id), blob);
       fileHandles.set(id, handle);
       const asset = buildAsset(id, blob, metadata, type, OPFS_PATH_PREFIX);
@@ -140,7 +126,7 @@ export async function createOpfsAssetStore(
     },
 
     async getBlob(handle) {
-      const id = parseOpfsPath(handle.path);
+      const id = parseBlobPath(handle.path, OPFS_PATH_PREFIX);
       let fileHandle = fileHandles.get(id);
       if (!fileHandle) {
         // 可能是进程重启后元数据丢失但句柄仍可恢复
@@ -178,14 +164,4 @@ export async function createOpfsAssetStore(
       return asset;
     },
   };
-}
-
-/** 从 BlobHandle.path 解析出 AssetId */
-function parseOpfsPath(path: string): AssetId {
-  // path 形如 `opfs://{id}`(由 buildAsset 生成,id 为 UUID)
-  const prefix = `${OPFS_PATH_PREFIX}://`;
-  if (path.startsWith(prefix)) {
-    return path.slice(prefix.length);
-  }
-  return path;
 }

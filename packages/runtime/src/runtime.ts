@@ -62,13 +62,13 @@ function estimateSourceSize(source: AssetSource): number {
  * 用配额校验包裹 AssetStore:import/create 超限抛 QuotaExceededError(W2.9)。
  * 内部维护运行中的已用字节数,remove 时回退。
  *
- * 并发安全:import/create 通过 promise 链串行化,避免 check 与 update 之间
- * 的 TOCTOU 窗口导致两个并发操作都基于旧 usage 通过校验。
+ * 并发安全:import/create/remove 通过 promise 链串行化,避免 check 与 update
+ * 之间的 TOCTOU 窗口导致两个并发操作都基于旧 usage 通过校验或回退。
  */
 function wrapAssetStoreWithQuota(inner: AssetStore, quota: number): AssetStore {
   let usage = 0;
   let initialized = false;
-  /** 串行化 import/create 的 chain tail,确保 check-update 原子性 */
+  /** 串行化 import/create/remove 的 chain tail,确保 check-update 原子性 */
   let chain: Promise<unknown> = Promise.resolve();
 
   async function ensureInit(): Promise<void> {
@@ -84,7 +84,7 @@ function wrapAssetStoreWithQuota(inner: AssetStore, quota: number): AssetStore {
     }
   }
 
-  /** 将 import/create 串行化:依次 await init → assert → inner op → update usage */
+  /** 将 import/create/remove 串行化:依次 await init → assert → inner op → update usage */
   function runExclusive<T>(op: () => Promise<T>): Promise<T> {
     const run = chain.then(op, op);
     // chain 仅用于排队,不传播 rejection(避免一次失败阻塞后续)
@@ -112,11 +112,13 @@ function wrapAssetStoreWithQuota(inner: AssetStore, quota: number): AssetStore {
       return inner.getBlob(handle);
     },
     async remove(id) {
-      const existing = await inner.get(id);
-      await inner.remove(id);
-      if (existing) {
-        usage = Math.max(0, usage - existing.metadata.size);
-      }
+      return runExclusive(async () => {
+        const existing = await inner.get(id);
+        await inner.remove(id);
+        if (existing) {
+          usage = Math.max(0, usage - existing.metadata.size);
+        }
+      });
     },
     async list() {
       return inner.list();
@@ -143,7 +145,11 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   private assetStore: AssetStore;
   private capabilityRegistry: CapabilityRegistry;
   private executor: WorkflowExecutor;
-  /** 每个工作流独立的 HistoryStack */
+  /**
+   * 每个工作流独立的 HistoryStack。
+   * 注意:历史栈仅在内存中,刷新页面后丢失(资产可能仍存于 OPFS/IDB,
+   * 但因元数据/索引未持久化而无法恢复)—— 跨会话恢复属 W3 范畴。
+   */
   private historyStacks = new Map<string, HistoryStack>();
   /** 记录每个工作流的初始输入 AssetId(undo 回到初始时使用) */
   private initialInputsMap = new Map<string, AssetId[]>();
@@ -156,6 +162,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       enableIndexedDB: config.enableIndexedDB ?? true,
       storageQuota: config.storageQuota ?? 1024 * 1024 * 1024, // 1GB
       enableLog: config.enableLog ?? true,
+      engineStrategy: config.engineStrategy ?? 'first',
     };
 
     this.eventBus = createEventBus();
@@ -164,7 +171,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     const rawStore = config.assetStore ?? createMemoryAssetStore();
     this.assetStore = wrapAssetStoreWithQuota(rawStore, this.config.storageQuota);
 
-    this.capabilityRegistry = new CapabilityRegistry();
+    this.capabilityRegistry = new CapabilityRegistry(this.config.engineStrategy);
 
     this.executor = new WorkflowExecutor({
       assetStore: this.assetStore,
@@ -190,6 +197,14 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     inputs: AssetId[] | Asset[]
   ): Promise<WorkflowResult> {
     this._status = 'running';
+
+    // 重新执行同一工作流时,丢弃上一次的历史(含失败后重跑的残留条目),
+    // 并通过 onEvict 回收其 outputs 资产,避免 OPFS/IDB 泄漏。
+    // 初始输入 Asset 不在历史栈中,不受影响。
+    const existingStack = this.historyStacks.get(workflow.id);
+    if (existingStack) {
+      existingStack.reset();
+    }
 
     // 记录初始输入 AssetId(用于 undo 回到初始状态)
     const inputIds = await this.collectInputAssetIds(inputs);

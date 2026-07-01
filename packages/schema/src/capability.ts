@@ -39,6 +39,14 @@ export interface CapabilityParam {
 /** 性能预估等级 */
 export type PerformanceLevel = 'fast' | 'medium' | 'slow';
 
+/**
+ * 引擎选择策略(由 CapabilityRegistry 在无显式 preferredEngine 时使用):
+ * - `'first'`:按注册顺序取第一个(默认,确定性高,保留旧行为)
+ * - `'fastest'`:按性能等级排序取最快(fast > medium > slow,同档按注册顺序)
+ * - `'balanced'`:优先取与能力声明 performance 匹配的实现;无匹配则退化为 fastest
+ */
+export type EngineSelectionStrategy = 'first' | 'fastest' | 'balanced';
+
 /** 能力声明（由 Plugin 提供） */
 export interface Capability {
   /** 能力名，如 `image.resize` */
@@ -62,6 +70,11 @@ export interface CapabilityImplementation {
   capability: CapabilityName;
   /** 实现该能力的引擎名 */
   engine: string;
+  /**
+   * 该引擎的性能等级(可选)。缺省时使用能力声明的 performance。
+   * 用于 EngineSelectionStrategy('fastest'/'balanced')排序选择。
+   */
+  performance?: PerformanceLevel;
   /** 实际执行函数 */
   execute: (
     inputs: import('./asset.js').Asset[],

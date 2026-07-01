@@ -34,6 +34,29 @@ export interface CreateLokvisOptions extends RuntimeConfig {
   plugins?: PluginLoadEntry[];
 }
 
+/**
+ * 安装单个插件到 Runtime 的依赖项上(共享逻辑)。
+ * 步骤:注册能力声明 → 构造受限 PluginContext → 调用 plugin.install → 发射 plugin:loaded。
+ * 由 createLokvis(批量预加载)与 loadPlugin(运行时单个加载)复用,避免重复实现。
+ */
+async function installPlugin(
+  plugin: PluginLoadEntry,
+  assetStore: AssetStore,
+  capabilityRegistry: CapabilityRegistry,
+  eventBus: EventBus
+): Promise<void> {
+  for (const capability of plugin.config.capabilities) {
+    capabilityRegistry.registerCapability(capability);
+  }
+  const ctx = createPluginContext(plugin.config.name, assetStore, capabilityRegistry, eventBus);
+  await plugin.install(ctx);
+  eventBus.emit({
+    type: 'plugin:loaded',
+    name: plugin.config.name,
+    version: plugin.config.version,
+  });
+}
+
 /** 创建 Lokvis Runtime 实例 */
 export async function createLokvis(
   options: CreateLokvisOptions = {}
@@ -41,24 +64,13 @@ export async function createLokvis(
   const { plugins = [], ...runtimeConfig } = options;
   const runtime = await createRuntime(runtimeConfig);
 
-  // 加载插件
+  // 预加载插件(复用 installPlugin,避免与 loadPlugin 重复实现)
   if (plugins.length > 0 && runtime instanceof LokvisRuntimeImpl) {
     const assetStore = runtime._getAssetStore();
     const capabilityRegistry = runtime._getCapabilityRegistry();
     const eventBus = runtime.eventBus;
-
     for (const plugin of plugins) {
-      const ctx = createPluginContext(plugin.config.name, assetStore, capabilityRegistry, eventBus);
-      // 注册能力声明
-      for (const capability of plugin.config.capabilities) {
-        capabilityRegistry.registerCapability(capability);
-      }
-      await plugin.install(ctx);
-      eventBus.emit({
-        type: 'plugin:loaded',
-        name: plugin.config.name,
-        version: plugin.config.version,
-      });
+      await installPlugin(plugin, assetStore, capabilityRegistry, eventBus);
     }
   }
 
@@ -74,21 +86,12 @@ export async function loadPlugin(
     throw new Error('Plugin loading requires a LokvisRuntimeImpl instance');
   }
 
-  const assetStore = runtime._getAssetStore();
-  const capabilityRegistry = runtime._getCapabilityRegistry();
-  const eventBus = runtime.eventBus;
-
-  for (const capability of plugin.config.capabilities) {
-    capabilityRegistry.registerCapability(capability);
-  }
-
-  const ctx = createPluginContext(plugin.config.name, assetStore, capabilityRegistry, eventBus);
-  await plugin.install(ctx);
-  eventBus.emit({
-    type: 'plugin:loaded',
-    name: plugin.config.name,
-    version: plugin.config.version,
-  });
+  await installPlugin(
+    plugin,
+    runtime._getAssetStore(),
+    runtime._getCapabilityRegistry(),
+    runtime.eventBus
+  );
 }
 
 /**
