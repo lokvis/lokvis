@@ -59,7 +59,7 @@
 | `packages/cli` | 🟡 骨架 | run/capabilities/plugin-create 命令骨架,未连 sdk |
 | `packages/ui-core` / `ui-react` | 🟡 部分 | 基础组件 + Workspace SPA 壳已搭,PipelineBar/Canvas 已重构 |
 | `apps/web` | 🟡 部分 | 首页/分类页/6 工具页占位;Workspace 页可渲染;PWA manifest/SW 已配;SEO 内容空白 |
-| `apps/docs` | 🟡 部分 | Astro 文档站骨架,内容待补 |
+| `apps/docs` | 🟢 Starlight | 已迁移至 Astro Starlight 0.41(i18n/Pagefind 搜索/editLink/TOC/暗色切换);9 页内容 + 9 Mermaid 图表 |
 | `apps/playground` | 🟡 占位 | 仅壳 |
 | `examples/*` | ✅ 已有 | cli-automation/custom-workspace/embedding 三例 |
 | 工程化 | 🟡 | turbo/vitest/tsconfig 已配;**无 CI/CD**;**无 COOP/COEP**;**无 WASM 加载策略** |
@@ -164,7 +164,7 @@
 | 4.5 | 设计 Token:`--lokvis-*` CSS 变量 + Tailwind v4 `@theme`,暗色模式 | P0 | 4h | ⬜ | `ui-core/src/styles/tokens.css` |
 | 4.6 | `ui-react` 组件单测(@testing-library/react) | P0 | 6h | ⬜ | `ui-react/src/__tests__/` |
 | 4.7 | Astro playground 展示组件 | P1 | 4h | ⬜ | `apps/playground` |
-| 4.8 | `apps/docs` Getting Started / SDK / Architecture 三页 | P0 | 4h | ⬜ | docs 页 |
+| 4.8 | `apps/docs` Getting Started / SDK / Architecture 三页 | P0 | 4h | ✅ | docs 页(Starlight 迁移,9 页内容) |
 | 4.9 | 缓冲 | P0 | 2h | ⬜ | — |
 
 ---
@@ -379,13 +379,13 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 19.1 | `apps/docs` 升级 Starlight 或自建导航 | P0 | 4h | ⬜ | docs |
+| 19.1 | `apps/docs` 升级 Starlight 或自建导航 | P0 | 4h | ✅ | docs(已迁移至 Starlight 0.41) |
 | 19.2 | 文档结构:Getting Started / Concepts / API Ref / Guides / Plugins / Examples | P0 | 4h | ⬜ | docs |
 | 19.3 | API Reference 自动生成(从 tsdoc) | P0 | 6h | ⬜ | `docs/api/` |
 | 19.4 | Guides:嵌入 SDK / 写第一个插件 / 自定义 Workspace / CLI 自动化 | P0 | 8h | ⬜ | docs |
 | 19.5 | Architecture 深度文:Runtime/Engine/Capability/Plugin 四层 | P0 | 4h | ⬜ | docs |
 | 19.6 | 交互式 Playground 增强:可编辑代码 + 实时运行 | P1 | 8h | ⬜ | apps/playground |
-| 19.7 | 搜索功能(Pagefind) | P0 | 2h | ⬜ | docs |
+| 19.7 | 搜索功能(Pagefind) | P0 | 2h | ✅ | docs(Starlight 0.33+ 内置 Pagefind) |
 | 19.8 | 缓冲 | P0 | 4h | ⬜ | — |
 
 ### W20 · CLI 最小版 + 缓冲(40h)
@@ -516,6 +516,8 @@
 | 2026-06-30 | 1.9 | ✅ 完成 | 4h | worker-host 18 测 + worker-adapter 8 测;FakeTransport / FakeScope 注入;修复 timer 推进同步拒绝的 unhandled rejection |
 | 2026-06-30 | 1.10 | ✅ 完成 | 2h | `architecture.astro` 新增「Worker 隔离」章节(通信协议 / Host 管理 / Engine in Worker) |
 | 2026-06-30 | W1 | 🎉 收尾 | 38h | typecheck ✅(36 tasks)、build ✅(20 tasks)、test:coverage ✅(152 测试,lines 64.3%);1.11 缓冲未消耗,节省 2h 转入 W2 |
+| 2026-07-01 | 架构 | 🔧 模块拆分 | — | 5 个大文件按类型拆分:`capability/presets` → 6 文件、`engine-image/operations` → 5 实现 + 2 预留、`ui-react/store` → 4 个 Zustand slice、`plugin-dev/capabilities` → 4 文件 + `plugin.ts` 缩至 53 行、`docs/diagrams` → 5 文件;外部 API 不变,152 测试全过 |
+| 2026-07-01 | 4.8/19.1/19.7 | ✅ 完成 | — | docs 迁移至 Starlight 0.41(Content Layer API `docsLoader`、i18n `locales.root`、Pagefind 搜索、editLink、TOC、暗色切换);9 个内容文件(8 .md + 1 .mdx,含 9 个 Mermaid 图表);解决 5 个构建错误(版本兼容、social 语法、Content Layer API、MDX 花括号、draft/head 默认值);10 页构建,全量 20/20 包 + 152/152 测试通过 |
 
 ---
 
@@ -533,6 +535,7 @@
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
+| 2026-07-01 | v1.3 | 架构改进:5 个大文件按类型拆分(presets/operations/store/capabilities/diagrams),外部 API 不变;docs 迁移至 Starlight 0.41(i18n/Pagefind/editLink/TOC/暗色切换);4.8 ✅、19.1 ✅、19.7 ✅(提前完成 W19 两项);W2-W3 仍待开始(undo/redo/OPFS/streaming 未实现) |
 | 2026-06-30 | v1.2 | W1 完成:1.1-1.10 全部 ✅;Worker 隔离层(worker-protocol / worker-host / engine-image worker-adapter)+ CI/CD + COOP/COEP 落地;覆盖率阈值基线 60%(实测 64.3%),ratchet 至 70% 留 W2-W3 推进 |
 | 2026-06-30 | v1.1 | 增加任务状态列与优先级列;调整优先级(plugin-dev→P3、Plugin SDK→P1 Alpha、CLI→P1 最小版、EXIF/旋转/滤镜→P1、Sentry 前置 W12);新增执行日志/阻塞清单/变更记录章节 |
 | 2026-06-30 | v1.0 | 初版,基于白皮书 00/03/04/06/07 拆分 Phase 1 全周期任务 |
