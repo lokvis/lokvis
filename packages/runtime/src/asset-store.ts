@@ -3,9 +3,14 @@
  *
  * 资产存储管理。元数据存 IndexedDB，大文件存 OPFS。
  * Runtime 只操作 AssetId，不直接持有 File 或 Blob。
+ *
+ * 降级链(createAssetStore 工厂,W2.8):
+ *   preferOpfs → OPFS → IndexedDB(Dexie) → Memory(始终可用,不持久化)
  */
 
 import type { Asset, AssetId, AssetMetadata, AssetSource, BlobHandle } from '@lokvis/schema';
+import { createOpfsAssetStore, isOpfsSupported } from './opfs-asset-store.js';
+import { createIdbAssetStore, isIdbSupported } from './idb-asset-store.js';
 
 /** Asset Store 配置 */
 export interface AssetStoreConfig {
@@ -30,7 +35,7 @@ export interface AssetStore {
 }
 
 /** 生成唯一 ID */
-function generateId(): string {
+export function generateId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
@@ -38,7 +43,7 @@ function generateId(): string {
 }
 
 /** 从 MIME 类型推断 Asset 类型 */
-function inferAssetType(mimeType: string): Asset['type'] {
+export function inferAssetType(mimeType: string): Asset['type'] {
   if (mimeType.startsWith('image/')) return 'image';
   if (mimeType.startsWith('video/')) return 'video';
   if (mimeType.startsWith('audio/')) return 'audio';
@@ -50,9 +55,50 @@ function inferAssetType(mimeType: string): Asset['type'] {
 }
 
 /** 从 MIME 类型获取格式扩展名 */
-function getFormatFromMime(mimeType: string): string {
+export function getFormatFromMime(mimeType: string): string {
   const parts = mimeType.split('/');
   return parts[1] ?? 'bin';
+}
+
+/** 从 AssetSource 提取 Blob 与 MIME(支持 file/blob,其余抛 not supported) */
+export function extractBlobFromSource(source: AssetSource): {
+  blob: Blob;
+  mimeType: string;
+} {
+  if (source.kind === 'file') {
+    return { blob: source.file, mimeType: source.file.type };
+  }
+  if (source.kind === 'blob') {
+    return { blob: source.blob, mimeType: source.blob.type };
+  }
+  throw new Error(
+    `Asset source kind "${source.kind}" not supported by this store`
+  );
+}
+
+/** 构造完整 Asset 元数据 + 默认字段(共享工厂) */
+export function buildAsset(
+  id: AssetId,
+  blob: Blob,
+  metadata: AssetMetadata,
+  type: Asset['type'],
+  pathPrefix: string
+): Asset {
+  const now = Date.now();
+  return {
+    id,
+    type,
+    metadata,
+    blob: {
+      path: `${pathPrefix}://${id}`,
+      size: blob.size,
+      mimeType: metadata.mimeType,
+    },
+    history: [],
+    tags: [],
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 /** 创建内存版 AssetStore（降级方案，不持久化） */
@@ -144,4 +190,48 @@ export function createMemoryAssetStore(): AssetStore {
       return asset;
     },
   };
+}
+
+/** 工厂配置(W2.8) */
+export interface CreateAssetStoreOptions {
+  /** 是否优先使用 OPFS(默认 true);为 false 时跳过 OPFS */
+  preferOpfs?: boolean;
+}
+
+/**
+ * AssetStore 工厂:自动探测环境,按降级链创建存储(W2.8)。
+ *
+ * 顺序:
+ *   1. preferOpfs(默认 true)且 OPFS 可用 → OpfsAssetStore
+ *   2. IndexedDB 可用 → IdbAssetStore(Dexie)
+ *   3. 兜底 → MemoryAssetStore(始终可用,不持久化)
+ *
+ * 任一阶段抛错均自动降级,最终必定返回一个可用 store。
+ */
+export async function createAssetStore(
+  options: CreateAssetStoreOptions = {}
+): Promise<AssetStore> {
+  const preferOpfs = options.preferOpfs ?? true;
+
+  // 1. OPFS
+  if (preferOpfs && isOpfsSupported()) {
+    try {
+      return await createOpfsAssetStore();
+    } catch (err) {
+      // OPFS 初始化失败,降级到 IndexedDB
+      console.warn('[lokvis] OPFS unavailable, falling back to IndexedDB:', err);
+    }
+  }
+
+  // 2. IndexedDB
+  if (isIdbSupported()) {
+    try {
+      return await createIdbAssetStore();
+    } catch (err) {
+      console.warn('[lokvis] IndexedDB unavailable, falling back to memory:', err);
+    }
+  }
+
+  // 3. Memory(兜底,始终可用)
+  return createMemoryAssetStore();
 }

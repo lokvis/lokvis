@@ -21,6 +21,8 @@ export type LokvisEvent =
       type: 'node:finished';
       workflowId: string;
       nodeId: string;
+      capability: string;
+      params: Record<string, unknown>;
       outputs: Asset[];
       duration: number;
     }

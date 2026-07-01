@@ -14,6 +14,7 @@ import type {
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { EventBus } from '@lokvis/schema';
+import type { AssetStore } from './asset-store.js';
 
 /** Runtime 配置 */
 export interface RuntimeConfig {
@@ -25,6 +26,12 @@ export interface RuntimeConfig {
   storageQuota?: number;
   /** 是否启用日志 */
   enableLog?: boolean;
+  /**
+   * 注入自定义 AssetStore(测试或精细控制用)。
+   * 默认由 createRuntime 通过 createAssetStore 工厂自动创建,
+   * 按 OPFS → IndexedDB → Memory 降级。
+   */
+  assetStore?: AssetStore;
 }
 
 /** Runtime 状态 */

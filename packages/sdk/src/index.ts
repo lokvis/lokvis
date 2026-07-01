@@ -39,7 +39,7 @@ export async function createLokvis(
   options: CreateLokvisOptions = {}
 ): Promise<LokvisRuntime> {
   const { plugins = [], ...runtimeConfig } = options;
-  const runtime = createRuntime(runtimeConfig);
+  const runtime = await createRuntime(runtimeConfig);
 
   // 加载插件
   if (plugins.length > 0 && runtime instanceof LokvisRuntimeImpl) {
