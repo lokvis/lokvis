@@ -12,6 +12,7 @@ import type {
   Capability,
   EngineSelectionStrategy,
   HistoryEntry,
+  McpManifest,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { EventBus } from '@lokvis/schema';
@@ -88,4 +89,14 @@ export interface LokvisRuntime {
   capabilities(): Promise<Capability[]>;
   /** 检查能力是否可用 */
   hasCapability(name: string): Promise<boolean>;
+
+  // ─── MCP 暴露(见 docs/AI生态冲击调整方案.md §6) ─────
+  /**
+   * 生成 MCP server manifest(不启动 server,仅描述当前可被 MCP 暴露的能力)。
+   * 用于:
+   * 1. @lokvis/mcp-server 注册 tools 前的能力探测
+   * 2. Dashboard 展示"可被 AI 调用的能力"
+   * 3. 文档站自动生成 MCP tools 列表
+   */
+  toMcpManifest(): McpManifest;
 }

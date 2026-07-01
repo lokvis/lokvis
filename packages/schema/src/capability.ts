@@ -62,6 +62,19 @@ export interface Capability {
   performance: PerformanceLevel;
   /** 是否支持批量处理（一次处理多个 Asset） */
   batchable?: boolean;
+  /**
+   * MCP 暴露配置(可选,见 docs/AI生态冲击调整方案.md §7.1):
+   * - `'public'`(默认):暴露给 MCP server,可被 AI 客户端调用
+   * - `'private'`:不暴露(如内部能力、危险操作)
+   * - `'batch-only'`:仅在 batch 模式暴露(避免单文件误用)
+   */
+  mcpExposure?: 'public' | 'private' | 'batch-only';
+  /**
+   * MCP tool 名称覆盖(可选)。
+   * 默认为 `lokvis_${name.replace(/\./g, '_')}`,如 `image.resize` → `lokvis_image_resize`。
+   * 显式指定时用于更友好的命名(如 `lokvis_compress_image`)。
+   */
+  mcpToolName?: string;
 }
 
 /** 能力实现（由 Plugin 注册到 Runtime） */

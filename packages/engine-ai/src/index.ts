@@ -1,19 +1,25 @@
 /**
  * @lokvis/engine-ai
  *
- * AI 引擎适配层。
+ * AI 能力适配层。
  *
- * 计划支持的引擎：
- * - transformers.js：浏览器本地推理（OCR、图像分类、字幕生成）
- * - cloud-proxy：通过 lokvis-cloud 调用大模型（GPT-4V 等）
+ * 定位:AI 辅助 workflow 设计,不替代确定性执行(见
+ * docs/AI生态冲击调整方案.md §5)。
+ * - transformersEngine:本地 AI(OCR/caption/background-remove),隐私优先
+ * - cloudProxyEngine:云端 AI(generate-workflow/optimize-workflow),接 lokvis-cloud
  *
- * Open Core 边界：
- * - 本包（lokvis-open）只定义接口与 transformers.js 占位
- * - 实际 cloud-proxy 实现属于 lokvis-cloud，不在本仓库
+ * 设计原则:
+ * 1. AI 只设计,不执行:生成的 workflow 由 Runtime 确定性执行
+ * 2. 本地 AI 优先:transformers.js 在浏览器内运行,文件不上传
+ * 3. 云端 AI 可选:cloudProxyEngine 需用户授权并消耗 AI Credits
  *
- * 当前状态：MVP 占位实现。
+ * Open Core 边界:
+ * - 本包(lokvis-open)只定义接口与 transformers.js 占位
+ * - 实际 cloud-proxy 实现属于 lokvis-cloud,不在本仓库
  *
- * 参考 docs/whitepaper/04-技术架构设计.md 第十节「AI 集成」。
+ * 实现路线:
+ * - Phase 1:stub 占位
+ * - Phase 2:实现 cloudProxyEngine 接口 + transformersEngine OCR
  */
 
 import type { AssetType } from '@lokvis/schema';

@@ -276,6 +276,7 @@
 | 11.7 | Alpha 内部测试:5 人 1 天,收集清单 | P0 | 8h | ⬜ | 测试报告 |
 | 11.8 | Bug 修复(Alpha 反馈) | P0 | 6h | ⬜ | 多处 |
 | 11.9 | 缓冲 | P0 | 2h | ⬜ | — |
+| **11.10** | **MCP server 接口设计草案**(tools/resources/prompts 清单) | **P1** | 4h | ⬜ | `docs/mcp-design-draft.md` |
 
 ### W12 · M1.1 Alpha 里程碑 + 缓冲(40h)
 
@@ -288,6 +289,7 @@
 | 12.5 | README 根目录重写:介绍/架构图/快速开始/贡献指南 | P0 | 4h | ⬜ | README.md |
 | 12.6 | LICENSE 审计:确认 MIT,第三方 WASM 协议清单 | P0 | 4h | ⬜ | `THIRD_PARTY_LICENSES.md` |
 | 12.7 | 缓冲/技术债 | P0 | 10h | ⬜ | — |
+| **12.8** | **MCP server 接口设计评审 + ADR-011 状态确认**(见 11.10 草案) | **P1** | 2h | ⬜ | ADR 更新 |
 
 > **里程碑 M1.1 MVP Alpha(2026.09.30)**:6 工具可用、内部测试通过。失败应对:延期 1 月,砍 P1(旋转/滤镜/EXIF)。
 
@@ -364,6 +366,8 @@
 | 17.7 | SDK CHANGELOG + 迁移指南 | P0 | 4h | ⬜ | docs |
 | 17.8 | 单测:Pro 门控逻辑 | P0 | 4h | ⬜ | tests |
 | 17.9 | 缓冲 | P0 | 6h | ⬜ | — |
+| **17.10** | **首页新增"AI 做不到的 6 件事"对比 section**(批量/大文件/隐私/确定性/离线/参数) | **P0** | 4h | ⬜ | `apps/web/src/components/AiComparison.astro` |
+| **17.11** | **ToolLayout "Why use Lokvis?" 增加 vs AI 文案**(上传/响应/tokens/离线) | **P0** | 2h | ⬜ | ToolLayout 更新 |
 
 ### W18 · Plugin SDK Alpha + 示例插件(40h)
 
@@ -372,8 +376,8 @@
 | 18.1 | `@lokvis/plugin-sdk` 发布到 npm(0.1.0-alpha) | P1 | 4h | ⬜ | npm |
 | 18.2 | Plugin SDK 文档:Manifest / Context / 权限模型 / 生命周期 | P1 | 6h | ⬜ | docs |
 | 18.3 | 示例插件:`plugin-grayscale`(教学用) | P1 | 6h | ⬜ | `examples/plugin-grayscale` |
-| 18.4 | 示例插件:`plugin-batch-watermark`(实用) | P1 | 8h | ⬜ | `examples/plugin-batch-watermark` |
-| 18.5 | Plugin 脚手架:`pnpm create @lokvis/plugin` | P1 | 6h | ⬜ | cli |
+| 18.4 | 示例插件:`plugin-batch-watermark`(实用) | ⏭️延后 | 8h | ⬜ | 改为 MCP tool 实现(Phase 2) |
+| 18.5 | Plugin 脚手架:`pnpm create @lokvis/plugin` | ⏭️延后 | 6h | ⬜ | 优先 `npx @lokvis/mcp-server`(Phase 2) |
 | 18.6 | Plugin 权限沙箱:network:none 强制、filesystem 限制 | P0 | 6h | ⬜ | runtime |
 | 18.7 | 缓冲 | P1 | 4h | ⬜ | — |
 
@@ -389,6 +393,8 @@
 | 19.6 | 交互式 Playground 增强:可编辑代码 + 实时运行 | P1 | 8h | ⬜ | apps/playground |
 | 19.7 | 搜索功能(Pagefind) | P0 | 2h | ✅ | docs(Starlight 0.33+ 内置 Pagefind) |
 | 19.8 | 缓冲 | P0 | 4h | ⬜ | — |
+| **19.9** | **新增 MCP Integration 文档页**(`apps/docs/src/content/docs/mcp.mdx` + sidebar 注册) | **P0** | 4h | ✅ | docs |
+| **19.10** | **新增 `/mcp` 落地页**(MCP server 介绍 + 配置指南 + tool 清单) | **P1** | 4h | ⬜ | `apps/web/src/pages/mcp.astro` |
 
 ### W20 · CLI 最小版 + 缓冲(40h)
 
@@ -523,6 +529,8 @@
 | 2026-07-01 | 2.1-2.5 | ✅ 完成 | 14h | `HistoryStack` 游标模式(cursor 指向最后已应用条目,append 截断 redo 分支);Runtime 监听 `node:finished` 事件自动 append 历史;`undo` 返回 null 表示回到初始输入;`onEvict` 回调清理 OPFS 资产、`onChanged` 转发为 `history:changed` 事件;schema `node:finished` 新增 `capability`+`params` 字段 |
 | 2026-07-01 | 2.6-2.9 | ✅ 完成 | 16h | `OpfsAssetStore`(异步 `FileSystemFileHandle`,rootHandle 可注入便于测试);`IdbAssetStore`(Dexie 4.4.4,元数据+Blob 持久化);`createAssetStore({preferOpfs})` 工厂按 OPFS→IndexedDB→Memory 降级,任一阶段失败自动降级并 warn;Runtime 用配额校验包裹 store(`QuotaExceededError`,`import`/`create` 超限抛错,`remove` 释放配额);`createRuntime` 改为 async 调用工厂 |
 | 2026-07-01 | 2.10-2.11 | ✅ 完成 | 10h | 单测 50 个:HistoryStack 23(append/undo/redo/截断/LRU/onEvict/onChanged/jumpTo/clear/snapshot)+ OPFS mock 19(FakeOpfsDir 注入,完整 CRUD + 降级链 4 场景)+ 集成 8(resize→compress→undo→redo 全链路 + storageQuota 3 场景);全量 202/202 测试通过,覆盖率 lines 75.26% / branches 82.85%(超阈值) |
+| 2026-07-01 | AI生态调整 | ✅ 完成 | — | 按 docs/AI生态冲击调整方案.md 落地 Phase 1 调整:schema 新增 mcp.ts(McpManifest 类型)+ Capability.mcpExposure/mcpToolName + WorkflowAiInstruction/workflowToAiInstruction;Runtime 新增 `toMcpManifest()` API(手写 capabilityParamsToJsonSchema,免 zod-to-json-schema 依赖);SDK 导出 McpManifest 类型;新建 `@lokvis/mcp-server` 包骨架(index/server/router/cli + examples);engine-ai + plugin-sdk + PluginContext 注释更新定位(MCP 优先,Plugin SDK Alpha 兼容层);apps/docs 新增 mcp.mdx + sidebar 注册;plugins.md 加 "Plugin SDK vs MCP Server" 对比;roadmap.md Phase 2 加 MCP server v1;PROJECT_PLAN 加任务 11.10/12.8/17.10/17.11/19.9/19.10,18.4/18.5 标延后;examples/mcp-claude-desktop 示例骨架 |
+
 
 ---
 
@@ -576,8 +584,8 @@
 | batch + workflow tools + 文件访问混合方案 | P0 | 12h |
 | resources + prompts 注册 | P1 | 8h |
 | Claude Desktop 集成测试 + npm 发布 | P0 | 12h |
-| `runtime.toMcpManifest()` API 实现 | P0 | 8h |
-| `examples/mcp-claude-desktop` 示例 | P1 | 4h |
+| `runtime.toMcpManifest()` API 实现 | P0 | 8h | ✅ Phase 1 提前完成(2026-07-01) |
+| `examples/mcp-claude-desktop` 示例 | P1 | 4h | ✅ Phase 1 提前完成(2026-07-01,骨架) |
 | **合计** | | **96h P0 + 12h P1** |
 
 ---

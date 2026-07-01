@@ -150,4 +150,10 @@ export type {
   Workflow,
   WorkflowResult,
   Capability,
+  // MCP manifest 类型(见 docs/AI生态冲击调整方案.md §6.1)
+  McpManifest,
+  McpToolManifest,
+  McpResourceManifest,
+  WorkflowAiInstruction,
 } from '@lokvis/schema';
+export { workflowToAiInstruction } from '@lokvis/schema';

@@ -9,8 +9,11 @@ import type {
   AssetId,
   AssetSource,
   Capability,
+  CapabilityParam,
   HistoryEntry,
   LokvisEvent,
+  McpManifest,
+  McpToolManifest,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { LokvisRuntime, RuntimeConfig, RuntimeStatus } from './types.js';
@@ -318,6 +321,51 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     return this.capabilityRegistry.has(name);
   }
 
+  // ─── MCP 暴露(见 docs/AI生态冲击调整方案.md §6) ─────
+
+  /**
+   * 生成 MCP server manifest(不启动 server,仅描述当前可被 MCP 暴露的能力)。
+   * - 仅暴露 mcpExposure !== 'private' 的能力(默认 'public')
+   * - tool 名取 capability.mcpToolName 或 `lokvis_${name.replace(/\./g, '_')}`
+   * - resource 固定为 capabilities 与 workflows 两个清单
+   */
+  toMcpManifest(): McpManifest {
+    const tools: McpToolManifest[] = [];
+    const capabilities = this.capabilityRegistry.list();
+
+    for (const cap of capabilities) {
+      if (cap.mcpExposure === 'private') continue;
+      const toolName =
+        cap.mcpToolName ?? `lokvis_${cap.name.replace(/\./g, '_')}`;
+      tools.push({
+        name: toolName,
+        description: cap.description,
+        inputSchema: capabilityParamsToJsonSchema(cap.params),
+        capabilities: [cap.name],
+      });
+    }
+
+    return {
+      serverName: 'lokvis',
+      version: RUNTIME_VERSION,
+      tools,
+      resources: [
+        {
+          uri: 'lokvis://capabilities',
+          name: 'Capabilities',
+          description: 'List all available Lokvis capabilities',
+          mimeType: 'application/json',
+        },
+        {
+          uri: 'lokvis://workflows',
+          name: 'Workflows',
+          description: 'List saved workflows',
+          mimeType: 'application/json',
+        },
+      ],
+    };
+  }
+
   // ─── 内部 API（供 Plugin SDK 使用） ──────────────────
 
   /** 获取 AssetStore（内部用） */
@@ -421,4 +469,45 @@ export async function createRuntime(
     config?.assetStore ??
     (await createAssetStore({ preferOpfs: config?.enableOpfs ?? true }));
   return new LokvisRuntimeImpl({ ...config, assetStore });
+}
+
+/**
+ * 把 Capability.params(CapabilityParam[])转换为 JSON Schema 对象,
+ * 供 MCP tool manifest 的 inputSchema 字段使用。
+ *
+ * 手写转换而非用 zod-to-json-schema:Capability.params 是数组形式
+ * (非 ZodSchema),直接映射即可,无需引入额外依赖。
+ * (见 docs/AI生态冲击调整方案.md §6.3 的依赖决策)
+ */
+function capabilityParamsToJsonSchema(params: CapabilityParam[]): object {
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+
+  for (const p of params) {
+    const prop = capabilityParamToJsonSchemaProperty(p);
+    properties[p.name] = prop;
+    if (p.required) required.push(p.name);
+  }
+
+  return {
+    type: 'object',
+    properties,
+    ...(required.length > 0 ? { required } : {}),
+  };
+}
+
+/** 单个 CapabilityParam → JSON Schema property */
+function capabilityParamToJsonSchemaProperty(p: CapabilityParam): Record<string, unknown> {
+  const prop: Record<string, unknown> = { type: p.type };
+  if (p.description) prop.description = p.description;
+  if (p.default !== undefined) prop.default = p.default;
+  if (typeof p.min === 'number') prop.minimum = p.min;
+  if (typeof p.max === 'number') prop.maximum = p.max;
+  if (p.type === 'enum' && p.values) {
+    prop.enum = p.values;
+  }
+  if (p.type === 'array' && p.items) {
+    prop.items = { type: p.items };
+  }
+  return prop;
 }

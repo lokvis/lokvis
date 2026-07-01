@@ -75,3 +75,27 @@ lokvis plugin create my-plugin
 - `@lokvis/plugin-video` — 7 video capabilities (ffmpeg.wasm, stub)
 - `@lokvis/plugin-pdf` — 7 PDF capabilities (pdf-lib, stub)
 - `@lokvis/plugin-dev` — developer tools (real impl)
+
+## Plugin SDK vs MCP Server
+
+Lokvis offers two extension mechanisms. Following the 2026 AI ecosystem shift (see [`AI生态冲击调整方案.md`](https://github.com/lokvis/lokvis/blob/dev/docs/AI生态冲击调整方案.md)), **MCP Server is now the recommended path** for exposing capabilities to AI clients; Plugin SDK is maintained as an Alpha preview for browser-embedding scenarios.
+
+| Dimension | Plugin SDK | MCP Server |
+|---|---|---|
+| Use case | Embed Lokvis in your own web app, add custom capabilities | Let AI clients (Claude / ChatGPT / Cursor) invoke local capabilities |
+| Protocol | Lokvis custom | MCP standard |
+| Reach | Lokvis users only | All MCP-compatible clients |
+| Priority | Alpha preview (teaching) | **Recommended** |
+| Phase | Phase 1 Alpha | Phase 2 GA |
+
+**Choose Plugin SDK when:**
+
+- You embed Lokvis into your own website via `@lokvis/sdk` and need custom in-browser capabilities.
+
+**Choose MCP Server when:**
+
+- You want AI clients to process local files (compress / resize / batch / workflow).
+- You want your tools reachable from Claude Desktop, Cursor, ChatGPT, or any MCP-compatible client.
+
+See [MCP Integration](./mcp) for setup and the full tool list.
+
