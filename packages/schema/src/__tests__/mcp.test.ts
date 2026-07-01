@@ -82,7 +82,7 @@ describe('workflowToAiInstruction', () => {
     });
     const instr = workflowToAiInstruction(wf);
     const props = (instr.inputSchema as { properties: Record<string, { type: string }> }).properties;
-    expect(props.input_path.type).toBe('array');
+    expect(props.input_path?.type).toBe('array');
   });
 
   it('应包含示例调用', () => {
