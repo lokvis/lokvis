@@ -172,14 +172,18 @@ export function workflowToAiInstruction(workflow: Workflow): WorkflowAiInstructi
     }
   }
 
+  // 期望输出反映 workflow 实际输出类型/格式(而非硬编码占位),
+  // 供 AI 理解调用后的产物。注意:此处仅描述,实际执行由确定性 Runtime 完成。
+  const outputFormat = workflow.outputs.format ?? workflow.outputs.type;
+
   return {
     instruction:
       `Execute ${workflow.nodes.length}-step workflow "${workflow.name}": ${steps.join(' → ')}`,
     capabilities,
     inputSchema: workflowInputsToJsonSchema(workflow),
     example: {
-      input: { input_path: '/path/to/file' },
-      expectedOutput: 'Processed file saved to output path',
+      input: { input_path: `/path/to/input.${workflow.inputs.type}` },
+      expectedOutput: `Processed ${workflow.inputs.type} saved as ${outputFormat}`,
     },
   };
 }

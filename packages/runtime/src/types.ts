@@ -45,6 +45,16 @@ export interface RuntimeConfig {
 /** Runtime 状态 */
 export type RuntimeStatus = 'idle' | 'running' | 'paused' | 'error';
 
+/**
+ * `toMcpManifest()` 选项。
+ *
+ * - `batchMode`:是否为 batch 模式。`mcpExposure='batch-only'` 的能力
+ *   仅在 `batchMode=true` 时暴露(避免单文件误用,见方案 §7.1)。默认 false。
+ */
+export interface ToMcpManifestOptions {
+  batchMode?: boolean;
+}
+
 /** 核心 Runtime API（第一版，必须克制） */
 export interface LokvisRuntime {
   /** Runtime 版本 */
@@ -97,6 +107,15 @@ export interface LokvisRuntime {
    * 1. @lokvis/mcp-server 注册 tools 前的能力探测
    * 2. Dashboard 展示"可被 AI 调用的能力"
    * 3. 文档站自动生成 MCP tools 列表
+   *
+   * `options.batchMode` 控制是否暴露 `mcpExposure='batch-only'` 的能力:
+   * - 默认 false(单文件模式):不暴露 batch-only 能力
+   * - true(batch 模式):暴露 batch-only 能力
+   * `mcpExposure='private'` 的能力在任何模式下都不暴露。
+   *
+   * 注:本方法同步返回 —— manifest 是对 `capabilityRegistry.list()`
+   * (同步)的纯计算,无 I/O,故无需 async。`capabilities()` 仍为 async
+   * 仅为接口对称性(未来可能涉及异步加载)。
    */
-  toMcpManifest(): McpManifest;
+  toMcpManifest(options?: ToMcpManifestOptions): McpManifest;
 }

@@ -237,6 +237,8 @@ importers:
         specifier: ^5.4.0
         version: 5.4.21(@types/node@24.13.2)(lightningcss@1.32.0)
 
+  examples/mcp-claude-desktop: {}
+
   packages/capability:
     dependencies:
       '@lokvis/schema':

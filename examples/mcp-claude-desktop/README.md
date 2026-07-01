@@ -49,8 +49,19 @@ See [`demo/test-prompts.md`](./demo/test-prompts.md) for the full list:
 1. **"Compress this image to under 100KB"** → `lokvis_compress_image`
 2. **"Resize all images in /photos to 1920px width"** → `lokvis_batch_process` (resize)
 3. **"Convert image.png to WebP"** → `lokvis_convert_image`
-4. **"Add watermark 'Confidential' to bottom-right"** → `lokvis_watermark_image`
+4. **"Add watermark 'Confidential' to bottom-right"** → `lokvis_watermark_image` *(Phase 2 计划,尚未实现)*
 5. **"Run my web-optimize workflow on this image"** → `lokvis_run_workflow`
+
+## Demo image
+
+Some prompts reference `demo/sample-image.jpg`, which is **not** committed (binary asset). Place your own test image there before running the prompts. A suitable test image:
+
+- Resolution: 1920x1080 or larger
+- Format: JPG
+- Size: 500KB - 2MB
+- Content: a photo with a clear subject (useful for compress / resize / watermark visibility testing)
+
+You can use any royalty-free image, e.g. from [Unsplash](https://unsplash.com/).
 
 ## Troubleshooting
 

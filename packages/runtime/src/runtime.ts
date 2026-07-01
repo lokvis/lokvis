@@ -10,13 +10,19 @@ import type {
   AssetSource,
   Capability,
   CapabilityParam,
+  CapabilityParamType,
   HistoryEntry,
   LokvisEvent,
   McpManifest,
   McpToolManifest,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
-import type { LokvisRuntime, RuntimeConfig, RuntimeStatus } from './types.js';
+import type {
+  LokvisRuntime,
+  RuntimeConfig,
+  RuntimeStatus,
+  ToMcpManifestOptions,
+} from './types.js';
 import type { EventBus } from '@lokvis/schema';
 import { createEventBus } from './event-bus.js';
 import {
@@ -325,16 +331,23 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
 
   /**
    * 生成 MCP server manifest(不启动 server,仅描述当前可被 MCP 暴露的能力)。
-   * - 仅暴露 mcpExposure !== 'private' 的能力(默认 'public')
+   * - `mcpExposure='private'`:任何模式都不暴露
+   * - `mcpExposure='batch-only'`:仅在 `options.batchMode=true` 时暴露
+   *   (避免单文件误用)
+   * - 其余(默认 'public'):总是暴露
    * - tool 名取 capability.mcpToolName 或 `lokvis_${name.replace(/\./g, '_')}`
    * - resource 固定为 capabilities 与 workflows 两个清单
    */
-  toMcpManifest(): McpManifest {
+  toMcpManifest(options: ToMcpManifestOptions = {}): McpManifest {
+    const { batchMode = false } = options;
     const tools: McpToolManifest[] = [];
     const capabilities = this.capabilityRegistry.list();
 
     for (const cap of capabilities) {
+      // private 任何模式都不暴露
       if (cap.mcpExposure === 'private') continue;
+      // batch-only 仅在 batch 模式暴露(避免单文件误用)
+      if (cap.mcpExposure === 'batch-only' && !batchMode) continue;
       const toolName =
         cap.mcpToolName ?? `lokvis_${cap.name.replace(/\./g, '_')}`;
       tools.push({
@@ -496,18 +509,56 @@ function capabilityParamsToJsonSchema(params: CapabilityParam[]): object {
   };
 }
 
+/**
+ * 把 CapabilityParamType 映射为合法的 JSON Schema 类型片段。
+ *
+ * CapabilityParamType 含 `color` / `file` / `enum` 等 Lokvis 专属类型,
+ * 它们都不是合法 JSON Schema 类型,必须映射到标准类型:
+ *   - `color` → `{ type: 'string', format: 'color' }`
+ *   - `file`  → `{ type: 'string' }`(描述里说明是文件路径)
+ *   - `enum`  → `{ type: 'string' }`(枚举值由外层追加 `enum` 字段)
+ *   - `object`/`array`/`number`/`string`/`boolean` → 同名 JSON Schema 类型
+ */
+function capabilityParamTypeToJsonType(
+  type: CapabilityParamType
+): { type: string; format?: string } {
+  switch (type) {
+    case 'color':
+      return { type: 'string', format: 'color' };
+    case 'file':
+    case 'enum':
+      return { type: 'string' };
+    case 'number':
+    case 'string':
+    case 'boolean':
+    case 'object':
+    case 'array':
+      return { type };
+    default:
+      // 未知类型降级为 string,避免生成非法 JSON Schema
+      return { type: 'string' };
+  }
+}
+
 /** 单个 CapabilityParam → JSON Schema property */
 function capabilityParamToJsonSchemaProperty(p: CapabilityParam): Record<string, unknown> {
-  const prop: Record<string, unknown> = { type: p.type };
+  const { type: jsonType, format } = capabilityParamTypeToJsonType(p.type);
+  const prop: Record<string, unknown> = { type: jsonType };
+  if (format) prop.format = format;
   if (p.description) prop.description = p.description;
   if (p.default !== undefined) prop.default = p.default;
-  if (typeof p.min === 'number') prop.minimum = p.min;
-  if (typeof p.max === 'number') prop.maximum = p.max;
+  // minimum/maximum 仅对 number 合法;string 应使用 minLength/maxLength
+  // (CapabilityParam 仅定义了数值语义的 min/max,故只对 number 类型应用)
+  if (p.type === 'number') {
+    if (typeof p.min === 'number') prop.minimum = p.min;
+    if (typeof p.max === 'number') prop.maximum = p.max;
+  }
   if (p.type === 'enum' && p.values) {
     prop.enum = p.values;
   }
   if (p.type === 'array' && p.items) {
-    prop.items = { type: p.items };
+    // 递归映射 items 类型,避免 items 为 color/file/enum 时仍是非法类型
+    prop.items = capabilityParamTypeToJsonType(p.items);
   }
   return prop;
 }

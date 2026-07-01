@@ -28,6 +28,8 @@ Expected tool call: `lokvis_convert_image` with `output_format: "webp"`.
 
 Expected tool call: `lokvis_watermark_image` with `text: "Confidential"`, `position: "bottom-right"`, `opacity: 0.5`.
 
+> **Note:** `lokvis_watermark_image` is a Phase 2 planned tool (not yet implemented in the current skeleton). Skip this prompt until Phase 2 W5-W6.
+
 ## 5. Run a workflow
 
 > Run my "web-optimize" workflow on hero.png.

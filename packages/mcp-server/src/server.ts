@@ -7,6 +7,8 @@
  */
 
 import type { LokvisRuntime, RuntimeConfig } from '@lokvis/sdk';
+import type { McpManifest } from '@lokvis/schema';
+import { createLokvis } from '@lokvis/sdk';
 
 /**
  * 能力域(决定注册哪些 tools)。
@@ -72,11 +74,13 @@ export interface LokvisMcpServer {
     mimeType: string,
     handler: McpResourceHandler
   ): void;
-  /** 注册 prompt 模板 */
+  /** 注册 prompt 模板(可选 argumentsSchema 描述 AI 客户端应如何传参) */
   registerPrompt(
     name: string,
     description: string,
-    handler: McpPromptHandler
+    handler: McpPromptHandler,
+    /** prompt 参数的 JSON Schema(可选,见 MCP 规范 §3.5.4) */
+    argumentsSchema?: object
   ): void;
   /** 启动 server(阻塞,直到收到关闭信号) */
   start(): Promise<void>;
@@ -135,11 +139,11 @@ export async function createLokvisMcpServer(
   /** 已创建的 Lokvis Runtime */
   runtime: LokvisRuntime;
   /** MCP manifest(描述当前可暴露的能力) */
-  manifest: import('@lokvis/schema').McpManifest;
+  manifest: McpManifest;
 }> {
-  // 延迟 import 避免 Phase 2 SDK 未就绪时的循环依赖
-  const { createLokvis } = await import('@lokvis/sdk');
-
+  // TODO Phase 2: 用 options.workdir 创建 NodeAssetStore 注入 runtime,
+  //   使 Node 降级模式可读写本地文件(当前 runtime 使用默认内存/OPFS store,
+  //   workdir 仅在 CLI 层接收,尚未真正生效)。
   const runtime = await createLokvis(options.runtime);
   const manifest = runtime.toMcpManifest();
 

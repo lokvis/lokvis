@@ -72,19 +72,29 @@ export class ToolRouter {
 }
 
 /**
- * 把 MCP tool 名转换回 Lokvis capability 名。
- * `lokvis_compress_image` → `image.compress`(反向推断)。
+ * 把 MCP tool 名转换回 Lokvis capability 名(反向推断)。
  *
- * 约定:`lokvis_<verb>_<domain>` → `<domain>.<verb>`
- * 如 `lokvis_resize_image` → `image.resize`、`lokvis_merge_pdf` → `pdf.merge`。
+ * 与 `toMcpManifest()` 的默认 tool 名约定对齐:
+ *   `lokvis_${capability.replace(/\./g, '_')}`,即 `lokvis_<domain>_<verb>`
+ *   (domain 在前,verb 在后,点号替换为下划线)。
+ *
+ * 如 `lokvis_image_resize` → `image.resize`、`lokvis_pdf_merge` → `pdf.merge`、
+ * `lokvis_image_batch_process` → `image.batch_process`。
+ *
+ * 注意:本函数仅能可靠反推「默认 tool 名」(domain 在前的形式)。
+ * 显式 `mcpToolName` 覆盖若不遵循 `lokvis_<domain>_<verb>` 模式
+ * (如 `lokvis_compress_image`,verb 在前),则无法靠字符串反推。
+ * Phase 2 应由 ToolRouter 维护 `toolName → capability` 映射表
+ * (基于 manifest 构建),而非依赖字符串推断。
  */
 export function toolToCapability(tool: string): string {
   // 去掉 `lokvis_` 前缀
   const rest = tool.startsWith('lokvis_') ? tool.slice('lokvis_'.length) : tool;
-  // 按下划线分割,最后一段是 domain,其余拼接为 verb
+  // 按下划线分割:首段是 domain,其余用下划线还原为 verb
+  // (用下划线而非点号,以正确还原多词 verb,如 batch_process)
   const parts = rest.split('_');
   if (parts.length < 2) return rest;
-  const domain = parts[parts.length - 1]!;
-  const verb = parts.slice(0, -1).join('.');
+  const domain = parts[0]!;
+  const verb = parts.slice(1).join('_');
   return `${domain}.${verb}`;
 }
