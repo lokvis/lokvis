@@ -8,7 +8,7 @@
 
 import * as React from 'react';
 import { Button } from '@lokvis/ui-core';
-import { useWorkspaceStore } from '../store.js';
+import { useWorkspaceStore } from '../store/index.js';
 
 export interface ToolbarProps {
   title?: string;

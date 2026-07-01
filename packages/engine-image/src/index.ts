@@ -16,6 +16,6 @@
 
 export * from './types.js';
 export * from './canvas-engine.js';
-export * from './operations.js';
+export * from './operations/index.js';
 export * from './adapter.js';
 export * from './worker-adapter.js';

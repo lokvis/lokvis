@@ -2,9 +2,8 @@
 /**
  * Mermaid 图表组件
  *
- * 通过 set:html 注入源码字符串,避免 .astro 编译器把图表中的花括号
- * (如 Mermaid 时序图里的 { type: "ready" })误解析为 JSX 表达式。
- * DocLayout 中的客户端脚本会遍历 .language-mermaid 代码块并渲染为 SVG。
+ * 通过 set:html 注入源码字符串,避免花括号被解析为 JSX 表达式。
+ * 渲染脚本由 MermaidScript.astro 统一提供,每个页面只需引入一次。
  */
 interface Props {
   source: string;
@@ -12,4 +11,4 @@ interface Props {
 const { source } = Astro.props;
 ---
 
-<pre><code class="language-mermaid" set:html={source} /></pre>
+<div class="mermaid" set:html={source} />

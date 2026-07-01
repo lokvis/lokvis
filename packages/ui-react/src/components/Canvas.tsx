@@ -6,7 +6,7 @@
  */
 
 import * as React from 'react';
-import { useWorkspaceStore } from '../store.js';
+import { useWorkspaceStore } from '../store/index.js';
 
 export interface CanvasProps {
   className?: string;

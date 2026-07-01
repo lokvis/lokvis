@@ -22,7 +22,7 @@ import {
   PDF_MERGE,
   VIDEO_COMPRESS,
   IMAGE_CROP,
-} from '../presets.js';
+} from '../presets/index.js';
 
 const caps = [IMAGE_RESIZE, IMAGE_COMPRESS, PDF_MERGE, VIDEO_COMPRESS];
 
