@@ -20,7 +20,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime, RuntimeConfig } from '@lokvis/runtime';
 import type { PluginLoadEntry } from '@lokvis/sdk';
-import { useWorkspaceStore } from '../store.js';
+import { useWorkspaceStore } from '../store/index.js';
 
 export interface UseLokvisOptions extends RuntimeConfig {
   /** 预加载的插件列表 */

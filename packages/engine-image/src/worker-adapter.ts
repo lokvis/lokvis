@@ -23,7 +23,7 @@ import {
   flip,
   watermark,
   setBackground,
-} from './operations.js';
+} from './operations/index.js';
 import { canvasEngine, detectFormatSupport } from './canvas-engine.js';
 import type {
   BackgroundParams,

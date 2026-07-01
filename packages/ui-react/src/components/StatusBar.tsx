@@ -4,7 +4,7 @@
  * 紧凑单行：左侧状态指示，右侧资源统计。
  */
 
-import { useWorkspaceStore } from '../store.js';
+import { useWorkspaceStore } from '../store/index.js';
 
 export interface StatusBarProps {
   className?: string;

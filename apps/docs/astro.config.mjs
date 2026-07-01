@@ -1,5 +1,5 @@
 import { defineConfig } from 'astro/config';
-import mdx from '@astrojs/mdx';
+import starlight from '@astrojs/starlight';
 
 // https://astro.build/config
 export default defineConfig({
@@ -7,7 +7,53 @@ export default defineConfig({
   base: '/docs',
 
   integrations: [
-    mdx(),
+    starlight({
+      title: 'Lokvis',
+      description: 'Local-first Browser Workspace - Documentation',
+
+      // 多语言:i18n 基础设施
+      // 当前 root locale 为 English,后续添加中文时:
+      // 1. 创建 src/content/docs/zh-cn/ 目录并放入翻译
+      // 2. 在下方 locales 添加 'zh-cn': { label: '简体中文', lang: 'zh-CN' }
+      locales: {
+        root: { label: 'English', lang: 'en' },
+      },
+
+      // 侧边栏导航(手动配置以控制顺序)
+      sidebar: [
+        { label: 'Overview', slug: 'index' },
+        { label: 'Getting Started', slug: 'getting-started' },
+        { label: 'Architecture', slug: 'architecture' },
+        { label: 'Capabilities', slug: 'capabilities' },
+        { label: 'Plugins', slug: 'plugins' },
+        { label: 'Workflows', slug: 'workflows' },
+        { label: 'SDK', slug: 'sdk' },
+        { label: 'CLI', slug: 'cli' },
+        { label: 'Roadmap', slug: 'roadmap' },
+      ],
+
+      // 全局搜索(Pagefind 客户端搜索,构建时索引,无需服务端)
+      // Starlight 0.33+ 默认启用搜索,无需显式配置
+
+      // GitHub 编辑链接
+      editLink: {
+        baseUrl: 'https://github.com/lokvis/lokvis/edit/main/apps/docs/src/content/docs',
+      },
+
+      // 社交链接(Starlight 0.33+ 使用数组语法)
+      social: [
+        { label: 'GitHub', href: 'https://github.com/lokvis/lokvis', icon: 'github' },
+      ],
+
+      // 目录(TOC)配置
+      tableOfContents: {
+        minHeadingLevel: 2,
+        maxHeadingLevel: 3,
+      },
+
+      // 自定义 CSS(品牌色微调)
+      customCss: ['./src/styles/custom.css'],
+    }),
   ],
 
   build: {

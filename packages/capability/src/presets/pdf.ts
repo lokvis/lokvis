@@ -1,0 +1,107 @@
+/**
+ * PDF 能力预设
+ *
+ * 7 个标准 PDF 能力声明:merge / split / compress / rotate / watermark / ocr / sign。
+ */
+import type { Capability } from '@lokvis/schema';
+
+export const PDF_MERGE: Capability = {
+  name: 'pdf.merge',
+  description: 'Merge multiple PDF files into one',
+  inputTypes: ['pdf'],
+  outputTypes: ['pdf'],
+  params: [],
+  performance: 'medium',
+  batchable: false,
+};
+
+export const PDF_SPLIT: Capability = {
+  name: 'pdf.split',
+  description: 'Split a PDF into multiple files by page count or ranges',
+  inputTypes: ['pdf'],
+  outputTypes: ['data'],
+  params: [
+    { name: 'pagesPerFile', type: 'number', required: false, min: 1, description: '每个输出文件包含的页数' },
+    { name: 'ranges', type: 'array', items: 'number', required: false, description: '页码范围，如 [[1,3],[4,6]]' },
+  ],
+  performance: 'medium',
+  batchable: true,
+};
+
+export const PDF_COMPRESS: Capability = {
+  name: 'pdf.compress',
+  description: 'Compress a PDF to reduce file size',
+  inputTypes: ['pdf'],
+  outputTypes: ['pdf'],
+  params: [
+    { name: 'level', type: 'number', min: 0, max: 9, default: 6, description: '压缩级别 (0-9)' },
+  ],
+  performance: 'medium',
+  batchable: true,
+};
+
+export const PDF_ROTATE: Capability = {
+  name: 'pdf.rotate',
+  description: 'Rotate pages of a PDF by 90/180/270 degrees',
+  inputTypes: ['pdf'],
+  outputTypes: ['pdf'],
+  params: [
+    { name: 'angle', type: 'enum', values: ['90', '180', '270'], required: true, description: '旋转角度（度）' },
+    { name: 'pageNumbers', type: 'array', items: 'number', required: false, description: '指定旋转的页码（默认所有页）' },
+  ],
+  performance: 'fast',
+  batchable: true,
+};
+
+export const PDF_WATERMARK: Capability = {
+  name: 'pdf.watermark',
+  description: 'Add a text watermark to a PDF',
+  inputTypes: ['pdf'],
+  outputTypes: ['pdf'],
+  params: [
+    { name: 'text', type: 'string', required: true, description: '水印文本' },
+    { name: 'opacity', type: 'number', min: 0, max: 1, default: 0.3 },
+    { name: 'fontSize', type: 'number', default: 48 },
+    { name: 'color', type: 'color', default: '#000000' },
+  ],
+  performance: 'medium',
+  batchable: true,
+};
+
+export const PDF_OCR: Capability = {
+  name: 'pdf.ocr',
+  description: 'Extract text from a PDF via OCR',
+  inputTypes: ['pdf'],
+  outputTypes: ['text'],
+  params: [
+    { name: 'language', type: 'string', default: 'eng', description: 'OCR 语言代码' },
+    { name: 'format', type: 'enum', values: ['text', 'json', 'structured'], default: 'text', description: '输出格式' },
+  ],
+  performance: 'slow',
+  batchable: true,
+};
+
+export const PDF_SIGN: Capability = {
+  name: 'pdf.sign',
+  description: 'Digitally sign a PDF with a certificate',
+  inputTypes: ['pdf'],
+  outputTypes: ['pdf'],
+  params: [
+    { name: 'certificate', type: 'file', required: true, description: '签名证书文件' },
+    { name: 'password', type: 'string', required: true, description: '证书密码' },
+    { name: 'reason', type: 'string', required: false, description: '签名原因' },
+  ],
+  performance: 'medium',
+  batchable: true,
+};
+
+/** 所有内置 PDF 能力预设 */
+export const PDF_CAPABILITIES: Capability[] = [
+  PDF_MERGE,
+  PDF_SPLIT,
+  PDF_COMPRESS,
+  PDF_ROTATE,
+  PDF_WATERMARK,
+  PDF_OCR,
+  PDF_SIGN,
+];

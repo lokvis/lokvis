@@ -1,0 +1,21 @@
+/* Lokvis 品牌色覆盖 Starlight 默认主题 */
+
+:root {
+  /* Starlight 的 --sl-color 主题变量 */
+  --sl-color-accent: #6366f1;
+  --sl-color-accent-low: #4f46e5;
+  --sl-color-accent-high: #818cf8;
+}
+
+/* Mermaid 图表容器:居中 + 滚动 */
+.mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}

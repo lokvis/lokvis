@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "@lokvis/schema": "workspace:*",
-    "dexie": "^4.0.10",
     "mitt": "^3.0.1"
   },
   "devDependencies": {

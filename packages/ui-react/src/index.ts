@@ -15,7 +15,7 @@
  */
 
 export { useLokvis, type UseLokvisOptions, type UseLokvisResult } from './hooks/useLokvis.js';
-export { useWorkspaceStore, type WorkspaceState, type WorkspaceActions } from './store.js';
+export { useWorkspaceStore, type WorkspaceState, type WorkspaceActions } from './store/index.js';
 
 export { Workspace, type WorkspaceProps } from './components/Workspace.js';
 export { AssetPanel } from './components/AssetPanel.js';

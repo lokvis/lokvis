@@ -6,26 +6,11 @@
  */
 
 import type { Asset, AssetId, AssetMetadata, AssetSource, BlobHandle } from '@lokvis/schema';
-import { isOpfsAvailable, createOpfsAssetStore } from './opfs-asset-store.js';
-import { createIdbAssetStore } from './idb-asset-store.js';
 
 /** Asset Store 配置 */
 export interface AssetStoreConfig {
   enableOpfs: boolean;
   storageQuota: number;
-}
-
-/** 资产存储配额超限错误 */
-export class QuotaExceededError extends Error {
-  readonly used: number;
-  readonly quota: number;
-
-  constructor(used: number, quota: number) {
-    super(`Storage quota exceeded: used ${used} bytes, quota ${quota} bytes`);
-    this.name = 'QuotaExceededError';
-    this.used = used;
-    this.quota = quota;
-  }
 }
 
 /** Asset 存储接口 */
@@ -42,16 +27,6 @@ export interface AssetStore {
   list(): Promise<Asset[]>;
   /** 创建新 Asset（内部用，由 Capability 产出） */
   create(blob: Blob, metadata: AssetMetadata, type: Asset['type']): Promise<Asset>;
-}
-
-/** createAssetStore 工厂选项 */
-export interface CreateAssetStoreOptions {
-  /** 是否优先使用 OPFS(默认 true) */
-  preferOpfs?: boolean;
-  /** 是否允许降级到 IndexedDB(默认 true) */
-  allowIdbFallback?: boolean;
-  /** 存储配额(字节,默认 1GB) */
-  storageQuota?: number;
 }
 
 /** 生成唯一 ID */
@@ -169,53 +144,4 @@ export function createMemoryAssetStore(): AssetStore {
       return asset;
     },
   };
-}
-
-/**
- * 检测浏览器存储配额是否充足。
- * @param quota 配额上限(字节)
- * @throws QuotaExceededError 当已用量超过配额
- */
-export async function checkStorageQuota(quota: number): Promise<void> {
-  if (typeof navigator === 'undefined' || !navigator.storage?.estimate) return;
-  const estimate = await navigator.storage.estimate();
-  if (estimate.usage !== undefined && estimate.usage > quota) {
-    throw new QuotaExceededError(estimate.usage, quota);
-  }
-}
-
-/**
- * AssetStore 工厂:按优先级自动探测并选择最佳存储后端。
- *
- * 探测顺序:OPFS → IndexedDB(Dexie) → 内存(最终降级)。
- *
- * @param options 工厂选项
- * @returns AssetStore 实例
- */
-export function createAssetStore(options: CreateAssetStoreOptions = {}): AssetStore {
-  const {
-    preferOpfs = true,
-    allowIdbFallback = true,
-  } = options;
-
-  // L1: OPFS(大文件最优,支持 FileSystemSyncAccessHandle)
-  if (preferOpfs && isOpfsAvailable()) {
-    try {
-      return createOpfsAssetStore();
-    } catch {
-      // OPFS 初始化失败,继续降级
-    }
-  }
-
-  // L2: IndexedDB(Dexie,持久化但无 OPFS 性能优势)
-  if (allowIdbFallback && typeof indexedDB !== 'undefined') {
-    try {
-      return createIdbAssetStore();
-    } catch {
-      // IDB 初始化失败,继续降级
-    }
-  }
-
-  // L3: 内存(最终降级,不持久化)
-  return createMemoryAssetStore();
 }

@@ -21,7 +21,7 @@ import {
   PDF_SPLIT,
   VIDEO_COMPRESS,
   VIDEO_TRIM,
-} from '../presets.js';
+} from '../presets/index.js';
 import { domainOf } from '../names.js';
 
 describe('图像能力预设', () => {

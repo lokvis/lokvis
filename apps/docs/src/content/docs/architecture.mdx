@@ -1,0 +1,125 @@
+---
+title: Architecture
+description: Lokvis five-layer architecture, Worker isolation, HistoryStack, and AssetStore diagrams.
+draft: false
+head: []
+---
+
+import Mermaid from '../../components/Mermaid.astro';
+import MermaidScript from '../../components/MermaidScript.astro';
+import {
+  workerSequenceDiagram,
+  workerStateDiagram,
+  engineWorkerFlow,
+  historyStackStructure,
+  historyOperationFlow,
+  assetStoreFallbackFlow,
+  assetStoreLayout,
+  runtimeRunSequence,
+  undoRedoFlow,
+} from '../../diagrams/index.js';
+
+<MermaidScript />
+
+Lokvis follows a strict five-layer architecture with one-way dependencies. See `docs/whitepaper/04-技术架构设计.md` for the full spec.
+
+## Layers
+
+### 1. UI Layer
+
+Astro 7 + React 19 + Tailwind v4. Renders the Workspace UI and tool pages.
+
+### 2. Workflow Layer
+
+Linear workflow executor (Year 1 only). Each workflow is a chain of `transform` nodes connected by edges. No branches, loops, conditions, or parallelism yet.
+
+### 3. Runtime Layer
+
+The "browser operating system". Single responsibility: `Input → Run → Output`. Manages assets, capabilities, history, and event bus. Never knows about React.
+
+### 4. Capability Layer
+
+`<domain>.<action>` naming convention (e.g. `image.resize`, `video.transcode`). Runtime never knows about FFmpeg — only about capabilities.
+
+### 5. Engine Layer
+
+Pluggable adapters wrap WASM libraries (Squoosh, ffmpeg.wasm, pdf-lib). The MVP image engine uses native browser Canvas + createImageBitmap for zero-dependency fastest first paint.
+
+## Dependency Rules
+
+- `lokvis-open` never imports from `lokvis-cloud`
+- Runtime never knows about React / Redux
+- Schema never knows about Runtime
+- Plugin never knows about Cloud
+
+## Storage
+
+Metadata in IndexedDB (via Dexie in future), large files in OPFS (Origin Private File System). Runtime only manipulates AssetIds — never raw Blobs.
+
+## Worker 隔离(Worker Isolation)
+
+所有重计算(图像编解码、未来 WASM 引擎)运行在独立 Web Worker 内,与主线程 UI 解耦,避免长任务阻塞渲染(对应白皮书 T1「浏览器内存/性能 ★★★★★」)。跨域隔离(COOP/COEP)在 `apps/web/public/_headers` 配置,启用 `SharedArrayBuffer` 供多线程 WASM 使用。
+
+### 通信协议(`@lokvis/runtime` worker-protocol)
+
+纯 JSON 消息,按流向分两组:
+
+- **Host → Worker**:`request`(带 id 的方法调用)、`ping`(心跳)
+- **Worker → Host**:`response`(按 id 关联)、`pong`、`event`(进度等)、`ready`(握手)、`error`(致命错误)
+
+Worker 启动后主动发 `ready`(携带协议版本),Host 校验版本后才开始发送请求。
+
+**协议交互时序**(ready 握手 → 心跳 → 请求/响应 → 崩溃重启):
+
+<Mermaid source={workerSequenceDiagram} />
+
+### Host 管理(`WorkerHost`)
+
+- **Request/Response**:每个请求唯一 id,响应按 id 关联;每请求独立超时(默认 60s)。
+- **心跳与超时**:Host 周期性 `ping`(默认 5s),Worker 必须在超时(默认 15s)内 `pong`,否则视为崩溃。
+- **崩溃重启**:传输层 error / 心跳超时 → 终止当前 Worker、拒绝所有 pending、重建新 Worker(最多 `maxRestarts` 次,默认 3)。超过上限进入 `dead`,交由上层降级。
+- **传输层抽象**:`WorkerTransport` 接口屏蔽浏览器 Worker / 测试 Fake 差异,使协议与重启逻辑可在 Node 单测中验证。
+
+**WorkerHost 状态机**(idle → ready → restarting → dead/disposed):
+
+<Mermaid source={workerStateDiagram} />
+
+### Engine in Worker(`@lokvis/engine-image` worker-adapter)
+
+图像操作在 Worker 内基于 `OffscreenCanvas` + `createImageBitmap` 渲染。Worker 入口调用 `startImageWorker()` 完成 ready 握手、ping→pong、request→response 接线;方法名与能力名对齐(`image.resize` / `image.compress` / …)。该模块仅依赖 `@lokvis/schema`,消息结构与 runtime 协议兼容,不反向依赖 runtime。
+
+**Engine Image Worker 接线流程**(Worker 线程内部):
+
+<Mermaid source={engineWorkerFlow} />
+
+## 历史栈与 undo/redo(`HistoryStack`)
+
+每个工作流拥有独立的 `HistoryStack`,记录每一步 transform 的 `HistoryEntry`。undo/redo 通过 cursor(游标)实现:cursor 指向最后一条已应用的 entry;append 新操作时截断 cursor 之后的 redo 分支;超出上限(默认 10 步)时 LRU 淘汰最旧条目并回调 `onEvict` 通知调用方清理 OPFS 资产。每次变更通过 eventBus 发出 `history:changed` 事件。
+
+**HistoryStack 内部结构**:
+
+<Mermaid source={historyStackStructure} />
+
+**append / undo / redo 与 redo 分支截断流程**:
+
+<Mermaid source={historyOperationFlow} />
+
+## 资产存储与三级降级(`AssetStore`)
+
+Runtime 只操作 `AssetId`,不直接持有 Blob。资产存储由 `createAssetStore()` 工厂按优先级自动探测最佳后端:OPFS(最优,支持 `FileSystemSyncAccessHandle`)→ IndexedDB(Dexie,持久化降级)→ 内存(最终降级,不持久化)。每个后端用 `BlobHandle.path` 前缀(`opfs://` / `idb://` / `memory://`)区分。Runtime 在 `run()` 前执行 `checkStorageQuota()`,超限抛 `QuotaExceededError`。
+
+**createAssetStore 三级降级探测链**:
+
+<Mermaid source={assetStoreFallbackFlow} />
+
+**OPFS / IDB / 内存三种后端的数据布局**:
+
+<Mermaid source={assetStoreLayout} />
+
+**Runtime run() 与配额校验、历史记录接通流程**:
+
+<Mermaid source={runtimeRunSequence} />
+
+**undo/redo 端到端流程**(含游标移动与事件触发):
+
+<Mermaid source={undoRedoFlow} />

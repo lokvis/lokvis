@@ -7,7 +7,7 @@
 
 import * as React from 'react';
 import type { LokvisEvent } from '@lokvis/schema';
-import { useWorkspaceStore } from '../store.js';
+import { useWorkspaceStore } from '../store/index.js';
 
 interface HistoryItem {
   id: string;
