@@ -10,6 +10,7 @@ import type {
   AssetId,
   AssetSource,
   Capability,
+  EngineSelectionStrategy,
   HistoryEntry,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
@@ -26,6 +27,12 @@ export interface RuntimeConfig {
   storageQuota?: number;
   /** 是否启用日志 */
   enableLog?: boolean;
+  /**
+   * 引擎选择策略(默认 'first')。
+   * 当多个引擎实现同一能力且未显式指定 preferredEngine 时,据此选择:
+   * 'first'(注册顺序)/'fastest'(性能最优)/'balanced'(匹配能力声明性能,无则最快)。
+   */
+  engineStrategy?: EngineSelectionStrategy;
   /**
    * 注入自定义 AssetStore(测试或精细控制用)。
    * 默认由 createRuntime 通过 createAssetStore 工厂自动创建,

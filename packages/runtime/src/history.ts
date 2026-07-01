@@ -151,6 +151,20 @@ export class HistoryStack {
     this.notifyChanged();
   }
 
+  /**
+   * 重置历史:清空所有条目并对每条触发 onEvict(清理其 outputs 资产)。
+   * 用于工作流重新执行(run)时丢弃上一次(可能失败的)历史,避免资产泄漏。
+   * 与 clear() 的区别:clear() 仅重置内存状态,reset() 同时回收资产。
+   */
+  reset(): void {
+    if (this.entries.length > 0) {
+      this.notifyEvict(this.entries);
+    }
+    this.entries = [];
+    this.cursor = -1;
+    this.notifyChanged();
+  }
+
   /** 导出快照(用于持久化到 IndexedDB) */
   snapshot(): HistoryStackSnapshot {
     return {

@@ -9,6 +9,8 @@ import type {
   Capability,
   CapabilityImplementation,
   CapabilityName,
+  EngineSelectionStrategy,
+  PerformanceLevel,
 } from '@lokvis/schema';
 
 /** 能力注册表项 */
@@ -19,9 +21,21 @@ interface RegistryEntry {
   implementations: CapabilityImplementation[];
 }
 
+/** 性能等级排序权重(数值越小越快) */
+const PERFORMANCE_RANK: Record<PerformanceLevel, number> = {
+  fast: 0,
+  medium: 1,
+  slow: 2,
+};
+
 /** 能力注册中心 */
 export class CapabilityRegistry {
   private registry = new Map<CapabilityName, RegistryEntry>();
+  private readonly defaultStrategy: EngineSelectionStrategy;
+
+  constructor(defaultStrategy: EngineSelectionStrategy = 'first') {
+    this.defaultStrategy = defaultStrategy;
+  }
 
   /** 注册一个能力声明 */
   registerCapability(capability: Capability): void {
@@ -58,7 +72,11 @@ export class CapabilityRegistry {
     return this.registry.get(name)?.capability;
   }
 
-  /** 解析能力实现（根据引擎优先级或第一个可用） */
+  /**
+   * 解析能力实现。
+   * - 若指定 preferredEngine 且存在匹配实现,直接返回;
+   * - 否则按构造时设定的 defaultStrategy 选择('first'/'fastest'/'balanced')。
+   */
   resolve(name: CapabilityName, preferredEngine?: string): CapabilityImplementation | undefined {
     const entry = this.registry.get(name);
     if (!entry || entry.implementations.length === 0) return undefined;
@@ -68,8 +86,46 @@ export class CapabilityRegistry {
       if (impl) return impl;
     }
 
-    // 默认返回第一个实现
-    return entry.implementations[0];
+    return this.selectByStrategy(entry.implementations, entry.capability);
+  }
+
+  /** 按默认策略从实现列表中选择一个 */
+  private selectByStrategy(
+    impls: CapabilityImplementation[],
+    capability: Capability
+  ): CapabilityImplementation {
+    switch (this.defaultStrategy) {
+      case 'first':
+        return impls[0]!;
+      case 'fastest':
+        return this.fastest(impls, capability);
+      case 'balanced': {
+        // 优先取与能力声明 performance 匹配的实现(同档按注册顺序)
+        const target = capability.performance;
+        const matching = impls.filter((i) => this.perfOf(i, capability) === target);
+        if (matching.length > 0) return matching[0]!;
+        // 无匹配则退化为最快
+        return this.fastest(impls, capability);
+      }
+    }
+  }
+
+  /** 取性能等级最优的实现(同档按注册顺序,稳定排序) */
+  private fastest(
+    impls: CapabilityImplementation[],
+    capability: Capability
+  ): CapabilityImplementation {
+    return impls.reduce((best, cur) => {
+      const a = PERFORMANCE_RANK[this.perfOf(best, capability)];
+      const b = PERFORMANCE_RANK[this.perfOf(cur, capability)];
+      // 仅当严格更优时替换,保证同档保留先注册的(稳定性)
+      return b < a ? cur : best;
+    }, impls[0]!);
+  }
+
+  /** 实现的性能等级:优先用实现自身声明,缺省回退到能力声明 */
+  private perfOf(impl: CapabilityImplementation, capability: Capability): PerformanceLevel {
+    return impl.performance ?? capability.performance;
   }
 
   /** 清除所有注册 */

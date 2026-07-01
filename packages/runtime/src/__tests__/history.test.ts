@@ -285,6 +285,31 @@ describe('HistoryStack jumpTo / clear / snapshot', () => {
     expect(s.canUndo).toBe(false);
   });
 
+  it('reset 清空条目并触发 onEvict 回收每条 outputs 资产', () => {
+    const evicted: HistoryEntry[] = [];
+    const s = new HistoryStack(WF, {
+      onEvict: (e) => evicted.push(e),
+    });
+    s.append(entry(0));
+    s.append(entry(1));
+    s.append(entry(2));
+    s.reset();
+    expect(s.length).toBe(0);
+    expect(s.currentIndex).toBe(-1);
+    expect(s.canUndo).toBe(false);
+    // 三条历史都应被通知清理(用于 run 重跑时回收中间产物)
+    expect(evicted).toEqual([entry(0), entry(1), entry(2)]);
+  });
+
+  it('reset 空栈不应触发 onEvict', () => {
+    const evicted: HistoryEntry[] = [];
+    const s = new HistoryStack(WF, {
+      onEvict: (e) => evicted.push(e),
+    });
+    expect(() => s.reset()).not.toThrow();
+    expect(evicted).toEqual([]);
+  });
+
   it('snapshot / restore 往返', () => {
     const s = new HistoryStack(WF);
     s.append(entry(0));

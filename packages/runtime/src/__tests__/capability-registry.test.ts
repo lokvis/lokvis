@@ -152,3 +152,84 @@ describe('CapabilityRegistry', () => {
     });
   });
 });
+
+describe('CapabilityRegistry 引擎选择策略(O2)', () => {
+  /** capability 声明为 medium,实现各有不同 perf */
+  const capMedium: Capability = {
+    name: 'image.resize',
+    description: 'Resize',
+    inputTypes: ['image'],
+    outputTypes: ['image'],
+    params: [],
+    performance: 'medium',
+  };
+  /** canvas:fast(实现级覆盖),squoosh:medium(同声明),wasm:未声明→回退 medium */
+  const implCanvasFast: CapabilityImplementation = {
+    capability: 'image.resize',
+    engine: 'canvas',
+    performance: 'fast',
+    execute: async () => [],
+  };
+  const implSquooshMedium: CapabilityImplementation = {
+    capability: 'image.resize',
+    engine: 'squoosh',
+    performance: 'medium',
+    execute: async () => [],
+  };
+  const implWasmUnset: CapabilityImplementation = {
+    capability: 'image.resize',
+    engine: 'wasm',
+    execute: async () => [], // 无 performance → 回退到 capability.performance='medium'
+  };
+
+  function setup(
+    strategy: 'first' | 'fastest' | 'balanced',
+    impls: CapabilityImplementation[] = [implCanvasFast, implSquooshMedium, implWasmUnset]
+  ) {
+    const reg = new CapabilityRegistry(strategy);
+    reg.registerCapability(capMedium);
+    for (const i of impls) reg.registerImplementation(i);
+    return reg;
+  }
+
+  it('first 策略按注册顺序取第一个', () => {
+    const reg = setup('first');
+    expect(reg.resolve('image.resize')!.engine).toBe('canvas');
+  });
+
+  it('fastest 策略取性能最优(fast 优先)', () => {
+    const reg = setup('fastest', [implSquooshMedium, implCanvasFast, implWasmUnset]);
+    // canvas=fast 最优,即使后注册
+    expect(reg.resolve('image.resize')!.engine).toBe('canvas');
+  });
+
+  it('fastest 同档时保留先注册的(稳定性)', () => {
+    const reg = setup('fastest', [implSquooshMedium, implWasmUnset]);
+    // 两者均 medium( wasm 未声明回退到 capability=medium),取先注册的 squoosh
+    expect(reg.resolve('image.resize')!.engine).toBe('squoosh');
+  });
+
+  it('balanced 策略优先匹配能力声明的 performance(medium)', () => {
+    const reg = setup('balanced', [implCanvasFast, implSquooshMedium, implWasmUnset]);
+    // capability.performance='medium',squoosh 声明 medium,优先选它
+    expect(reg.resolve('image.resize')!.engine).toBe('squoosh');
+  });
+
+  it('balanced 无匹配时退化为最快', () => {
+    // 全部为 fast,无 medium 匹配 → 退化 fastest
+    const reg = setup('balanced', [implCanvasFast, { ...implCanvasFast, engine: 'canvas2' }]);
+    expect(reg.resolve('image.resize')!.performance).toBe('fast');
+  });
+
+  it('preferredEngine 仍优先于策略', () => {
+    const reg = setup('fastest', [implCanvasFast, implSquooshMedium]);
+    // 显式指定 squoosh,即使 canvas 更快
+    expect(reg.resolve('image.resize', 'squoosh')!.engine).toBe('squoosh');
+  });
+
+  it('实现未声明 performance 时回退到能力声明', () => {
+    const reg = setup('fastest', [implWasmUnset, implSquooshMedium]);
+    // wasm 回退到 capability='medium',与 squoosh 同档,取先注册的 wasm
+    expect(reg.resolve('image.resize')!.engine).toBe('wasm');
+  });
+});

@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { LokvisRuntimeImpl, QuotaExceededError } from '../../runtime.js';
-import { createMemoryAssetStore } from '../../asset-store.js';
+import { createMemoryAssetStore, type AssetStore } from '../../asset-store.js';
 import type {
   Asset,
   Capability,
@@ -174,7 +174,7 @@ describe('集成:resize → compress → undo → redo', () => {
     expect(runtime._getCurrentOutputs(WF_ID)).toEqual(['asset-compressed']);
   });
 
-  it('undo 后新增操作应截断 redo 分支', async () => {
+  it('重跑工作流应清空旧历史(reset),仅保留本次执行的条目(A3)', async () => {
     const wf = buildWorkflow();
     const inputAsset: Asset = {
       id: 'asset-input',
@@ -187,16 +187,20 @@ describe('集成:resize → compress → undo → redo', () => {
       updatedAt: 0,
     };
     await runtime.run(wf, [inputAsset]);
-    await runtime.undo(WF_ID); // 回到 resize
+    await runtime.undo(WF_ID); // 回到 resize(cursor=0)
 
-    // 再跑一次相同 workflow(产生新 history)→ 应截断原 compress 分支
+    // 重跑同一工作流:run() 入口应 reset 旧栈(含被 undo 的 redo 分支),
+    // 重新执行后历史仅含本次的 2 条,而非与旧历史叠加。
     await runtime.run(wf, [inputAsset]);
     const history = await runtime.history(WF_ID);
-    // 第一次 run:2 条(resize+compress),undo 到 resize,再 run 又 2 条
-    // 但 redo 分支被截断后,历史应为 [resize(old), resize(new), compress(new)]
-    // 注意:append 截断的是 cursor 之后的 redo 分支
-    expect(history.length).toBe(3);
+    expect(history).toHaveLength(2);
+    expect(history[0]!.capability).toBe('image.resize');
+    expect(history[1]!.capability).toBe('image.compress');
     expect(history.at(-1)!.outputs).toEqual(['asset-compressed']);
+    // undo 回到初始(重跑后游标重置,可 undo 2 步)
+    await runtime.undo(WF_ID);
+    await runtime.undo(WF_ID);
+    expect(runtime._getCurrentOutputs(WF_ID)).toEqual(['asset-input']);
   });
 
   it('history:changed 事件应在 undo/redo 时发射', async () => {
@@ -300,5 +304,175 @@ describe('集成:Runtime storageQuota 校验(W2.9)', () => {
     expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(
       QuotaExceededError
     );
+  });
+});
+
+describe('集成:wrapAssetStoreWithQuota ensureInit 懒加载(T2)', () => {
+  /**
+   * 包裹 Memory store,记录 list() 调用次数,用于验证 ensureInit 的懒加载语义。
+   * ensureInit 仅在 import/create 首次调用时执行一次 inner.list() 累计初始 usage,
+   * 构造时及 remove/get/getBlob/list 均不应触发。
+   */
+  function makeCountingStore() {
+    const inner = createMemoryAssetStore();
+    let listCalls = 0;
+    const store: AssetStore = {
+      import: (s) => inner.import(s),
+      get: (id) => inner.get(id),
+      getBlob: (h) => inner.getBlob(h),
+      remove: (id) => inner.remove(id),
+      list: async () => {
+        listCalls++;
+        return inner.list();
+      },
+      create: (b, m, t) => inner.create(b, m, t),
+    };
+    return { store, inner, getListCalls: () => listCalls };
+  }
+
+  it('构造 Runtime 时不应调用 inner.list()(懒加载)', () => {
+    const { store, getListCalls } = makeCountingStore();
+    new LokvisRuntimeImpl({ assetStore: store, storageQuota: 1024 });
+    expect(getListCalls()).toBe(0);
+  });
+
+  it('首次 import 触发 ensureInit 调用 list() 一次', async () => {
+    const { store, getListCalls } = makeCountingStore();
+    const runtime = new LokvisRuntimeImpl({
+      assetStore: store,
+      storageQuota: 1024,
+    });
+    await runtime.importAsset({
+      kind: 'blob',
+      blob: new Blob([new Uint8Array([1])], { type: 'image/png' }),
+      name: 'a.png',
+    });
+    expect(getListCalls()).toBe(1);
+  });
+
+  it('后续 import 不应重复调用 list()', async () => {
+    const { store, getListCalls } = makeCountingStore();
+    const runtime = new LokvisRuntimeImpl({
+      assetStore: store,
+      storageQuota: 1024,
+    });
+    const blob = () =>
+      new Blob([new Uint8Array([1])], { type: 'image/png' });
+    await runtime.importAsset({ kind: 'blob', blob: blob(), name: 'a.png' });
+    await runtime.importAsset({ kind: 'blob', blob: blob(), name: 'b.png' });
+    await runtime.importAsset({ kind: 'blob', blob: blob(), name: 'c.png' });
+    expect(getListCalls()).toBe(1);
+  });
+
+  it('首次 create(无前置 import)也应触发 ensureInit 调用 list() 一次', async () => {
+    const { store, getListCalls } = makeCountingStore();
+    const runtime = new LokvisRuntimeImpl({
+      assetStore: store,
+      storageQuota: 1024,
+    });
+    await runtime._getAssetStore().create(
+      new Blob([new Uint8Array([1])], { type: 'image/png' }),
+      { mimeType: 'image/png', size: 1, format: 'png' },
+      'image'
+    );
+    expect(getListCalls()).toBe(1);
+  });
+
+  it('create 在 import 之后应复用已初始化状态,不重复 list()', async () => {
+    const { store, getListCalls } = makeCountingStore();
+    const runtime = new LokvisRuntimeImpl({
+      assetStore: store,
+      storageQuota: 1024,
+    });
+    await runtime.importAsset({
+      kind: 'blob',
+      blob: new Blob([new Uint8Array([1])], { type: 'image/png' }),
+      name: 'a.png',
+    });
+    await runtime._getAssetStore().create(
+      new Blob([new Uint8Array([1])], { type: 'image/png' }),
+      { mimeType: 'image/png', size: 1, format: 'png' },
+      'image'
+    );
+    expect(getListCalls()).toBe(1);
+  });
+
+  it('remove 不应触发懒加载初始化', async () => {
+    const { store, getListCalls } = makeCountingStore();
+    const runtime = new LokvisRuntimeImpl({
+      assetStore: store,
+      storageQuota: 1024,
+    });
+    // remove 在无任何 import 之前调用:不应触发 ensureInit(listCalls 仍为 0)
+    await runtime.removeAsset('nonexistent');
+    expect(getListCalls()).toBe(0);
+  });
+
+  it('ensureInit 应累计已有资产大小作为初始 usage', async () => {
+    const { store, inner } = makeCountingStore();
+    // 预先在 inner store 中放入 8 字节资产(模拟持久化存储恢复后的状态)
+    await inner.import({
+      kind: 'blob',
+      blob: new Blob([new Uint8Array(8)], { type: 'image/png' }),
+      name: 'pre.png',
+    });
+    // 配额 10,已有 8,再导入 5 应超限(8 + 5 > 10)
+    const runtime = new LokvisRuntimeImpl({
+      assetStore: store,
+      storageQuota: 10,
+    });
+    await expect(
+      runtime.importAsset({
+        kind: 'blob',
+        blob: new Blob([new Uint8Array(5)], { type: 'image/png' }),
+        name: 'new.png',
+      })
+    ).rejects.toBeInstanceOf(QuotaExceededError);
+  });
+});
+
+describe('集成:节点空输出不记录历史(T6)', () => {
+  it('能力返回空输出的节点不应被记录到历史栈', async () => {
+    const runtime = makeRuntime();
+    const reg = runtime._getCapabilityRegistry();
+    reg.registerCapability(makeCapabilityDecl('image.noop'));
+    reg.registerImplementation({
+      capability: 'image.noop',
+      engine: 'fake',
+      execute: async () => [], // 空输出
+    });
+    const wf: Workflow = {
+      id: WF_ID,
+      version: '1.0.0',
+      name: 'noop-only',
+      description: 'test',
+      author: { id: 'a', name: 'tester' },
+      category: 'image',
+      tags: [],
+      nodes: [
+        { id: 'n-noop', type: 'transform', capability: 'image.noop', params: {} },
+      ],
+      edges: [],
+      inputs: { type: 'image', multiple: false },
+      outputs: { type: 'image', format: 'png' },
+    };
+    const inputAsset: Asset = {
+      id: 'asset-input',
+      type: 'image',
+      metadata: { mimeType: 'image/png', size: 1, format: 'png' },
+      blob: { path: 'memory://asset-input', size: 1, mimeType: 'image/png' },
+      history: [],
+      tags: [],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+
+    const result = await runtime.run(wf, [inputAsset]);
+    expect(result.status).toBe('completed');
+    expect(result.outputs).toEqual([]);
+
+    // 空输出节点不应产生历史条目
+    const history = await runtime.history(WF_ID);
+    expect(history).toHaveLength(0);
   });
 });

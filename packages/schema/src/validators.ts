@@ -30,10 +30,14 @@ export const assetMetadataSchema = z.object({
 export const workflowNodeSchema = z.object({
   id: z.string(),
   type: z.enum(['load', 'transform', 'export']),
-  capability: z.string(),
+  // capability 仅 transform 节点必填;load/export 可不填
+  capability: z.string().optional(),
   params: z.record(z.unknown()).optional(),
   label: z.string().optional(),
-});
+}).refine(
+  (node) => node.type !== 'transform' || (typeof node.capability === 'string' && node.capability.length > 0),
+  { message: 'transform 节点必须指定 capability' }
+);
 
 export const workflowEdgeSchema = z.object({
   from: z.string(),

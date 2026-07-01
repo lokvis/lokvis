@@ -16,8 +16,11 @@ export interface WorkflowNode {
   id: string;
   /** 节点类型 */
   type: NodeType;
-  /** 引用的能力名，如 `image.resize` */
-  capability: string;
+  /**
+   * 引用的能力名，如 `image.resize`。
+   * 仅 `type === 'transform'` 时必填;load/export 节点可不填。
+   */
+  capability?: string;
   /** 能力参数 */
   params?: Record<string, unknown>;
   /** 节点标签（UI 显示用） */
