@@ -7,5 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@lokvis/web", "@lokvis/playground", "@lokvis/docs"]
+  "ignore": ["@lokvis/playground", "@lokvis/docs"]
 }
