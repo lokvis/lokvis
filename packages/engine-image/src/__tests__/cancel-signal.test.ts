@@ -207,3 +207,66 @@ describe('startImageWorker cancel 消息处理', () => {
     expect(respB).toBeDefined();
   });
 });
+
+// ─── startImageWorker 异常路径 ──────────────────────────────────
+
+describe('startImageWorker 异常与边界', () => {
+  it('startImageWorker 缺省 scope(无 self)应抛错', async () => {
+    // Node 环境无 self,应抛 throwNoSelf
+    // 但本测试环境可能有 self,需临时移除
+    const originalSelf = (globalThis as { self?: unknown }).self;
+    delete (globalThis as { self?: unknown }).self;
+    try {
+      const { startImageWorker: startNoSelf } = await import('../worker-adapter.js');
+      expect(() => startNoSelf()).toThrow(/no global `self`/);
+    } finally {
+      if (originalSelf !== undefined) {
+        (globalThis as { self?: unknown }).self = originalSelf;
+      }
+    }
+  });
+
+  it('非对象 data 应被忽略', async () => {
+    const scope = new FakeScope();
+    startImageWorker(scope);
+    const before = scope.posted.length;
+
+    scope.emit('string');
+    scope.emit(42);
+    scope.emit(null);
+    await flush();
+
+    expect(scope.posted.length).toBe(before);
+  });
+
+  it('未知 type 的对象消息应被忽略', async () => {
+    const scope = new FakeScope();
+    startImageWorker(scope);
+    const before = scope.posted.length;
+
+    scope.emit({ type: 'unknown-type' });
+    scope.emit({ foo: 'bar' });
+    await flush();
+
+    expect(scope.posted.length).toBe(before);
+  });
+
+  it('重复 startImageWorker 应各自独立(不共享 inflight)', async () => {
+    const scope1 = new FakeScope();
+    const scope2 = new FakeScope();
+    startImageWorker(scope1);
+    startImageWorker(scope2);
+
+    // 两个 scope 都应发 ready
+    expect(scope1.posted[0]).toMatchObject({ type: 'ready' });
+    expect(scope2.posted[0]).toMatchObject({ type: 'ready' });
+
+    // cancel 在 scope1 不应影响 scope2 的 inflight
+    scope1.emit({ id: 'shared-id', type: 'request', method: 'nope', params: {} });
+    await flush();
+    scope1.emit({ type: 'cancel', id: 'shared-id' });
+    scope2.emit({ type: 'cancel', id: 'shared-id' });
+    await flush();
+    // 无异常即可(scope2 的 cancel 找不到对应 inflight,静默忽略)
+  });
+});

@@ -11,6 +11,8 @@ import { defineConfig } from 'vitest/config';
  *   避免未实现模块把整体覆盖率拉低到无意义水位。
  * - 阈值采用「当前基线 - 安全余量」作为下限,保证 CI 绿;
  *   目标是 M1.2(2026.10)前随测试补齐逐步 ratchet 到 lines 70%。
+ * - `pnpm test` 默认开启覆盖率(每次测试输出覆盖率数据),
+ *   `pnpm test:fast` 跳过覆盖率用于快速迭代。
  */
 export default defineConfig({
   test: {
@@ -21,7 +23,8 @@ export default defineConfig({
     // 工作区解析由 pnpm 处理，无需额外 alias
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'text-summary', 'lcov'],
+      // text:终端表格; text-summary:汇总块; json-summary:结构化 JSON(供 CI 消费); lcov:CI/lcov
+      reporter: ['text', 'text-summary', 'json-summary', 'lcov'],
       reportsDirectory: './coverage',
 
       // 仅统计已进入测试范围的核心包源码
