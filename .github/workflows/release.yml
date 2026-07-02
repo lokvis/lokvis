@@ -39,20 +39,28 @@ jobs:
           echo "Tag: $TAG"
 
           # 拉取 main / dev 引用,用于判断 tag 所在分支
-          git fetch origin main dev --no-tags 2>/dev/null || true
+          git fetch origin main dev --no-tags --force 2>/dev/null || true
           SHA="${{ github.sha }}"
 
           CHANNEL="skip"
           DIST_TAG=""
 
-          # 优先检查 main:tag 的 commit 在 main 上 → stable
-          if git branch -r --contains "$SHA" 2>/dev/null | grep -qE "origin/main$"; then
+          # 使用 merge-base --is-ancestor 判断 tag commit 是否为分支祖先
+          # 比 `git branch -r --contains` 更可靠(不依赖远端分支 ref 的即时一致性)
+          if git merge-base --is-ancestor "$SHA" origin/main 2>/dev/null; then
             CHANNEL="stable"
             DIST_TAG="latest"
-          # 其次检查 dev:tag 的 commit 仅在 dev 上 → beta
-          elif git branch -r --contains "$SHA" 2>/dev/null | grep -qE "origin/dev$"; then
+          elif git merge-base --is-ancestor "$SHA" origin/dev 2>/dev/null; then
             CHANNEL="beta"
             DIST_TAG="beta"
+          else
+            # 兜底:若 tag 格式为 vX.Y.Z-<prerelease>(如 v0.2.0-beta.0),
+            # 且未能匹配到任何分支,按命名约定视为 beta
+            if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-.+$ ]]; then
+              echo "::warning::Tag $TAG not found on main/dev; falling back to beta by naming convention"
+              CHANNEL="beta"
+              DIST_TAG="beta"
+            fi
           fi
 
           echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
@@ -83,7 +91,35 @@ jobs:
 
       - name: Publish to npm
         if: steps.channel.outputs.channel != 'skip'
-        run: pnpm changeset publish --tag ${{ steps.channel.outputs.dist-tag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
+          DIST_TAG: ${{ steps.channel.outputs.dist-tag }}
+        run: |
+          # 在 pre 模式下,changeset publish 不允许传 --tag(会报 "Releasing under
+          # custom tag is not allowed in pre mode")。此时版本已由 changeset
+          # version 提升为 X.Y.Z-<prerelease>,直接用 npm publish 逐包发布。
+          if [ -f .changeset/pre.json ]; then
+            echo "::notice::Pre mode detected. Publishing each package via npm publish --tag $DIST_TAG"
+
+            # 遍历 packages 下每个非 private 包执行 npm publish
+            for pkg_dir in packages/*/; do
+              pkg_json="${pkg_dir}package.json"
+              [ -f "$pkg_json" ] || continue
+              private=$(node -e "console.log(require('./$pkg_json').private || false)")
+              [ "$private" = "true" ] && continue
+              name=$(node -e "console.log(require('./$pkg_json').name)")
+              version=$(node -e "console.log(require('./$pkg_json').version)")
+              # 跳过已发布版本(避免 403)
+              if npm view "${name}@${version}" version >/dev/null 2>&1; then
+                echo "::notice::${name}@${version} already published, skipping"
+                continue
+              fi
+              echo "::group::Publishing ${name}@${version}"
+              (cd "$pkg_dir" && npm publish --tag "$DIST_TAG" --access public --provenance)
+              echo "::endgroup::"
+            done
+          else
+            # 稳定发布:使用 changeset publish,消耗已应用的 changesets
+            pnpm changeset publish --tag "$DIST_TAG"
+          fi
