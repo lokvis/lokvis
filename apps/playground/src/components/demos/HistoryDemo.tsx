@@ -22,14 +22,35 @@ const FILTERS = [
   { label: 'Grayscale', capability: 'image.filter', params: { preset: 'grayscale' } },
   { label: 'Invert', capability: 'image.filter', params: { preset: 'invert' } },
   { label: 'Sepia', capability: 'image.filter', params: { preset: 'sepia' } },
-  { label: 'Blur', capability: 'image.filter', params: { params: { radius: 4 } } },
+  { label: 'Blur', capability: 'image.filter', params: { preset: 'blur', radius: 4 } },
 ] as const;
+
+/** 将 HistoryEntry 渲染为可读标签:如 "Filter · Grayscale"、"Filter · Blur (r=4)" */
+function describeHistoryEntry(h: HistoryEntry): string {
+  const short = h.capability.replace(/^[a-z]+\./, '');
+  const cap = short.charAt(0).toUpperCase() + short.slice(1);
+  if (h.capability === 'image.filter') {
+    const preset = typeof h.params.preset === 'string' ? h.params.preset : '';
+    const label = preset ? preset.charAt(0).toUpperCase() + preset.slice(1) : 'Unknown';
+    const radius =
+      preset === 'blur' && typeof h.params.radius === 'number' ? ` · r=${h.params.radius}` : '';
+    return `${cap} · ${label}${radius}`;
+  }
+  const paramKeys = Object.keys(h.params);
+  if (paramKeys.length === 0) return cap;
+  const summary = paramKeys
+    .slice(0, 2)
+    .map((k) => `${k}=${JSON.stringify(h.params[k])}`)
+    .join(', ');
+  return `${cap} (${summary})`;
+}
 
 export default function HistoryDemo() {
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
   const [inputId, setInputId] = useState<AssetId | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyCursor, setHistoryCursor] = useState(-1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,7 +62,8 @@ export default function HistoryDemo() {
       setRuntime(rt);
       rt.eventBus.on('history:changed', (e) => {
         if (e.workflowId === WORKFLOW_ID) {
-          void rt?.history(WORKFLOW_ID).then(setHistory);
+          setHistory(e.entries);
+          setHistoryCursor(e.currentIndex);
         }
       });
     })();
@@ -49,7 +71,7 @@ export default function HistoryDemo() {
   }, []);
 
   async function refreshCurrent(rt: LokvisRuntime) {
-    const outs = (rt as unknown as { _getCurrentOutputs(id: string): AssetId[] })._getCurrentOutputs(WORKFLOW_ID);
+    const outs = await rt.getCurrentOutputs(WORKFLOW_ID);
     if (outs.length === 0) return;
     try {
       const blob = await rt.exportAsset(outs[0]);
@@ -70,6 +92,7 @@ export default function HistoryDemo() {
       const blob = await runtime.exportAsset(id);
       setCurrentUrl(URL.createObjectURL(blob));
       setHistory([]);
+      setHistoryCursor(-1);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -81,7 +104,7 @@ export default function HistoryDemo() {
     setError(null);
     const filter = FILTERS[filterIdx];
 
-    const outs = (runtime as unknown as { _getCurrentOutputs(id: string): AssetId[] })._getCurrentOutputs(WORKFLOW_ID);
+    const outs = await runtime.getCurrentOutputs(WORKFLOW_ID);
     const sourceId = outs.length > 0 ? outs[0] : inputId;
 
     const workflow: Workflow = {
@@ -101,7 +124,7 @@ export default function HistoryDemo() {
     };
 
     try {
-      const res = await runtime.run(workflow, [sourceId]);
+      const res = await runtime.run(workflow, [sourceId], { appendHistory: true });
       if (res.status === 'completed' && res.outputs.length > 0) {
         await refreshCurrent(runtime);
       } else if (res.status === 'failed') {
@@ -165,14 +188,14 @@ export default function HistoryDemo() {
             <div className="mx-2 h-4 w-px bg-zinc-800" />
             <button
               onClick={handleUndo}
-              disabled={history.length === 0 || busy}
+              disabled={historyCursor < 0 || busy}
               className="rounded px-2 py-1 text-[10px] font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-40"
             >
               ← Undo
             </button>
             <button
               onClick={handleRedo}
-              disabled={busy}
+              disabled={historyCursor >= history.length - 1 || busy}
               className="rounded px-2 py-1 text-[10px] font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-40"
             >
               Redo →
@@ -197,8 +220,13 @@ export default function HistoryDemo() {
 
         {/* 历史栈侧栏 */}
         <aside className="hidden w-64 flex-shrink-0 flex-col border-l border-zinc-800 bg-zinc-950/50 md:flex">
-          <header className="border-b border-zinc-800/50 px-3 py-2 text-[11px] font-semibold text-zinc-400">
-            History ({history.length})
+          <header className="flex items-center justify-between border-b border-zinc-800/50 px-3 py-2 text-[11px] font-semibold text-zinc-400">
+            <span>History ({historyCursor + 1})</span>
+            {history.length > historyCursor + 1 && (
+              <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] font-normal text-zinc-500">
+                +{history.length - historyCursor - 1} redo
+              </span>
+            )}
           </header>
           <div className="flex-1 overflow-auto p-2">
             {history.length === 0 ? (
@@ -207,18 +235,34 @@ export default function HistoryDemo() {
               </p>
             ) : (
               <ol className="space-y-1">
-                {history.map((h, i) => (
-                  <li
-                    key={h.id}
-                    className="rounded bg-zinc-900/50 px-2 py-1.5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] text-indigo-400">#{i + 1}</span>
-                      <span className="text-[9px] text-zinc-600">{new Date(h.timestamp).toLocaleTimeString()}</span>
-                    </div>
-                    <div className="mt-0.5 truncate text-[10px] text-zinc-300">{h.capability}</div>
-                  </li>
-                ))}
+                {history.map((h, i) => {
+                  const isRedo = i > historyCursor;
+                  return (
+                    <li
+                      key={h.id}
+                      className={`rounded px-2 py-1.5 ${
+                        isRedo ? 'bg-zinc-900/20 opacity-50' : 'bg-zinc-900/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[10px] text-indigo-400">
+                          #{i + 1}
+                          {isRedo && (
+                            <span className="ml-1 text-[8px] font-normal uppercase tracking-wider text-zinc-500">
+                              redo
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-[9px] text-zinc-600">
+                          {new Date(h.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 truncate text-[10px] text-zinc-300">
+                        {describeHistoryEntry(h)}
+                      </div>
+                    </li>
+                  );
+                })}
               </ol>
             )}
           </div>

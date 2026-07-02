@@ -141,6 +141,25 @@ export const IMAGE_BACKGROUND: Capability = {
   batchable: true,
 };
 
+export const IMAGE_FILTER: Capability = {
+  name: 'image.filter',
+  description: 'Apply preset filter (grayscale, invert, sepia, blur)',
+  inputTypes: ['image'],
+  outputTypes: ['image'],
+  params: [
+    {
+      name: 'preset',
+      type: 'enum',
+      values: ['grayscale', 'invert', 'sepia', 'blur'],
+      required: true,
+      description: 'Filter preset name',
+    },
+    { name: 'radius', type: 'number', required: false, min: 1, max: 100, default: 4, description: 'Blur radius in pixels (blur preset only)' },
+  ],
+  performance: 'fast',
+  batchable: true,
+};
+
 /** 所有内置图像能力预设 */
 export const IMAGE_CAPABILITIES: Capability[] = [
   IMAGE_RESIZE,
@@ -151,4 +170,5 @@ export const IMAGE_CAPABILITIES: Capability[] = [
   IMAGE_FLIP,
   IMAGE_WATERMARK,
   IMAGE_BACKGROUND,
+  IMAGE_FILTER,
 ];

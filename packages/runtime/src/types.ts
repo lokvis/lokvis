@@ -55,6 +55,17 @@ export interface ToMcpManifestOptions {
   batchMode?: boolean;
 }
 
+/**
+ * `run()` 选项。
+ *
+ * - `appendHistory`:为 true 时,同一工作流 ID 的后续 run() 在已有历史栈上
+ *   追加条目(支持跨次 undo/redo 链,如 playground HistoryDemo 的连续滤镜)。
+ *   默认 false —— 每次 run() 重置历史栈,与"重新执行"语义一致。
+ */
+export interface RunOptions {
+  appendHistory?: boolean;
+}
+
 /** 核心 Runtime API（第一版，必须克制） */
 export interface LokvisRuntime {
   /** Runtime 版本 */
@@ -66,7 +77,7 @@ export interface LokvisRuntime {
 
   // ─── 工作流执行 ──────────────────────────────────────
   /** 运行工作流 */
-  run(workflow: Workflow, inputs: AssetId[] | Asset[]): Promise<WorkflowResult>;
+  run(workflow: Workflow, inputs: AssetId[] | Asset[], options?: RunOptions): Promise<WorkflowResult>;
   /** 取消运行 */
   cancel(workflowId: string): Promise<void>;
   /** 暂停运行 */

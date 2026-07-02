@@ -22,6 +22,7 @@ export * from './utils.js';
 export * from './transform.js';
 export * from './encode.js';
 export * from './watermark.js';
+export * from './filters.js';
 export * from './compress-target.js';
 
 /** 解码图像元数据（不保留 bitmap） */

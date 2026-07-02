@@ -26,6 +26,7 @@ import {
   flip as opFlip,
   watermark as opWatermark,
   setBackground as opSetBackground,
+  filter as opFilter,
 } from '@lokvis/engine-image';
 
 /** Capability 名 → 操作函数的映射类型 */
@@ -103,6 +104,7 @@ const rotateOp: ImageOperation = (blob, params) => opRotate(blob, params);
 const flipOp: ImageOperation = (blob, params) => opFlip(blob, params);
 const watermarkOp: ImageOperation = (blob, params) => opWatermark(blob, params);
 const backgroundOp: ImageOperation = (blob, params) => opSetBackground(blob, params);
+const filterOp: ImageOperation = (blob, params) => opFilter(blob, params);
 
 /** 全部图像能力实现项 */
 export const IMAGE_CAPABILITY_ENTRIES: ImageCapabilityEntry[] = [
@@ -114,6 +116,7 @@ export const IMAGE_CAPABILITY_ENTRIES: ImageCapabilityEntry[] = [
   { capability: 'image.flip',        engine: 'canvas', operation: flipOp },
   { capability: 'image.watermark',   engine: 'canvas', operation: watermarkOp },
   { capability: 'image.background',  engine: 'canvas', operation: backgroundOp },
+  { capability: 'image.filter',      engine: 'canvas', operation: filterOp },
 ];
 
 /**

@@ -20,7 +20,7 @@ export interface HistoryStackConfig {
   /** 淘汰条目时的回调,用于清理 OPFS 资产 */
   onEvict?: (entry: HistoryEntry) => void;
   /** 历史变更时的回调,用于转发为 eventBus 事件 */
-  onChanged?: (workflowId: string, entries: HistoryEntry[]) => void;
+  onChanged?: (workflowId: string, entries: HistoryEntry[], currentIndex: number) => void;
 }
 
 /** HistoryStack 状态(供序列化/恢复使用) */
@@ -216,7 +216,7 @@ export class HistoryStack {
   }
 
   private notifyChanged(): void {
-    this.config.onChanged?.(this.workflowId, this.list());
+    this.config.onChanged?.(this.workflowId, this.list(), this.cursor);
   }
 }
 

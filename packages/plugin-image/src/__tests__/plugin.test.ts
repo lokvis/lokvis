@@ -13,6 +13,7 @@ import type {
 
 // 桩 engine-image 操作，避免依赖 Canvas / createImageBitmap
 vi.mock('@lokvis/engine-image', () => ({
+  canvasEngine: { version: '0.1.0' },
   resize: vi.fn(async (blob: Blob) => blob),
   compress: vi.fn(async (blob: Blob) => blob),
   convert: vi.fn(async (blob: Blob) => blob),
@@ -21,6 +22,7 @@ vi.mock('@lokvis/engine-image', () => ({
   flip: vi.fn(async (blob: Blob) => blob),
   watermark: vi.fn(async (blob: Blob) => blob),
   setBackground: vi.fn(async (blob: Blob) => blob),
+  filter: vi.fn(async (blob: Blob) => blob),
 }));
 
 // 在 vi.mock 之后导入被测模块
@@ -96,9 +98,9 @@ describe('imageToolsPlugin 定义', () => {
     expect(typeof plugin.install).toBe('function');
   });
 
-  it('config.capabilities 应包含全部 8 个图像能力声明', () => {
+  it('config.capabilities 应包含全部 9 个图像能力声明', () => {
     const plugin = imageToolsPlugin();
-    expect(plugin.config.capabilities).toHaveLength(8);
+    expect(plugin.config.capabilities).toHaveLength(9);
     const names = plugin.config.capabilities.map((c) => c.name);
     expect(names).toContain('image.resize');
     expect(names).toContain('image.compress');
@@ -125,10 +127,10 @@ describe('imageToolsPlugin install', () => {
     mock = createMockContext();
   });
 
-  it('install 应注册 8 个能力实现', async () => {
+  it('install 应注册 9 个能力实现', async () => {
     const plugin = imageToolsPlugin();
     await plugin.install(mock.ctx);
-    expect(mock.registered).toHaveLength(8);
+    expect(mock.registered).toHaveLength(9);
   });
 
   it('install 应记录 info 日志', async () => {
@@ -136,7 +138,7 @@ describe('imageToolsPlugin install', () => {
     await plugin.install(mock.ctx);
     expect(mock.logs).toHaveLength(1);
     expect(mock.logs[0]!.level).toBe('info');
-    expect(mock.logs[0]!.message).toMatch(/Registered 8 image capabilities/);
+    expect(mock.logs[0]!.message).toMatch(/Registered 9 image capabilities/);
   });
 
   it('注册的实现 capability 名应与声明一一对应', async () => {
@@ -156,8 +158,8 @@ describe('imageToolsPlugin install', () => {
 });
 
 describe('buildImageCapabilityImplementations', () => {
-  it('IMAGE_CAPABILITY_ENTRIES 应有 8 个条目', () => {
-    expect(IMAGE_CAPABILITY_ENTRIES).toHaveLength(8);
+  it('IMAGE_CAPABILITY_ENTRIES 应有 9 个条目', () => {
+    expect(IMAGE_CAPABILITY_ENTRIES).toHaveLength(9);
   });
 
   it('每个条目的 engine 应为 canvas', () => {

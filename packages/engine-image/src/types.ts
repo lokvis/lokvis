@@ -83,6 +83,16 @@ export interface BackgroundParams {
   color: string;
 }
 
+/** 滤镜预设名 */
+export type FilterPreset = 'grayscale' | 'invert' | 'sepia' | 'blur';
+
+/** 滤镜参数 */
+export interface FilterParams {
+  preset: FilterPreset;
+  /** blur 专用：模糊半径(px) */
+  radius?: number;
+}
+
 /** 解码后的位图与元数据 */
 export interface DecodedImage {
   bitmap: ImageBitmap;

@@ -203,6 +203,27 @@ describe('集成:resize → compress → undo → redo', () => {
     expect(runtime._getCurrentOutputs(WF_ID)).toEqual(['asset-input']);
   });
 
+  it('appendHistory 模式下重跑工作流应累积历史而非清空', async () => {
+    const wf = buildWorkflow();
+    const inputAsset: Asset = {
+      id: 'asset-input',
+      type: 'image',
+      metadata: { mimeType: 'image/png', size: 1, format: 'png' },
+      blob: { path: 'memory://asset-input', size: 1, mimeType: 'image/png' },
+      history: [],
+      tags: [],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    await runtime.run(wf, [inputAsset]);
+
+    // appendHistory:第二次 run 在已有历史上追加
+    await runtime.run(wf, [inputAsset], { appendHistory: true });
+    const history = await runtime.history(WF_ID);
+    // 第一次 2 条 + 第二次 2 条 = 4 条
+    expect(history).toHaveLength(4);
+  });
+
   it('history:changed 事件应在 undo/redo 时发射', async () => {
     const wf = buildWorkflow();
     const inputAsset: Asset = {

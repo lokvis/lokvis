@@ -6,6 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   site: 'https://lokvis.com',
   base: '/playground',
+  server: { port: 5601 },
 
   integrations: [react()],
 

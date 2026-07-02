@@ -216,7 +216,8 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
 
   async run(
     workflow: Workflow,
-    inputs: AssetId[] | Asset[]
+    inputs: AssetId[] | Asset[],
+    options?: import('./types.js').RunOptions
   ): Promise<WorkflowResult> {
     this._status = 'running';
 
@@ -246,26 +247,25 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       return result;
     }
 
-    // 重新执行同一工作流时,丢弃上一次的历史(含失败后重跑的残留条目),
-    // 并通过 onEvict 回收其 outputs 资产,避免 OPFS/IDB 泄漏。
-    // 初始输入 Asset 不在历史栈中,不受影响。
-    const existingStack = this.historyStacks.get(workflow.id);
-    if (existingStack) {
-      existingStack.reset();
-    }
-
-    // 修复 review 报告：historyStacks / initialInputsMap / currentOutputsMap 三 Map
-    // 持久累积,workflow.id 每次都不同（ui-react buildLinearWorkflow 用
-    // `wf_${Date.now()}`），导致 100 次运行后 Map 仍有 100 个旧 workflow 的 entry,
-    // 旧 entry 引用的 AssetId 不再可被外部访问但 AssetStore 中对象仍存在 → 内存泄漏。
-    // 用 LRU 上限清理最旧 workflow 的 stack（reset 触发 onEvict → assetStore.remove）
-    this.enforceHistoryStacksLimit();
-
-    // 记录初始输入 AssetId(用于 undo 回到初始状态)
+    // 历史栈管理：
+    // - 默认:每次 run() 重置历史(重跑语义),并通过 onEvict 回收旧 outputs 资产
+    // - appendHistory:true:保留已有历史栈,支持跨次 undo/redo 链(如连续滤镜)
     const inputIds = await this.collectInputAssetIds(inputs);
-    this.initialInputsMap.set(workflow.id, inputIds);
-    // 初始当前输出 = 初始输入
-    this.currentOutputsMap.set(workflow.id, inputIds);
+    if (options?.appendHistory && this.historyStacks.has(workflow.id)) {
+      // 追加模式:保留历史栈与 currentOutputs,仅确保初始输入已记录
+      if (!this.initialInputsMap.has(workflow.id)) {
+        this.initialInputsMap.set(workflow.id, inputIds);
+      }
+    } else {
+      // 重置模式(默认):丢弃旧历史,重新初始化
+      const existingStack = this.historyStacks.get(workflow.id);
+      if (existingStack) {
+        existingStack.reset();
+      }
+      this.initialInputsMap.set(workflow.id, inputIds);
+      this.currentOutputsMap.set(workflow.id, inputIds);
+    }
+    this.enforceHistoryStacksLimit();
 
     try {
       const result = await this.executor.execute(workflow, inputs);
@@ -536,11 +536,12 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
             this.assetStore.remove(assetId).catch(() => {});
           }
         },
-        onChanged: (wfId, entries) => {
+        onChanged: (wfId, entries, currentIndex) => {
           this.eventBus.emit({
             type: 'history:changed',
             workflowId: wfId,
             entries,
+            currentIndex,
           });
         },
       };

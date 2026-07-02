@@ -40,6 +40,7 @@ export const canvasEngine: ImageEngineAdapter = {
     'image.flip',
     'image.watermark',
     'image.background',
+    'image.filter',
   ],
 
   async isSupported() {

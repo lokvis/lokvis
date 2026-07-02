@@ -39,7 +39,13 @@ export type LokvisEvent =
       format: string;
       size: number;
     }
-  | { type: 'history:changed'; workflowId: string; entries: HistoryEntry[] }
+  | {
+      type: 'history:changed';
+      workflowId: string;
+      entries: HistoryEntry[];
+      /** 当前游标(指向最后一条已应用的 entry;-1 表示无已应用条目) */
+      currentIndex: number;
+    }
   | { type: 'capability:registered'; capability: string; engine: string }
   | { type: 'plugin:loaded'; name: string; version: string };
 
