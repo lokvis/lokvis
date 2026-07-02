@@ -103,6 +103,8 @@ jobs:
             echo "::notice::Pre mode detected. Publishing each package via npm publish --tag $DIST_TAG"
 
             # 遍历 packages 下每个非 private 包执行 npm publish
+            # 不做预先存在性检查(`npm view` 在 npm 11 下行为不稳定,
+            # 会误报已发布)。直接尝试 publish,捕获 E403(版本已存在)跳过。
             for pkg_dir in packages/*/; do
               pkg_json="${pkg_dir}package.json"
               [ -f "$pkg_json" ] || continue
@@ -110,16 +112,18 @@ jobs:
               [ "$private" = "true" ] && continue
               name=$(node -e "console.log(require('./$pkg_json').name)")
               version=$(node -e "console.log(require('./$pkg_json').version)")
-              # 严格检查:从官方 registry 查询该精确版本是否存在
-              # `npm view pkg@ver version` 在某些 npm 版本下对不存在的版本
-              # 仍会返回 0 或回退到 latest,因此必须比对输出字符串
-              published_version=$(npm view --registry https://registry.npmjs.org "${name}@${version}" version 2>/dev/null | tr -d '[:space:]' || true)
-              if [ "$published_version" = "$version" ]; then
-                echo "::notice::${name}@${version} already published on npmjs.org, skipping"
-                continue
-              fi
               echo "::group::Publishing ${name}@${version}"
-              (cd "$pkg_dir" && npm publish --registry https://registry.npmjs.org --tag "$DIST_TAG" --access public --provenance)
+              publish_output=$(cd "$pkg_dir" && npm publish --registry https://registry.npmjs.org --tag "$DIST_TAG" --access public --provenance 2>&1) && publish_exit=0 || publish_exit=$?
+              echo "$publish_output"
+              if [ "$publish_exit" -ne 0 ]; then
+                if echo "$publish_output" | grep -qE "E403|EPUBLISHED|cannot publish over"; then
+                  echo "::notice::${name}@${version} already published, skipping"
+                else
+                  echo "::error::Failed to publish ${name}@${version}"
+                  echo "$publish_output"
+                  exit 1
+                fi
+              fi
               echo "::endgroup::"
             done
           else
