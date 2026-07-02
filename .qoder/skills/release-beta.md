@@ -98,12 +98,20 @@ git commit -m "chore: enter beta pre mode (X.Y.Z-beta.N)"
 git push origin dev
 
 # 发布到 npm(beta 标签)
-pnpm changeset publish --tag beta
+# 在 pre 模式下,changesets 自动使用 beta dist-tag(来自 .changeset/pre.json),
+# 无需也不能传 --tag 参数(会报 "custom tag is not allowed in pre mode")
+pnpm changeset publish
 
 # 打 tag
 git tag vX.Y.Z-beta.N -m "Beta X.Y.Z-beta.N"
 git push origin vX.Y.Z-beta.N
 ```
+
+**CI 自动发布**:tag push 到 dev 后,`.github/workflows/release.yml` 会:
+1. 用 `git merge-base --is-ancestor` 判断 tag 在 main 还是 dev(兜底按命名约定)
+2. 检测到 `.changeset/pre.json` 时,改用 `npm publish --tag beta` 逐包发布
+   (因为 `changeset publish --tag` 在 pre 模式下被禁止)
+3. 发布前 `npm view` 检查已存在则跳过,保证幂等
 
 ## 验证
 
@@ -130,6 +138,7 @@ git add . && git commit -m "chore: release X.Y.Z"
 
 ## 注意事项
 
+- **Pre 模式下 `changeset publish` 不能传 `--tag`** — 会报 "Releasing under custom tag is not allowed in pre mode"。直接 `pnpm changeset publish` 即可,changesets 会从 `.changeset/pre.json` 读取 tag(beta)
 - **不要自动执行 `pnpm changeset publish`** — 发布是不可逆操作,需用户确认
 - **不要 force push** — dev 分支可能有其他协作者
 - **CHANGELOG 格式错误** — 若 `version-packages` 报 `prettier-plugin-astro` 缺失,需先安装:
@@ -137,3 +146,4 @@ git add . && git commit -m "chore: release X.Y.Z"
   pnpm add -Dw prettier-plugin-astro prettier-plugin-tailwindcss
   ```
 - **`@lokvis/web` 已不存在** — `.changeset/config.json` 的 ignore 列表只应包含 `@lokvis/playground` 和 `@lokvis/docs`
+- **项目 `.npmrc` 不应含 `supportedArchitectures.*`** — npm 11 起该配置键被移除,会触发 Unknown project config 警告;跨平台 native bindings 配置应放在用户级 `~/.npmrc`
