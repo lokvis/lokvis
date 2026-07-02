@@ -20,6 +20,7 @@ import {
   WorkerRestartingError,
   WorkerDeadError,
   WorkerRequestTimeoutError,
+  WorkerRequestAbortedError,
   WorkerHandshakeError,
   type WorkerTransport,
   type WorkerTransportError,
@@ -423,5 +424,119 @@ describe('WorkerHost dispose 与事件', () => {
     expect(events).toHaveLength(1);
     expect(events[0]!.event).toBe('progress');
     expect(events[0]!.payload).toEqual({ ratio: 0.5 });
+  });
+});
+
+// ─── AbortSignal / cancel(W3.5)──────────────────────────────────
+
+describe('WorkerHost request AbortSignal', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('signal 已 aborted 时应立即抛 WorkerRequestAbortedError(不发送)', async () => {
+    const { host, current } = setup();
+    await initReady(host, current);
+
+    const sentBefore = current().sent.length;
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      host.request('image.resize', {}, { signal: controller.signal })
+    ).rejects.toBeInstanceOf(WorkerRequestAbortedError);
+
+    // 不应发送任何 request 消息
+    expect(current().sent.length).toBe(sentBefore);
+  });
+
+  it('请求发出后 abort 应:发 WorkerCancel + 立即 reject WorkerRequestAbortedError', async () => {
+    const { host, current } = setup();
+    await initReady(host, current);
+
+    const controller = new AbortController();
+    const reqP = host.request('image.resize', { width: 10 }, { signal: controller.signal });
+
+    // 1. 应已发送 request 消息
+    const sentMsg = current().lastSent as { id: string; type: string; method: string };
+    expect(sentMsg.type).toBe('request');
+    expect(sentMsg.method).toBe('image.resize');
+    const reqId = sentMsg.id;
+
+    // 2. 先挂 assertion,避免 abort 同步 reject 产生未处理 rejection
+    const assertion = expect(reqP).rejects.toBeInstanceOf(WorkerRequestAbortedError);
+
+    // 3. 触发 abort
+    controller.abort();
+
+    await assertion;
+
+    // 4. 应已发送 WorkerCancel 消息(id 匹配)
+    const cancelMsg = current().lastSent as { type: string; id: string };
+    expect(cancelMsg.type).toBe('cancel');
+    expect(cancelMsg.id).toBe(reqId);
+  });
+
+  it('abort 后 pending 应被清理(无泄漏)', async () => {
+    const { host, current } = setup();
+    await initReady(host, current);
+
+    const controller = new AbortController();
+    const reqP = host.request('image.resize', {}, { signal: controller.signal });
+    const assertion = expect(reqP).rejects.toBeInstanceOf(WorkerRequestAbortedError);
+
+    controller.abort();
+    await assertion;
+
+    // 即便 Worker 迟迟回响应,也不应再 resolve/reject(已从 pending 删除)
+    const sentMsg = current().sent.find(
+      (m) => (m as { type: string }).type === 'request'
+    ) as { id: string };
+    current().emitToHost({ id: sentMsg.id, type: 'response', ok: true, result: 'late' });
+    // reqP 已 rejected,不会再次 settle
+    await expect(reqP).rejects.toBeInstanceOf(WorkerRequestAbortedError);
+  });
+
+  it('未 abort 的 signal 不影响正常响应', async () => {
+    const { host, current } = setup();
+    await initReady(host, current);
+
+    const controller = new AbortController();
+    const reqP = host.request('image.resize', {}, { signal: controller.signal });
+    const sent = current().lastSent as { id: string };
+
+    current().emitToHost({ id: sent.id, type: 'response', ok: true, result: 'ok' });
+    await expect(reqP).resolves.toBe('ok');
+    expect(controller.signal.aborted).toBe(false);
+  });
+
+  it('abort 后 clearTimeout 应已执行(超时不再触发)', async () => {
+    const { host, current } = setup({ requestTimeoutMs: 50 });
+    await initReady(host, current);
+
+    const controller = new AbortController();
+    const reqP = host.request('image.resize', {}, { signal: controller.signal });
+    const assertion = expect(reqP).rejects.toBeInstanceOf(WorkerRequestAbortedError);
+
+    controller.abort();
+    await assertion;
+
+    // 推进超过 requestTimeout,不应再触发 TimeoutError(已 reject 为 Aborted)
+    await vi.advanceTimersByTimeAsync(100);
+    await expect(reqP).rejects.toBeInstanceOf(WorkerRequestAbortedError);
+  });
+
+  it('WorkerRequestAbortedError 应携带 method', async () => {
+    const { host, current } = setup();
+    await initReady(host, current);
+
+    const controller = new AbortController();
+    controller.abort();
+    try {
+      await host.request('image.compress', {}, { signal: controller.signal });
+      throw new Error('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(WorkerRequestAbortedError);
+      expect((e as WorkerRequestAbortedError).method).toBe('image.compress');
+    }
   });
 });

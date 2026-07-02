@@ -74,6 +74,16 @@ interface WorkerReady {
   type: 'ready';
   protocolVersion: string;
 }
+/**
+ * 取消一个正在执行的请求(W3.5 cancel 贯穿)。
+ * 与 @lokvis/runtime worker-protocol 的 WorkerCancel 结构兼容,
+ * 本地声明以避免 engine-image → runtime 跨层依赖。
+ */
+interface WorkerCancel {
+  type: 'cancel';
+  /** 要取消的请求 id */
+  id: string;
+}
 
 /** 图像操作请求参数:统一 { input, options } 结构 */
 interface ImageRequestParams {
@@ -99,16 +109,19 @@ export interface ImageProbeResult {
 }
 
 /** 方法名 → 处理函数。能力名与 canvasEngine.supportedCapabilities 对齐(带 `image.` 前缀) */
-const METHODS: Record<string, (params: ImageRequestParams) => Promise<unknown>> = {
-  'image.resize': (p) => resize(p.input, (p.options ?? {}) as ResizeParams),
-  'image.compress': (p) => compress(p.input, (p.options ?? {}) as CompressParams),
-  'image.convert': (p) => convert(p.input, (p.options ?? {}) as ConvertParams),
-  'image.crop': (p) => crop(p.input, (p.options ?? {}) as CropParams),
-  'image.rotate': (p) => rotate(p.input, (p.options ?? {}) as RotateParams),
-  'image.flip': (p) => flip(p.input, (p.options ?? {}) as FlipParams),
-  'image.watermark': (p) => watermark(p.input, (p.options ?? {}) as WatermarkParams),
-  'image.background': (p) =>
-    setBackground(p.input, (p.options ?? {}) as BackgroundParams),
+const METHODS: Record<
+  string,
+  (params: ImageRequestParams, signal?: AbortSignal) => Promise<unknown>
+> = {
+  'image.resize': (p, signal) => resize(p.input, (p.options ?? {}) as ResizeParams, signal),
+  'image.compress': (p, signal) => compress(p.input, (p.options ?? {}) as CompressParams, signal),
+  'image.convert': (p, signal) => convert(p.input, (p.options ?? {}) as ConvertParams, signal),
+  'image.crop': (p, signal) => crop(p.input, (p.options ?? {}) as CropParams, signal),
+  'image.rotate': (p, signal) => rotate(p.input, (p.options ?? {}) as RotateParams, signal),
+  'image.flip': (p, signal) => flip(p.input, (p.options ?? {}) as FlipParams, signal),
+  'image.watermark': (p, signal) => watermark(p.input, (p.options ?? {}) as WatermarkParams, signal),
+  'image.background': (p, signal) =>
+    setBackground(p.input, (p.options ?? {}) as BackgroundParams, signal),
 };
 
 /** 列出本 Worker 支持的方法名 */
@@ -119,10 +132,14 @@ export function listImageWorkerMethods(): string[] {
 /**
  * 派发单个方法调用(纯函数,可单测)。
  * 抛错由调用方捕获并转成 WorkerResponse.err。
+ *
+ * W3.5:接受可选 AbortSignal 并下传给操作,使 cancel 能在 canvas
+ * decode/encode 之间生效。AbortError 会被上层 catch 转为 err 响应。
  */
 export async function dispatchImageMethod(
   method: string,
-  params: unknown
+  params: unknown,
+  signal?: AbortSignal
 ): Promise<unknown> {
   // 无输入方法
   if (method === 'image.detectFormats') {
@@ -140,7 +157,7 @@ export async function dispatchImageMethod(
   if (!(p.input instanceof Blob)) {
     throw new Error(`Method "${method}" requires params.input (Blob)`);
   }
-  return handler(p as ImageRequestParams);
+  return handler(p as ImageRequestParams, signal);
 }
 
 /** 探测图像尺寸/格式(关闭 bitmap,仅返回可克隆的元数据) */
@@ -159,13 +176,17 @@ async function probeImage(params: unknown): Promise<ImageProbeResult> {
 /**
  * 创建请求处理器(纯函数,返回响应)。供测试直接调用,
  * 也供 startImageWorker 在 Worker 内使用。
+ *
+ * W3.5:接受可选 AbortSignal 并下传,使 Host 的 cancel 经由
+ * startImageWorker 的 inflight 控制器抵达操作。
  */
 export function createImageWorkerHandler(): (
-  request: WorkerRequest
+  request: WorkerRequest,
+  signal?: AbortSignal
 ) => Promise<WorkerResponse> {
-  return async (request) => {
+  return async (request, signal) => {
     try {
-      const result = await dispatchImageMethod(request.method, request.params);
+      const result = await dispatchImageMethod(request.method, request.params, signal);
       return { id: request.id, type: 'response', ok: true, result };
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
@@ -203,7 +224,9 @@ function toResponseError(e: unknown): {
  * 在 Worker 入口安装图像处理逻辑:
  * - 立即发送 ready(携带协议版本)。
  * - 收到 ping → 回 pong。
- * - 收到 request → 派发并回 response。
+ * - 收到 request → 派发并回 response;同时把 AbortController 登记到
+ *   inflight 表,使 cancel 能及时中止在途操作(W3.5)。
+ * - 收到 cancel → 查表中止对应请求的 AbortController。
  * - 收到 messageerror → 忽略(主线程会因超时重启)。
  *
  * @param scope Worker 全局对象,默认 `self`。测试可注入 Fake。
@@ -220,6 +243,8 @@ export function startImageWorker(scope?: ImageWorkerScope): ImageWorkerScope {
   workerScope.postMessage(ready);
 
   const handle = createImageWorkerHandler();
+  /** 在途请求的 AbortController 表:cancel 消息据此中止操作(W3.5) */
+  const inflight = new Map<string, AbortController>();
 
   workerScope.addEventListener('message', async (ev: MessageEvent) => {
     const data: unknown = ev.data;
@@ -232,19 +257,32 @@ export function startImageWorker(scope?: ImageWorkerScope): ImageWorkerScope {
       workerScope.postMessage(pong);
       return;
     }
+    if (type === 'cancel') {
+      const cancel = data as WorkerCancel;
+      const controller = inflight.get(cancel.id);
+      if (controller) {
+        controller.abort();
+        inflight.delete(cancel.id);
+      }
+      return;
+    }
     if (type === 'request') {
+      const req = data as WorkerRequest;
+      const controller = new AbortController();
+      inflight.set(req.id, controller);
       try {
-        const response = await handle(data as WorkerRequest);
+        const response = await handle(req, controller.signal);
         workerScope.postMessage(response);
       } catch (e) {
         // handler 内部已捕获业务错误;这里只兜底传输异常
-        const req = data as WorkerRequest;
         workerScope.postMessage({
           id: req.id,
           type: 'response',
           ok: false,
           error: toResponseError(e),
         } satisfies WorkerResponseErr);
+      } finally {
+        inflight.delete(req.id);
       }
     }
   });

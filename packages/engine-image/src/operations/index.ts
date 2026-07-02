@@ -9,7 +9,8 @@
  * - encode.ts:          编码与格式(compress / convert / setBackground)
  * - watermark.ts:       水印(文字 / 图片)
  * - compress-target.ts: 目标体积压缩(二分查找)
- * - utils.ts:           共享工具(inferFormat / computeTargetSize)
+ * - utils.ts:           共享工具(inferFormat / computeTargetSize / throwIfAborted)
+ * - tiles.ts:           大图分片(splitIntoTiles / mergeChunks / isDownscale)(W3.2)
  *
  * 预留位(W7 实现时填入):
  * - exif.ts:            EXIF 元数据读取
@@ -24,6 +25,7 @@ export * from './encode.js';
 export * from './watermark.js';
 export * from './filters.js';
 export * from './compress-target.js';
+export * from './tiles.js';
 
 /** 解码图像元数据（不保留 bitmap） */
 export async function probe(blob: Blob): Promise<DecodedImage> {

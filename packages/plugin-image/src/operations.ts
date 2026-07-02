@@ -32,7 +32,8 @@ import {
 /** Capability 名 → 操作函数的映射类型 */
 export type ImageOperation = (
   blob: Blob,
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  signal?: AbortSignal
 ) => Promise<Blob>;
 
 /** 图像能力实现项 */
@@ -61,13 +62,15 @@ function wrapAsImplementation(
       }
       const outputs: Asset[] = [];
       for (let i = 0; i < inputs.length; i++) {
+        // W3.5:asset 之间检查,且把 signal 下传给操作,使 cancel 在
+        // 长耗时的 canvas decode/encode 期间也能生效(而非仅在 asset 间隙)
         if (execCtx.signal.aborted) {
           throw new DOMException('Aborted', 'AbortError');
         }
         const asset = inputs[i]!;
         execCtx.onProgress?.(i / inputs.length, `Processing ${i + 1}/${inputs.length}`);
         const blob = await ctx.runtime.getAssetBlob(asset);
-        const outBlob = await entry.operation(blob, params);
+        const outBlob = await entry.operation(blob, params, execCtx.signal);
         const metadata = deriveOutputMetadata(asset, outBlob);
         const outAsset = await ctx.runtime.createAsset(outBlob, metadata, 'image');
         outputs.push(outAsset);
@@ -96,15 +99,15 @@ function deriveOutputMetadata(
 // ─── 各操作的参数转换 + 调用 ───────────────────────────────
 // engine-image 操作函数已接受 Record<string, unknown>，无需类型断言。
 
-const resizeOp: ImageOperation = (blob, params) => opResize(blob, params);
-const compressOp: ImageOperation = (blob, params) => opCompress(blob, params);
-const convertOp: ImageOperation = (blob, params) => opConvert(blob, params);
-const cropOp: ImageOperation = (blob, params) => opCrop(blob, params);
-const rotateOp: ImageOperation = (blob, params) => opRotate(blob, params);
-const flipOp: ImageOperation = (blob, params) => opFlip(blob, params);
-const watermarkOp: ImageOperation = (blob, params) => opWatermark(blob, params);
-const backgroundOp: ImageOperation = (blob, params) => opSetBackground(blob, params);
-const filterOp: ImageOperation = (blob, params) => opFilter(blob, params);
+const resizeOp: ImageOperation = (blob, params, signal) => opResize(blob, params, signal);
+const compressOp: ImageOperation = (blob, params, signal) => opCompress(blob, params, signal);
+const convertOp: ImageOperation = (blob, params, signal) => opConvert(blob, params, signal);
+const cropOp: ImageOperation = (blob, params, signal) => opCrop(blob, params, signal);
+const rotateOp: ImageOperation = (blob, params, signal) => opRotate(blob, params, signal);
+const flipOp: ImageOperation = (blob, params, signal) => opFlip(blob, params, signal);
+const watermarkOp: ImageOperation = (blob, params, signal) => opWatermark(blob, params, signal);
+const backgroundOp: ImageOperation = (blob, params, signal) => opSetBackground(blob, params, signal);
+const filterOp: ImageOperation = (blob, params, signal) => opFilter(blob, params, signal);
 
 /** 全部图像能力实现项 */
 export const IMAGE_CAPABILITY_ENTRIES: ImageCapabilityEntry[] = [

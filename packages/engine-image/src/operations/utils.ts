@@ -7,6 +7,20 @@
  */
 import type { ImageOutputFormat, ResizeParams } from '../types.js';
 
+/**
+ * 若 signal 已取消则抛出 AbortError(W3.5 cancel 贯穿)。
+ *
+ * 操作在 decode / draw / encode 之间调用此助手,避免在 AbortSignal 触发后
+ * 继续做昂贵的 canvas 工作(尤其 compressToTargetSize 的二分循环)。
+ * 抛 DOMException('AbortError') 以与 Web 平台约定一致,上层
+ * (executor) 已将 cancelled 状态映射到 WorkflowResult.cancelled。
+ */
+export function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new DOMException('Operation aborted', 'AbortError');
+  }
+}
+
 /** 从 Blob 推断原始格式，回退到默认格式 */
 export function inferFormat(
   blob: Blob,
