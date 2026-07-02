@@ -12,7 +12,7 @@ import {
 } from '../asset-store.js';
 import { isOpfsSupported } from '../opfs-asset-store.js';
 import { isIdbSupported } from '../idb-asset-store.js';
-import type { AssetSource } from '@lokvis/schema';
+import type { AssetSource, Workflow } from '@lokvis/schema';
 
 /** Node 环境下 OPFS 不可用(无 navigator.storage) */
 const OPFS_AVAILABLE = isOpfsSupported();
@@ -106,5 +106,53 @@ describe('createRuntime 工厂(T5)', () => {
     if (!IDB_AVAILABLE) {
       expect(asset.blob.path).toMatch(/^memory:\/\//);
     }
+  });
+});
+
+// ─── runtime.run schema 层校验 hook（三层防御第 3 层） ─────
+
+describe('runtime.run schema 校验（修复 review：__input__ 哨兵边误判为环）', () => {
+  /** 构造一个含 `__input__` 哨兵边的非法 workflow */
+  function buildSentinelWorkflow(): Workflow {
+    return {
+      id: 'wf-sentinel',
+      version: '1.0.0',
+      name: 'sentinel-test',
+      description: 'test',
+      author: { id: 'a', name: 'tester' },
+      category: 'image',
+      tags: [],
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'cap.a', params: {} },
+      ],
+      edges: [{ from: '__input__', to: 'n1' }],
+      inputs: { type: 'image', multiple: false },
+      outputs: { type: 'image', format: 'png' },
+    };
+  }
+
+  it('run() 应在 executor 之前用 validateWorkflow 拦截哨兵边，返回 failed', async () => {
+    const runtime = await createRuntime({ enableOpfs: false });
+    const result = await runtime.run(buildSentinelWorkflow(), []);
+    expect(result.status).toBe('failed');
+    // 错误信息明确指向 __input__ 保留字，而非含糊的 "cycle"
+    expect(result.error).toMatch(/__input__.*reserved|reserved.*__input__/i);
+    expect(result.error).not.toMatch(/cycle/i);
+  });
+
+  it('校验失败时应发射 workflow:completed 事件（status=failed）', async () => {
+    const runtime = await createRuntime({ enableOpfs: false });
+    const events: { type: string; result?: { status: string } }[] = [];
+    runtime.eventBus.onAny((e) => events.push(e as any));
+    await runtime.run(buildSentinelWorkflow(), []);
+    const completed = events.find((e) => e.type === 'workflow:completed');
+    expect(completed).toBeDefined();
+    expect(completed?.result?.status).toBe('failed');
+  });
+
+  it('校验失败后 runtime 状态应为 error', async () => {
+    const runtime = await createRuntime({ enableOpfs: false });
+    await runtime.run(buildSentinelWorkflow(), []);
+    expect(runtime.status).toBe('error');
   });
 });

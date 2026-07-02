@@ -17,6 +17,7 @@ import type {
 } from '@lokvis/schema';
 import type { PluginContext } from '@lokvis/schema';
 import {
+  canvasEngine,
   resize as opResize,
   compress as opCompress,
   convert as opConvert,
@@ -25,16 +26,6 @@ import {
   flip as opFlip,
   watermark as opWatermark,
   setBackground as opSetBackground,
-} from '@lokvis/engine-image';
-import type {
-  BackgroundParams,
-  CompressParams,
-  ConvertParams,
-  CropParams,
-  FlipParams,
-  ResizeParams,
-  RotateParams,
-  WatermarkParams,
 } from '@lokvis/engine-image';
 
 /** Capability 名 → 操作函数的映射类型 */
@@ -58,9 +49,11 @@ function wrapAsImplementation(
   entry: ImageCapabilityEntry,
   ctx: PluginContext
 ): CapabilityImplementation {
+  const isStub = canvasEngine.version.includes('stub');
   return {
     capability: entry.capability,
     engine: entry.engine,
+    status: isStub ? 'stub' : 'stable',
     async execute(inputs: Asset[], params: Record<string, unknown>, execCtx: ExecutionContext): Promise<Asset[]> {
       if (inputs.length === 0) {
         throw new Error(`Capability "${entry.capability}" requires at least one input asset`);
@@ -100,30 +93,16 @@ function deriveOutputMetadata(
 }
 
 // ─── 各操作的参数转换 + 调用 ───────────────────────────────
+// engine-image 操作函数已接受 Record<string, unknown>，无需类型断言。
 
-const resizeOp: ImageOperation = (blob, params) =>
-  opResize(blob, params as unknown as ResizeParams);
-
-const compressOp: ImageOperation = (blob, params) =>
-  opCompress(blob, params as unknown as CompressParams);
-
-const convertOp: ImageOperation = (blob, params) =>
-  opConvert(blob, params as unknown as ConvertParams);
-
-const cropOp: ImageOperation = (blob, params) =>
-  opCrop(blob, params as unknown as CropParams);
-
-const rotateOp: ImageOperation = (blob, params) =>
-  opRotate(blob, params as unknown as RotateParams);
-
-const flipOp: ImageOperation = (blob, params) =>
-  opFlip(blob, params as unknown as FlipParams);
-
-const watermarkOp: ImageOperation = (blob, params) =>
-  opWatermark(blob, params as unknown as WatermarkParams);
-
-const backgroundOp: ImageOperation = (blob, params) =>
-  opSetBackground(blob, params as unknown as BackgroundParams);
+const resizeOp: ImageOperation = (blob, params) => opResize(blob, params);
+const compressOp: ImageOperation = (blob, params) => opCompress(blob, params);
+const convertOp: ImageOperation = (blob, params) => opConvert(blob, params);
+const cropOp: ImageOperation = (blob, params) => opCrop(blob, params);
+const rotateOp: ImageOperation = (blob, params) => opRotate(blob, params);
+const flipOp: ImageOperation = (blob, params) => opFlip(blob, params);
+const watermarkOp: ImageOperation = (blob, params) => opWatermark(blob, params);
+const backgroundOp: ImageOperation = (blob, params) => opSetBackground(blob, params);
 
 /** 全部图像能力实现项 */
 export const IMAGE_CAPABILITY_ENTRIES: ImageCapabilityEntry[] = [

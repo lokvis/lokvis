@@ -46,54 +46,86 @@ function isSafeImageUrl(url: string): boolean {
 /** Watermark：水印 */
 export async function watermark(
   blob: Blob,
-  params: WatermarkParams
+  params: Record<string, any>
 ): Promise<Blob> {
+  const {
+    text,
+    image: imageUrl,
+    position,
+    opacity,
+    fontSize,
+    color,
+  } = params as WatermarkParams;
+
   const { bitmap, width, height } = await canvasEngine.decode(blob);
   const canvas = createCanvas(width, height);
   const ctx = get2DContext(canvas);
   ctx.drawImage(bitmap, 0, 0);
   bitmap.close?.();
 
-  const opacity = params.opacity ?? 0.8;
-  ctx.globalAlpha = opacity;
+  const wmOpacity = opacity ?? 0.8;
+  ctx.globalAlpha = wmOpacity;
 
-  if (params.image) {
-    // 图片水印
-    // 修复 review 报告：原实现直接 fetch 任意 URL（SSRF）。校验失败抛错而非静默降级，
-    // 让调用方知道需要换源（如改用 data: URL 或上传到自己的对象存储）。
-    if (!isSafeImageUrl(params.image)) {
+  if (imageUrl) {
+    if (!isSafeImageUrl(imageUrl)) {
       throw new Error(
-        `Watermark image URL not allowed (SSRF guard): ${params.image}`
+        `Watermark image URL not allowed (SSRF guard): ${imageUrl}`
       );
     }
-    const wmBlob = await (await fetch(params.image)).blob();
+    const resp = await fetch(imageUrl);
+    if (!resp.ok) {
+      throw new Error(
+        `Failed to fetch watermark image from ${imageUrl}: ${resp.status} ${resp.statusText}`
+      );
+    }
+    const wmBlob = await resp.blob();
     const wmBitmap = await createImageBitmap(wmBlob);
     const wmW = wmBitmap.width;
     const wmH = wmBitmap.height;
-    const pos = computeWatermarkPosition(
-      params.position ?? 'bottom-right',
-      width,
-      height,
-      wmW,
-      wmH
-    );
-    ctx.drawImage(wmBitmap, pos.x, pos.y, wmW, wmH);
+
+    if (position === 'tile') {
+      const spacing = Math.max(wmW, wmH);
+      for (let y = 0; y < height + wmH; y += wmH + spacing) {
+        for (let x = 0; x < width + wmW; x += wmW + spacing) {
+          ctx.drawImage(wmBitmap, x, y, wmW, wmH);
+        }
+      }
+    } else {
+      const pos = computeWatermarkPosition(
+        position ?? 'bottom-right',
+        width,
+        height,
+        wmW,
+        wmH
+      );
+      ctx.drawImage(wmBitmap, pos.x, pos.y, wmW, wmH);
+    }
     wmBitmap.close?.();
-  } else if (params.text) {
-    // 文字水印
-    const fontSize = params.fontSize ?? 24;
-    ctx.font = `${fontSize}px sans-serif`;
-    ctx.fillStyle = params.color ?? '#ffffff';
+  } else if (text) {
+    const size = fontSize ?? 24;
+    ctx.font = `${size}px sans-serif`;
+    ctx.fillStyle = color ?? '#ffffff';
     ctx.textBaseline = 'top';
-    const metrics = ctx.measureText(params.text);
-    const pos = computeWatermarkPosition(
-      params.position ?? 'bottom-right',
-      width,
-      height,
-      metrics.width,
-      fontSize
-    );
-    ctx.fillText(params.text, pos.x, pos.y);
+    const metrics = ctx.measureText(text);
+    const textW = metrics.width;
+
+    if (position === 'tile') {
+      const spacing = Math.max(textW, size) * 1.5;
+      for (let y = 0; y < height + size; y += size + spacing) {
+        for (let x = 0; x < width + textW; x += textW + spacing) {
+          ctx.fillText(text, x, y);
+        }
+      }
+    } else {
+      const pos = computeWatermarkPosition(
+        position ?? 'bottom-right',
+        width,
+        height,
+        textW,
+        size
+      );
+      ctx.fillText(text, pos.x, pos.y);
+    }
   }
   ctx.globalAlpha = 1;
 
@@ -121,9 +153,6 @@ export function computeWatermarkPosition(
       return { x: canvasW - wmW - margin, y: canvasH - wmH - margin };
     case 'center':
       return { x: (canvasW - wmW) / 2, y: (canvasH - wmH) / 2 };
-    case 'tile':
-      // tile 模式由调用方处理，这里返回第一个 tile
-      return { x: margin, y: margin };
     default:
       return { x: margin, y: margin };
   }

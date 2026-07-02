@@ -26,7 +26,6 @@ Engine Layer      FFmpeg.wasm / Squoosh / pdf-lib / Whisper / WebCodecs
 ```
 lokvis-open/
 ├── apps/
-│   ├── web/                    # Astro 7 official PWA (Image Workspace)
 │   ├── docs/                   # Astro documentation site
 │   └── playground/             # Online SDK playground
 ├── packages/

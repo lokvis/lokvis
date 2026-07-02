@@ -74,6 +74,15 @@ export interface LokvisRuntime {
   /** 恢复运行 */
   resume(workflowId: string): Promise<void>;
   /**
+   * 获取工作流当前输出 AssetId（undo/redo 后的"当前"状态）。
+   *
+   * 用途：
+   * - UI 实时展示工作流中间结果
+   * - MCP server 查询当前工作流产物
+   * - 暂停时检查中间输出
+   */
+  getCurrentOutputs(workflowId: string): Promise<AssetId[]>;
+  /**
    * 销毁工作流的运行时状态（取消运行 + 清空历史栈 + 回收历史 outputs 资产）。
    *
    * 修复 review 报告：原接口无清理入口，长会话累积导致 historyStacks Map

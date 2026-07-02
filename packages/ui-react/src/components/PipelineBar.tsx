@@ -6,6 +6,7 @@
  */
 
 import * as React from 'react';
+import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 
 export interface PipelineBarProps {
@@ -32,14 +33,14 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
         <div className="flex flex-1 items-center gap-1 overflow-x-auto min-w-0">
           {/* Source indicator */}
           <div className="flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-1 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 shrink-0">
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            <Icon size={12}><path d="M12 4.5v15m7.5-7.5h-15" /></Icon>
             Source
           </div>
 
           {/* Arrow */}
-          <svg className="h-3 w-3 shrink-0 text-zinc-300 dark:text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" />
-          </svg>
+          <Icon size={12} className="shrink-0 text-zinc-300 dark:text-zinc-600">
+            <path d="m9 5 7 7-7 7" />
+          </Icon>
 
           {/* Nodes */}
           {nodes.map((node, i) => {
@@ -72,26 +73,26 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
                     role="button"
                     aria-label="Remove step"
                   >
-                    <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    <Icon size={10} strokeWidth={3}><path d="M6 18L18 6M6 6l12 12" /></Icon>
                   </span>
                 </button>
 
                 {/* Arrow between nodes */}
                 {i < nodes.length - 1 && (
-                  <svg className="h-3 w-3 shrink-0 text-zinc-300 dark:text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" />
-                  </svg>
+                  <Icon size={12} className="shrink-0 text-zinc-300 dark:text-zinc-600">
+                    <path d="m9 5 7 7-7 7" />
+                  </Icon>
                 )}
               </React.Fragment>
             );
           })}
 
           {/* Output indicator */}
-          <svg className="h-3 w-3 shrink-0 text-zinc-300 dark:text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" />
-          </svg>
+          <Icon size={12} className="shrink-0 text-zinc-300 dark:text-zinc-600">
+            <path d="m9 5 7 7-7 7" />
+          </Icon>
           <div className="flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-1 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 shrink-0">
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+            <Icon size={12}><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></Icon>
             Output
           </div>
         </div>

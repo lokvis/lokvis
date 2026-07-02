@@ -13,6 +13,7 @@
  * ```
  */
 
+import { Icon } from '@lokvis/ui-core';
 import { useLokvis, type UseLokvisOptions } from '../hooks/useLokvis.js';
 import { Toolbar } from './Toolbar.js';
 import { AssetPanel } from './AssetPanel.js';
@@ -59,7 +60,7 @@ export function Workspace({
       <div className="flex h-full items-center justify-center px-6">
         <div className="max-w-md rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-800/50 dark:bg-red-950/20">
           <div className="mb-3 flex h-10 w-10 mx-auto items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40">
-            <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <Icon size={20} className="text-red-500"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></Icon>
           </div>
           <p className="font-semibold text-red-700 dark:text-red-400">Failed to initialize</p>
           <p className="mt-1.5 text-sm text-red-600/80 dark:text-red-400/70">{error}</p>

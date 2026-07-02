@@ -58,18 +58,58 @@ function createExecutionContext(
   };
 }
 
-/** 拓扑排序：将 edges 转换为线性节点序列 */
+/** 拓扑排序：将 edges 转换为线性节点序列。
+ *
+ * 修复 review 报告：原实现 edge.from 不在 nodeMap 时静默丢弃，
+ * 但 edge.to 的入度仍被 +1，导致目标节点入度永远无法归零，
+ * 被误判为「环」（demo 用 `__input__` 哨兵边触发此 bug）。
+ * 现在显式校验所有 edge 引用必须对应真实节点，否则快速失败。
+ */
 function topologicalSort(nodes: WorkflowNode[], edges: WorkflowEdge[]): WorkflowNode[] {
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
   const inDegree = new Map<string, number>();
   const adjacency = new Map<string, string[]>();
+
+  // 校验节点 ID 唯一性
+  if (nodeMap.size !== nodes.length) {
+    const seen = new Set<string>();
+    for (const n of nodes) {
+      if (seen.has(n.id)) {
+        throw new Error(`Workflow contains duplicate node id: ${n.id}`);
+      }
+      seen.add(n.id);
+    }
+  }
 
   for (const node of nodes) {
     inDegree.set(node.id, 0);
     adjacency.set(node.id, []);
   }
 
+  // 校验 edge 引用必须存在于 nodes 中（防止 `__input__` 等哨兵节点
+  // 被静默吞掉，进而导致下游节点入度无法归零 → 误判为环）
   for (const edge of edges) {
+    if (!nodeMap.has(edge.from)) {
+      throw new Error(
+        `Workflow edge references unknown source node: "${edge.from}". ` +
+          `Edge endpoints must reference existing nodes; ` +
+          `reserved sentinel nodes (e.g. "__input__") are not supported ` +
+          `by the executor — input assets are injected into the first node ` +
+          `with in-degree 0.`
+      );
+    }
+    if (!nodeMap.has(edge.to)) {
+      throw new Error(
+        `Workflow edge references unknown target node: "${edge.to}". ` +
+          `Edge endpoints must reference existing nodes.`
+      );
+    }
+    if (edge.from === edge.to) {
+      throw new Error(
+        `Workflow contains self-loop on node: "${edge.from}". ` +
+          `Self-loops create cycles and are not allowed.`
+      );
+    }
     inDegree.set(edge.to, (inDegree.get(edge.to) ?? 0) + 1);
     adjacency.get(edge.from)?.push(edge.to);
   }
@@ -186,6 +226,11 @@ export class WorkflowExecutor {
         }
         const impl = this.config.capabilityRegistry.resolve(capability);
         if (!impl) {
+          if (this.config.capabilityRegistry.isStubOnly(capability)) {
+            throw new Error(
+              `Capability "${capability}" is not yet available (only stub engine registered). Install a real engine plugin to use this capability.`
+            );
+          }
           throw new Error(`No implementation registered for capability "${capability}"`);
         }
 

@@ -20,12 +20,7 @@ import type {
   ExecutionContext,
 } from '@lokvis/schema';
 import type { PluginContext } from '@lokvis/schema';
-import {
-  ffmpegEngine,
-  type VideoCompressParams,
-  type VideoTranscodeParams,
-  type VideoTrimParams,
-} from '@lokvis/engine-video';
+import { ffmpegEngine } from '@lokvis/engine-video';
 
 /** Capability 名 → 操作函数的映射类型 */
 export type VideoOperation = (
@@ -48,9 +43,11 @@ function wrapAsImplementation(
   entry: VideoCapabilityEntry,
   ctx: PluginContext
 ): CapabilityImplementation {
+  const isStub = ffmpegEngine.version.includes('stub');
   return {
     capability: entry.capability,
     engine: entry.engine,
+    status: isStub ? 'stub' : 'stable',
     async execute(inputs: Asset[], params: Record<string, unknown>, execCtx: ExecutionContext): Promise<Asset[]> {
       if (inputs.length === 0) {
         throw new Error(`Capability "${entry.capability}" requires at least one input asset`);
@@ -90,20 +87,19 @@ function deriveOutputMetadata(
 }
 
 // ─── 各操作的参数转换 + 调用 ───────────────────────────────
+// engine-video 操作函数已接受 Record<string, unknown>，无需类型断言。
 
 const compressOp: VideoOperation = (blob, params) =>
-  ffmpegEngine.compress(blob, params as unknown as VideoCompressParams);
+  ffmpegEngine.compress(blob, params);
 
 const transcodeOp: VideoOperation = (blob, params) =>
-  ffmpegEngine.transcode(blob, params as unknown as VideoTranscodeParams);
+  ffmpegEngine.transcode(blob, params);
 
 const trimOp: VideoOperation = (blob, params) =>
-  ffmpegEngine.trim(blob, params as unknown as VideoTrimParams);
+  ffmpegEngine.trim(blob, params);
 
-const screenshotOp: VideoOperation = (blob, params) => {
-  const { time } = params as unknown as { time: number };
-  return ffmpegEngine.screenshot(blob, time);
-};
+const screenshotOp: VideoOperation = (blob, params) =>
+  ffmpegEngine.screenshot(blob, params);
 
 // engine-video 暂未提供以下三个方法，这里直接抛错，
 // 待引擎实现后再切换为对应方法调用。

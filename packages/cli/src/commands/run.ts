@@ -57,8 +57,7 @@ export async function runWorkflow(
     }
     const buffer = await readFile(abs);
     const blob = new Blob([buffer]);
-    // Node.js Blob 没有 name，构造一个简易 File-like 对象
-    const fileLike = { ...blob, name: file } as unknown as File;
+    const fileLike = new File([blob], file, { type: blob.type });
     const id = await runtime.importAsset({ kind: 'file', file: fileLike });
     inputIds.push(id);
   }

@@ -123,6 +123,107 @@ describe('validateWorkflow', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  // ─── 结构层校验（修复 review：__input__ 哨兵边误判为环） ───
+
+  it('edge.from 引用保留字 __input__ 应失败', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      nodes: [{ id: 'n1', type: 'transform', capability: 'image.resize', params: {} }],
+      edges: [{ from: '__input__', to: 'n1' }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/__input__.*reserved/i);
+    }
+  });
+
+  it('edge.from 引用不存在节点应失败', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      nodes: [{ id: 'n1', type: 'transform', capability: 'image.resize', params: {} }],
+      edges: [{ from: 'ghost', to: 'n1' }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/unknown source node.*ghost/i);
+    }
+  });
+
+  it('edge.to 引用不存在节点应失败', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      nodes: [{ id: 'n1', type: 'transform', capability: 'image.resize', params: {} }],
+      edges: [{ from: 'n1', to: 'void' }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/unknown target node.*void/i);
+    }
+  });
+
+  it('edge 自环应失败', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      nodes: [{ id: 'n1', type: 'transform', capability: 'image.resize', params: {} }],
+      edges: [{ from: 'n1', to: 'n1' }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/self-loop/i);
+    }
+  });
+
+  it('重复 node id 应失败', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'image.resize', params: {} },
+        { id: 'n1', type: 'transform', capability: 'image.watermark', params: {} },
+      ],
+      edges: [],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/duplicate node id.*n1/i);
+    }
+  });
+
+  it('工作流含环应失败', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'image.resize', params: {} },
+        { id: 'n2', type: 'transform', capability: 'image.watermark', params: {} },
+      ],
+      edges: [
+        { from: 'n1', to: 'n2' },
+        { from: 'n2', to: 'n1' },
+      ],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/cycle/i);
+    }
+  });
+
+  it('多入口 DAG（多入度 0 节点）应通过', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'image.resize', params: {} },
+        { id: 'n2', type: 'transform', capability: 'image.watermark', params: {} },
+      ],
+      edges: [],
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 // ─── Plugin Manifest 校验 ──────────────────────────────────

@@ -61,10 +61,10 @@ export interface VideoEngineAdapter {
   initialize?(): Promise<void>;
   dispose?(): Promise<void>;
   decode(blob: Blob): Promise<DecodedVideo>;
-  transcode(blob: Blob, params: VideoTranscodeParams): Promise<Blob>;
-  compress(blob: Blob, params: VideoCompressParams): Promise<Blob>;
-  trim(blob: Blob, params: VideoTrimParams): Promise<Blob>;
-  screenshot(blob: Blob, time: number): Promise<Blob>;
+  transcode(blob: Blob, params: Record<string, any>): Promise<Blob>;
+  compress(blob: Blob, params: Record<string, any>): Promise<Blob>;
+  trim(blob: Blob, params: Record<string, any>): Promise<Blob>;
+  screenshot(blob: Blob, params: Record<string, any>): Promise<Blob>;
 }
 
 /** ffmpeg.wasm 引擎占位实现 */

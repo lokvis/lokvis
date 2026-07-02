@@ -28,8 +28,12 @@ export function createEventBus(): EventBus {
 
     emit(event) {
       emitter.emit(event.type, event);
-      for (const handler of anyHandlers) {
-        handler(event);
+      for (const handler of [...anyHandlers]) {
+        try {
+          handler(event);
+        } catch (err) {
+          console.error(`[event-bus] onAny handler threw for "${event.type}":`, err);
+        }
       }
     },
 

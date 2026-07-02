@@ -293,6 +293,100 @@ describe('WorkflowExecutor:错误路径(T4)', () => {
     expect(result.status).toBe('failed');
     expect(result.error).toMatch(/cycle/i);
   });
+
+  // ─── 拓扑排序防御性校验（修复 review：__input__ 哨兵边误判为环） ───
+
+  it('edge.from 引用不存在的节点时失败（如 __input__ 哨兵）', async () => {
+    const { executor, registry } = makeSetup();
+    registry.registerCapability(makeCapabilityDecl('cap.a'));
+    registry.registerImplementation(makeFakeImpl('cap.a', 'a'));
+    // 这是 playground demo 旧用法：__input__ 不在 nodes 中
+    const wf = buildWorkflow(
+      [{ id: 'n-a', type: 'transform', capability: 'cap.a', params: {} }],
+      [{ from: '__input__', to: 'n-a' }]
+    );
+    const result = await executor.execute(wf, [makeAsset('in')]);
+    expect(result.status).toBe('failed');
+    // 错误信息明确指向 __input__，而非含糊的 "cycle"
+    expect(result.error).toMatch(/unknown source node.*__input__/i);
+    expect(result.error).not.toMatch(/cycle/i);
+  });
+
+  it('edge.to 引用不存在的节点时失败', async () => {
+    const { executor, registry } = makeSetup();
+    registry.registerCapability(makeCapabilityDecl('cap.a'));
+    registry.registerImplementation(makeFakeImpl('cap.a', 'a'));
+    const wf = buildWorkflow(
+      [{ id: 'n-a', type: 'transform', capability: 'cap.a', params: {} }],
+      [{ from: 'n-a', to: '__output__' }]
+    );
+    const result = await executor.execute(wf, [makeAsset('in')]);
+    expect(result.status).toBe('failed');
+    expect(result.error).toMatch(/unknown target node.*__output__/i);
+  });
+
+  it('edge 自环（from === to）应失败', async () => {
+    const { executor, registry } = makeSetup();
+    registry.registerCapability(makeCapabilityDecl('cap.a'));
+    registry.registerImplementation(makeFakeImpl('cap.a', 'a'));
+    const wf = buildWorkflow(
+      [{ id: 'n-a', type: 'transform', capability: 'cap.a', params: {} }],
+      [{ from: 'n-a', to: 'n-a' }]
+    );
+    const result = await executor.execute(wf, [makeAsset('in')]);
+    expect(result.status).toBe('failed');
+    expect(result.error).toMatch(/self-loop/i);
+  });
+
+  it('重复 node id 应失败', async () => {
+    const { executor, registry } = makeSetup();
+    registry.registerCapability(makeCapabilityDecl('cap.a'));
+    registry.registerImplementation(makeFakeImpl('cap.a', 'a'));
+    const wf = buildWorkflow(
+      [
+        { id: 'n-a', type: 'transform', capability: 'cap.a', params: {} },
+        { id: 'n-a', type: 'transform', capability: 'cap.a', params: {} },
+      ],
+      []
+    );
+    const result = await executor.execute(wf, [makeAsset('in')]);
+    expect(result.status).toBe('failed');
+    expect(result.error).toMatch(/duplicate node id.*n-a/i);
+  });
+
+  it('多个入度 0 节点（并行入口）应正常执行', async () => {
+    const { executor, registry } = makeSetup();
+    registry.registerCapability(makeCapabilityDecl('cap.a'));
+    registry.registerCapability(makeCapabilityDecl('cap.b'));
+    const executed: string[] = [];
+    registry.registerImplementation({
+      capability: 'cap.a',
+      engine: 'fake',
+      execute: async () => {
+        executed.push('a');
+        return [makeAsset('out-a')];
+      },
+    });
+    registry.registerImplementation({
+      capability: 'cap.b',
+      engine: 'fake',
+      execute: async () => {
+        executed.push('b');
+        return [makeAsset('out-b')];
+      },
+    });
+    // 两个独立入口节点，无 edge
+    const wf = buildWorkflow(
+      [
+        { id: 'n-a', type: 'transform', capability: 'cap.a', params: {} },
+        { id: 'n-b', type: 'transform', capability: 'cap.b', params: {} },
+      ],
+      []
+    );
+    const result = await executor.execute(wf, [makeAsset('in')]);
+    expect(result.status).toBe('completed');
+    expect(executed).toEqual(expect.arrayContaining(['a', 'b']));
+  });
 });
 
 describe('WorkflowExecutor:节点空输出处理(T6)', () => {

@@ -6,6 +6,7 @@
  */
 
 import * as React from 'react';
+import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 
 export interface CanvasProps {
@@ -51,7 +52,7 @@ export function Canvas({ className = '' }: CanvasProps) {
         {dragOver && (
           <div className="absolute inset-4 z-10 rounded-xl border-2 border-dashed border-indigo-400 bg-indigo-50/80 flex items-center justify-center dark:border-indigo-600 dark:bg-indigo-950/60">
             <div className="text-center">
-              <svg className="mx-auto h-8 w-8 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+              <Icon size={32} className="mx-auto text-indigo-500" strokeWidth={1.5}><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></Icon>
               <p className="mt-2 text-sm font-medium text-indigo-600 dark:text-indigo-400">Drop files to import</p>
             </div>
           </div>
@@ -89,9 +90,9 @@ export function Canvas({ className = '' }: CanvasProps) {
         ) : (
           <div className="relative flex flex-col items-center gap-5 px-6 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:ring-zinc-700">
-              <svg className="h-9 w-9 text-zinc-300 dark:text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-              </svg>
+              <Icon size={36} className="text-zinc-300 dark:text-zinc-600" strokeWidth={1.5}>
+                <path d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+              </Icon>
             </div>
             <div>
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">No asset selected</p>
@@ -103,7 +104,7 @@ export function Canvas({ className = '' }: CanvasProps) {
             </div>
             {assets.length === 0 && (
               <label className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-sm cursor-pointer transition-colors hover:bg-indigo-500">
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                <Icon size={14}><path d="M12 4.5v15m7.5-7.5h-15" /></Icon>
                 Import Files
                 <input
                   type="file"

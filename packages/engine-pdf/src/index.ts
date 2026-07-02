@@ -68,11 +68,11 @@ export interface PdfEngineAdapter {
   initialize?(): Promise<void>;
   dispose?(): Promise<void>;
   decode(blob: Blob): Promise<DecodedPdf>;
-  merge(blobs: Blob[], params: PdfMergeParams): Promise<Blob>;
-  split(blob: Blob, params: PdfSplitParams): Promise<Blob[]>;
-  rotate(blob: Blob, params: PdfRotateParams): Promise<Blob>;
-  watermark(blob: Blob, params: PdfWatermarkParams): Promise<Blob>;
-  compress(blob: Blob, params: PdfCompressParams): Promise<Blob>;
+  merge(blobs: Blob[], params: Record<string, any>): Promise<Blob>;
+  split(blob: Blob, params: Record<string, any>): Promise<Blob[]>;
+  rotate(blob: Blob, params: Record<string, any>): Promise<Blob>;
+  watermark(blob: Blob, params: Record<string, any>): Promise<Blob>;
+  compress(blob: Blob, params: Record<string, any>): Promise<Blob>;
 }
 
 /** pdf-lib 引擎占位实现 */

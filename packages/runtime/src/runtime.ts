@@ -17,6 +17,7 @@ import type {
   McpToolManifest,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
+import { validateWorkflow } from '@lokvis/schema';
 import type {
   LokvisRuntime,
   RuntimeConfig,
@@ -218,6 +219,32 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     inputs: AssetId[] | Asset[]
   ): Promise<WorkflowResult> {
     this._status = 'running';
+
+    // Schema 层校验：在 executor.execute 之前调用 validateWorkflow，
+    // 让结构问题（保留字哨兵 __input__、悬挂 edge、自环、重复 id、真环）
+    // 在入口处暴露，错误信息精准（如 "Edge from __input__ references a
+    // reserved sentinel id"），而不是被 executor 拓扑排序误判为含糊的 "cycle"。
+    // 三层防御的第 3 层（前两层：executor 防御性校验 + 单元测试覆盖）。
+    const validation = validateWorkflow(workflow);
+    if (!validation.success) {
+      this._status = 'error';
+      const error = validation.error.issues
+        .map((i) => i.message)
+        .join('; ');
+      const result: WorkflowResult = {
+        workflowId: workflow.id,
+        outputs: [],
+        duration: 0,
+        status: 'failed',
+        error,
+      };
+      this.eventBus.emit({
+        type: 'workflow:completed',
+        workflowId: workflow.id,
+        result,
+      });
+      return result;
+    }
 
     // 重新执行同一工作流时,丢弃上一次的历史(含失败后重跑的残留条目),
     // 并通过 onEvict 回收其 outputs 资产,避免 OPFS/IDB 泄漏。
@@ -462,6 +489,11 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   /** 获取工作流当前输出 AssetId（undo/redo 后的"当前"状态,内部用） */
   _getCurrentOutputs(workflowId: string): AssetId[] {
     return this.currentOutputsMap.get(workflowId) ?? [];
+  }
+
+  /** 获取工作流当前输出 AssetId（公开 API，供 UI / MCP 查询） */
+  async getCurrentOutputs(workflowId: string): Promise<AssetId[]> {
+    return this._getCurrentOutputs(workflowId);
   }
 
   // ─── 私有：历史栈管理 ──────────────────────────────

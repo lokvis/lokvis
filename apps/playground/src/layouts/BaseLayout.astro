@@ -19,12 +19,20 @@ interface Props {
 
 const { title = 'Lokvis Playground', active = 'home' } = Astro.props;
 
+// 修复 review 报告：astro.config.mjs 配置了 `base: '/playground'`，
+// 但导航 href 用绝对路径 `/image`/`/runtime` 未拼接 base 前缀，
+// 导致点击跳转到 /image 实际访问根域 /image → 404。
+// 用 import.meta.env.BASE_URL 拼接正确路径。
+// 注意：BASE_URL 取决于 trailingSlash 配置，可能为 '/playground' 或 '/playground/'，
+// 故统一去掉尾部斜杠再手动加，保证路径分隔符正确。
+const rawBase = import.meta.env.BASE_URL;
+const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
 const NAV = [
-  { id: 'home', label: 'Code Editor', href: '/', desc: 'Run arbitrary SDK code' },
-  { id: 'runtime', label: 'Runtime Basics', href: '/runtime', desc: 'Import asset + list capabilities' },
-  { id: 'image', label: 'Image Workflow', href: '/image', desc: 'Upload → resize → watermark → export' },
-  { id: 'history', label: 'Undo / Redo', href: '/history', desc: 'History stack & time travel' },
-  { id: 'mcp', label: 'MCP Manifest', href: '/mcp', desc: 'Expose capabilities as MCP tools' },
+  { id: 'home', label: 'Code Editor', href: base, desc: 'Run arbitrary SDK code' },
+  { id: 'runtime', label: 'Runtime Basics', href: `${base}runtime`, desc: 'Import asset + list capabilities' },
+  { id: 'image', label: 'Image Workflow', href: `${base}image`, desc: 'Upload → resize → watermark → export' },
+  { id: 'history', label: 'Undo / Redo', href: `${base}history`, desc: 'History stack & time travel' },
+  { id: 'mcp', label: 'MCP Manifest', href: `${base}mcp`, desc: 'Expose capabilities as MCP tools' },
 ] as const;
 ---
 <!doctype html>

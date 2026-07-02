@@ -84,6 +84,15 @@ export interface CapabilityImplementation {
   /** 实现该能力的引擎名 */
   engine: string;
   /**
+   * 实现状态:
+   * - `'stable'`(默认):可正常执行
+   * - `'stub'`:占位实现,调用 execute 会抛出异常
+   *
+   * CapabilityRegistry.resolve() 会跳过 stub 实现,
+   * 避免运行时出现 "not implemented" 错误。
+   */
+  status?: 'stable' | 'stub';
+  /**
    * 该引擎的性能等级(可选)。缺省时使用能力声明的 performance。
    * 用于 EngineSelectionStrategy('fastest'/'balanced')排序选择。
    */

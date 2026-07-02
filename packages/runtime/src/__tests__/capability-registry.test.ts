@@ -151,6 +151,74 @@ describe('CapabilityRegistry', () => {
       expect(registry.list()).toEqual([]);
     });
   });
+
+  describe('stub 状态过滤', () => {
+    const stubImpl: CapabilityImplementation = {
+      capability: 'image.resize',
+      engine: 'ffmpeg-wasm',
+      status: 'stub',
+      execute: async () => [],
+    };
+    const stableImpl: CapabilityImplementation = {
+      capability: 'image.resize',
+      engine: 'canvas',
+      status: 'stable',
+      execute: async () => [],
+    };
+
+    it('resolve() 应跳过 status=stub 的实现', () => {
+      registry.registerCapability(resizeCap);
+      registry.registerImplementation(stubImpl);
+      registry.registerImplementation(stableImpl);
+
+      const impl = registry.resolve('image.resize');
+      expect(impl).toBeDefined();
+      expect(impl!.engine).toBe('canvas');
+    });
+
+    it('仅有 stub 实现时 resolve() 应返回 undefined', () => {
+      registry.registerCapability(resizeCap);
+      registry.registerImplementation(stubImpl);
+
+      expect(registry.resolve('image.resize')).toBeUndefined();
+    });
+
+    it('isStubOnly() 应检测仅有 stub 实现的能力', () => {
+      registry.registerCapability(resizeCap);
+      registry.registerImplementation(stubImpl);
+
+      expect(registry.isStubOnly('image.resize')).toBe(true);
+    });
+
+    it('isStubOnly() 有 stable 实现时应返回 false', () => {
+      registry.registerCapability(resizeCap);
+      registry.registerImplementation(stubImpl);
+      registry.registerImplementation(stableImpl);
+
+      expect(registry.isStubOnly('image.resize')).toBe(false);
+    });
+
+    it('isStubOnly() 未注册的能力应返回 false', () => {
+      expect(registry.isStubOnly('image.resize')).toBe(false);
+    });
+
+    it('hasImplementation() 应区分 stub 和 stable', () => {
+      registry.registerCapability(resizeCap);
+      registry.registerImplementation(stubImpl);
+
+      expect(registry.hasImplementation('image.resize')).toBe(false);
+
+      registry.registerImplementation(stableImpl);
+      expect(registry.hasImplementation('image.resize')).toBe(true);
+    });
+
+    it('preferredEngine 也应跳过 stub', () => {
+      registry.registerCapability(resizeCap);
+      registry.registerImplementation(stubImpl);
+
+      expect(registry.resolve('image.resize', 'ffmpeg-wasm')).toBeUndefined();
+    });
+  });
 });
 
 describe('CapabilityRegistry 引擎选择策略(O2)', () => {

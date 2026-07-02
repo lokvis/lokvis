@@ -67,6 +67,20 @@ export class CapabilityRegistry {
     return this.registry.has(name);
   }
 
+  /** 检查能力是否有非 stub 实现 */
+  hasImplementation(name: CapabilityName): boolean {
+    const entry = this.registry.get(name);
+    if (!entry) return false;
+    return entry.implementations.some((i) => i.status !== 'stub');
+  }
+
+  /** 检查能力是否仅有 stub 实现 */
+  isStubOnly(name: CapabilityName): boolean {
+    const entry = this.registry.get(name);
+    if (!entry || entry.implementations.length === 0) return false;
+    return entry.implementations.every((i) => i.status === 'stub');
+  }
+
   /** 获取能力声明 */
   get(name: CapabilityName): Capability | undefined {
     return this.registry.get(name)?.capability;
@@ -81,12 +95,15 @@ export class CapabilityRegistry {
     const entry = this.registry.get(name);
     if (!entry || entry.implementations.length === 0) return undefined;
 
+    const available = entry.implementations.filter((i) => i.status !== 'stub');
+    if (available.length === 0) return undefined;
+
     if (preferredEngine) {
-      const impl = entry.implementations.find((i) => i.engine === preferredEngine);
+      const impl = available.find((i) => i.engine === preferredEngine);
       if (impl) return impl;
     }
 
-    return this.selectByStrategy(entry.implementations, entry.capability);
+    return this.selectByStrategy(available, entry.capability);
   }
 
   /** 按默认策略从实现列表中选择一个 */

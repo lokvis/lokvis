@@ -15,13 +15,6 @@
 
 import { getPdfEngine } from '@lokvis/engine-pdf';
 import type {
-  PdfCompressParams,
-  PdfMergeParams,
-  PdfRotateParams,
-  PdfSplitParams,
-  PdfWatermarkParams,
-} from '@lokvis/engine-pdf';
-import type {
   Asset,
   AssetMetadata,
   AssetType,
@@ -71,19 +64,19 @@ const engine = () => getPdfEngine('pdf-lib');
 // ─── 各操作的参数转换 + 调用 ───────────────────────────────
 
 const mergeOp: MergePdfOperation = (blobs, params) =>
-  engine().merge(blobs, params as unknown as PdfMergeParams);
+  engine().merge(blobs, params);
 
 const splitOp: SplitPdfOperation = (blob, params) =>
-  engine().split(blob, params as unknown as PdfSplitParams);
+  engine().split(blob, params);
 
 const compressOp: SinglePdfOperation = (blob, params) =>
-  engine().compress(blob, params as unknown as PdfCompressParams);
+  engine().compress(blob, params);
 
 const rotateOp: SinglePdfOperation = (blob, params) =>
-  engine().rotate(blob, params as unknown as PdfRotateParams);
+  engine().rotate(blob, params);
 
 const watermarkOp: SinglePdfOperation = (blob, params) =>
-  engine().watermark(blob, params as unknown as PdfWatermarkParams);
+  engine().watermark(blob, params);
 
 // OCR / SIGN：engine-pdf 暂未提供对应方法，运行时直接抛出
 const ocrOp: SinglePdfOperation = async () => {
@@ -110,9 +103,12 @@ function wrapAsImplementation(
   entry: PdfCapabilityEntry,
   ctx: PluginContext
 ): CapabilityImplementation {
+  const engineAdapter = getPdfEngine(entry.engine as 'pdf-lib');
+  const isStub = engineAdapter.version.includes('stub');
   return {
     capability: entry.capability,
     engine: entry.engine,
+    status: isStub ? 'stub' : 'stable',
     async execute(
       inputs: Asset[],
       params: Record<string, unknown>,

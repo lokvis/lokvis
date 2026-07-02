@@ -6,6 +6,7 @@
  */
 
 import * as React from 'react';
+import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 import { ParamForm } from './ParamForm.js';
 
@@ -57,7 +58,7 @@ export function Inspector({ className = '' }: InspectorProps) {
             className="flex w-full items-center justify-between px-3 h-10 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
           >
             <div className="flex items-center gap-2">
-              <svg className={`h-3 w-3 text-zinc-400 transition-transform ${configureOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7"/></svg>
+              <Icon size={12} className={`text-zinc-400 transition-transform ${configureOpen ? 'rotate-90' : ''}`}><path d="m9 5 7 7-7 7" /></Icon>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Configure</span>
             </div>
             <span className="font-mono text-[10px] text-indigo-500 bg-indigo-50 dark:bg-indigo-950/30 px-1.5 py-0.5 rounded">
@@ -88,7 +89,7 @@ export function Inspector({ className = '' }: InspectorProps) {
         {/* Search */}
         <div className="px-2 py-2 border-b border-zinc-100 dark:border-zinc-800/50">
           <div className="relative">
-            <svg className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <Icon size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>
             <input
               type="text"
               placeholder="Search capabilities..."

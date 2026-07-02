@@ -72,7 +72,6 @@ export default function ImageWorkflowDemo() {
         { id: 'n2', type: 'transform', capability: 'image.watermark', params: { text: watermarkText, fontSize: 24, color: '#ffffff', opacity: 0.6, position: 'bottom-right' } },
       ],
       edges: [
-        { from: '__input__', to: 'n1' },
         { from: 'n1', to: 'n2' },
       ],
       inputs: { type: 'image', multiple: false },
@@ -147,7 +146,7 @@ export default function ImageWorkflowDemo() {
                 onClick={() => fileInputRef.current?.click()}
                 className="text-[10px] text-indigo-400 hover:text-indigo-300"
               >
-                Choose file
+                + Upload
               </button>
               <input
                 ref={fileInputRef}

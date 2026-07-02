@@ -120,4 +120,57 @@ describe('createEventBus', () => {
 
     expect(handler).toHaveBeenCalledTimes(2);
   });
+
+  it('onAny handler 在 dispatch 期间取消订阅不应中断后续 handler', () => {
+    const h1 = vi.fn();
+    let off2: () => void;
+    const h2 = vi.fn(() => { off2(); });
+    const h3 = vi.fn();
+
+    bus.onAny(h1);
+    off2 = bus.onAny(h2);
+    bus.onAny(h3);
+
+    bus.emit({ type: 'asset:removed', assetId: 'a1' });
+
+    expect(h1).toHaveBeenCalledTimes(1);
+    expect(h2).toHaveBeenCalledTimes(1);
+    expect(h3).toHaveBeenCalledTimes(1);
+  });
+
+  it('onAny handler 抛错不应阻止后续 handler 接收事件', () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const h1 = vi.fn();
+    const h2 = vi.fn(() => { throw new Error('handler error'); });
+    const h3 = vi.fn();
+
+    bus.onAny(h1);
+    bus.onAny(h2);
+    bus.onAny(h3);
+
+    bus.emit({ type: 'asset:removed', assetId: 'a1' });
+
+    expect(h1).toHaveBeenCalledTimes(1);
+    expect(h2).toHaveBeenCalledTimes(1);
+    expect(h3).toHaveBeenCalledTimes(1);
+    expect(consoleSpy).toHaveBeenCalled();
+
+    consoleSpy.mockRestore();
+  });
+
+  it('onAny handler 在 dispatch 期间新增 handler 不应在当前轮次触发', () => {
+    const lateHandler = vi.fn();
+    const h1 = vi.fn(() => { bus.onAny(lateHandler); });
+
+    bus.onAny(h1);
+
+    bus.emit({ type: 'asset:removed', assetId: 'a1' });
+
+    expect(h1).toHaveBeenCalledTimes(1);
+    expect(lateHandler).not.toHaveBeenCalled();
+
+    bus.emit({ type: 'asset:removed', assetId: 'a2' });
+    expect(lateHandler).toHaveBeenCalledTimes(1);
+  });
 });

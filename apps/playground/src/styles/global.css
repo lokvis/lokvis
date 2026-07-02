@@ -7,3 +7,24 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 }
+
+/* CodeMirror host：填满容器并覆盖 oneDark 默认背景以匹配外层 */
+.cm-host .cm-editor {
+  height: 100%;
+  background: transparent;
+}
+.cm-host .cm-editor.cm-focused {
+  outline: none;
+}
+.cm-host .cm-scroller {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.cm-host .cm-gutters {
+  background: transparent;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+.cm-host .cm-activeLineGutter {
+  background: rgba(255, 255, 255, 0.04);
+}

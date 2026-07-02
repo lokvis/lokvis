@@ -95,7 +95,7 @@ export default function HistoryDemo() {
       nodes: [
         { id: 'n0', type: 'transform', capability: filter.capability, params: filter.params },
       ],
-      edges: [{ from: '__input__', to: 'n0' }],
+      edges: [],
       inputs: { type: 'image', multiple: false },
       outputs: { type: 'image' },
     };

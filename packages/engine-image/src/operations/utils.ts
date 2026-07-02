@@ -25,12 +25,11 @@ export function inferFormat(
 export function computeTargetSize(
   srcW: number,
   srcH: number,
-  params: ResizeParams
+  params: Record<string, any>
 ): { width: number; height: number } {
-  const fit = params.fit ?? 'cover';
-  const maintain = params.maintainAspectRatio ?? true;
-  const targetW = params.width;
-  const targetH = params.height;
+  const { width: targetW, height: targetH, fit: rawFit, maintainAspectRatio } = params as ResizeParams;
+  const fit = rawFit ?? 'cover';
+  const maintain = maintainAspectRatio ?? true;
 
   // 既未指定 width 也未指定 height：保持原尺寸
   if (!targetW && !targetH) {

@@ -3,6 +3,7 @@ import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime } from '@lokvis/runtime';
 import imageToolsPlugin from '@lokvis/plugin-image';
 import devToolsPlugin from '@lokvis/plugin-dev';
+import { CodeEditor } from './CodeEditor';
 
 /**
  * Lokvis Playground
@@ -174,13 +175,13 @@ export function Playground() {
             </span>
             <span className="text-[11px] text-zinc-600">JavaScript</span>
           </div>
-          <textarea
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            spellCheck={false}
-            className="flex-1 resize-none bg-transparent p-4 font-mono text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 focus:outline-none"
-            placeholder="Write your code here..."
-          />
+          <div className="flex-1 overflow-auto bg-[#282c34]">
+            <CodeEditor
+              value={code}
+              onChange={setCode}
+              placeholder="Write your code here..."
+            />
+          </div>
         </div>
 
         {/* Output */}
