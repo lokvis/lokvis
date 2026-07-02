@@ -1,0 +1,18 @@
+# Exclude test files (source + compiled) from published package.
+# Patterns without a leading slash match at any depth (src/ and dist/).
+__tests__/
+*.test.ts
+*.test.tsx
+*.test.js
+*.test.d.ts
+*.test.js.map
+*.test.d.ts.map
+*.spec.ts
+*.spec.tsx
+*.spec.js
+*.spec.d.ts
+*.spec.js.map
+*.spec.d.ts.map
+
+# TypeScript incremental build info
+*.tsbuildinfo

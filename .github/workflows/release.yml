@@ -1,0 +1,89 @@
+name: Release
+
+# 在 main 或 dev 分支上打 tag (v*) 时触发 npm 发布:
+# - main 上的 tag → stable,发布到 latest dist-tag
+# - dev  上的 tag → beta,  发布到 beta   dist-tag
+# 常规 push 到 main/dev 只跑 CI (lint/typecheck/build/test),不发布。
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9.12.0'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish packages to npm
+    runs-on: ubuntu-latest
+    # 仅在 lokvis/lokvis 仓库执行,防止 fork 误触发
+    if: github.repository == 'lokvis/lokvis'
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 完整历史,用于判断 tag 所在分支
+
+      - name: Detect release channel
+        id: channel
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "Tag: $TAG"
+
+          # 拉取 main / dev 引用,用于判断 tag 所在分支
+          git fetch origin main dev --no-tags 2>/dev/null || true
+          SHA="${{ github.sha }}"
+
+          CHANNEL="skip"
+          DIST_TAG=""
+
+          # 优先检查 main:tag 的 commit 在 main 上 → stable
+          if git branch -r --contains "$SHA" 2>/dev/null | grep -qE "origin/main$"; then
+            CHANNEL="stable"
+            DIST_TAG="latest"
+          # 其次检查 dev:tag 的 commit 仅在 dev 上 → beta
+          elif git branch -r --contains "$SHA" 2>/dev/null | grep -qE "origin/dev$"; then
+            CHANNEL="beta"
+            DIST_TAG="beta"
+          fi
+
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "dist-tag=$DIST_TAG" >> "$GITHUB_OUTPUT"
+          echo "::notice::Detected channel: $CHANNEL (dist-tag: $DIST_TAG) for tag $TAG"
+
+      - name: Setup pnpm
+        if: steps.channel.outputs.channel != 'skip'
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        if: steps.channel.outputs.channel != 'skip'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        if: steps.channel.outputs.channel != 'skip'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        if: steps.channel.outputs.channel != 'skip'
+        run: pnpm build
+
+      - name: Publish to npm
+        if: steps.channel.outputs.channel != 'skip'
+        run: pnpm changeset publish --tag ${{ steps.channel.outputs.dist-tag }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
