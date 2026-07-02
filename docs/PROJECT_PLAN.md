@@ -98,7 +98,7 @@
 | M1 07 | W1-4 | 基础设施 + Runtime 加固 | CI/CD、COOP/COEP、Web Worker 隔离、undo/redo、OPFS AssetStore、SDK API 冻结 | 152h | 8h |
 | M2 08 | W5-8 | Image 工具完善 + 批量 + 历史 | 6 工具连真实处理、批量队列、水印、历史 10 步、预设库 20+ | 142h | 18h |
 | M3 09 | W9-12 | Workspace UI + Workflow Layer | SPA 主界面打磨、拖拽编辑器、5 步编排、JSON 导入导出、Alpha | 156h | 4h |
-| M4 10 | W13-16 | SEO 内容 + PWA | 50 工具页/30 教程/10 对比模板、JSON-LD、SW 预缓存、安装提示、离线指示、Beta | 160h | 0h |
+| M4 10 | W13-16 | npm 发版 + Playground + PWA | npm 包正式发版准备、apps/playground 升级（5 demo）、PWA 基础能力、Alpha | 160h | 0h |
 | M5 11 | W17-20 | SDK 公开 + 文档 + Pro 对接点 | SDK npm 发布、Pro 门控、开发者文档站、Plugin SDK Alpha | 100h | 60h |
 | M6 12 | W21-24 | 优化 + 发布 | WASM 懒加载、首屏 <2.5s、崩溃率 <1%、文档定稿、开源发布 | 110h | 0h |
 
@@ -295,57 +295,62 @@
 
 ---
 
-## 6. M4 · SEO 内容 + PWA(W13-16,160h)
+## 6. M4 · ~~SEO 内容 + PWA(W13-16,160h)~~ → 迁出至 cloud（ADR-012）
 
-### W13 · SEO 内容架构 + 工具页模板(40h)
+> **重要变更（2026-07-02，ADR-012）**：50 SEO 工具页 + 30 教程 + 10 对比 + JSON-LD + sitemap + OG 图 + Marketplace 等商业化资产**已迁出至 lokvis-cloud `apps/web`**（参见 [cloud 03 文档 M0.5 迁移里程碑](../../lokvis-cloud/docs/03-MVP任务拆解-小时级.md#m05-appsweb-迁移里程碑w5-w10-并行60h-p0p1)）。open 端 W13-16 的 SEO 内容任务整体作废，由 cloud 仓库 M0.5 接管。
+>
+> open 端 W13-16 重新分配为：**npm 包正式发版准备 + 文档站内容补强 + PWA 基础能力（apps/web 已加 noindex 不影响 cloud SEO）**。
 
-| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
-|---|---|---|---|---|---|
-| 13.1 | SEO 关键词研究(50 工具 + 30 教程 + 10 对比) | P0 | 4h | ⬜ | `docs/seo-keywords.csv` |
-| 13.2 | 工具页模板:数据驱动生成(content collection) | P0 | 6h | ⬜ | 模板 |
-| 13.3 | 50 工具页内容(每页 300-500 字 + FAQ),AI 辅助初稿 | P0 | 16h | ⬜ | 50 页 |
-| 13.4 | JSON-LD:SoftwareApplication / HowTo / BreadcrumbList | P0 | 4h | ⬜ | 组件 |
-| 13.5 | sitemap.xml + robots.txt 自动生成 | P0 | 2h | ⬜ | 集成 |
-| 13.6 | OG image 自动生成(per page) | P0 | 4h | ⬜ | `src/pages/og/[...slug].png.ts` |
-| 13.7 | 缓冲 | P0 | 4h | ⬜ | — |
-
-### W14 · 教程 + 对比页(40h)
+### W13 · npm 包正式发版准备 + 文档站内容补强（40h）
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 14.1 | 教程页模板 + content collection | P0 | 4h | ⬜ | 模板 |
-| 14.2 | 30 教程文章(800-1500 字,AI 初稿 + 人工校) | P0 | 20h | ⬜ | 30 篇 |
-| 14.3 | 对比页模板 + 10 篇(vs TinyPNG/Compressor.io/Squoosh/ILoveIMG...) | P0 | 10h | ⬜ | 10 篇 |
-| 14.4 | 内链策略:工具页↔教程↔对比自动交叉链接 | P0 | 4h | ⬜ | 组件 |
-| 14.5 | 缓冲 | P0 | 2h | ⬜ | — |
+| 13.1 | 8 个 `@lokvis/*` 包 `package.json` 检查（exports/types/files/license）+ changeset 配置 | P0 | 6h | ⬜ | `.changeset/config.json` + 包配置 |
+| 13.2 | API Reference 自动生成（tsdoc → typedoc） | P0 | 8h | ⬜ | `apps/docs/src/content/docs/api/*` |
+| 13.3 | Guides 补充：嵌入 SDK / 写第一个插件 / 自定义 Workspace / CLI 自动化 | P0 | 12h | ⬜ | `apps/docs/src/content/docs/guides/*` |
+| 13.4 | Architecture 深度文：Runtime/Engine/Capability/Plugin 四层 | P0 | 6h | ⬜ | `apps/docs/src/content/docs/architecture/*` |
+| 13.5 | README 根目录重写：介绍/架构图/快速开始/贡献指南 | P0 | 4h | ⬜ | `README.md` |
+| 13.6 | LICENSE 审计：确认 MIT + 第三方 WASM 协议清单 | P0 | 4h | ⬜ | `THIRD_PARTY_LICENSES.md` |
 
-### W15 · PWA 完善(40h)
+### W14 · `apps/playground` 升级（40h）
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 15.1 | Service Worker 预缓存:app shell + top 5 engine | P0 | 4h | ⬜ | sw.js |
-| 15.2 | WASM 懒加载:用户触发工具才加载,prefetchOnHover | P0 | 6h | ⬜ | `engine-image/src/lazy.ts` |
+| 14.1 | Playground 极简壳：`PlaygroundLayout.astro` + nav 极简化 | P0 | 6h | ⬜ | `apps/playground/src/layouts/PlaygroundLayout.astro` |
+| 14.2 | `SdkDemo.tsx`：createLokvis() 基础调用 demo | P0 | 6h | ⬜ | `apps/playground/src/components/SdkDemo.tsx` |
+| 14.3 | `RuntimeDemo.tsx`：runtime.executor 调用 demo | P0 | 6h | ⬜ | `apps/playground/src/components/RuntimeDemo.tsx` |
+| 14.4 | `PluginDemo.tsx`：loadPlugin() 调用 demo | P0 | 6h | ⬜ | `apps/playground/src/components/PluginDemo.tsx` |
+| 14.5 | `WorkflowDemo.tsx`：5 步 workflow demo | P0 | 6h | ⬜ | `apps/playground/src/components/WorkflowDemo.tsx` |
+| 14.6 | `McpManifestDemo.tsx`：toMcpManifest() 输出展示 | P0 | 6h | ⬜ | `apps/playground/src/components/McpManifestDemo.tsx` |
+| 14.7 | Playground 部署配置（playground.lokvis.dev） | P0 | 4h | ⬜ | Cloudflare Pages 项目 |
+
+### W15 · PWA 基础能力（仅作用于 apps/playground，40h）
+
+| ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
+|---|---|---|---|---|---|
+| 15.1 | Service Worker 预缓存：playground shell + top 5 engine | P0 | 6h | ⬜ | `apps/playground/public/sw.js` |
+| 15.2 | WASM 懒加载：用户触发工具才加载，prefetchOnHover | P0 | 6h | ⬜ | `engine-image/src/lazy.ts` |
 | 15.3 | WASM immutable 缓存 + 失败重试 + 备用 CDN | P0 | 4h | ⬜ | sw.js |
 | 15.4 | `beforeinstallprompt` 捕获 + 自定义安装提示 UI | P0 | 6h | ⬜ | `InstallPrompt.tsx` |
-| 15.5 | 离线状态指示:`navigator.onLine` + 事件 | P0 | 4h | ⬜ | StatusBar |
+| 15.5 | 离线状态指示：`navigator.onLine` + 事件 | P0 | 4h | ⬜ | StatusBar |
 | 15.6 | 离线 fallback 页 | P0 | 2h | ⬜ | `public/offline.html` |
-| 15.7 | PWA 安装后预加载 top 5 engine(后台静默) | P0 | 4h | ⬜ | sw.js |
+| 15.7 | PWA 安装后预加载 top 5 engine（后台静默） | P0 | 4h | ⬜ | sw.js |
 | 15.8 | 首次加载 Engine 介绍动画 + 进度条 + 预估时间 | P0 | 6h | ⬜ | `EngineLoader.tsx` |
-| 15.9 | 缓冲 | P0 | 4h | ⬜ | — |
+| 15.9 | 缓冲 | P0 | 2h | ⬜ | — |
 
-### W16 · M1.2 Beta 里程碑(40h)
+### W16 · M1.2 Alpha 里程碑（playground 侧，40h）
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 16.1 | Beta 部署到 lokvis.com(生产环境) | P0 | 4h | ⬜ | 上线 |
-| 16.2 | 50 人内测邀请 + 反馈表单 | P0 | 4h | ⬜ | 表单 |
-| 16.3 | 崩溃率监控验证(<3%) | P0 | 4h | ⬜ | 报告 |
-| 16.4 | SEO 索引验证(Search Console) | P0 | 4h | ⬜ | 报告 |
-| 16.5 | Lighthouse 跑分:LCP <2.5s / FID <100ms / CLS <0.1 | P0 | 6h | ⬜ | 报告 |
-| 16.6 | Bug 修复(Beta 反馈) | P0 | 12h | ⬜ | 多处 |
+| 16.1 | Alpha 部署 playground.lokvis.dev | P0 | 4h | ⬜ | 上线 |
+| 16.2 | 5 个 demo 页跑通（SDK/Runtime/Plugin/Workflow/McpManifest） | P0 | 4h | ⬜ | 验收报告 |
+| 16.3 | 崩溃率监控验证（<3%） | P0 | 4h | ⬜ | 报告 |
+| 16.4 | npm 包 0.1.0-beta 发版（cloud 已使用 alpha，open 升级 beta） | P0 | 4h | ⬜ | npm 发版 |
+| 16.5 | Lighthouse 跑分：playground LCP <2.5s / FID <100ms / CLS <0.1 | P0 | 6h | ⬜ | 报告 |
+| 16.6 | Bug 修复（Alpha 反馈） | P0 | 12h | ⬜ | 多处 |
 | 16.7 | 缓冲 | P0 | 6h | ⬜ | — |
 
-> **里程碑 M1.2 MVP Beta(2026.10.31)**:50 人内测,崩溃率 <3%。失败应对:延期 2 周,扩大测试。
+> **里程碑 M1.2 open Alpha（2026.10.31）**：playground.lokvis.dev 上线，5 个 demo 跑通，npm 包 beta 发版。失败应对：延期 2 周，砍 demo 数量到 3 个。
 
 ---
 
@@ -495,6 +500,7 @@
 - ❌ Video/PDF/Audio/AI Workspace(Phase 2+)
 - ❌ Branch/Loop/Condition/Parallel Workflow(第二年)
 - ❌ Cloud 侧功能(API/Marketplace/Auth/Billing/Sync/Analytics)— 属 cloud 仓库
+- ❌ **工具站 + SEO 页 + Workspace SPA + Marketplace + 联盟广告**（ADR-012，已迁至 cloud `apps/web`）
 - ❌ `plugin-dev` Developer Workspace(Phase 4)
 - ❌ CLI 正式发布(Phase 4,Phase 1 仅最小 `run` 命令 P1)
 - ❌ Plugin SDK v1 正式(Phase 2,Phase 1 仅 Alpha P1)
@@ -548,6 +554,7 @@
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
+| 2026-07-02 | v1.6 | **ADR-012 商业化资产迁出**：原 W13-16 "SEO 内容 + PWA" 整体作废，迁出至 cloud `apps/web`（[cloud M0.5 迁移里程碑](../../lokvis-cloud/docs/03-MVP任务拆解-小时级.md#m05-appsweb-迁移里程碑w5-w10-并行60h-p0p1)）。open W13-16 重新分配为 npm 包发版准备 + apps/playground 升级（5 demo）+ PWA 基础能力。原 W17 17.1 SDK npm 发布提前到 W4 末（cloud W4.5 阻塞前置，发 `@lokvis/*@0.1.0-alpha.1`）。M4 主题更新。§11 不做清单新增"工具站 + SEO 页 + Workspace SPA + Marketplace + 联盟广告（ADR-012）"。open `apps/web` 计划在 W9 末加 noindex、W10 末删除（由 cloud M0.5.6/M0.5.7 执行）|
 | 2026-07-01 | v1.5 | **AI 生态冲击调整**：基于 [AI生态冲击调整方案](./AI生态冲击调整方案.md)，新增 MCP server 设计任务（W11-W12，6h P1）、营销对比任务（W17/W19，10h）；Plugin SDK v1 降级（18.4/18.5 延后 Phase 2）；engine-ai 定位为"AI 辅助 workflow 设计"；Phase 2 新增 `@lokvis/mcp-server` 包（76h P0）；新增 3 条 ADR-O1/O2/O3 |
 | 2026-07-01 | v1.4 | W2 完成:2.1-2.11 全部 ✅(2.12 缓冲保留);Runtime 核心 undo/redo + OPFS 落地——`HistoryStack` 游标模式 + 事件驱动历史(`node:finished` 自动记录);`OpfsAssetStore`(异步 `FileSystemFileHandle`)+ `IdbAssetStore`(Dexie 4.4.4)+ `createAssetStore` 工厂(OPFS→IndexedDB→Memory 降级链);Runtime `storageQuota` 校验(`QuotaExceededError`);`createRuntime` 改为 async;新增依赖 `dexie@^4`;202 测试通过(新增 50),覆盖率 lines 75.26% / branches 82.85% |
 | 2026-07-01 | v1.3 | 架构改进:5 个大文件按类型拆分(presets/operations/store/capabilities/diagrams),外部 API 不变;docs 迁移至 Starlight 0.41(i18n/Pagefind/editLink/TOC/暗色切换);4.8 ✅、19.1 ✅、19.7 ✅(提前完成 W19 两项);W2-W3 仍待开始(undo/redo/OPFS/streaming 未实现) |
