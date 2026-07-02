@@ -73,6 +73,13 @@ export interface LokvisRuntime {
   pause(workflowId: string): Promise<void>;
   /** 恢复运行 */
   resume(workflowId: string): Promise<void>;
+  /**
+   * 销毁工作流的运行时状态（取消运行 + 清空历史栈 + 回收历史 outputs 资产）。
+   *
+   * 修复 review 报告：原接口无清理入口，长会话累积导致 historyStacks Map
+   * 与 AssetStore 中孤儿资产泄漏。ui-react 应在 Workspace 卸载时调用。
+   */
+  disposeWorkflow(workflowId: string): Promise<void>;
 
   // ─── 历史与撤销 ──────────────────────────────────────
   /** 获取工作流的执行历史 */

@@ -1,0 +1,4 @@
+# COOP/COEP 安全头（启用跨线程 SharedArrayBuffer，image engine 需要）
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp

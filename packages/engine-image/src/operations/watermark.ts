@@ -8,6 +8,41 @@ import type { WatermarkParams, WatermarkPosition } from '../types.js';
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
 import { inferFormat } from './utils.js';
 
+/**
+ * 校验图片水印 URL 是否安全（防 SSRF）。
+ *
+ * 修复 review 报告：原实现直接 `await fetch(params.image)`，攻击者可传任意 URL
+ * 让服务端发起请求，可能扫描内网（127.0.0.1 / 169.254.169.254 云元数据 / 私有网段）。
+ *
+ * 校验规则：
+ *   - 协议仅 http/https
+ *   - 拒绝 loopback / 链路本地 / 私有网段 / 元数据 host
+ *
+ * 注：浏览器场景 fetch 受 CSP 限制，但 Node 端或 Worker 端无此保护，仍需在代码侧守门。
+ * 不防御 DNS rebinding（需要解析后再次校验 IP），Worker 场景无 DNS 解析能力。
+ */
+function isSafeImageUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+  const host = parsed.hostname.toLowerCase();
+  if (host === 'localhost' || host === '::1' || host === '[::1]') return false;
+  // IPv4 私有/环回/链路本地/0.0.0.0
+  if (/^(0\.|127\.|10\.|192\.168\.|169\.254\.)/.test(host)) return false;
+  if (/^172\.(1[6-9]|2[0-9]|3[01])\./.test(host)) return false;
+  // IPv6 私有 (fc00::/7) 与链路本地 (fe80::)
+  if (/^(fc|fd|fe8|fe9|fea|feb)/.test(host)) return false;
+  // 内部后缀
+  if (/\.(local|internal|localhost)$/i.test(host)) return false;
+  // 云元数据 host
+  if (host === 'metadata.google.internal' || host === 'metadata.aws.internal') return false;
+  return true;
+}
+
 /** Watermark：水印 */
 export async function watermark(
   blob: Blob,
@@ -24,6 +59,13 @@ export async function watermark(
 
   if (params.image) {
     // 图片水印
+    // 修复 review 报告：原实现直接 fetch 任意 URL（SSRF）。校验失败抛错而非静默降级，
+    // 让调用方知道需要换源（如改用 data: URL 或上传到自己的对象存储）。
+    if (!isSafeImageUrl(params.image)) {
+      throw new Error(
+        `Watermark image URL not allowed (SSRF guard): ${params.image}`
+      );
+    }
     const wmBlob = await (await fetch(params.image)).blob();
     const wmBitmap = await createImageBitmap(wmBlob);
     const wmW = wmBitmap.width;

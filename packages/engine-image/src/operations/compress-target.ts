@@ -20,10 +20,15 @@ export async function compressToTargetSize(
   ctx.drawImage(bitmap, 0, 0);
   bitmap.close?.();
 
+  // 修复 review 报告：二分边界
+  //   - 原 `for (i < 6)` 无 `lo <= hi` 检查，当 lo 超过 hi 后 mid 仍在 [lo,hi] 之外
+  //     （如 lo=96, hi=95 → mid=95，下一轮 lo=96, hi=94 → mid=95，重复无意义）
+  //   - 兜底 `await encode(canvas, format, lo)` 在 lo 被升到 96 时会传越界 quality，
+  //     encode 行为未定义。改用循环条件 `lo <= hi` + 兜底固定为 lo 初始下界 10
   let lo = 10;
   let hi = 95;
   let best: Blob | null = null;
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 6 && lo <= hi; i++) {
     const mid = Math.floor((lo + hi) / 2);
     const candidate = await canvasEngine.encode(canvas, format, mid);
     if (candidate.size <= targetSize) {
@@ -33,9 +38,9 @@ export async function compressToTargetSize(
       hi = mid - 1;
     }
   }
-  // 如果所有质量都超目标，返回最低质量结果
+  // 如果所有质量都超目标，返回最低质量结果（10 是 lo 下界，安全值）
   if (!best) {
-    best = await canvasEngine.encode(canvas, format, lo);
+    best = await canvasEngine.encode(canvas, format, 10);
   }
   return best;
 }

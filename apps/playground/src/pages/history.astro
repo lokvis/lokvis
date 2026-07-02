@@ -1,0 +1,7 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import HistoryDemo from '../components/demos/HistoryDemo.tsx';
+---
+<BaseLayout title="Lokvis Playground · Undo / Redo" active="history">
+  <HistoryDemo client:only="react" />
+</BaseLayout>

@@ -60,7 +60,7 @@
 | `packages/plugin-dev` | 🟡 骨架 | 占位 |
 | `packages/cli` | 🟡 骨架 | run/capabilities/plugin-create 命令骨架,未连 sdk |
 | `packages/ui-core` / `ui-react` | 🟡 部分 | 基础组件 + Workspace SPA 壳已搭,PipelineBar/Canvas 已重构 |
-| `apps/web` | 🟡 部分 | 首页/分类页/6 工具页占位;Workspace 页可渲染;PWA manifest/SW 已配;SEO 内容空白 |
+| `apps/web` | ❌ 已删除 | 商业化资产已迁至 cloud `apps/web`（ADR-012 + M0.5.7.1）；PWA 资源（manifest/sw.js/offline.html/icon）已同步迁入 cloud |
 | `apps/docs` | 🟢 Starlight | 已迁移至 Astro Starlight 0.41(i18n/Pagefind 搜索/editLink/TOC/暗色切换);9 页内容 + 9 Mermaid 图表 |
 | `apps/playground` | 🟡 占位 | 仅壳 |
 | `examples/*` | ✅ 已有 | cli-automation/custom-workspace/embedding 三例 |
@@ -113,8 +113,8 @@
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
 | 1.1 | GitHub Actions: `lint` / `typecheck` / `test` / `build` 四流水线,PR 必跑 | P0 | 4h | ✅ | `.github/workflows/ci.yml` |
-| 1.2 | GitHub Actions: 自动部署 `apps/web` 到 Cloudflare Pages(dev → preview,main → prod) | P0 | 4h | ✅ | `.github/workflows/deploy-web.yml` |
-| 1.3 | `apps/web` 配置 COOP/COEP 安全头(via `_headers`) | P0 | 2h | ✅ | `apps/web/public/_headers` |
+| 1.2 | ~~GitHub Actions: 自动部署 `apps/web` 到 Cloudflare Pages~~ | ~~P0~~ | ~~4h~~ | ⛔ 废弃 | apps/web 已删除（ADR-012 + M0.5.7.1），部署迁移至 cloud 仓库 |
+| 1.3 | ~~`apps/web` 配置 COOP/COEP 安全头~~ | ~~P0~~ | ~~2h~~ | ⛔ 废弃 | 同上，COOP/COEP 头已迁至 cloud `apps/web/public/_headers` |
 | 1.4 | vitest 补 `coverage` 阈值(lines 70%) | P1 | 2h | ✅ | `vitest.config.ts` |
 | 1.5 | 依赖审计:锁定 `pnpm-lock.yaml`,Astro 7/React 19/Tailwind v4 | P0 | 2h | ✅ | lockfile |
 | 1.6 | `packages/runtime` Web Worker 隔离:`worker-host.ts` | P0 | 8h | ✅ | `runtime/src/worker-host.ts` |
@@ -284,7 +284,7 @@
 |---|---|---|---|---|---|
 | 12.1 | Alpha 验收清单跑通(6 工具+批量+历史+workflow) | P0 | 8h | ⬜ | 验收报告 |
 | 12.2 | 性能基线:首屏 LCP / WASM 加载 / 50 图批量耗时 | P0 | 4h | ⬜ | 性能报告 |
-| 12.3 | Sentry 监控接入(open 侧,提前到 W12) | P0 | 4h | ⬜ | `apps/web` 集成 |
+| 12.3 | Sentry 监控接入(open 侧 playground,提前到 W12) | P0 | 4h | ⬜ | `apps/playground` 集成（apps/web 已删除，PWA 端 Sentry 改由 cloud 仓库 W4.3 已接入） |
 | 12.4 | 文档:Architecture / Getting Started / SDK 三页定稿 | P0 | 6h | ⬜ | docs |
 | 12.5 | README 根目录重写:介绍/架构图/快速开始/贡献指南 | P0 | 4h | ⬜ | README.md |
 | 12.6 | LICENSE 审计:确认 MIT,第三方 WASM 协议清单 | P0 | 4h | ⬜ | `THIRD_PARTY_LICENSES.md` |
@@ -371,7 +371,7 @@
 | 17.7 | SDK CHANGELOG + 迁移指南 | P0 | 4h | ⬜ | docs |
 | 17.8 | 单测:Pro 门控逻辑 | P0 | 4h | ⬜ | tests |
 | 17.9 | 缓冲 | P0 | 6h | ⬜ | — |
-| **17.10** | **首页新增"AI 做不到的 6 件事"对比 section**(批量/大文件/隐私/确定性/离线/参数) | **P0** | 4h | ⬜ | `apps/web/src/components/AiComparison.astro` |
+| **17.10** | **首页新增"AI 做不到的 6 件事"对比 section**(批量/大文件/隐私/确定性/离线/参数) | **P0** | 4h | ⛔ 废弃 | 已迁至 cloud `apps/web`（ADR-012） |
 | **17.11** | **ToolLayout "Why use Lokvis?" 增加 vs AI 文案**(上传/响应/tokens/离线) | **P0** | 2h | ⬜ | ToolLayout 更新 |
 
 ### W18 · Plugin SDK Alpha + 示例插件(40h)
@@ -399,7 +399,7 @@
 | 19.7 | 搜索功能(Pagefind) | P0 | 2h | ✅ | docs(Starlight 0.33+ 内置 Pagefind) |
 | 19.8 | 缓冲 | P0 | 4h | ⬜ | — |
 | **19.9** | **新增 MCP Integration 文档页**(`apps/docs/src/content/docs/mcp.mdx` + sidebar 注册) | **P0** | 4h | ✅ | docs |
-| **19.10** | **新增 `/mcp` 落地页**(MCP server 介绍 + 配置指南 + tool 清单) | **P1** | 4h | ⬜ | `apps/web/src/pages/mcp.astro` |
+| **19.10** | **新增 `/mcp` 落地页**(MCP server 介绍 + 配置指南 + tool 清单) | **P1** | 4h | ⛔ 废弃 | 已迁至 cloud `apps/web`（ADR-012） |
 
 ### W20 · CLI 最小版 + 缓冲(40h)
 
@@ -422,7 +422,7 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 21.1 | 首屏 LCP <2.5s:关键 CSS 内联、字体 swap、图片 lazy | P0 | 6h | ⬜ | apps/web |
+| 21.1 | 首屏 LCP <2.5s:关键 CSS 内联、字体 swap、图片 lazy | P0 | 6h | ⬜ | apps/playground（apps/web 已删除，PWA 性能优化改由 cloud 仓库负责） |
 | 21.2 | WASM 加载 <5s:分片、HTTP/2、预加载 | P0 | 6h | ⬜ | engine |
 | 21.3 | Bundle 分析 + 代码分割 | P0 | 4h | ⬜ | build |
 | 21.4 | Runtime 性能:Worker 通信开销优化(Transferable) | P0 | 6h | ⬜ | runtime |
@@ -438,7 +438,7 @@
 | 22.1 | Sentry 错误聚合 Top 20 修复 | P0 | 12h | ⬜ | 多处 |
 | 22.2 | 跨浏览器测试:Chrome/Edge P0、Safari P1、Firefox P2 | P0 | 8h | ⬜ | 测试报告 |
 | 22.3 | Safari 降级路径:WebCodecs→Canvas、OPFS→IndexedDB | P0 | 6h | ⬜ | engine/runtime |
-| 22.4 | Firefox 降级提示 UI | P1 | 2h | ⬜ | apps/web |
+| 22.4 | Firefox 降级提示 UI | P1 | 2h | ⬜ | apps/playground |
 | 22.5 | 端到端测试(Playwright)覆盖 6 工具主流程 | P0 | 8h | ⬜ | e2e |
 | 22.6 | 缓冲 | P0 | 4h | ⬜ | — |
 
@@ -554,6 +554,7 @@
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
+| 2026-07-02 | v1.7 | **M0.5.7.1 执行**：删除 open `apps/web` 目录 + `.github/workflows/deploy-web.yml`；PWA 资源（manifest.webmanifest / sw.js / offline.html / icon.svg / icon-maskable.svg）已迁入 cloud `apps/web/public/`。同步更新 PROJECT_PLAN 中所有 `apps/web` 引用：1.2/1.3/17.10/19.10 标 ⛔废弃；12.3/21.1/22.4 改指向 `apps/playground`。仓库 `apps/` 现仅剩 `docs/` + `playground/`，符合 M0.5 验收标准 |
 | 2026-07-02 | v1.6 | **ADR-012 商业化资产迁出**：原 W13-16 "SEO 内容 + PWA" 整体作废，迁出至 cloud `apps/web`（[cloud M0.5 迁移里程碑](../../lokvis-cloud/docs/03-MVP任务拆解-小时级.md#m05-appsweb-迁移里程碑w5-w10-并行60h-p0p1)）。open W13-16 重新分配为 npm 包发版准备 + apps/playground 升级（5 demo）+ PWA 基础能力。原 W17 17.1 SDK npm 发布提前到 W4 末（cloud W4.5 阻塞前置，发 `@lokvis/*@0.1.0-alpha.1`）。M4 主题更新。§11 不做清单新增"工具站 + SEO 页 + Workspace SPA + Marketplace + 联盟广告（ADR-012）"。open `apps/web` 计划在 W9 末加 noindex、W10 末删除（由 cloud M0.5.6/M0.5.7 执行）|
 | 2026-07-01 | v1.5 | **AI 生态冲击调整**：基于 [AI生态冲击调整方案](./AI生态冲击调整方案.md)，新增 MCP server 设计任务（W11-W12，6h P1）、营销对比任务（W17/W19，10h）；Plugin SDK v1 降级（18.4/18.5 延后 Phase 2）；engine-ai 定位为"AI 辅助 workflow 设计"；Phase 2 新增 `@lokvis/mcp-server` 包（76h P0）；新增 3 条 ADR-O1/O2/O3 |
 | 2026-07-01 | v1.4 | W2 完成:2.1-2.11 全部 ✅(2.12 缓冲保留);Runtime 核心 undo/redo + OPFS 落地——`HistoryStack` 游标模式 + 事件驱动历史(`node:finished` 自动记录);`OpfsAssetStore`(异步 `FileSystemFileHandle`)+ `IdbAssetStore`(Dexie 4.4.4)+ `createAssetStore` 工厂(OPFS→IndexedDB→Memory 降级链);Runtime `storageQuota` 校验(`QuotaExceededError`);`createRuntime` 改为 async;新增依赖 `dexie@^4`;202 测试通过(新增 50),覆盖率 lines 75.26% / branches 82.85% |

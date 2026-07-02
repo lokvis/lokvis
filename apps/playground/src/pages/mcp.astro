@@ -1,0 +1,7 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import McpManifestDemo from '../components/demos/McpManifestDemo.tsx';
+---
+<BaseLayout title="Lokvis Playground · MCP Manifest" active="mcp">
+  <McpManifestDemo client:only="react" />
+</BaseLayout>

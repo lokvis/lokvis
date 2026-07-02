@@ -40,6 +40,18 @@ export const RUNTIME_VERSION = '0.1.0';
 /** 默认历史记录上限 */
 const DEFAULT_MAX_HISTORY = 10;
 
+/**
+ * 同时持有的工作流历史栈上限（W2.8 内存治理）。
+ *
+ * 修复 review 报告：原实现 historyStacks 是无限增长 Map，每次 run() 都加入新
+ * workflow.id（ui-react buildLinearWorkflow 用 `wf_${Date.now()}` 每次唯一），
+ * 长会话累积导致 Map 引用的 AssetId 无法回收 → 内存泄漏。
+ *
+ * 32 是经验值：覆盖用户常见使用（多 tab 切换 + undo 范围），超限按 FIFO
+ * 清理最旧 stack（reset 触发 onEvict → assetStore.remove 回收资产）。
+ */
+const MAX_CONCURRENT_WORKFLOW_STACKS = 32;
+
 /** 存储配额超限时抛出(W2.9) */
 export class QuotaExceededError extends Error {
   readonly usage: number;
@@ -215,6 +227,13 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       existingStack.reset();
     }
 
+    // 修复 review 报告：historyStacks / initialInputsMap / currentOutputsMap 三 Map
+    // 持久累积,workflow.id 每次都不同（ui-react buildLinearWorkflow 用
+    // `wf_${Date.now()}`），导致 100 次运行后 Map 仍有 100 个旧 workflow 的 entry,
+    // 旧 entry 引用的 AssetId 不再可被外部访问但 AssetStore 中对象仍存在 → 内存泄漏。
+    // 用 LRU 上限清理最旧 workflow 的 stack（reset 触发 onEvict → assetStore.remove）
+    this.enforceHistoryStacksLimit();
+
     // 记录初始输入 AssetId(用于 undo 回到初始状态)
     const inputIds = await this.collectInputAssetIds(inputs);
     this.initialInputsMap.set(workflow.id, inputIds);
@@ -245,6 +264,34 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
 
   async resume(workflowId: string): Promise<void> {
     return this.executor.resume(workflowId);
+  }
+
+  /**
+   * 销毁指定工作流的运行时状态（W2.8 内存治理）。
+   *
+   * 调用时机：
+   *   - ui-react 卸载 Workspace 组件时
+   *   - 用户主动关闭工作流标签页时
+   *
+   * 行为：
+   *   - 调用 stack.reset() 触发 onEvict → assetStore.remove 回收历史 outputs 资产
+   *   - 从 historyStacks / initialInputsMap / currentOutputsMap 三 Map 中删除 entry
+   *   - 调用 executor.cancel 取消运行中的执行（若有）
+   *
+   * 修复 review 报告：原实现无清理入口,Workflow 组件卸载后 Map 中残留 entry,
+   * 长会话累积导致内存与 OPFS 空间双泄漏。
+   */
+  async disposeWorkflow(workflowId: string): Promise<void> {
+    await this.cancel(workflowId).catch(() => {
+      /* 工作流可能未在运行 */
+    });
+    const stack = this.historyStacks.get(workflowId);
+    if (stack) {
+      stack.reset();
+      this.historyStacks.delete(workflowId);
+    }
+    this.initialInputsMap.delete(workflowId);
+    this.currentOutputsMap.delete(workflowId);
   }
 
   // ─── 历史与撤销 ──────────────────────────────────────
@@ -281,7 +328,28 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   // ─── Asset 管理 ──────────────────────────────────────
 
   async importAsset(source: AssetSource): Promise<AssetId> {
-    const asset = await this.assetStore.import(source);
+    // 修复 review 报告：原实现直接透传 source 给 assetStore.import，
+    // 但 MemoryAssetStore/OpfsAssetStore/IdbAssetStore 的 extractBlobFromSource
+    // 仅支持 file/blob 两种 kind，url/opfs 会抛 "not supported"。
+    // 这里在 runtime 层兜底处理 url（fetch → blob），opfs 暂不支持（OPFS
+    // 路径访问需要 filesystem access permission，未来单独实现）
+    let effectiveSource = source;
+    if (source.kind === 'url') {
+      const resp = await fetch(source.url);
+      if (!resp.ok) {
+        throw new Error(`Failed to fetch asset from ${source.url}: ${resp.status}`);
+      }
+      const blob = await resp.blob();
+      const name = source.url.split('/').pop()?.split('?')[0] ?? 'asset';
+      effectiveSource = { kind: 'blob', blob, name };
+    } else if (source.kind === 'opfs') {
+      throw new Error(
+        "AssetSource kind 'opfs' is not yet supported by importAsset; " +
+          'use the OPFS-aware AssetStore directly or convert to blob first'
+      );
+    }
+
+    const asset = await this.assetStore.import(effectiveSource);
     this.eventBus.emit({
       type: 'asset:imported',
       assetId: asset.id,
@@ -397,6 +465,30 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   }
 
   // ─── 私有：历史栈管理 ──────────────────────────────
+
+  /**
+   * LRU 上限清理：historyStacks 超过 MAX_CONCURRENT_WORKFLOW_STACKS 时
+   * 按 FIFO 删除最旧 stack（reset 触发 onEvict → assetStore.remove 回收资产）。
+   *
+   * Map 的迭代顺序是插入顺序（ES2015+ 规范），所以第一个 entry 即最旧。
+   * 注意：当前 run() 的工作流尚未插入 Map（getOrCreateHistoryStack 才会插入），
+   * 所以这里清理不会误删当前工作流。
+   */
+  private enforceHistoryStacksLimit(): void {
+    while (this.historyStacks.size >= MAX_CONCURRENT_WORKFLOW_STACKS) {
+      // 取最旧 workflowId（Map 第一个 key）
+      const oldestId = this.historyStacks.keys().next().value;
+      if (oldestId === undefined) break;
+      const stack = this.historyStacks.get(oldestId);
+      if (stack) {
+        // reset 触发 onEvict，回收历史 outputs 资产
+        stack.reset();
+      }
+      this.historyStacks.delete(oldestId);
+      this.initialInputsMap.delete(oldestId);
+      this.currentOutputsMap.delete(oldestId);
+    }
+  }
 
   /** 获取或创建工作流对应的 HistoryStack */
   private getOrCreateHistoryStack(workflowId: string): HistoryStack {

@@ -1,29 +1,82 @@
 ---
 import '../styles/global.css';
-import { Playground } from '../components/Playground.tsx';
+
+/**
+ * Playground 极简壳（M0.5.6.2 升级）
+ *
+ * 设计目标：开发者试用 @lokvis/sdk 的最小容器。
+ * 不含商业化元素（Workspace 组件、付费墙、广告）—— 那些在 cloud/apps/web。
+ *
+ * Layout 结构：顶部品牌条 + 左侧 sidebar 导航（5 个 demo）+ 右侧内容区。
+ * 每个页面通过 slot 注入内容（通常是一个 client:only React 组件）。
+ */
 
 interface Props {
   title?: string;
+  /** 当前激活的 sidebar 项 ID */
+  active?: 'home' | 'runtime' | 'image' | 'history' | 'mcp';
 }
 
-const { title = 'Lokvis Playground' } = Astro.props;
----
+const { title = 'Lokvis Playground', active = 'home' } = Astro.props;
 
+const NAV = [
+  { id: 'home', label: 'Code Editor', href: '/', desc: 'Run arbitrary SDK code' },
+  { id: 'runtime', label: 'Runtime Basics', href: '/runtime', desc: 'Import asset + list capabilities' },
+  { id: 'image', label: 'Image Workflow', href: '/image', desc: 'Upload → resize → watermark → export' },
+  { id: 'history', label: 'Undo / Redo', href: '/history', desc: 'History stack & time travel' },
+  { id: 'mcp', label: 'MCP Manifest', href: '/mcp', desc: 'Expose capabilities as MCP tools' },
+] as const;
+---
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Try Lokvis SDK in your browser" />
+    <meta name="description" content="Lokvis Playground — try @lokvis/sdk in your browser" />
+    <meta name="robots" content="noindex, nofollow" />
     <title>{title}</title>
-    <style>
-      body {
-        margin: 0;
-        overflow: hidden;
-      }
-    </style>
   </head>
-  <body>
-    <Playground client:only="react" />
+  <body class="h-screen overflow-hidden bg-zinc-950 text-zinc-100">
+    <div class="flex h-full flex-col">
+      {/* 顶部品牌条 */}
+      <header class="flex items-center justify-between border-b border-zinc-800 bg-zinc-950 px-5 py-3">
+        <div class="flex items-center gap-3">
+          <span class="text-lg font-bold" style="background: linear-gradient(135deg, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill: transparent;">◆</span>
+          <span class="text-sm font-semibold tracking-tight">Lokvis Playground</span>
+          <span class="hidden rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline">open source · dev demo</span>
+        </div>
+        <a href="https://lokvis.com" class="text-xs text-zinc-500 transition-colors hover:text-indigo-400">→ Cloud</a>
+      </header>
+
+      <div class="flex flex-1 overflow-hidden">
+        {/* Sidebar 导航 */}
+        <aside class="hidden w-60 flex-shrink-0 border-r border-zinc-800 bg-zinc-950/50 md:flex md:flex-col">
+          <nav class="flex flex-1 flex-col gap-1 p-3">
+            {NAV.map((item) => (
+              <a
+                href={item.href}
+                class={`group rounded-md px-3 py-2 text-xs transition-colors ${
+                  active === item.id
+                    ? 'bg-indigo-600/10 text-indigo-400 ring-1 ring-inset ring-indigo-500/20'
+                    : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                }`}
+              >
+                <div class="font-semibold">{item.label}</div>
+                <div class={`mt-0.5 text-[10px] ${active === item.id ? 'text-indigo-400/70' : 'text-zinc-600 group-hover:text-zinc-500'}`}>{item.desc}</div>
+              </a>
+            ))}
+          </nav>
+          <div class="border-t border-zinc-800 p-3 text-[10px] text-zinc-600">
+            <div>sdk <span class="text-zinc-400">@0.1.0</span></div>
+            <div class="mt-0.5">runs locally · no upload</div>
+          </div>
+        </aside>
+
+        {/* 内容区 */}
+        <main class="flex flex-1 flex-col overflow-hidden">
+          <slot />
+        </main>
+      </div>
+    </div>
   </body>
 </html>

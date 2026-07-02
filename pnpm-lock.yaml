@@ -113,64 +113,6 @@ importers:
         specifier: ^5.6.0
         version: 5.9.3
 
-  apps/web:
-    dependencies:
-      '@astrojs/react':
-        specifier: ^6.0.0
-        version: 6.0.0(@types/node@24.13.2)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(esbuild@0.28.1)(jiti@2.7.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(tsx@4.22.4)(yaml@2.9.0)
-      '@lokvis/capability':
-        specifier: workspace:*
-        version: link:../../packages/capability
-      '@lokvis/engine-image':
-        specifier: workspace:*
-        version: link:../../packages/engine-image
-      '@lokvis/plugin-image':
-        specifier: workspace:*
-        version: link:../../packages/plugin-image
-      '@lokvis/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@lokvis/schema':
-        specifier: workspace:*
-        version: link:../../packages/schema
-      '@lokvis/sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
-      '@lokvis/ui-core':
-        specifier: workspace:*
-        version: link:../../packages/ui-core
-      '@lokvis/ui-react':
-        specifier: workspace:*
-        version: link:../../packages/ui-react
-      '@tailwindcss/vite':
-        specifier: ^4.0.0
-        version: 4.3.1(vite@8.1.0(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-      astro:
-        specifier: ^7.0.0
-        version: 7.0.3(@astrojs/markdown-remark@7.2.0)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@24.13.2)(jiti@2.7.0)(rollup@4.62.2)(tsx@4.22.4)(yaml@2.9.0)
-      react:
-        specifier: ^19.0.0
-        version: 19.2.7
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.7(react@19.2.7)
-      tailwindcss:
-        specifier: ^4.0.0
-        version: 4.3.1
-      zustand:
-        specifier: ^5.0.0
-        version: 5.0.14(@types/react@19.2.17)(react@19.2.7)
-    devDependencies:
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.17
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.3(@types/react@19.2.17)
-      typescript:
-        specifier: ^5.6.0
-        version: 5.9.3
-
   examples/cli-automation:
     dependencies:
       '@lokvis/cli':

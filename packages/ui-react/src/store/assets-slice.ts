@@ -53,5 +53,22 @@ export const createAssetsSlice: StateCreator<
     await runtime.removeAsset(id);
     await get().refreshAssets();
     if (get().selectedAssetId === id) set({ selectedAssetId: null });
+
+    // 修复 review 报告：原实现删除 asset 后未 revoke 缩略图 ObjectURL，导致
+    // 浏览器 Blob 引用泄漏（每删一张图就漏一个 blob 内存）。
+    // 同时从 thumbnails map 中删除该 entry，避免 stale ref
+    const oldUrl = get().thumbnails[id];
+    if (oldUrl) {
+      try {
+        URL.revokeObjectURL(oldUrl);
+      } catch {
+        /* URL 已失效或非 ObjectURL，忽略 */
+      }
+      set((state) => {
+        const next = { ...state.thumbnails };
+        delete next[id];
+        return { thumbnails: next };
+      });
+    }
   },
 });

@@ -3,7 +3,6 @@ import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime } from '@lokvis/runtime';
 import imageToolsPlugin from '@lokvis/plugin-image';
 import devToolsPlugin from '@lokvis/plugin-dev';
-import { Button } from '@lokvis/ui-core';
 
 /**
  * Lokvis Playground
@@ -106,19 +105,18 @@ export function Playground() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-[#09090b] text-zinc-100">
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950 px-5 py-3">
+    <div className="flex h-full flex-col">
+      {/* Toolbar（壳已提供品牌条，这里仅保留 Run/Clear 工具栏） */}
+      <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950/50 px-4 py-2">
         <div className="flex items-center gap-3">
-          <span className="text-lg font-bold" style={{background: 'linear-gradient(135deg, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>◆</span>
-          <span className="text-sm font-semibold tracking-tight">Lokvis Playground</span>
+          <span className="text-xs font-medium text-zinc-400">editor.js</span>
           {runtime && (
-            <span className="flex items-center gap-1.5 rounded-full bg-emerald-950 px-2.5 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-800">
+            <span className="flex items-center gap-1.5 rounded-full bg-emerald-950 px-2.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-800">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
               </span>
-              Runtime ready
+              runtime ready
             </span>
           )}
         </div>

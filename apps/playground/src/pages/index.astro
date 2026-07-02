@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { Playground } from '../components/Playground.tsx';
 ---
-
-<BaseLayout title="Lokvis Playground">
-  <p class="p-8 text-center text-zinc-500">Loading playground...</p>
+<BaseLayout title="Lokvis Playground · Code Editor" active="home">
+  <Playground client:only="react" />
 </BaseLayout>

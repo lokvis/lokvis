@@ -84,8 +84,28 @@ export const createWorkflowSlice: StateCreator<
 
     // 重置所有节点状态
     set((state) => ({
-      nodes: state.nodes.map((n) => ({ ...n, status: 'pending', error: undefined })),
+      nodes: state.nodes.map((n) => ({ ...n, status: 'pending', error: undefined, duration: undefined })),
     }));
+
+    // 修复 review 报告：原实现节点状态粒度不足
+    //   - completed: 全部节点设 success（OK，但无耗时）
+    //   - failed: 仅把仍为 pending 的节点设 failed，但 executor 在抛错前已 emit
+    //     node:finished 给前面成功的节点（这些 status 仍是 pending）→ 这些节点
+    //     也被标 failed，UI 误显示前面成功的步骤都失败了
+    //   - cancelled: 完全未处理
+    //
+    // 修复：订阅 node:started / node:finished / node:failed 事件实时更新节点状态，
+    //       这样 completed/failed/cancelled 三种情况下节点状态都精确
+    const offStarted = runtime.eventBus.on('node:started', (e) => {
+      get().setNodeStatus(e.nodeId, 'running');
+    });
+    const offFinished = runtime.eventBus.on('node:finished', (e) => {
+      get().setNodeStatus(e.nodeId, 'success', undefined, e.duration);
+    });
+    const offNodeFailed = runtime.eventBus.on('node:failed', (e) => {
+      const errMsg = e.error instanceof Error ? e.error.message : String(e.error);
+      get().setNodeStatus(e.nodeId, 'failed', errMsg);
+    });
 
     try {
       // 构建 Workflow
@@ -95,15 +115,14 @@ export const createWorkflowSlice: StateCreator<
       set({ statusMessage: 'Running workflow...' });
       const result = await runtime.run(workflow, [input]);
 
-      // 更新节点状态
-      if (result.status === 'completed') {
-        for (const node of nodes) {
-          get().setNodeStatus(node.id, 'success', undefined, undefined);
-        }
-      } else if (result.status === 'failed') {
-        for (const node of nodes) {
-          if (get().nodes.find((n) => n.id === node.id)?.status === 'pending') {
-            get().setNodeStatus(node.id, 'failed', result.error);
+      // 兜底：取消订阅后，根据 result.status 把剩余 pending 节点归位
+      //   - completed: finishedNodeIds 已涵盖所有节点（无需额外处理）
+      //   - failed: 失败节点之后未执行的节点标 cancelled
+      //   - cancelled: 失败节点之外所有 running/pending 节点标 cancelled
+      if (result.status !== 'completed') {
+        for (const node of get().nodes) {
+          if (node.status === 'pending' || node.status === 'running') {
+            get().setNodeStatus(node.id, 'cancelled');
           }
         }
       }
@@ -136,7 +155,17 @@ export const createWorkflowSlice: StateCreator<
         error: message,
         statusMessage: 'Failed',
       });
+      // 异常退出时把仍在 pending/running 的节点标 failed
+      for (const node of get().nodes) {
+        if (node.status === 'pending' || node.status === 'running') {
+          get().setNodeStatus(node.id, 'failed', message);
+        }
+      }
       throw err;
+    } finally {
+      offStarted();
+      offFinished();
+      offNodeFailed();
     }
   },
 
