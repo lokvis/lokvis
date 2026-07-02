@@ -110,13 +110,16 @@ jobs:
               [ "$private" = "true" ] && continue
               name=$(node -e "console.log(require('./$pkg_json').name)")
               version=$(node -e "console.log(require('./$pkg_json').version)")
-              # 跳过已发布版本(避免 403)
-              if npm view "${name}@${version}" version >/dev/null 2>&1; then
-                echo "::notice::${name}@${version} already published, skipping"
+              # 严格检查:从官方 registry 查询该精确版本是否存在
+              # `npm view pkg@ver version` 在某些 npm 版本下对不存在的版本
+              # 仍会返回 0 或回退到 latest,因此必须比对输出字符串
+              published_version=$(npm view --registry https://registry.npmjs.org "${name}@${version}" version 2>/dev/null | tr -d '[:space:]' || true)
+              if [ "$published_version" = "$version" ]; then
+                echo "::notice::${name}@${version} already published on npmjs.org, skipping"
                 continue
               fi
               echo "::group::Publishing ${name}@${version}"
-              (cd "$pkg_dir" && npm publish --tag "$DIST_TAG" --access public --provenance)
+              (cd "$pkg_dir" && npm publish --registry https://registry.npmjs.org --tag "$DIST_TAG" --access public --provenance)
               echo "::endgroup::"
             done
           else
