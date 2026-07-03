@@ -140,16 +140,16 @@ export class AssetExportError extends LokvisError {
 
 /** 工作流结构校验失败 */
 export class WorkflowInvalidError extends LokvisError {
-  constructor(message: string, context?: Record<string, unknown>) {
-    super(message, { code: 'WORKFLOW_INVALID', context });
+  constructor(message: string, cause?: unknown, context?: Record<string, unknown>) {
+    super(message, { code: 'WORKFLOW_INVALID', cause, context });
     this.name = 'WorkflowInvalidError';
   }
 }
 
 /** 工作流包含环 */
 export class WorkflowCycleError extends LokvisError {
-  constructor(message: string) {
-    super(message, { code: 'WORKFLOW_CYCLE' });
+  constructor(message: string, cause?: unknown) {
+    super(message, { code: 'WORKFLOW_CYCLE', cause });
     this.name = 'WorkflowCycleError';
   }
 }
@@ -277,7 +277,16 @@ export class DegradationRejectedError extends LokvisError {
   }
 }
 
-/** 插件加载/安装失败 */
+/**
+ * 插件加载/安装失败。
+ *
+ * @param pluginName 插件名(优先,便于日志聚合按插件维度统计)
+ * @param message 人类可读错误描述
+ * @param cause 原始错误(可选)
+ *
+ * 注意:参数顺序为 `(pluginName, message, cause)`,与其他类的 `(message, cause)` 不同,
+ * 因为插件名是 PluginLoadError 的核心标识,放首位便于构造时一眼识别。
+ */
 export class PluginLoadError extends LokvisError {
   readonly pluginName: string;
   constructor(pluginName: string, message: string, cause?: unknown) {
@@ -290,13 +299,18 @@ export class PluginLoadError extends LokvisError {
 /**
  * 把任意值归一为 LokvisError。
  *
- * - 已是 LokvisError → 原样返回
- * - 是 runtime 抛出的具体 Error 子类(QuotaExceededError 等)→ 包装为对应 SDK 错误
- * - 是普通 Error → 包装为 UNKNOWN LokvisError,保留 cause
- * - 其他 → 字符串化为 message
+ * 归一优先级:
+ * 1. 已是 LokvisError → 原样返回
+ * 2. 是 runtime 抛出的具体 Error 子类(QuotaExceededError 等)→ instanceof 匹配,包装为对应 SDK 错误
+ * 3. 是普通 Error 但 message 匹配已知模式 → best-effort 字符串匹配,转成对应 SDK 错误
+ *    (runtime 部分模块仍抛普通 Error,待后续 runtime 层类型化后可移除此层)
+ * 4. 其他普通 Error → 包装为 UNKNOWN LokvisError,保留 cause
+ * 5. 非 Error 值 → 字符串化为 message
  *
- * 使用 `instanceof` 而非字符串匹配:SDK 依赖 `@lokvis/runtime`,
- * 可直接引用其导出的 error class,判定准确且不受 message 文案改动影响。
+ * 使用 `instanceof` 为主、message 模式匹配为辅:instanceof 准确且不受文案改动影响,
+ * 但 runtime 仍有未类型化的 `throw new Error(...)`,message 匹配作为兜底保证
+ * ASSET_NOT_FOUND / WORKFLOW_INVALID / WORKFLOW_CYCLE / CAPABILITY_NOT_REGISTERED
+ * 等 code 也能命中,让消费方的 switch(err.code) 分支稳定可用。
  *
  * @example
  * ```ts
@@ -314,22 +328,19 @@ export function fromLokvisError(value: unknown): LokvisError {
   if (value instanceof LokvisError) return value;
 
   if (value instanceof Error) {
-    // 存储配额超限
+    // ── 优先:instanceof 匹配 runtime 已类型化的错误类 ──
     if (value instanceof RuntimeQuotaExceededError) {
       return new StorageQuotaExceededError(value.usage, value.delta, value.quota, value);
     }
-    // 降级拒绝
     if (value instanceof RuntimeDegradationRejectedError) {
       return new DegradationRejectedError(value.message, value.guide, value);
     }
-    // OPFS / IDB 不可用
     if (value instanceof RuntimeOpfsUnavailableError) {
       return new StorageOpfsUnavailableError(value.message, value);
     }
     if (value instanceof RuntimeIdbUnavailableError) {
       return new StorageIdbUnavailableError(value.message, value);
     }
-    // Worker 域
     if (value instanceof RuntimeWorkerCrashedError || value instanceof RuntimeWorkerRestartingError) {
       return new WorkerCrashedError(value.message, value);
     }
@@ -345,6 +356,33 @@ export function fromLokvisError(value: unknown): LokvisError {
     if (value instanceof RuntimeWorkerRequestAbortedError) {
       return new WorkerRequestAbortedError(value.message, value);
     }
+
+    // ── 兜底:best-effort message 模式匹配(runtime 未类型化的 Error)──
+    // 匹配 runtime 抛出的已知 message 前缀,转成对应 SDK 错误类。
+    // 注意:这是过渡方案,后续 runtime 层应抛类型化错误,届时可移除此层。
+    const msg = value.message;
+    if (/^Asset not found/.test(msg)) {
+      return new AssetNotFoundError(msg.replace(/^Asset not found:?\s*/, ''), value);
+    }
+    if (/^Workflow contains a cycle/.test(msg)) {
+      return new WorkflowCycleError(msg, value);
+    }
+    if (/^Workflow contains duplicate node id/.test(msg)) {
+      return new WorkflowInvalidError(msg, value);
+    }
+    if (/^No implementation registered for capability/.test(msg)) {
+      // 从 message 提取 capability 名:"No implementation registered for capability \"image.resize\""
+      const m = msg.match(/capability "([^"]+)"/);
+      const cap = m?.[1] ?? '';
+      return new CapabilityNotRegisteredError(cap);
+    }
+    if (/^Transform node .* has no capability/.test(msg)) {
+      return new WorkflowNodeError('', '', msg, value);
+    }
+    if (/^Blob not found/.test(msg)) {
+      return new AssetExportError(msg, value);
+    }
+
     return new LokvisError(value.message, { code: 'UNKNOWN', cause: value });
   }
 

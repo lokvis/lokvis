@@ -69,6 +69,16 @@ export function Tabs({
       const prev = [...items.slice(0, idx)].reverse().find((i) => !i.disabled);
       if (prev) select(prev.value);
       e.preventDefault();
+    } else if (e.key === 'Home') {
+      // WAI-ARIA tabs pattern:Home 跳到首个可用 tab
+      const first = items.find((i) => !i.disabled);
+      if (first) select(first.value);
+      e.preventDefault();
+    } else if (e.key === 'End') {
+      // End 跳到末个可用 tab
+      const last = [...items].reverse().find((i) => !i.disabled);
+      if (last) select(last.value);
+      e.preventDefault();
     }
   };
 
