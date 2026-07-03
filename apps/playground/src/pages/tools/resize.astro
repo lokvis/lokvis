@@ -1,0 +1,7 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ResizeTool from '../../components/tools/ResizeTool.tsx';
+---
+<BaseLayout title="Lokvis Playground · Resize" active="tools/resize">
+  <ResizeTool client:only="react" />
+</BaseLayout>
