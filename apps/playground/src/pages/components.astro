@@ -1,0 +1,7 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ComponentsDemo from '../components/demos/ComponentsDemo.tsx';
+---
+<BaseLayout title="Lokvis Playground · UI Components" active="components">
+  <ComponentsDemo client:only="react" />
+</BaseLayout>

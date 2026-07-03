@@ -16,8 +16,13 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
-    // 包含所有包内的测试文件
-    include: ['packages/**/src/__tests__/**/*.test.ts'],
+    // 包含所有包内的测试文件(.ts 逻辑测试 + .tsx 组件测试)
+    // 组件测试文件用 `// @vitest-environment jsdom` 注解单独切换环境,
+    // 全局保持 node 以免影响纯逻辑测试。
+    include: [
+      'packages/**/src/__tests__/**/*.test.ts',
+      'packages/**/src/__tests__/**/*.test.tsx',
+    ],
     environment: 'node',
     globals: false,
     // 工作区解析由 pnpm 处理，无需额外 alias
