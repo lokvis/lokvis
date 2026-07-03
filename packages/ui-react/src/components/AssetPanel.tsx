@@ -1,17 +1,29 @@
 /**
  * AssetPanel - 左侧资产面板
  *
- * 紧凑布局：section header + 上传按钮 + 资产列表。
- * 支持拖拽导入、点击选择、缩略图预览。
+ * 紧凑布局：section header + 上传按钮 + 筛选 + 资产列表。
+ * 支持拖拽导入、点击选择、缩略图预览、按类型/关键词筛选、删除(W6.5)。
  */
 
 import * as React from 'react';
+import type { AssetType } from '@lokvis/schema';
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 
 export interface AssetPanelProps {
   className?: string;
 }
+
+/** 类型筛选 chip 显示名 */
+const TYPE_LABEL: Record<AssetType, string> = {
+  image: 'Image',
+  video: 'Video',
+  audio: 'Audio',
+  pdf: 'PDF',
+  text: 'Text',
+  data: 'Data',
+  unknown: 'Other',
+};
 
 export function AssetPanel({ className = '' }: AssetPanelProps) {
   const assets = useWorkspaceStore((s) => s.assets);
@@ -24,6 +36,9 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
   const runtime = useWorkspaceStore((s) => s.runtime);
 
   const [dragging, setDragging] = React.useState(false);
+  // W6.5 筛选:类型 + 关键词(纯 UI 状态,不入 store)
+  const [filterType, setFilterType] = React.useState<'all' | AssetType>('all');
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   async function handleFiles(files: FileList | File[] | null) {
     if (!files) return;
@@ -50,6 +65,30 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assets, runtime]);
 
+  // 资产中实际存在的类型(仅展示有意义的 chip,避免空类型噪音)
+  const availableTypes = React.useMemo(() => {
+    const set = new Set<AssetType>();
+    for (const a of assets) set.add(a.type);
+    return Array.from(set);
+  }, [assets]);
+
+  // 筛选后的资产列表
+  const filteredAssets = React.useMemo(() => {
+    let result = assets;
+    if (filterType !== 'all') {
+      result = result.filter((a) => a.type === filterType);
+    }
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter(
+        (a) =>
+          a.metadata.format.toLowerCase().includes(q) ||
+          a.metadata.mimeType.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [assets, filterType, searchQuery]);
+
   return (
     <aside
       className={`flex w-56 shrink-0 flex-col border-r border-zinc-200 dark:border-zinc-800 ${className}`}
@@ -69,7 +108,11 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
           Assets
         </span>
-        <span className="text-[11px] tabular-nums text-zinc-400">{assets.length}</span>
+        <span className="text-[11px] tabular-nums text-zinc-400">
+          {filterType === 'all' && !searchQuery
+            ? assets.length
+            : `${filteredAssets.length}/${assets.length}`}
+        </span>
       </div>
 
       {/* Upload zone */}
@@ -94,15 +137,70 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
         </span>
       </label>
 
+      {/* W6.5 筛选栏:仅当有资产时显示 */}
+      {assets.length > 0 && (
+        <div className="px-2 pb-2 space-y-1.5">
+          {/* 类型 chips */}
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              onClick={() => setFilterType('all')}
+              className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                filterType === 'all'
+                  ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300'
+                  : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+              }`}
+            >
+              All
+            </button>
+            {availableTypes.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setFilterType(t)}
+                className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                  filterType === t
+                    ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300'
+                    : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                }`}
+              >
+                {TYPE_LABEL[t]}
+              </button>
+            ))}
+          </div>
+          {/* 搜索框 */}
+          <div className="relative">
+            <Icon
+              size={11}
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"
+            >
+              <circle cx="10" cy="10" r="6" />
+              <path d="m20 20-5-5" />
+            </Icon>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter by name..."
+              className="w-full rounded bg-zinc-100 py-1 pl-6 pr-1.5 text-[10px] text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-indigo-300 dark:bg-zinc-800 dark:text-zinc-200 dark:placeholder:text-zinc-500"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Asset list */}
       <div className="flex-1 overflow-y-auto px-2 pb-2">
         {assets.length === 0 ? (
           <p className="px-1 py-4 text-center text-[10px] text-zinc-400">
             No assets imported
           </p>
+        ) : filteredAssets.length === 0 ? (
+          <p className="px-1 py-4 text-center text-[10px] text-zinc-400">
+            No assets match filter
+          </p>
         ) : (
           <ul className="space-y-1">
-            {assets.map((asset) => {
+            {filteredAssets.map((asset) => {
               const selected = asset.id === selectedAssetId;
               const thumb = thumbnails[asset.id];
               return (

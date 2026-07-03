@@ -1,13 +1,21 @@
 /**
  * StatusBar - 底部状态栏
  *
- * 紧凑单行：左侧状态指示，右侧资源统计。
+ * 紧凑单行：左侧状态指示，右侧资源统计 + 存储配额(W6.7)。
  */
 
 import { useWorkspaceStore } from '../store/index.js';
 
 export interface StatusBarProps {
   className?: string;
+}
+
+/** 格式化字节数为人类可读(KB/MB/GB) */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 export function StatusBar({ className = '' }: StatusBarProps) {
@@ -17,7 +25,13 @@ export function StatusBar({ className = '' }: StatusBarProps) {
   const assets = useWorkspaceStore((s) => s.assets);
   const capabilities = useWorkspaceStore((s) => s.capabilities);
   const nodes = useWorkspaceStore((s) => s.nodes);
+  const storageUsage = useWorkspaceStore((s) => s.storageUsage);
   const setError = useWorkspaceStore((s) => s.setError);
+
+  // W6.7 存储配额压力:>=95% 红(临界),>=80% 琥珀(警告),其余正常
+  const ratio = storageUsage ? storageUsage.usage / storageUsage.quota : 0;
+  const storageCritical = ratio >= 0.95;
+  const storageWarning = ratio >= 0.8 && !storageCritical;
 
   return (
     <footer
@@ -52,6 +66,33 @@ export function StatusBar({ className = '' }: StatusBarProps) {
 
       {/* Right: Stats */}
       <div className="flex items-center gap-3 shrink-0 text-[10px] text-zinc-400 tabular-nums">
+        {/* W6.7 存储配额:接近上限时变色警告 */}
+        {storageUsage && (
+          <>
+            <span
+              className={`flex items-center gap-1 ${
+                storageCritical
+                  ? 'text-red-500 font-semibold'
+                  : storageWarning
+                  ? 'text-amber-500'
+                  : 'text-zinc-400'
+              }`}
+              title={
+                storageCritical
+                  ? `Storage almost full (${Math.round(ratio * 100)}%) — clean up to free space`
+                  : storageWarning
+                  ? `Storage nearing limit (${Math.round(ratio * 100)}%)`
+                  : `Storage: ${formatBytes(storageUsage.usage)} of ${formatBytes(storageUsage.quota)}`
+              }
+            >
+              {(storageCritical || storageWarning) && (
+                <span className="text-[9px]">⚠</span>
+              )}
+              {formatBytes(storageUsage.usage)} / {formatBytes(storageUsage.quota)}
+            </span>
+            <span className="text-zinc-300 dark:text-zinc-700">|</span>
+          </>
+        )}
         <span>{assets.length} asset{assets.length !== 1 ? 's' : ''}</span>
         <span className="text-zinc-300 dark:text-zinc-700">|</span>
         <span>{capabilities.length} cap{capabilities.length !== 1 ? 's' : ''}</span>
