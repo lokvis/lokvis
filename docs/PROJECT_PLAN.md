@@ -146,13 +146,13 @@
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
 | 3.1 | `ReadableStream → WritableStream` 接口规范 | P0 | 4h | ✅ | `engine-image/src/types.ts` |
-| 3.2 | Engine Image streaming 改造:大图按行分片(>500MB) | P0 | 6h | ✅ | `engine-image/src/operations/tiles.ts` |
+| 3.2 | Engine Image streaming 改造:大图按行分片(>500MB) | P0 | 6h | ✅ | `engine-image/src/operations/tiles.ts` + `canvas-engine.ts` |
 | 3.3 | 内存阈值监测:超 512MB 中间结果落 OPFS | P0 | 4h | ✅ | `runtime/src/memory-guard.ts` |
 | 3.4 | 能力降级阶梯:L1 完整 / L2 分片 / L3 降级输出 / L4 拒绝+引导 | P0 | 6h | ✅ | `runtime/src/degradation.ts` |
 | 3.5 | `cancel()` 真正生效:AbortController 贯穿 Worker | P0 | 4h | ✅ | `executor.ts` |
 | 3.6 | `pause/resume` 实现 | P1 | 4h | ✅ | 同上 |
-| 3.7 | 单测:streaming、内存阈值、降级、cancel | P0 | 8h | ✅ | 多 test 文件 |
-| 3.8 | 文档:Runtime 章节回写实际实现 | P1 | 2h | ✅ | docs |
+| 3.7 | 单测:streaming、内存阈值、降级、cancel | P0 | 8h | ✅ | `__tests__/{memory-guard,degradation,tiles,cancel-signal}.test.ts` |
+| 3.8 | 文档:Runtime 章节回写实际实现 | P1 | 2h | ✅ | `apps/docs` architecture.mdx §"流式与内存防御(W3)" |
 | 3.9 | 缓冲 | P0 | 2h | ⬜ | — |
 
 ### W4 · SDK API 冻结 + 基础 UI 组件库(40h)
