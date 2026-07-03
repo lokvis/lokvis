@@ -39,6 +39,8 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
   // W6.5 筛选:类型 + 关键词(纯 UI 状态,不入 store)
   const [filterType, setFilterType] = React.useState<'all' | AssetType>('all');
   const [searchQuery, setSearchQuery] = React.useState('');
+  // B2 修复:跟踪 in-flight exportAsset,避免同一 asset 跨 effect 重跑并发发起
+  const inflightRef = React.useRef<Set<string>>(new Set());
 
   async function handleFiles(files: FileList | File[] | null) {
     if (!files) return;
@@ -47,21 +49,42 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
   }
 
   // 自动生成缩略图
+  // B2 修复:
+  // - cancelled flag:effect 重跑/卸载时,await 完成的 exportAsset 不再创建
+  //   ObjectURL 也不 setThumbnail,避免覆盖更新值与孤儿 URL
+  // - inflightRef:同一 asset 在上一轮 effect 还在 await 时,新一轮 effect
+  //   不再重复发起(批量导入 assets 频繁变化场景)
   React.useEffect(() => {
     if (!runtime) return;
+    let cancelled = false;
+    const inflight = inflightRef.current;
     for (const asset of assets) {
       if (thumbnails[asset.id]) continue;
       if (asset.type !== 'image') continue;
+      if (inflight.has(asset.id)) continue;
+      inflight.add(asset.id);
       (async () => {
         try {
           const blob = await runtime.exportAsset(asset.id);
+          // effect 已过期或资产已删除:不创建 ObjectURL(零泄漏)
+          if (cancelled) return;
           const url = URL.createObjectURL(blob);
+          if (cancelled) {
+            // 双重检查:await 与 createObjectURL 之间可能被取消
+            URL.revokeObjectURL(url);
+            return;
+          }
           setThumbnail(asset.id, url);
         } catch {
-          // ignore
+          // ignore export 失败
+        } finally {
+          inflight.delete(asset.id);
         }
       })();
     }
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assets, runtime]);
 
@@ -140,10 +163,16 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
       {/* W6.5 筛选栏:仅当有资产时显示 */}
       {assets.length > 0 && (
         <div className="px-2 pb-2 space-y-1.5">
-          {/* 类型 chips */}
-          <div className="flex flex-wrap gap-1">
+          {/* 类型 chips:m10 radiogroup 语义,屏幕阅读器识别为单选组 */}
+          <div
+            role="radiogroup"
+            aria-label="Filter by type"
+            className="flex flex-wrap gap-1"
+          >
             <button
               type="button"
+              role="radio"
+              aria-checked={filterType === 'all'}
               onClick={() => setFilterType('all')}
               className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
                 filterType === 'all'
@@ -157,6 +186,8 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
               <button
                 key={t}
                 type="button"
+                role="radio"
+                aria-checked={filterType === t}
                 onClick={() => setFilterType(t)}
                 className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
                   filterType === t
@@ -168,7 +199,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
               </button>
             ))}
           </div>
-          {/* 搜索框 */}
+          {/* 搜索框:m4 文案改为与实际过滤行为一致(按 format/mimeType) */}
           <div className="relative">
             <Icon
               size={11}
@@ -181,7 +212,8 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter by name..."
+              placeholder="Filter by type..."
+              aria-label="Filter assets by format"
               className="w-full rounded bg-zinc-100 py-1 pl-6 pr-1.5 text-[10px] text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-indigo-300 dark:bg-zinc-800 dark:text-zinc-200 dark:placeholder:text-zinc-500"
             />
           </div>
@@ -206,8 +238,19 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
               return (
                 <li
                   key={asset.id}
+                  // M3: 键盘可达 —— tabIndex + role + onKeyDown(Enter/Space 选中)
+                  tabIndex={0}
+                  role="button"
+                  aria-pressed={selected}
+                  aria-label={`Select asset ${asset.metadata.format}`}
                   onClick={() => selectAsset(asset.id)}
-                  className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-all ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      selectAsset(asset.id);
+                    }
+                  }}
+                  className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-all focus:outline-none focus:ring-2 focus:ring-indigo-300 ${
                     selected
                       ? 'bg-indigo-50 ring-1 ring-indigo-200 dark:bg-indigo-950/30 dark:ring-indigo-800'
                       : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'
@@ -234,8 +277,8 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
                       e.stopPropagation();
                       void removeAsset(asset.id);
                     }}
-                    className="shrink-0 rounded p-0.5 text-zinc-300 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 dark:text-zinc-600 dark:hover:bg-red-950/30"
-                    aria-label="Remove asset"
+                    className="shrink-0 rounded p-0.5 text-zinc-300 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 focus:opacity-100 group-hover:opacity-100 dark:text-zinc-600 dark:hover:bg-red-950/30"
+                    aria-label={`Remove asset ${asset.metadata.format}`}
                   >
                     <Icon size={12}><path d="M6 18L18 6M6 6l12 12" /></Icon>
                   </button>

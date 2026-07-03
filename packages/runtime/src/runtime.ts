@@ -89,7 +89,18 @@ function estimateSourceSize(source: AssetSource): number {
  * 并发安全:import/create/remove 通过 promise 链串行化,避免 check 与 update
  * 之间的 TOCTOU 窗口导致两个并发操作都基于旧 usage 通过校验或回退。
  */
-function wrapAssetStoreWithQuota(inner: AssetStore, quota: number): AssetStore {
+/**
+ * 配额感知的 AssetStore:在 AssetStore 接口之上扩展 _getQuotaUsage,
+ * 供 runtime.getStorageUsage O(1) 读取内部 usage(下划线表"内部 API")。
+ */
+type QuotaAwareAssetStore = AssetStore & {
+  _getQuotaUsage: () => number;
+};
+
+function wrapAssetStoreWithQuota(
+  inner: AssetStore,
+  quota: number
+): QuotaAwareAssetStore {
   let usage = 0;
   let initialized = false;
   /** 串行化 import/create/remove 的 chain tail,确保 check-update 原子性 */
@@ -150,11 +161,22 @@ function wrapAssetStoreWithQuota(inner: AssetStore, quota: number): AssetStore {
     async create(blob, metadata, type) {
       return runExclusive(async () => {
         await ensureInit();
-        assertQuota(blob.size);
+        // m8 修复:配额预检与累加使用同一口径(metadata.size),
+        // 避免 blob.size 与 metadata.size 漂移导致账面与预检不一致
+        assertQuota(metadata.size);
         const asset = await inner.create(blob, metadata, type);
         usage += asset.metadata.size;
         return asset;
       });
+    },
+    /**
+     * m6 优化:暴露配额包装器内部维护的 usage(O(1)),
+     * 供 runtime.getStorageUsage 优先使用,避免每次 O(n) 全量 listAssets。
+     * 下划线前缀表"内部 API",非 AssetStore 接口一部分。
+     * 若 ensureInit 未完成,返回 -1 表示"未就绪",调用方 fallback 到 listAssets。
+     */
+    _getQuotaUsage(): number {
+      return initialized ? usage : -1;
     },
   };
 }
@@ -196,6 +218,17 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     this.eventBus = createEventBus();
 
     // 注入或降级到内存 store;随后用配额校验包裹(W2.9)
+    // M6 修复:enableOpfs/enableIndexedDB 仅在 createLokvis()/createRuntime
+    // 工厂中生效(工厂按 flag 调 createAssetStore 选择 OPFS→IDB→Memory)。
+    // 直接 new LokvisRuntimeImpl 且未传 assetStore 时,无法同步等待 createAssetStore,
+    // 兜底用 Memory store;若用户显式期望持久化,提示其用 createLokvis()。
+    if (!config.assetStore && (this.config.enableOpfs || this.config.enableIndexedDB)) {
+      console.warn(
+        '[lokvis] LokvisRuntimeImpl constructed without assetStore: ' +
+          'enableOpfs/enableIndexedDB flags are ignored. ' +
+          'Use createLokvis() to respect these flags, or pass an assetStore explicitly.'
+      );
+    }
     const rawStore = config.assetStore ?? createMemoryAssetStore();
     this.assetStore = wrapAssetStoreWithQuota(rawStore, this.config.storageQuota);
 
@@ -443,9 +476,17 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   }
 
   async getStorageUsage(): Promise<{ usage: number; quota: number }> {
-    // 基于 listAssets 实时计算 usage(与 wrapAssetStoreWithQuota.ensureInit
-    // 的初始 usage 计算一致),反映 runtime 实际占用。
-    // 不读 wrapAssetStoreWithQuota 内部 usage 闭包,避免泄露包装器内部状态。
+    // m6 优化:优先用配额包装器内部维护的 usage(O(1),import/create/remove
+    // 时增量更新),避免每次 O(n) 全量 listAssets 影响 StatusBar 刷新。
+    // 包装器未就绪(ensureInit 未完成)或未暴露 _getQuotaUsage 时,fallback
+    // 到 listAssets 实时计算(source of truth,与 W6.4 富元数据一致)。
+    const quotaAware = this.assetStore as AssetStore & {
+      _getQuotaUsage?: () => number;
+    };
+    const cached = quotaAware._getQuotaUsage?.();
+    if (cached !== undefined && cached >= 0) {
+      return { usage: cached, quota: this.config.storageQuota };
+    }
     const all = await this.assetStore.list();
     const usage = all.reduce((sum, a) => sum + a.metadata.size, 0);
     return { usage, quota: this.config.storageQuota };

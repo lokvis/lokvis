@@ -317,3 +317,50 @@ describe('createAssetStore 降级链', () => {
     expect(asset.id).toBeTruthy();
   });
 });
+
+// ─── m9: IndexedDB 不可用 → 仅内存模式降级 ───────────────────────
+
+describe('OPFS store IndexedDB 不可用降级(m9)', () => {
+  // Node 环境无 fake-indexeddb 注入,isIdbSupported()===false
+  // (本测试文件未 import 'fake-indexeddb/auto')
+
+  it('isIdbSupported 在 Node 环境应为 false', () => {
+    expect(isIdbSupported()).toBe(false);
+  });
+
+  it('IndexedDB 不可用时 store 退化为仅内存,刷新后 list() 为空', async () => {
+    // 同一 root 句柄,模拟"刷新":新建 store 实例
+    const root = new FakeDirHandle();
+    const rootHandle = root as unknown as FileSystemDirectoryHandle;
+
+    const store1 = await createOpfsAssetStore({ rootHandle });
+    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' });
+    const asset = await store1.import({ kind: 'blob', blob, name: 'a.png' });
+
+    // store1 内存里有资产
+    expect((await store1.list()).length).toBe(1);
+
+    // 刷新:新建 store(同 root),无 IDB 持久化 → 内存 Map 为空
+    const store2 = await createOpfsAssetStore({ rootHandle });
+    const list2 = await store2.list();
+    expect(list2).toHaveLength(0);
+    expect(await store2.get(asset.id)).toBeUndefined();
+
+    // OPFS 文件本身仍残留在 root 里(无 GC),但元数据丢失,
+    // 这是有意降级行为(与 W2 一致),避免 IDB 不可用时阻断主流程
+  });
+
+  it('IndexedDB 不可用时 import/remove 不应抛错(降级为 no-op 持久化)', async () => {
+    const root = new FakeDirHandle();
+    const rootHandle = root as unknown as FileSystemDirectoryHandle;
+    const store = await createOpfsAssetStore({ rootHandle });
+
+    const blob = new Blob([new Uint8Array([0])], { type: 'image/png' });
+    const asset = await store.import({ kind: 'blob', blob, name: 'a.png' });
+    expect(asset.id).toBeTruthy();
+
+    // remove 不应因 IDB 不可用抛错
+    await expect(store.remove(asset.id)).resolves.toBeUndefined();
+    expect(await store.get(asset.id)).toBeUndefined();
+  });
+});
