@@ -21,13 +21,12 @@ export default function ResizeTool() {
   const [maintainAspectRatio, setMaintainAspectRatio] = useState(true);
   const [skipped, setSkipped] = useState(0);
 
-  const handleFiles = useCallback(
-    async (files: File[]) => {
-      const res = await tool.handleFiles(files);
-      setSkipped(res.skipped);
-    },
-    [tool]
-  );
+  // 不用 useCallback:`tool` 是 useImageTool() 每次返回的新对象字面量,
+  // 放进依赖数组会让 callback 每次重建——等于没 memo。函数本身轻量,直接用普通函数。
+  const handleFiles = async (files: File[]) => {
+    const res = await tool.handleFiles(files);
+    setSkipped(res.skipped);
+  };
 
   const handleResize = useCallback(async () => {
     // 高度为 0 时省略,由 engine 按比例自动计算

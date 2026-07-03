@@ -54,21 +54,23 @@ function formatFromMime(mime: string): string {
  * (无明确 width/height 属性的 SVG)。此时用 0 占位,调用方应处理 width=0 的情况。
  */
 export async function getImageInfo(blob: Blob): Promise<ImageInfo | null> {
+  const url = URL.createObjectURL(blob);
   try {
-    const url = URL.createObjectURL(blob);
     const img = new Image();
     img.src = url;
     await img.decode();
-    const info: ImageInfo = {
+    return {
       width: img.naturalWidth,
       height: img.naturalHeight,
       size: blob.size,
       format: formatFromMime(blob.type),
     };
-    URL.revokeObjectURL(url);
-    return info;
   } catch {
     return null;
+  } finally {
+    // 无论 decode 成功还是失败(损坏图片/不支持格式)都要 revoke,
+    // 否则每个失败的图片都会泄漏一个 Blob URL。
+    URL.revokeObjectURL(url);
   }
 }
 
