@@ -35,6 +35,10 @@ import {
 import { CapabilityRegistry } from './capability-registry.js';
 import { WorkflowExecutor } from './executor.js';
 import { HistoryStack, type HistoryStackConfig } from './history.js';
+import {
+  createHistoryStore,
+  type HistoryStore,
+} from './history-store.js';
 import { BatchProcessor } from './batch-processor.js';
 import { MemoryGuard, DEFAULT_MEMORY_BUDGET } from './memory-guard.js';
 
@@ -186,7 +190,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   readonly version = RUNTIME_VERSION;
   readonly eventBus: EventBus;
 
-  private config: Required<Omit<RuntimeConfig, 'assetStore'>>;
+  private config: Required<Omit<RuntimeConfig, 'assetStore' | 'historyStore' | 'historyStoreOptions'>>;
   private _status: RuntimeStatus = 'idle';
   private assetStore: AssetStore;
   private capabilityRegistry: CapabilityRegistry;
@@ -195,14 +199,25 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   private batchProcessor: BatchProcessor;
   /**
    * 每个工作流独立的 HistoryStack。
-   * 注意:历史栈仅在内存中,刷新页面后丢失(资产可能仍存于 OPFS/IDB,
-   * 但因元数据/索引未持久化而无法恢复)—— 跨会话恢复属 W3 范畴。
+   * W7.2 起,栈快照(entries + cursor)连同 initialInputs / currentOutputs
+   * 通过 historyStore 持久化到 IndexedDB,刷新后可恢复。
    */
   private historyStacks = new Map<string, HistoryStack>();
   /** 记录每个工作流的初始输入 AssetId(undo 回到初始时使用) */
   private initialInputsMap = new Map<string, AssetId[]>();
   /** 记录每个工作流当前的输出 AssetId(undo/redo 后切换"当前") */
   private currentOutputsMap = new Map<string, AssetId[]>();
+  /**
+   * 历史持久化存储(W7.2)。undefined 时退化为仅内存历史(刷新后丢失)。
+   * 由 createRuntime 在 enableIndexedDB 时自动创建,或通过 config 注入。
+   */
+  private historyStore: HistoryStore | undefined;
+  /**
+   * 加载持久化历史快照期间的守卫标志。
+   * restore() 会触发 onChanged → persistHistory,此时跳过写回,
+   * 避免把刚读出的数据又重复写入(冗余 IO + 潜在覆盖竞态)。
+   */
+  private isLoadingHistory = false;
 
   constructor(config: RuntimeConfig = {}) {
     this.config = {
@@ -231,6 +246,11 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     }
     const rawStore = config.assetStore ?? createMemoryAssetStore();
     this.assetStore = wrapAssetStoreWithQuota(rawStore, this.config.storageQuota);
+
+    // W7.2 历史持久化:优先用注入的 historyStore;否则在 createRuntime 工厂中
+    // 由 createHistoryStore 自动创建并注入。直接 new Impl 时为 undefined,
+    // 历史退化为仅内存模式(与 W2 行为一致)。
+    this.historyStore = config.historyStore;
 
     this.capabilityRegistry = new CapabilityRegistry(this.config.engineStrategy);
 
@@ -391,6 +411,15 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     return this.historyStacks.get(workflowId)?.list() ?? [];
   }
 
+  async getHistoryState(
+    workflowId: string
+  ): Promise<{ entries: HistoryEntry[]; cursor: number }> {
+    const stack = this.historyStacks.get(workflowId);
+    if (!stack) return { entries: [], cursor: -1 };
+    const snap = stack.snapshot();
+    return { entries: snap.entries, cursor: snap.cursor };
+  }
+
   async undo(workflowId: string): Promise<void> {
     const stack = this.getOrCreateHistoryStack(workflowId);
     const result = stack.undo();
@@ -413,6 +442,19 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
 
     this.currentOutputsMap.set(workflowId, entry.outputs);
     // history:changed 事件由 stack 的 onChanged 回调统一发射,避免双发
+  }
+
+  async jumpTo(workflowId: string, index: number): Promise<void> {
+    const stack = this.getOrCreateHistoryStack(workflowId);
+    const result = stack.jumpTo(index);
+    if (result === undefined) return; // 越界或游标未变,无操作
+
+    // 同 undo/redo:更新当前输出
+    const newCurrent = result === null
+      ? (this.initialInputsMap.get(workflowId) ?? [])
+      : result.outputs;
+    this.currentOutputsMap.set(workflowId, newCurrent);
+    // history:changed 事件由 stack 的 onChanged 回调统一发射
   }
 
   // ─── Asset 管理 ──────────────────────────────────────
@@ -630,6 +672,8 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
             entries,
             currentIndex,
           });
+          // W7.2:持久化快照到 IndexedDB(加载期间跳过,避免冗余写回)
+          void this.persistHistory(wfId);
         },
       };
       stack = new HistoryStack(workflowId, stackConfig);
@@ -677,6 +721,84 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     // 更新当前输出为该 node 的 outputs
     this.currentOutputsMap.set(event.workflowId, outputs);
   }
+
+  // ─── 私有:历史持久化(W7.2) ────────────────────────
+
+  /**
+   * 把指定工作流的当前历史状态快照写入 historyStore。
+   *
+   * 时序修复:currentOutputs 从 stack snapshot 派生(cursor === -1 用
+   * initialInputs,否则用 entries[cursor].outputs),而非读 currentOutputsMap。
+   * 原因:onChanged 在 undo/redo/jumpTo/run 内部同步触发时,map 尚未更新,
+   * 会读到旧值(例如 run 后 append 触发 onChanged,但 currentOutputsMap 在
+   * append 返回后才 set)。
+   *
+   * 竞态安全:多个 fire-and-forget save 的 IDB readwrite 事务由 IndexedDB
+   * 引擎按发起顺序串行化(同 object store 不重叠),无需应用层加链。
+   *
+   * - entries 为空时改为 delete,避免残留空记录(reset/clear 后自然清理)
+   * - 加载期间(isLoadingHistory=true)跳过,避免 restore() 触发的 onChanged
+   *   把刚读出的数据又重复写回
+   */
+  private async persistHistory(workflowId: string): Promise<void> {
+    if (!this.historyStore || this.isLoadingHistory) return;
+    const stack = this.historyStacks.get(workflowId);
+    // 栈已从内存移除(disposeWorkflow / enforceHistoryStacksLimit 的 reset+delete
+    // 后异步到达此处)→ 删除持久化记录,避免孤儿数据跨会话残留
+    if (!stack) {
+      await this.historyStore.delete(workflowId);
+      return;
+    }
+    const { entries, cursor } = stack.snapshot();
+    if (entries.length === 0) {
+      await this.historyStore.delete(workflowId);
+      return;
+    }
+    // 从 snapshot 派生 currentOutputs,而非读 currentOutputsMap —— 后者在
+    // onChanged 触发时尚未更新(见方法文档注释)
+    const initialInputs = this.initialInputsMap.get(workflowId) ?? [];
+    const currentOutputs = cursor === -1
+      ? initialInputs
+      : (entries[cursor]?.outputs ?? initialInputs);
+    await this.historyStore.save({
+      workflowId,
+      entries,
+      cursor,
+      initialInputs,
+      currentOutputs,
+      updatedAt: Date.now(),
+    });
+  }
+
+  /**
+   * 从 historyStore 预加载所有持久化的历史快照,恢复到内存。
+   *
+   * 由 createRuntime 工厂在构造完 impl 后调用一次。加载期间置 isLoadingHistory
+   * 守卫,使 restore() 触发的 onChanged → persistHistory 跳过冗余写回。
+   *
+   * 注意:restore 会 emit history:changed 事件,但此时 UI 尚未订阅
+   * (runtime-slice.init 在 createRuntime resolve 后才订阅),故无副作用。
+   *
+   * 非 LokvisRuntime 接口的一部分,仅为 impl 的初始化钩子(工厂调用)。
+   */
+  async loadPersistedHistory(): Promise<void> {
+    if (!this.historyStore) return;
+    let records: Awaited<ReturnType<HistoryStore['loadAll']>> = [];
+    this.isLoadingHistory = true;
+    try {
+      records = await this.historyStore.loadAll();
+      for (const record of records) {
+        // 跳过空记录(理论上 save 已删除,双重防御)
+        if (record.entries.length === 0) continue;
+        const stack = this.getOrCreateHistoryStack(record.workflowId);
+        stack.restore({ entries: record.entries, cursor: record.cursor });
+        this.initialInputsMap.set(record.workflowId, record.initialInputs);
+        this.currentOutputsMap.set(record.workflowId, record.currentOutputs);
+      }
+    } finally {
+      this.isLoadingHistory = false;
+    }
+  }
 }
 
 /**
@@ -693,7 +815,17 @@ export async function createRuntime(
   const assetStore =
     config?.assetStore ??
     (await createAssetStore({ preferOpfs: config?.enableOpfs ?? true }));
-  return new LokvisRuntimeImpl({ ...config, assetStore });
+  // W7.2:历史持久化 —— 优先用注入的 historyStore;否则在 enableIndexedDB 时
+  // 通过 createHistoryStore 自动创建(IDB 不可用时返回 undefined,退化仅内存)
+  const historyStore =
+    config?.historyStore ??
+    ((config?.enableIndexedDB ?? true)
+      ? createHistoryStore(config?.historyStoreOptions)
+      : undefined);
+  const impl = new LokvisRuntimeImpl({ ...config, assetStore, historyStore });
+  // 预加载持久化的历史快照(跨会话恢复 undo/redo 链)
+  await impl.loadPersistedHistory();
+  return impl;
 }
 
 /**
