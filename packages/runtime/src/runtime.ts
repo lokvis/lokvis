@@ -516,6 +516,13 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     return this.capabilityRegistry;
   }
 
+  /**
+   * 获取 MemoryGuard(内部用,供集成测试驱动内存压力验证 BatchProcessor 收缩)。
+   */
+  _getMemoryGuard(): MemoryGuard {
+    return this.memoryGuard;
+  }
+
   /** 获取工作流当前输出 AssetId（undo/redo 后的"当前"状态,内部用） */
   _getCurrentOutputs(workflowId: string): AssetId[] {
     return this.currentOutputsMap.get(workflowId) ?? [];
