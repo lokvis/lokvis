@@ -39,12 +39,16 @@ export default defineConfig({
         'packages/capability/src/**/*.ts',
         'packages/engine-image/src/**/*.ts',
         'packages/plugin-image/src/**/*.ts',
+        // W4.6 后 ui-core 已有 @testing-library/react 单测,纳入覆盖率统计
+        'packages/ui-core/src/**/*.{ts,tsx}',
       ],
       // 排除:测试文件、barrel index、纯类型文件、stub/未测试包
       exclude: [
         'packages/**/src/__tests__/**',
         'packages/**/src/**/index.ts',
         'packages/**/src/**/types.ts',
+        // ui-core 的样式文件不计入覆盖率
+        'packages/ui-core/src/**/*.css',
         // stub 引擎 / 未实现模块
         'packages/engine-pdf/**',
         'packages/engine-video/**',
@@ -57,7 +61,6 @@ export default defineConfig({
         'packages/cli/**',
         'packages/sdk/**',
         'packages/plugin-sdk/**',
-        'packages/ui-core/**',
         'packages/ui-react/**',
         'packages/examples/**',
         'apps/**',

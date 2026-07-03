@@ -55,15 +55,32 @@ export function Tooltip({
     };
   }, []);
 
+  // 合并触发器原有的同名 handler,而非覆盖。
+  // 用户期望"我的 onMouseEnter + tooltip 的 show 都执行",而非 tooltip 吃掉事件。
+  const childProps = children.props as React.HTMLAttributes<HTMLElement>;
+  const mergeHandler = <K extends keyof React.HTMLAttributes<HTMLElement>>(
+    key: K,
+    tooltipHandler: (e: never) => void
+  ) => {
+    const userHandler = childProps[key];
+    if (typeof userHandler === 'function') {
+      return (e: never) => {
+        (userHandler as (e: never) => void)(e);
+        tooltipHandler(e);
+      };
+    }
+    return tooltipHandler;
+  };
+
   const triggerProps: Record<string, unknown> = {};
   if (trigger === 'hover') {
-    triggerProps.onMouseEnter = show;
-    triggerProps.onMouseLeave = hide;
-    triggerProps.onFocus = show;
-    triggerProps.onBlur = hide;
+    triggerProps.onMouseEnter = mergeHandler('onMouseEnter', show as (e: never) => void);
+    triggerProps.onMouseLeave = mergeHandler('onMouseLeave', hide as (e: never) => void);
+    triggerProps.onFocus = mergeHandler('onFocus', show as (e: never) => void);
+    triggerProps.onBlur = mergeHandler('onBlur', hide as (e: never) => void);
   } else {
-    triggerProps.onFocus = show;
-    triggerProps.onBlur = hide;
+    triggerProps.onFocus = mergeHandler('onFocus', show as (e: never) => void);
+    triggerProps.onBlur = mergeHandler('onBlur', hide as (e: never) => void);
   }
   triggerProps['aria-describedby'] = tipId;
 
