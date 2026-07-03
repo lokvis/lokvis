@@ -203,9 +203,15 @@ export class BatchProcessor {
   /**
    * 入队批量作业。返回 job 视图(只读)。
    * 超过免费上限时同步抛 BatchLimitExceededError,不创建 job。
+   * 空 items 抛错(避免静默产出 0 项 completed job,遮蔽调用方逻辑错误)。
    */
   enqueue(options: EnqueueOptions): BatchJob {
     const { items, maxRetries = 0, concurrency } = options;
+
+    // m3: 空数组视为调用方逻辑错误,显式抛错而非静默完成
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error('BatchProcessor.enqueue: items cannot be empty');
+    }
 
     // W6.2 批量上限:免费 10,Pro 无限
     if (!this.isPro && items.length > FREE_BATCH_LIMIT) {
@@ -263,32 +269,40 @@ export class BatchProcessor {
   async cancel(jobId: string): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) return;
-    if (job.status === 'completed' || job.status === 'cancelled') return;
+    // m2: failed 也是终态,任何终态 job 不应被改写
+    if (this.isTerminal(job.status)) return;
 
+    // B1 修复:同步先标记 cancelled,使 in-flight processItem 续跑时读到
+    // cancelled=true 后短路,避免覆盖 cancelled 状态或把被取消的项误标 failed。
     job.cancelled = true;
     job.paused = false;
     let cancelledCount = 0;
 
-    // 取消所有 in-flight workflow(processing 项)
+    // 同步把所有 processing/pending 项标记 cancelled(processItem 续跑会读到此状态)
     for (const item of job.items) {
-      if (item.status === 'processing') {
+      if (item.status === 'processing' || item.status === 'pending') {
+        item.status = 'cancelled';
+        cancelledCount++;
+      }
+    }
+
+    // 异步取消所有 in-flight workflow(此时项状态已是 cancelled,
+    // processItem 续跑会因 job.cancelled 短路,不会回写其他状态)
+    for (const item of job.items) {
+      if (item.status === 'cancelled') {
         const wfId = this.itemWorkflowId(job.id, item.id);
         try {
           await this.runtime.cancel(wfId);
         } catch {
           // 取消失败不阻断,继续取消其他项
         }
-        item.status = 'cancelled';
-        cancelledCount++;
-      } else if (item.status === 'pending') {
-        item.status = 'cancelled';
-        cancelledCount++;
       }
     }
 
     job.status = 'cancelled';
     job.endedAt = Date.now();
     this.emit({ type: 'batch:cancelled', jobId, cancelled: cancelledCount });
+    this.cleanupJobSubs(jobId);
   }
 
   /** 暂停 job:schedule 不再补满,已 in-flight 项跑完即止 */
@@ -298,6 +312,8 @@ export class BatchProcessor {
     if (job.status !== 'running' && job.status !== 'queued') return;
     job.paused = true;
     job.status = 'paused';
+    // m1: 发 pause 事件,UI 可订阅无需轮询
+    this.emit({ type: 'batch:paused', jobId });
   }
 
   /** 恢复 job:解除 pause,schedule 继续补满 */
@@ -307,6 +323,8 @@ export class BatchProcessor {
     if (job.status !== 'paused') return;
     job.paused = false;
     job.status = 'running';
+    // m1: 发 resumed 事件
+    this.emit({ type: 'batch:resumed', jobId });
     void this.schedule(job);
   }
 
@@ -346,24 +364,61 @@ export class BatchProcessor {
     };
   }
 
-  /** 等待 job 完成(completed/failed/cancelled 任一) */
-  async waitForCompletion(jobId: string): Promise<BatchJob> {
+  /**
+   * 等待 job 完成(completed/failed/cancelled 任一)。
+   *
+   * M5 修复:
+   * - 增加 timeoutMs(默认 5min),超时 reject,避免坏 job 永久挂起泄漏订阅
+   * - batch:completed 事件已涵盖 failed(maybeComplete 对 failed>0 的 job
+   *   同样发 batch:completed),故只需监听 completed + cancelled
+   * - resolve 后立即解绑所有订阅,避免调用方丢弃 promise 时泄漏
+   * - cancel/maybeComplete 进入终态时也会 cleanupJobSubs 兜底
+   */
+  async waitForCompletion(
+    jobId: string,
+    timeoutMs = 5 * 60 * 1000
+  ): Promise<BatchJob> {
     const job = this.jobs.get(jobId);
     if (!job) throw new Error(`Batch job not found: ${jobId}`);
     if (this.isTerminal(job.status)) return this.toJobView(job);
 
-    return new Promise<BatchJob>((resolve) => {
-      const off = this.eventBus.on('batch:completed', (e) => {
+    return new Promise<BatchJob>((resolve, reject) => {
+      let settled = false;
+      // 声明在前,finish 与各 handler 互相引用
+      let offCompleted: () => void;
+      let offCancelled: () => void;
+      let timer: ReturnType<typeof setTimeout>;
+      const finish = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        offCompleted();
+        offCancelled();
+        fn();
+      };
+      offCompleted = this.eventBus.on('batch:completed', (e) => {
         if (e.jobId !== jobId) return;
-        off();
-        resolve(this.toJobView(job));
+        finish(() => resolve(this.toJobView(this.jobs.get(jobId) ?? job)));
       });
-      const offCancel = this.eventBus.on('batch:cancelled', (e) => {
+      offCancelled = this.eventBus.on('batch:cancelled', (e) => {
         if (e.jobId !== jobId) return;
-        offCancel();
-        resolve(this.toJobView(job));
+        finish(() => resolve(this.toJobView(this.jobs.get(jobId) ?? job)));
       });
+      timer = setTimeout(() => {
+        finish(() =>
+          reject(
+            new Error(
+              `BatchProcessor.waitForCompletion timed out after ${timeoutMs}ms (jobId=${jobId})`
+            )
+          )
+        );
+      }, timeoutMs);
     });
+  }
+
+  /** 清理 job 的所有进度订阅(终态时调用,避免泄漏) */
+  private cleanupJobSubs(jobId: string): void {
+    this.progressSubs.delete(jobId);
   }
 
   // ─── 内部实现 ────────────────────────────────────────
@@ -426,16 +481,35 @@ export class BatchProcessor {
       total: job.items.length,
     });
 
+    // B1 修复:cancel 已同步把 item 标为 cancelled,此处若发现 cancelled
+    // 直接短路,不发起 import/run,避免与 cancel 竞态
+    if (job.cancelled || item.status === 'cancelled') {
+      return;
+    }
+
+    let inputAssetId: AssetId | undefined;
     let result: WorkflowResult | undefined;
     try {
       // 1. 导入输入资产
-      const inputAssetId = await this.runtime.importAsset(item.source);
+      inputAssetId = await this.runtime.importAsset(item.source);
+
+      // B1 守卫:import 期间可能被 cancel
+      if (job.cancelled) {
+        item.status = 'cancelled';
+        // 清理刚导入的 input,避免孤儿资产(cancel 期间产出的 input 不应残留)
+        void this.runtime.removeAsset(inputAssetId).catch(() => {});
+        return;
+      }
 
       // 2. 执行工作流(用独立 workflow id,便于 cancel)
-      // 注意:BatchItemInput.workflow 是模板,这里 clone 一份改 id,
-      // 避免多项共用同一 workflow.id 导致 historyStacks 冲突
       const wf: Workflow = { ...item.workflow, id: wfId };
       result = await this.runtime.run(wf, [inputAssetId]);
+
+      // B1 守卫:run 期间可能被 cancel(cancel 已同步标 item=cancelled)
+      if (job.cancelled) {
+        item.status = 'cancelled';
+        return;
+      }
 
       if (result.status !== 'completed' || result.outputs.length === 0) {
         throw new Error(result.error || `Workflow ${result.status}`);
@@ -461,10 +535,15 @@ export class BatchProcessor {
       });
       this.emitProgress(job);
     } catch (err) {
+      // B1 守卫:被 cancel 的 workflow 抛错不计入 failed(item 已是 cancelled)
+      if (job.cancelled) {
+        item.status = 'cancelled';
+        return;
+      }
       // 失败:判断是否还可重试
       item.attempts++;
       const maxRetries = item.maxRetries;
-      if (item.attempts <= maxRetries && !job.cancelled) {
+      if (item.attempts <= maxRetries) {
         // 重试:回 pending,schedule 会再次拉起
         item.status = 'pending';
         // 注意:不重置 attempts,保留累计重试次数
@@ -472,6 +551,11 @@ export class BatchProcessor {
         item.status = 'failed';
         item.error = err instanceof Error ? err : new Error(String(err));
         job.failed++;
+        // M4:最终失败时清理已导入的 input asset,避免批量失败累积孤儿资产
+        // 占用 OPFS/IDB 空间并污染 listAssets / StatusBar 配额
+        if (inputAssetId !== undefined) {
+          void this.runtime.removeAsset(inputAssetId).catch(() => {});
+        }
         this.emit({
           type: 'batch:item:failed',
           jobId: job.id,
@@ -511,7 +595,8 @@ export class BatchProcessor {
     });
     const subs = this.progressSubs.get(job.id);
     if (subs) {
-      for (const fn of subs) {
+      // M1 修复:遍历副本,防止 handler 内 unsubscribe/subscribe mutate 正在迭代的 Set
+      for (const fn of [...subs]) {
         try {
           fn(payload);
         } catch {
@@ -539,6 +624,8 @@ export class BatchProcessor {
       failed: job.failed,
       duration: job.endedAt - job.startedAt,
     });
+    // M5:进入终态清理进度订阅,避免 waitForCompletion 调用方丢弃 promise 后泄漏
+    this.cleanupJobSubs(job.id);
   }
 
   private isTerminal(status: BatchJobStatus): boolean {

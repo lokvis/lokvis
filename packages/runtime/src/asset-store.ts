@@ -140,10 +140,14 @@ async function extractMediaDuration(
     el.preload = 'metadata';
     el.src = url;
     return await new Promise<RichMetadata>((resolve) => {
+      let settled = false;
       const finish = (result: RichMetadata) => {
+        if (settled) return;
+        settled = true;
         el.onloadedmetadata = null;
         el.onerror = null;
         el.removeAttribute('src');
+        clearTimeout(timer);
         resolve(result);
       };
       el.onloadedmetadata = () => {
@@ -151,11 +155,17 @@ async function extractMediaDuration(
         finish(Number.isFinite(duration) ? { duration } : {});
       };
       el.onerror = () => finish({});
+      // M2 修复:超时兜底,防止坏文件既不触发 loadedmetadata 也不触发 onerror
+      // 导致 Promise 永久挂起 + 外层 finally 的 revokeObjectURL 永不执行(泄漏)
+      const timer = setTimeout(() => finish({}), MEDIA_DURATION_TIMEOUT_MS);
     });
   } finally {
     URL.revokeObjectURL(url);
   }
 }
+
+/** 媒体时长提取超时(5s,足够解码大多数媒体头) */
+const MEDIA_DURATION_TIMEOUT_MS = 5000;
 
 /**
  * 从 AssetSource 准备导入数据(共享逻辑,供 Memory/OPFS/IDB store 复用):

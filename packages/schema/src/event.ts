@@ -108,7 +108,9 @@ export type LokvisEvent =
       failed: number;
       duration: number;
     }
-  | { type: 'batch:cancelled'; jobId: string; cancelled: number };
+  | { type: 'batch:cancelled'; jobId: string; cancelled: number }
+  | { type: 'batch:paused'; jobId: string }
+  | { type: 'batch:resumed'; jobId: string };
 
 /** 所有事件类型字面量 */
 export type LokvisEventType = LokvisEvent['type'];

@@ -37,8 +37,12 @@ export function StatusBar({ className = '' }: StatusBarProps) {
     <footer
       className={`flex h-7 shrink-0 items-center justify-between border-t border-zinc-200 bg-zinc-50 px-3 dark:border-zinc-800 dark:bg-zinc-950 ${className}`}
     >
-      {/* Left: Status */}
-      <div className="flex items-center gap-2 min-w-0">
+      {/* Left: Status — m5 加 aria-live,屏幕阅读器播报状态变化 */}
+      <div
+        className="flex items-center gap-2 min-w-0"
+        role="status"
+        aria-live="polite"
+      >
         <span className="flex items-center gap-1.5">
           <span
             className={`h-1.5 w-1.5 rounded-full shrink-0 ${
@@ -48,6 +52,7 @@ export function StatusBar({ className = '' }: StatusBarProps) {
                 ? 'bg-amber-500 animate-pulse'
                 : 'bg-emerald-500'
             }`}
+            aria-hidden="true"
           />
           <span className={`truncate text-[10px] ${error ? 'text-red-500' : 'text-zinc-500'}`}>
             {statusMessage}
@@ -66,7 +71,7 @@ export function StatusBar({ className = '' }: StatusBarProps) {
 
       {/* Right: Stats */}
       <div className="flex items-center gap-3 shrink-0 text-[10px] text-zinc-400 tabular-nums">
-        {/* W6.7 存储配额:接近上限时变色警告 */}
+        {/* W6.7 存储配额:接近上限时变色警告;m5 加 aria-label 让屏幕阅读器播报告警 */}
         {storageUsage && (
           <>
             <span
@@ -84,19 +89,27 @@ export function StatusBar({ className = '' }: StatusBarProps) {
                   ? `Storage nearing limit (${Math.round(ratio * 100)}%)`
                   : `Storage: ${formatBytes(storageUsage.usage)} of ${formatBytes(storageUsage.quota)}`
               }
+              aria-label={
+                storageCritical
+                  ? `Storage critical: ${formatBytes(storageUsage.usage)} of ${formatBytes(storageUsage.quota)} used, ${Math.round(ratio * 100)} percent. Clean up to free space.`
+                  : storageWarning
+                  ? `Storage warning: ${formatBytes(storageUsage.usage)} of ${formatBytes(storageUsage.quota)} used, ${Math.round(ratio * 100)} percent.`
+                  : `Storage: ${formatBytes(storageUsage.usage)} of ${formatBytes(storageUsage.quota)} used.`
+              }
+              aria-live={storageCritical ? 'assertive' : 'polite'}
             >
               {(storageCritical || storageWarning) && (
-                <span className="text-[9px]">⚠</span>
+                <span className="text-[9px]" aria-hidden="true">⚠</span>
               )}
               {formatBytes(storageUsage.usage)} / {formatBytes(storageUsage.quota)}
             </span>
-            <span className="text-zinc-300 dark:text-zinc-700">|</span>
+            <span className="text-zinc-300 dark:text-zinc-700" aria-hidden="true">|</span>
           </>
         )}
         <span>{assets.length} asset{assets.length !== 1 ? 's' : ''}</span>
-        <span className="text-zinc-300 dark:text-zinc-700">|</span>
+        <span className="text-zinc-300 dark:text-zinc-700" aria-hidden="true">|</span>
         <span>{capabilities.length} cap{capabilities.length !== 1 ? 's' : ''}</span>
-        <span className="text-zinc-300 dark:text-zinc-700">|</span>
+        <span className="text-zinc-300 dark:text-zinc-700" aria-hidden="true">|</span>
         <span>{nodes.length} step{nodes.length !== 1 ? 's' : ''}</span>
       </div>
     </footer>

@@ -296,10 +296,32 @@ describe('BatchProcessor 批量上限', () => {
       isPro: false,
     });
 
-    const job = bp.enqueue({ items: makeItems(FREE_BATCH_LIMIT) });
+    const job = bp.enqueue({ items: makeItems(10) });
     const finalJob = await bp.waitForCompletion(job.id);
+    expect(finalJob.completed).toBe(10);
+  });
 
-    expect(finalJob.status).toBe('completed');
+  // m3 回归:空 items 数组应抛错,不静默产出 0 项 completed job
+  it('m3: 空 items 数组应抛错,不创建 job', () => {
+    const runtime = createMockRuntime({});
+    const bp = new BatchProcessor({
+      runtime,
+      eventBus: runtime.eventBus,
+      isPro: false,
+    });
+
+    expect(() => bp.enqueue({ items: [] })).toThrow(/items cannot be empty/);
+    // 不应创建任何 job
+    expect(bp.list()).toHaveLength(0);
+
+    // Pro 模式同样应拒绝空数组
+    const proRuntime = createMockRuntime({ isPro: true });
+    const proBp = new BatchProcessor({
+      runtime: proRuntime,
+      eventBus: proRuntime.eventBus,
+      isPro: true,
+    });
+    expect(() => proBp.enqueue({ items: [] })).toThrow(/items cannot be empty/);
   });
 });
 
@@ -474,6 +496,128 @@ describe('BatchProcessor 取消', () => {
     await bp.waitForCompletion(job.id);
     await expect(bp.cancel(job.id)).resolves.toBeUndefined();
   });
+
+  // m2 回归:cancel 对已 failed 的 job 应是 no-op,不应改写为 cancelled
+  it('cancel 已 failed 的 job 不应改写状态(终态守卫 m2)', async () => {
+    let callCount = 0;
+    const runtime = createMockRuntime({
+      runImpl: async (wf) => {
+        callCount++;
+        // 第 1 项失败,其余成功
+        if (callCount === 1) throw new Error('boom');
+        return {
+          workflowId: wf.id,
+          outputs: ['out'],
+          duration: 0,
+          status: 'completed' as const,
+        };
+      },
+    });
+    const bp = new BatchProcessor({
+      runtime,
+      eventBus: runtime.eventBus,
+      isPro: true,
+    });
+
+    const job = bp.enqueue({ items: makeItems(2), maxRetries: 0 });
+    const finalJob = await bp.waitForCompletion(job.id);
+    expect(finalJob.status).toBe('failed');
+
+    // cancel 已 failed 的 job:应 no-op,不抛错也不改状态
+    await bp.cancel(job.id);
+    const afterCancel = bp.get(job.id);
+    expect(afterCancel?.status).toBe('failed');
+  });
+
+  // B1 回归:cancel 与 in-flight processItem 竞态
+  // run 在 cancel 期间 resolve,验证项不被误标 completed,cancelled 语义不被覆盖
+  it('B1: cancel 期间 in-flight run resolve,项应保持 cancelled 不被覆盖为 completed', async () => {
+    // 用 deferred 控制 run 的 resolve 时机
+    const runResolvers: Array<() => void> = [];
+    const runtime = createMockRuntime({
+      runImpl: (wf) =>
+        new Promise<void>((resolve) => {
+          runResolvers.push(() => resolve());
+          // 不主动 resolve,等测试控制
+        }).then(() => ({
+          workflowId: wf.id,
+          outputs: ['out'],
+          duration: 0,
+          status: 'completed' as const,
+        })),
+      cancelImpl: async () => {
+        // cancel workflow 时,让被 cancel 的 run resolve(模拟真实场景:
+        // runtime.cancel 可能触发 run 抛错或 resolve)
+        const r = runResolvers.shift();
+        if (r) r();
+      },
+    });
+    const bp = new BatchProcessor({
+      runtime,
+      eventBus: runtime.eventBus,
+      isPro: false, // free=4 并发
+    });
+
+    const job = bp.enqueue({ items: makeItems(4) });
+    // 等 4 项全部进入 processing
+    await new Promise((r) => setTimeout(r, 20));
+
+    // cancel:同步标记 4 项 cancelled,然后逐个 await runtime.cancel
+    // (cancelImpl 会 resolve 对应 run promise,触发 processItem 续跑)
+    await bp.cancel(job.id);
+
+    const finalJob = bp.get(job.id);
+    expect(finalJob?.status).toBe('cancelled');
+    // 关键不变量:被 cancel 的项不被 run 的成功 resolve 覆盖为 completed
+    expect(finalJob!.completed).toBe(0);
+    expect(finalJob!.failed).toBe(0);
+    for (const item of finalJob!.items) {
+      expect(item.status).toBe('cancelled');
+    }
+  });
+
+  // B1 回归变体:run 在 cancel 期间 reject,项不应被误标 failed
+  it('B1: cancel 期间 in-flight run reject,项应保持 cancelled 不被误标 failed', async () => {
+    const runRejectors: Array<(err: Error) => void> = [];
+    const runtime = createMockRuntime({
+      runImpl: (wf) =>
+        new Promise((_resolve, reject) => {
+          runRejectors.push(reject);
+        }).then(
+          () => ({
+            workflowId: wf.id,
+            outputs: ['out'],
+            duration: 0,
+            status: 'completed' as const,
+          }),
+          () => {
+            // processItem catch 会处理,这里返回一个 failed result 兜底
+            throw new Error('run rejected during cancel');
+          }
+        ),
+      cancelImpl: async () => {
+        const rej = runRejectors.shift();
+        if (rej) rej(new Error('cancelled'));
+      },
+    });
+    const bp = new BatchProcessor({
+      runtime,
+      eventBus: runtime.eventBus,
+      isPro: false,
+    });
+
+    const job = bp.enqueue({ items: makeItems(2), maxRetries: 0 });
+    await new Promise((r) => setTimeout(r, 20));
+    await bp.cancel(job.id);
+
+    const finalJob = bp.get(job.id);
+    expect(finalJob?.status).toBe('cancelled');
+    // 关键:被 cancel 的 run 抛错不计入 failed(B1 守卫)
+    expect(finalJob!.failed).toBe(0);
+    for (const item of finalJob!.items) {
+      expect(item.status).toBe('cancelled');
+    }
+  });
 });
 
 // ─── 进度事件(W6.3)──────────────────────────────────────────
@@ -607,6 +751,42 @@ describe('BatchProcessor 暂停/恢复', () => {
     expect(finalJob.status).toBe('completed');
     expect(finalJob.completed).toBe(8);
   });
+
+  // m1 回归:pause/resume 应发出 batch:paused / batch:resumed 事件
+  it('m1: pause 与 resume 应分别发出 batch:paused / batch:resumed 事件', async () => {
+    const runtime = createMockRuntime({
+      runImpl: async (wf) => {
+        await new Promise((r) => setTimeout(r, 20));
+        return {
+          workflowId: wf.id,
+          outputs: ['out'],
+          duration: 0,
+          status: 'completed' as const,
+        };
+      },
+    });
+    const bp = new BatchProcessor({
+      runtime,
+      eventBus: runtime.eventBus,
+      isPro: false,
+    });
+    const events: string[] = [];
+    runtime.eventBus.on('batch:paused', (e) => events.push(`paused:${e.jobId}`));
+    runtime.eventBus.on('batch:resumed', (e) => events.push(`resumed:${e.jobId}`));
+
+    const job = bp.enqueue({ items: makeItems(4) });
+    await new Promise((r) => setTimeout(r, 5));
+    await bp.pause(job.id);
+    await bp.resume(job.id);
+    await bp.waitForCompletion(job.id);
+
+    expect(events).toContain(`paused:${job.id}`);
+    expect(events).toContain(`resumed:${job.id}`);
+    // paused 在 resumed 之前
+    expect(events.indexOf(`paused:${job.id}`)).toBeLessThan(
+      events.indexOf(`resumed:${job.id}`)
+    );
+  });
 });
 
 // ─── retryFailed ──────────────────────────────────────────────
@@ -684,5 +864,108 @@ describe('BatchProcessor 列表/查询', () => {
     });
 
     await expect(bp.waitForCompletion('nonexistent')).rejects.toThrow(/not found/);
+  });
+
+  // M5 回归:waitForCompletion 超时应 reject,不永久挂起
+  it('M5: waitForCompletion 超时应 reject,避免永久挂起泄漏订阅', async () => {
+    // run 永不 resolve,模拟坏 job 卡死
+    const runtime = createMockRuntime({
+      runImpl: () => new Promise(() => {}),
+    });
+    const bp = new BatchProcessor({
+      runtime,
+      eventBus: runtime.eventBus,
+      isPro: false,
+    });
+
+    const job = bp.enqueue({ items: makeItems(1) });
+    // 用极短超时加速测试
+    await expect(
+      bp.waitForCompletion(job.id, 50)
+    ).rejects.toThrow(/timed out/);
+  });
+});
+
+// ─── M4 input asset 清理 ────────────────────────────────────────
+
+describe('BatchProcessor 失败时清理 input asset (M4)', () => {
+  it('M4: 项最终失败时应调用 runtime.removeAsset 清理已导入的 input', async () => {
+    let callCount = 0;
+    const removedInputs: string[] = [];
+    const runtime = createMockRuntime({
+      runImpl: async (wf) => {
+        callCount++;
+        if (callCount === 1) throw new Error('always fails');
+        return {
+          workflowId: wf.id,
+          outputs: ['out'],
+          duration: 0,
+          status: 'completed' as const,
+        };
+      },
+      importImpl: async () => `in_${callCount + 1}`,
+    });
+    // 覆盖 removeAsset 记录清理调用
+    const baseRuntime = runtime as unknown as {
+      removeAsset: (id: string) => Promise<void>;
+    };
+    baseRuntime.removeAsset = async (id: string) => {
+      removedInputs.push(id);
+    };
+
+    const bp = new BatchProcessor({
+      runtime,
+      eventBus: runtime.eventBus,
+      isPro: true,
+    });
+
+    const job = bp.enqueue({ items: makeItems(2), maxRetries: 0 });
+    const finalJob = await bp.waitForCompletion(job.id);
+
+    // 第 1 项失败 → 应清理其 input asset;第 2 项成功 → 不清理
+    expect(finalJob.status).toBe('failed');
+    expect(finalJob.failed).toBe(1);
+    expect(finalJob.completed).toBe(1);
+    // 失败项的 input asset 应被清理
+    expect(removedInputs.length).toBe(1);
+    expect(removedInputs[0]).toMatch(/^in_/);
+  });
+
+  it('M4: 重试期间不清理 input(仅最终失败才清理)', async () => {
+    let callCount = 0;
+    const removedInputs: string[] = [];
+    const runtime = createMockRuntime({
+      runImpl: async (wf) => {
+        callCount++;
+        // 第 1 次失败,第 2 次(重试)成功:maxRetries=1 允许 1 次重试
+        if (callCount === 1) throw new Error('transient');
+        return {
+          workflowId: wf.id,
+          outputs: ['out'],
+          duration: 0,
+          status: 'completed' as const,
+        };
+      },
+    });
+    const baseRuntime = runtime as unknown as {
+      removeAsset: (id: string) => Promise<void>;
+    };
+    baseRuntime.removeAsset = async (id: string) => {
+      removedInputs.push(id);
+    };
+
+    const bp = new BatchProcessor({
+      runtime,
+      eventBus: runtime.eventBus,
+      isPro: true,
+    });
+
+    const job = bp.enqueue({ items: makeItems(1), maxRetries: 1 });
+    const finalJob = await bp.waitForCompletion(job.id);
+
+    // 重试后成功 → 不应清理 input(只有最终失败才清理)
+    expect(finalJob.status).toBe('completed');
+    expect(finalJob.completed).toBe(1);
+    expect(removedInputs).toHaveLength(0);
   });
 });
