@@ -21,6 +21,7 @@ import type { AssetStore, CapabilityRegistry } from '@lokvis/runtime';
 import type { EventBus } from '@lokvis/schema';
 import type { PluginConfig, PluginContext, PluginInstaller } from '@lokvis/plugin-sdk';
 import { createRuntime, LokvisRuntimeImpl } from '@lokvis/runtime';
+import { PluginLoadError } from './errors.js';
 
 /** 插件加载项 */
 export interface PluginLoadEntry {
@@ -49,7 +50,15 @@ async function installPlugin(
     capabilityRegistry.registerCapability(capability);
   }
   const ctx = createPluginContext(plugin.config.name, assetStore, capabilityRegistry, eventBus);
-  await plugin.install(ctx);
+  try {
+    await plugin.install(ctx);
+  } catch (err) {
+    throw new PluginLoadError(
+      plugin.config.name,
+      `Plugin "${plugin.config.name}" install failed: ${err instanceof Error ? err.message : String(err)}`,
+      err
+    );
+  }
   eventBus.emit({
     type: 'plugin:loaded',
     name: plugin.config.name,
@@ -57,7 +66,23 @@ async function installPlugin(
   });
 }
 
-/** 创建 Lokvis Runtime 实例 */
+/**
+ * 创建 Lokvis Runtime 实例。
+ *
+ * 初始化 Runtime(OPFS/IndexedDB 资产存储、能力注册表、事件总线、Worker 隔离),
+ * 并按 `options.plugins` 顺序预加载插件。返回的 `LokvisRuntime` 实例是所有
+ * 后续操作的入口(importAsset / run / capabilities / eventBus ...)。
+ *
+ * @example
+ * ```ts
+ * const lokvis = await createLokvis({
+ *   plugins: [imageToolsPlugin()],
+ *   storageQuota: 1024 * 1024 * 1024, // 1GB
+ * });
+ * ```
+ *
+ * @public
+ */
 export async function createLokvis(
   options: CreateLokvisOptions = {}
 ): Promise<LokvisRuntime> {
@@ -77,13 +102,23 @@ export async function createLokvis(
   return runtime;
 }
 
-/** 加载单个插件到已有 Runtime */
+/**
+ * 加载单个插件到已有 Runtime。
+ *
+ * 用于运行时动态扩展能力(如用户在 UI 中启用某插件)。与 `createLokvis`
+ * 的 `plugins` 选项复用同一安装路径,区别仅在时机。
+ *
+ * @public
+ */
 export async function loadPlugin(
   runtime: LokvisRuntime,
   plugin: PluginLoadEntry
 ): Promise<void> {
   if (!(runtime instanceof LokvisRuntimeImpl)) {
-    throw new Error('Plugin loading requires a LokvisRuntimeImpl instance');
+    throw new PluginLoadError(
+      plugin.config.name,
+      'Plugin loading requires a LokvisRuntimeImpl instance'
+    );
   }
 
   await installPlugin(
@@ -142,18 +177,53 @@ function createPluginContext(
   };
 }
 
+// ─── 公共类型 re-export ──────────────────────────────────────────
+
+/** @public */
 export type { LokvisRuntime, RuntimeConfig } from '@lokvis/runtime';
+/** @public */
 export type { PluginConfig, PluginContext } from '@lokvis/plugin-sdk';
+/**
+ * @public
+ *
+ * MCP manifest 类型(见 docs/AI生态冲击调整方案.md §6.1)
+ */
 export type {
   Asset,
   AssetId,
   Workflow,
   WorkflowResult,
   Capability,
-  // MCP manifest 类型(见 docs/AI生态冲击调整方案.md §6.1)
   McpManifest,
   McpToolManifest,
   McpResourceManifest,
   WorkflowAiInstruction,
 } from '@lokvis/schema';
+/** @public */
 export { workflowToAiInstruction } from '@lokvis/schema';
+
+// ─── 错误类型体系(W4.2)──────────────────────────────────────────
+export {
+  LokvisError,
+  type LokvisErrorCode,
+  type LokvisErrorOptions,
+  AssetNotFoundError,
+  AssetImportError,
+  AssetExportError,
+  WorkflowInvalidError,
+  WorkflowCycleError,
+  WorkflowNodeError,
+  CapabilityNotRegisteredError,
+  CapabilityStubOnlyError,
+  StorageQuotaExceededError,
+  StorageOpfsUnavailableError,
+  StorageIdbUnavailableError,
+  WorkerCrashedError,
+  WorkerTimeoutError,
+  WorkerDeadError,
+  WorkerRequestAbortedError,
+  WorkerHandshakeError,
+  DegradationRejectedError,
+  PluginLoadError,
+  fromLokvisError,
+} from './errors.js';

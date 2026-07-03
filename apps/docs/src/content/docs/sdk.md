@@ -45,3 +45,41 @@ import devToolsPlugin from '@lokvis/plugin-dev';
 
 await loadPlugin(lokvis, devToolsPlugin());
 ```
+
+## Error handling
+
+All SDK errors extend `LokvisError` with a stable `code` field for programmatic
+branching. Use `fromLokvisError()` to normalize any caught value:
+
+```typescript
+import { LokvisError, fromLokvisError } from '@lokvis/sdk';
+
+try {
+  await lokvis.run(workflow, [assetId]);
+} catch (e) {
+  const err = fromLokvisError(e);
+  if (err instanceof LokvisError) {
+    switch (err.code) {
+      case 'STORAGE_QUOTA_EXCEEDED':
+        alert('Storage full — clean up assets');
+        break;
+      case 'DEGRADATION_REJECTED':
+        // err.guide: user-readable suggestions
+        console.warn(err.guide);
+        break;
+      case 'CAPABILITY_NOT_REGISTERED':
+        console.warn('Install the plugin for:', err.context?.capability);
+        break;
+      default:
+        console.error(err.code, err.message);
+    }
+  } else {
+    throw e; // non-lokvis error, rethrow
+  }
+}
+```
+
+Key error codes: `ASSET_NOT_FOUND`, `WORKFLOW_INVALID`, `WORKFLOW_CYCLE`,
+`CAPABILITY_NOT_REGISTERED`, `CAPABILITY_STUB_ONLY`, `STORAGE_QUOTA_EXCEEDED`,
+`WORKER_CRASHED`, `WORKER_TIMEOUT`, `DEGRADATION_REJECTED`, `PLUGIN_LOAD_FAILED`.
+

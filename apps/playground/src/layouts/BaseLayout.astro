@@ -7,14 +7,14 @@ import '../styles/global.css';
  * 设计目标：开发者试用 @lokvis/sdk 的最小容器。
  * 不含商业化元素（Workspace 组件、付费墙、广告）—— 那些在 cloud/apps/web。
  *
- * Layout 结构：顶部品牌条 + 左侧 sidebar 导航（5 个 demo）+ 右侧内容区。
+ * Layout 结构：顶部品牌条 + 左侧 sidebar 导航（6 个 demo）+ 右侧内容区。
  * 每个页面通过 slot 注入内容（通常是一个 client:only React 组件）。
  */
 
 interface Props {
   title?: string;
   /** 当前激活的 sidebar 项 ID */
-  active?: 'home' | 'runtime' | 'image' | 'history' | 'mcp';
+  active?: 'home' | 'runtime' | 'image' | 'history' | 'mcp' | 'components';
 }
 
 const { title = 'Lokvis Playground', active = 'home' } = Astro.props;
@@ -32,6 +32,7 @@ const NAV = [
   { id: 'runtime', label: 'Runtime Basics', href: `${base}runtime`, desc: 'Import asset + list capabilities' },
   { id: 'image', label: 'Image Workflow', href: `${base}image`, desc: 'Upload → resize → watermark → export' },
   { id: 'history', label: 'Undo / Redo', href: `${base}history`, desc: 'History stack & time travel' },
+  { id: 'components', label: 'UI Components', href: `${base}components`, desc: 'Design system showcase' },
   { id: 'mcp', label: 'MCP Manifest', href: `${base}mcp`, desc: 'Expose capabilities as MCP tools' },
 ] as const;
 ---

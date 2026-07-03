@@ -159,13 +159,13 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 4.1 | `@lokvis/sdk` 公开 API 审查,`// @public` 标记 | P0 | 2h | ⬜ | `sdk/src/index.ts` |
-| 4.2 | SDK 错误类型:`LokvisError` 体系 | P0 | 4h | ⬜ | `sdk/src/errors.ts` |
-| 4.3 | SDK README + API 表 + 3 个 example 完善 | P0 | 6h | ⬜ | examples + README |
-| 4.4 | `ui-core` 补齐:Slider/Toggle/Select/Tabs/Dialog/Tooltip | P0 | 8h | ⬜ | `ui-core/src/components/*` |
-| 4.5 | 设计 Token:`--lokvis-*` CSS 变量 + Tailwind v4 `@theme`,暗色模式 | P0 | 4h | ⬜ | `ui-core/src/styles/tokens.css` |
-| 4.6 | `ui-react` 组件单测(@testing-library/react) | P0 | 6h | ⬜ | `ui-react/src/__tests__/` |
-| 4.7 | Astro playground 展示组件 | P1 | 4h | ⬜ | `apps/playground` |
+| 4.1 | `@lokvis/sdk` 公开 API 审查,`// @public` 标记 | P0 | 2h | ✅ | `sdk/src/index.ts` |
+| 4.2 | SDK 错误类型:`LokvisError` 体系 | P0 | 4h | ✅ | `sdk/src/errors.ts` |
+| 4.3 | SDK README + API 表 + 3 个 example 完善 | P0 | 6h | ✅ | examples + README |
+| 4.4 | `ui-core` 补齐:Slider/Toggle/Select/Tabs/Dialog/Tooltip | P0 | 8h | ✅ | `ui-core/src/components/*` |
+| 4.5 | 设计 Token:`--lokvis-*` CSS 变量 + Tailwind v4 `@theme`,暗色模式 | P0 | 4h | ✅ | `ui-core/src/styles/tokens.css` |
+| 4.6 | `ui-react` 组件单测(@testing-library/react) | P0 | 6h | ✅ | `ui-core/src/__tests__/components.test.tsx` |
+| 4.7 | Astro playground 展示组件 | P1 | 4h | ✅ | `apps/playground` |
 | 4.8 | `apps/docs` Getting Started / SDK / Architecture 三页 | P0 | 4h | ✅ | docs 页(Starlight 迁移,9 页内容) |
 | 4.9 | 缓冲 | P0 | 2h | ⬜ | — |
 
@@ -539,7 +539,12 @@
 | 2026-07-03 | 3.1-3.8 | ✅ 完成 | 40h | W3 Runtime 加固随 PR #7 合入 dev(commit 0b1f7ef)。3.1 Streaming 类型契约(`StreamingImageOperation`/`StreamingImageEngineAdapter` + `ImageTile`/`ImageChunk`);3.2 tile 分片基础设施(`splitIntoTiles`/`mergeChunks`,canvas 引擎用 `decodeResized` + tile 近似流式);3.3 `MemoryGuard`(tracked 显式登记 + 4 档 pressure + OPFS spill/restore/evict);3.4 `degradation.ts` 四级阶梯纯函数 `pickDegradation`(L1-full/L2-tiled/L3-degraded/L4-reject + `DegradationRejectedError` 携带用户引导);3.5 `cancel()` AbortSignal 贯穿 executor→plugin→engine→worker(`throwIfAborted` + `WorkerCancel` 消息);3.6 `pause/resume`(Promise resolver 挂起,无轮询);3.7 单测(memory-guard/degradation/tiles/cancel-signal/operations-signal);3.8 architecture.mdx 新增「流式与内存防御(W3)」章节。review 修复:degradation OR 条件、formatBytes 防御、spill assetType 通用化、mergeChunks signal、compress-target 最终 abort 检查 |
 | 2026-07-03 | 7.5/7.7/7.8 | ✅ 提前完成 | — | W7 三项 P1/P0 随 W3 PR #7 提前落地:7.5 水印图片支持(`watermark.ts` 支持 imageUrl PNG 叠加 + `computeWatermarkPosition` 5 位置 + tile 网格 + SSRF 守卫 `isSafeImageUrl` + `resp.ok` 校验);7.7 旋转/翻转(`transform.ts` rotate 任意角度 + 90°/270° 宽高互换 + flip H/V/both);7.8 简单滤镜(`filters.ts` grayscale/invert/sepia/blur 基于 CSS `ctx.filter`,`IMAGE_FILTER` 能力预设 + plugin 注册)。operations-signal.test.ts 覆盖三者 AbortSignal + filter 异常分支。注:7.9 单测整体仍 ⬜(EXIF 部分待 7.3 落地) |
 | 2026-07-03 | W3 | 🎉 收尾 | — | typecheck ✅、build ✅(20 tasks)、test ✅(471 测试,24 文件,0 失败);覆盖率 lines 90.63% / branches 88.43%(远超阈值 lines 60%/branches 75%);3.9 缓冲未消耗。附带:lint 迁移至 oxlint 1.72(移除从未启用的 eslint);plugin-image/pdf/video stub 检测统一(`engine.version.includes('stub')` → `status:'stub'`,AGENTS.md 约定);CLI `run.ts` File 构造改 `new File([blob], name, { type })` |
-
+| 2026-07-03 | 4.1-4.2 | ✅ 完成 | 6h | SDK 公共 API 冻结:`sdk/src/index.ts` 所有公共导出加 `/** @public */` JSDoc 标记;`installPlugin` 用 try/catch 包装,失败抛 `PluginLoadError`;新建 `sdk/src/errors.ts`——`LokvisError` 基类(稳定 `code` 字段 + `context` 冻结快照 + `cause` 透传)+ 18 错误码 + 18 子类(Asset/Workflow/Capability/Storage/Worker/Degradation/Plugin)+ `fromLokvisError()` 归一函数(`instanceof` 匹配 runtime 错误类,`Runtime*` 前缀别名避免命名冲突);`StorageQuotaExceededError`/`DegradationRejectedError` 构造函数加 `cause?` 参数 |
+| 2026-07-03 | 4.3 | ✅ 完成 | 6h | `packages/sdk/README.md` 新建(API 表 + 错误处理示例 + 错误码表);`examples/custom-workspace/main.ts` 导入 `LokvisError`/`DegradationRejectedError`/`fromLokvisError`,catch 块用 `fromLokvisError` 归一 + 按 `code` 分支;`apps/docs/sdk.md` 加 "Error handling" 章节 |
+| 2026-07-03 | 4.4-4.5 | ✅ 完成 | 12h | ui-core 补 6 组件:Slider(`<input type="range">` + `accent-color` + `showValue`/`format`)、Toggle(`role="switch"` + sm/md 双尺寸 + 受控/非受控)、Select(原生 `<select>` + chevron SVG)、Tabs(render-prop children + ArrowLeft/Right 键盘导航 + `role="tablist"`)、Dialog(`createPortal` 到 body + ESC 关闭 + body 滚动锁 + SSR 安全降级)、Tooltip(`useId` 生成 aria-describedby + `delay` 可配);`tokens.css` 三层覆盖(`:root` / `.dark` / `@media prefers-color-scheme :root:not(.light)`);`ui-core/package.json` build 脚本加 `cp tokens.css dist/styles.css` |
+| 2026-07-03 | 4.6 | ✅ 完成 | 6h | `ui-core/src/__tests__/components.test.tsx` 25 单测(`@testing-library/react` 行为级断言);globals:false 下手动 `cleanup()`;Tooltip 用 `vi.useFakeTimers()` + `act(() => vi.advanceTimersByTime(10))`;Dialog 用 `screen.getByRole('dialog').parentElement` 取 overlay;vitest.config.ts 加 `.tsx` include |
+| 2026-07-03 | 4.7 | ✅ 完成 | 4h | `apps/playground` 新增 `ComponentsDemo.tsx`(展示 11 个 ui-core 组件 + 内置暗色模式 Toggle)+ `components.astro`(`client:only="react"`)+ BaseLayout NAV 加 "UI Components" 项 |
+| 2026-07-03 | W4 | 🎉 收尾 | 34h | typecheck ✅(36 tasks)、build ✅(20 tasks)、test ✅(496 测试,新增 25);4.8 docs 三页此前已完成(Starlight 迁移);4.9 缓冲未消耗;3 个 changeset(sdk-error-types / ui-core-components-tokens / playground-components-page) |
 
 ---
 
@@ -558,6 +563,7 @@
 | 日期 | 版本 | 变更 |
 |---|---|---|
 | 2026-07-03 | v1.8 | **W3 状态同步**：PR #7(commit 0b1f7ef「Feat/w3 runtime hardening」)合入 dev,PROJECT_PLAN 状态与代码实现对齐。W3 全部 8 项(3.1-3.8)标 ✅,3.9 缓冲保留 ⬜。附带提前完成的 W7 三项:7.5 水印图片支持(✅)、7.7 旋转/翻转(✅)、7.8 简单滤镜(✅)——随 W3 PR 一并落地,7.9 单测整体仍 ⬜(EXIF 部分待 7.3)。验证:build 20/20、test 471/471 通过,覆盖率 lines 90.63% / branches 88.43% |
+| 2026-07-03 | v1.8 | **W4 完成**:4.1-4.8 全部 ✅(4.9 缓冲保留)。SDK 公共 API 冻结——所有导出加 `/** @public */` 标记;新建 `LokvisError` 体系(18 错误码 + 18 子类 + `fromLokvisError()` 归一函数,`instanceof` 匹配 runtime 错误类);`installPlugin` 失败抛 `PluginLoadError`。ui-core 补 6 组件(Slider/Toggle/Select/Tabs/Dialog/Tooltip)+ 设计 Token 三层暗色覆盖(`:root` / `.dark` / `prefers-color-scheme`);25 个 `@testing-library/react` 行为级单测。playground 新增 ComponentsDemo 展示页。SDK README + custom-workspace 示例 + docs/sdk.md 错误处理章节完善。3 个 changeset。验证:typecheck 36/36、build 20/20、test 496/496 |
 | 2026-07-02 | v1.7 | **M0.5.7.1 执行**：删除 open `apps/web` 目录 + `.github/workflows/deploy-web.yml`；PWA 资源（manifest.webmanifest / sw.js / offline.html / icon.svg / icon-maskable.svg）已迁入 cloud `apps/web/public/`。同步更新 PROJECT_PLAN 中所有 `apps/web` 引用：1.2/1.3/17.10/19.10 标 ⛔废弃；12.3/21.1/22.4 改指向 `apps/playground`。仓库 `apps/` 现仅剩 `docs/` + `playground/`，符合 M0.5 验收标准 |
 | 2026-07-02 | v1.6 | **ADR-012 商业化资产迁出**：原 W13-16 "SEO 内容 + PWA" 整体作废，迁出至 cloud `apps/web`（[cloud M0.5 迁移里程碑](../../lokvis-cloud/docs/03-MVP任务拆解-小时级.md#m05-appsweb-迁移里程碑w5-w10-并行60h-p0p1)）。open W13-16 重新分配为 npm 包发版准备 + apps/playground 升级（5 demo）+ PWA 基础能力。原 W17 17.1 SDK npm 发布提前到 W4 末（cloud W4.5 阻塞前置，发 `@lokvis/*@0.1.0-alpha.1`）。M4 主题更新。§11 不做清单新增"工具站 + SEO 页 + Workspace SPA + Marketplace + 联盟广告（ADR-012）"。open `apps/web` 计划在 W9 末加 noindex、W10 末删除（由 cloud M0.5.6/M0.5.7 执行）|
 | 2026-07-01 | v1.5 | **AI 生态冲击调整**：基于 [AI生态冲击调整方案](./AI生态冲击调整方案.md)，新增 MCP server 设计任务（W11-W12，6h P1）、营销对比任务（W17/W19，10h）；Plugin SDK v1 降级（18.4/18.5 延后 Phase 2）；engine-ai 定位为"AI 辅助 workflow 设计"；Phase 2 新增 `@lokvis/mcp-server` 包（76h P0）；新增 3 条 ADR-O1/O2/O3 |

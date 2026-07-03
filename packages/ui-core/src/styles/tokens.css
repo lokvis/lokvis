@@ -1,0 +1,131 @@
+/**
+ * Lokvis 设计 Token(W4.5)
+ *
+ * 定义 `--lokvis-*` CSS 变量作为设计系统语义层。组件内部用 Tailwind 工具类
+ * 直接消费这些变量值(var(--lokvis-*)),消费方只需覆盖变量即可整体换肤,
+ * 无需改动组件源码。
+ *
+ * 暗色模式:`.dark` 类(Tailwind v4 dark mode 默认策略)或
+ * `@media (prefers-color-scheme: dark)` 双触发,保证无 Tailwind 环境也能自适应。
+ *
+ * Tailwind v4 集成:若消费方使用 Tailwind v4,可在其 CSS 中用 `@theme` 把
+ * 这些变量映射为 Tailwind 颜色(见文末示例注释),从而在 `bg-lokvis-surface`
+ * 等工具类中复用。
+ */
+
+:root {
+  /* ── 表面与背景 ─────────────────────────────── */
+  --lokvis-bg: #ffffff;             /* 应用底色 */
+  --lokvis-surface: #ffffff;        /* 卡片 / 面板背景 */
+  --lokvis-surface-muted: #f4f4f5;  /* 次级表面(hover / disabled bg) */
+
+  /* ── 前景文字 ─────────────────────────────── */
+  --lokvis-fg: #18181b;             /* 主文字 */
+  --lokvis-fg-muted: #71717a;       /* 次级文字 / 描述 */
+  --lokvis-fg-subtle: #a1a1aa;      /* 占位 / 弱化 */
+
+  /* ── 边框与分割 ─────────────────────────────── */
+  --lokvis-border: #e4e4e7;         /* 默认边框 */
+  --lokvis-border-strong: #d4d4d8;  /* hover / 聚焦边框 */
+
+  /* ── 主色(品牌 / 聚焦 / 选中)─────────────── */
+  --lokvis-primary: #6366f1;        /* indigo-500 */
+  --lokvis-primary-hover: #4f46e5;  /* indigo-600 */
+  --lokvis-primary-fg: #ffffff;     /* 主色上的文字 */
+
+  /* ── 语义色 ─────────────────────────────────── */
+  --lokvis-success: #10b981;        /* emerald-500 */
+  --lokvis-warning: #f59e0b;        /* amber-500 */
+  --lokvis-danger: #ef4444;         /* red-500 */
+  --lokvis-danger-hover: #dc2626;   /* red-600 */
+  --lokvis-info: #3b82f6;           /* blue-500 */
+
+  /* ── 圆角 ───────────────────────────────────── */
+  --lokvis-radius-sm: 0.375rem;     /* 6px */
+  --lokvis-radius: 0.5rem;          /* 8px */
+  --lokvis-radius-lg: 0.75rem;      /* 12px */
+  --lokvis-radius-full: 9999px;
+
+  /* ── 阴影 ───────────────────────────────────── */
+  --lokvis-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --lokvis-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --lokvis-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  /* ── 动效 ───────────────────────────────────── */
+  --lokvis-duration: 150ms;
+  --lokvis-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── 字体 ───────────────────────────────────── */
+  --lokvis-font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --lokvis-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* ── Overlay(Dialog 遮罩)──────────────────── */
+  --lokvis-overlay: rgb(0 0 0 / 0.5);
+}
+
+/* 暗色模式:.dark 类(Tailwind v4 默认) */
+.dark {
+  --lokvis-bg: #09090b;
+  --lokvis-surface: #18181b;
+  --lokvis-surface-muted: #27272a;
+
+  --lokvis-fg: #f4f4f5;
+  --lokvis-fg-muted: #a1a1aa;
+  --lokvis-fg-subtle: #71717a;
+
+  --lokvis-border: #27272a;
+  --lokvis-border-strong: #3f3f46;
+
+  --lokvis-primary: #6366f1;
+  --lokvis-primary-hover: #818cf8;
+  --lokvis-primary-fg: #ffffff;
+
+  --lokvis-success: #34d399;
+  --lokvis-warning: #fbbf24;
+  --lokvis-danger: #f87171;
+  --lokvis-danger-hover: #ef4444;
+  --lokvis-info: #60a5fa;
+
+  --lokvis-overlay: rgb(0 0 0 / 0.7);
+}
+
+/*
+ * 系统暗色模式兜底(无 .dark 类时跟随 prefers-color-scheme)。
+ * 仅当未显式添加 .dark 时生效,避免双重覆盖。
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --lokvis-bg: #09090b;
+    --lokvis-surface: #18181b;
+    --lokvis-surface-muted: #27272a;
+    --lokvis-fg: #f4f4f5;
+    --lokvis-fg-muted: #a1a1aa;
+    --lokvis-fg-subtle: #71717a;
+    --lokvis-border: #27272a;
+    --lokvis-border-strong: #3f3f46;
+    --lokvis-primary: #6366f1;
+    --lokvis-primary-hover: #818cf8;
+    --lokvis-primary-fg: #ffffff;
+    --lokvis-success: #34d399;
+    --lokvis-warning: #fbbf24;
+    --lokvis-danger: #f87171;
+    --lokvis-danger-hover: #ef4444;
+    --lokvis-info: #60a5fa;
+    --lokvis-overlay: rgb(0 0 0 / 0.7);
+  }
+}
+
+/*
+ * Tailwind v4 @theme 映射示例(消费方在自己的 CSS 中添加):
+ *
+ *   @import 'tailwindcss';
+ *   @theme {
+ *     --color-lokvis-bg: var(--lokvis-bg);
+ *     --color-lokvis-surface: var(--lokvis-surface);
+ *     --color-lokvis-fg: var(--lokvis-fg);
+ *     --color-lokvis-primary: var(--lokvis-primary);
+ *     ...
+ *   }
+ *
+ * 之后即可用 `bg-lokvis-surface` / `text-lokvis-fg` 等工具类。
+ */

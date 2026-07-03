@@ -24,7 +24,7 @@
     "!**/*.spec.tsx"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && cp src/styles/tokens.css dist/styles.css",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
@@ -37,8 +37,11 @@
     "@lokvis/schema": "workspace:*"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/jest-dom": "^6.4.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "jsdom": "^25.0.0",
     "typescript": "^5.6.0"
   },
   "publishConfig": {
