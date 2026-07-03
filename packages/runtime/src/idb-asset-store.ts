@@ -82,7 +82,7 @@ export async function createIdbAssetStore(
 
   return {
     async import(source) {
-      const { id, blob, metadata, type } = prepareImport(source);
+      const { id, blob, metadata, type } = await prepareImport(source);
       const asset = buildAsset(id, blob, metadata, type, IDB_PATH_PREFIX);
       await db.assets.put({ id, asset, blob });
       return asset;
