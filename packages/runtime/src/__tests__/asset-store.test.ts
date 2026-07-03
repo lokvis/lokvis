@@ -1,7 +1,7 @@
 /**
  * MemoryAssetStore 单元测试
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createMemoryAssetStore } from '../asset-store.js';
 
 describe('createMemoryAssetStore', () => {
@@ -169,5 +169,125 @@ describe('createMemoryAssetStore', () => {
     await expect(store.import({ kind: 'url', url: 'https://x' })).rejects.toThrow(
       /not supported/
     );
+  });
+});
+
+describe('富元数据提取(W6.4)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('image 类型应通过 createImageBitmap 提取 dimensions', async () => {
+    const fakeBitmap = {
+      width: 100,
+      height: 50,
+      close: vi.fn(),
+    };
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(fakeBitmap));
+
+    const store = createMemoryAssetStore();
+    const blob = new Blob([new Uint8Array([0])], { type: 'image/png' });
+    const asset = await store.import({ kind: 'blob', blob, name: 'a.png' });
+
+    expect(asset.metadata.dimensions).toEqual({ width: 100, height: 50 });
+    // bitmap.close 应被调用以释放资源
+    expect(fakeBitmap.close).toHaveBeenCalled();
+  });
+
+  it('createImageBitmap 失败时 dimensions 降级为 undefined,不阻断 import', async () => {
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn().mockRejectedValue(new Error('decode failed'))
+    );
+
+    const store = createMemoryAssetStore();
+    const blob = new Blob([new Uint8Array([0])], { type: 'image/png' });
+    const asset = await store.import({ kind: 'blob', blob, name: 'a.png' });
+
+    expect(asset.metadata.dimensions).toBeUndefined();
+    // 基础元数据仍应填充
+    expect(asset.metadata.mimeType).toBe('image/png');
+    expect(asset.metadata.format).toBe('png');
+    expect(asset.metadata.size).toBe(1);
+  });
+
+  it('createImageBitmap 不可用时 dimensions 为 undefined', async () => {
+    vi.stubGlobal('createImageBitmap', undefined);
+
+    const store = createMemoryAssetStore();
+    const blob = new Blob([new Uint8Array([0])], { type: 'image/png' });
+    const asset = await store.import({ kind: 'blob', blob, name: 'a.png' });
+
+    expect(asset.metadata.dimensions).toBeUndefined();
+  });
+
+  it('video 类型应通过 HTMLMediaElement loadedmetadata 提取 duration', async () => {
+    const fakeEl = {
+      preload: '',
+      src: '',
+      duration: 12.5,
+      onloadedmetadata: null as ((ev: Event) => void) | null,
+      onerror: null as ((ev: Event) => void) | null,
+      removeAttribute: vi.fn(),
+    };
+    vi.stubGlobal('document', {
+      createElement: vi.fn().mockReturnValue(fakeEl),
+    });
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn().mockReturnValue('blob:fake'),
+      revokeObjectURL: vi.fn(),
+    });
+
+    const store = createMemoryAssetStore();
+    const blob = new Blob([new Uint8Array([0])], { type: 'video/mp4' });
+    const importPromise = store.import({ kind: 'blob', blob, name: 'v.mp4' });
+
+    // 模拟浏览器异步触发 loadedmetadata
+    await Promise.resolve();
+    fakeEl.onloadedmetadata?.(new Event('loadedmetadata'));
+
+    const asset = await importPromise;
+    expect(asset.metadata.duration).toBe(12.5);
+    // URL 应在 finally 中释放,避免泄漏
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:fake');
+  });
+
+  it('video loadedmetadata 失败时 duration 降级为 undefined', async () => {
+    const fakeEl = {
+      preload: '',
+      src: '',
+      duration: Infinity,
+      onloadedmetadata: null as ((ev: Event) => void) | null,
+      onerror: null as ((ev: Event) => void) | null,
+      removeAttribute: vi.fn(),
+    };
+    vi.stubGlobal('document', {
+      createElement: vi.fn().mockReturnValue(fakeEl),
+    });
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn().mockReturnValue('blob:fake'),
+      revokeObjectURL: vi.fn(),
+    });
+
+    const store = createMemoryAssetStore();
+    const blob = new Blob([new Uint8Array([0])], { type: 'video/mp4' });
+    const importPromise = store.import({ kind: 'blob', blob, name: 'v.mp4' });
+
+    await Promise.resolve();
+    // duration=Infinity(直播流等)→ Number.isFinite=false → 不填 duration
+    fakeEl.onloadedmetadata?.(new Event('loadedmetadata'));
+
+    const asset = await importPromise;
+    expect(asset.metadata.duration).toBeUndefined();
+  });
+
+  it('非 image/video/audio 类型不提取富元数据', async () => {
+    const store = createMemoryAssetStore();
+    const blob = new Blob([new Uint8Array([0])], { type: 'application/json' });
+    const asset = await store.import({ kind: 'blob', blob, name: 'd.json' });
+
+    expect(asset.metadata.dimensions).toBeUndefined();
+    expect(asset.metadata.duration).toBeUndefined();
+    expect(asset.metadata.pages).toBeUndefined();
   });
 });

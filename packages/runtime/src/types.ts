@@ -17,6 +17,7 @@ import type {
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { EventBus } from '@lokvis/schema';
 import type { AssetStore } from './asset-store.js';
+import type { BatchProcessor } from './batch-processor.js';
 
 /** Runtime 配置 */
 export interface RuntimeConfig {
@@ -40,6 +41,18 @@ export interface RuntimeConfig {
    * 按 OPFS → IndexedDB → Memory 降级。
    */
   assetStore?: AssetStore;
+  /**
+   * 是否启用 Pro 模式(W6.2 / PROJECT_PLAN 17.4)。
+   * - false(默认):批量上限 10 文件、并发 4、workflow 槽位 5
+   * - true:批量无上限、并发 16、workflow 槽位无限
+   * 由 cloud 侧 createLokvis({ auth }) 注入 session 后置为 true。
+   */
+  isPro?: boolean;
+  /**
+   * 内存预算(字节,W3.3 MemoryGuard)。
+   * 默认 512MB。BatchProcessor 据此在内存压力高时收缩并发槽位。
+   */
+  memoryBudget?: number;
 }
 
 /** Runtime 状态 */
@@ -74,6 +87,10 @@ export interface LokvisRuntime {
   readonly status: RuntimeStatus;
   /** 事件总线 */
   readonly eventBus: EventBus;
+  /** 是否为 Pro 模式(影响批量上限/并发槽位/workflow 数,W6.2) */
+  readonly isPro: boolean;
+  /** 批量处理器(W6.1:并发控制 + 进度 + 失败重试) */
+  readonly batch: BatchProcessor;
 
   // ─── 工作流执行 ──────────────────────────────────────
   /** 运行工作流 */

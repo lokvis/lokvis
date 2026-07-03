@@ -17,6 +17,7 @@ export * from './worker-host.js';
 export * from './history.js';
 export * from './memory-guard.js';
 export * from './degradation.js';
+export * from './batch-processor.js';
 export * from './runtime.js';
 
 export { RUNTIME_VERSION } from './runtime.js';

@@ -78,21 +78,111 @@ export interface PreparedImport {
   type: Asset['type'];
 }
 
+/** 富元数据提取结果(基础 metadata 之外的可选字段) */
+interface RichMetadata {
+  dimensions?: { width: number; height: number };
+  duration?: number;
+  pages?: number;
+}
+
+/**
+ * 从 Blob 提取富元数据(dimensions/duration/pages)。
+ *
+ * 提取策略:
+ * - image: createImageBitmap → width/height
+ * - video/audio: HTMLMediaElement + loadedmetadata → duration
+ * - pdf: 暂不提取(需 pdf.js,Phase 2 补全)
+ * - 其余: 返回空
+ *
+ * 所有提取均 try/catch:失败时返回空对象,不阻断 import。
+ * Node.js / 测试环境可能无 createImageBitmap / document,自然降级为空。
+ */
+async function extractRichMetadata(
+  blob: Blob,
+  type: Asset['type']
+): Promise<RichMetadata> {
+  try {
+    switch (type) {
+      case 'image':
+        return await extractImageDimensions(blob);
+      case 'video':
+      case 'audio':
+        return await extractMediaDuration(blob, type);
+      default:
+        return {};
+    }
+  } catch {
+    return {};
+  }
+}
+
+/** 用 createImageBitmap 提取图片尺寸(浏览器原生 API,失败返回空) */
+async function extractImageDimensions(blob: Blob): Promise<RichMetadata> {
+  if (typeof createImageBitmap !== 'function') return {};
+  const bitmap = await createImageBitmap(blob);
+  try {
+    return { dimensions: { width: bitmap.width, height: bitmap.height } };
+  } finally {
+    // 释放 ImageBitmap 资源,避免内存泄漏(浏览器 GC 不保证立即回收)
+    if (typeof bitmap.close === 'function') bitmap.close();
+  }
+}
+
+/** 用 HTMLMediaElement 提取视频/音频时长(浏览器环境,失败返回空) */
+async function extractMediaDuration(
+  blob: Blob,
+  type: 'video' | 'audio'
+): Promise<RichMetadata> {
+  if (typeof document === 'undefined') return {};
+  const url = URL.createObjectURL(blob);
+  try {
+    const el = document.createElement(type === 'video' ? 'video' : 'audio');
+    el.preload = 'metadata';
+    el.src = url;
+    return await new Promise<RichMetadata>((resolve) => {
+      const finish = (result: RichMetadata) => {
+        el.onloadedmetadata = null;
+        el.onerror = null;
+        el.removeAttribute('src');
+        resolve(result);
+      };
+      el.onloadedmetadata = () => {
+        const duration = el.duration;
+        finish(Number.isFinite(duration) ? { duration } : {});
+      };
+      el.onerror = () => finish({});
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /**
  * 从 AssetSource 准备导入数据(共享逻辑,供 Memory/OPFS/IDB store 复用):
- * 提取 blob + MIME、生成 id、推断 type、构造 metadata。
+ * 提取 blob + MIME、生成 id、推断 type、构造 metadata(含富元数据)。
  * 各 store 只需负责"写入 blob + 存元数据"。
+ *
+ * W6.4:异步提取 dimensions(image)/ duration(video/audio)/ pages(pdf,暂 stub)。
+ * 富元数据提取失败时静默降级为 undefined,不阻断 import。
  */
-export function prepareImport(source: AssetSource): PreparedImport {
+export async function prepareImport(source: AssetSource): Promise<PreparedImport> {
   const { blob, mimeType: rawMime } = extractBlobFromSource(source);
   const id = generateId();
   const mimeType = rawMime || 'application/octet-stream';
   const type = inferAssetType(mimeType);
+
   const metadata: AssetMetadata = {
     mimeType,
     size: blob.size,
     format: getFormatFromMime(mimeType),
   };
+
+  // 富元数据(异步,失败静默降级)
+  const rich = await extractRichMetadata(blob, type);
+  if (rich.dimensions) metadata.dimensions = rich.dimensions;
+  if (rich.duration !== undefined) metadata.duration = rich.duration;
+  if (rich.pages !== undefined) metadata.pages = rich.pages;
+
   return { id, blob, metadata, type };
 }
 
@@ -140,7 +230,7 @@ export function createMemoryAssetStore(): AssetStore {
 
   return {
     async import(source) {
-      const { id, blob, metadata, type } = prepareImport(source);
+      const { id, blob, metadata, type } = await prepareImport(source);
       blobs.set(id, blob);
       const asset = buildAsset(id, blob, metadata, type, MEMORY_PATH_PREFIX);
       assets.set(id, asset);

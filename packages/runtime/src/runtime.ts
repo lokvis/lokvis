@@ -35,6 +35,8 @@ import {
 import { CapabilityRegistry } from './capability-registry.js';
 import { WorkflowExecutor } from './executor.js';
 import { HistoryStack, type HistoryStackConfig } from './history.js';
+import { BatchProcessor } from './batch-processor.js';
+import { MemoryGuard, DEFAULT_MEMORY_BUDGET } from './memory-guard.js';
 
 export const RUNTIME_VERSION = '0.1.0';
 
@@ -167,6 +169,8 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   private assetStore: AssetStore;
   private capabilityRegistry: CapabilityRegistry;
   private executor: WorkflowExecutor;
+  private memoryGuard: MemoryGuard;
+  private batchProcessor: BatchProcessor;
   /**
    * 每个工作流独立的 HistoryStack。
    * 注意:历史栈仅在内存中,刷新页面后丢失(资产可能仍存于 OPFS/IDB,
@@ -185,6 +189,8 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       storageQuota: config.storageQuota ?? 1024 * 1024 * 1024, // 1GB
       enableLog: config.enableLog ?? true,
       engineStrategy: config.engineStrategy ?? 'first',
+      isPro: config.isPro ?? false,
+      memoryBudget: config.memoryBudget ?? DEFAULT_MEMORY_BUDGET,
     };
 
     this.eventBus = createEventBus();
@@ -202,6 +208,22 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       enableLog: this.config.enableLog,
     });
 
+    // W3.3 MemoryGuard:追踪中间结果占用,达到 high 阈值时建议 OPFS 溢出。
+    // BatchProcessor 据此动态收缩并发槽位(W6.1)。
+    this.memoryGuard = new MemoryGuard({
+      budget: this.config.memoryBudget,
+      assetStore: this.assetStore,
+    });
+
+    // W6.1 BatchProcessor:把 W5 playground 的并发/进度/重试逻辑下沉到 runtime。
+    // 注入 this(实现 LokvisRuntime 接口),不直接依赖 LokvisRuntimeImpl 避免循环引用。
+    this.batchProcessor = new BatchProcessor({
+      runtime: this,
+      eventBus: this.eventBus,
+      isPro: this.config.isPro,
+      memoryGuard: this.memoryGuard,
+    });
+
     // 监听 node:finished 事件,自动 append 到 HistoryStack
     this.eventBus.on('node:finished', (event) => {
       this.recordHistoryFromNodeEvent(event as Extract<LokvisEvent, { type: 'node:finished' }>);
@@ -210,6 +232,14 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
 
   get status(): RuntimeStatus {
     return this._status;
+  }
+
+  get isPro(): boolean {
+    return this.config.isPro;
+  }
+
+  get batch(): BatchProcessor {
+    return this.batchProcessor;
   }
 
   // ─── 工作流执行 ──────────────────────────────────────
