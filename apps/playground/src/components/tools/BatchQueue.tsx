@@ -63,6 +63,8 @@ export default function BatchQueue() {
   const [quality, setQuality] = useState(80);
   const [error, setError] = useState<string | null>(null);
   const [batchDownloading, setBatchDownloading] = useState(false);
+  // 错误详情可见性:记录当前展开查看错误的 item id
+  const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null);
 
   // 调度器引用(打破 processItem ↔ schedule 的循环依赖)
   const scheduleRef = useRef<() => void>(() => {});
@@ -126,20 +128,39 @@ export default function BatchQueue() {
     [buildWorkflow, patchItem]
   );
 
-  // 并发池调度:补满到 CONCURRENCY,每个完成后递归调度下一个
+  // 并发池调度:补满到 CONCURRENCY,用原子化补满避免竞态。
+  // 竞态修复(#2):原版 schedule 读 running 计数后循环 patchItem,
+  // 若两个 processItem 几乎同时完成并都调 schedule,会读到相同的 running 快照,
+  // 双方都补满 slots 导致实际并发超过 CONCURRENCY。
+  // 修复:单次 schedule 内一次性把所有 pending→processing 的 patch 合并提交,
+  // 不依赖多次 patchItem 间的中间状态;并加 scheduleLock 防止重入。
+  const scheduleLock = useRef(false);
   const schedule = useCallback(() => {
+    if (scheduleLock.current) return;
     const rt = runtimeRef.current;
     if (!rt) return;
-    const items = queueRef.current;
-    const running = items.filter((i) => i.status === 'processing').length;
-    const slots = CONCURRENCY - running;
-    if (slots <= 0) return;
-    const pending = items.filter((i) => i.status === 'pending').slice(0, slots);
-    for (const item of pending) {
-      patchItem(item.id, { status: 'processing' });
-      void processItem(item);
+    scheduleLock.current = true;
+    try {
+      const items = queueRef.current;
+      const running = items.filter((i) => i.status === 'processing').length;
+      const slots = CONCURRENCY - running;
+      if (slots <= 0) return;
+      const toStart = items.filter((i) => i.status === 'pending').slice(0, slots);
+      if (toStart.length === 0) return;
+      // 一次性合并 patch:把所有 toStart 的状态改为 processing
+      const startIds = new Set(toStart.map((i) => i.id));
+      const next = items.map((it) =>
+        startIds.has(it.id) ? { ...it, status: 'processing' as ItemStatus } : it
+      );
+      commit(next);
+      // 启动处理(异步,不阻塞 schedule)
+      for (const item of toStart) {
+        void processItem(item);
+      }
+    } finally {
+      scheduleLock.current = false;
     }
-  }, [patchItem, processItem]);
+  }, [commit, processItem]);
 
   useEffect(() => {
     scheduleRef.current = schedule;
@@ -243,10 +264,10 @@ export default function BatchQueue() {
           <div className="flex items-end">
             <button
               onClick={handleProcessAll}
-              disabled={!ready || !hasPending}
+              disabled={!ready || !hasPending || processing}
               className="w-full rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {processing && !hasPending ? '处理中…' : '全部处理'}
+              {processing ? '处理中…' : hasPending ? '全部处理' : '已完成'}
             </button>
           </div>
           <div className="flex items-end">
@@ -271,39 +292,53 @@ export default function BatchQueue() {
           {total === 0 ? (
             <p className="py-8 text-center text-xs text-zinc-600">队列为空,请上传文件</p>
           ) : (
-            queue.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-zinc-200">{item.file.name}</p>
-                  <p className="text-[10px] text-zinc-500">{formatBytes(item.inputSize)}</p>
+            queue.map((item) => {
+              const isExpanded = expandedErrorId === item.id;
+              return (
+                <div
+                  key={item.id}
+                  className="flex flex-col gap-1 rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs text-zinc-200">{item.file.name}</p>
+                      <p className="text-[10px] text-zinc-500">{formatBytes(item.inputSize)}</p>
+                    </div>
+                    <StatusBadge status={item.status} />
+                    <div className="w-20 text-right text-[10px] text-zinc-400">
+                      {item.outputSize != null
+                        ? formatBytes(item.outputSize)
+                        : item.status === 'error'
+                          ? '—'
+                          : ''}
+                    </div>
+                    <div className="w-16 text-right">
+                      {item.status === 'done' && item.outputBlob ? (
+                        <button
+                          onClick={() => handleDownloadOne(item)}
+                          className="text-[10px] text-indigo-400 hover:text-indigo-300"
+                        >
+                          下载
+                        </button>
+                      ) : item.status === 'error' ? (
+                        <button
+                          onClick={() => setExpandedErrorId(isExpanded ? null : item.id)}
+                          className="text-[10px] text-red-400 hover:text-red-300"
+                        >
+                          {isExpanded ? '收起' : '错误'}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                  {/* 错误详情展开区(#10) */}
+                  {isExpanded && item.error && (
+                    <div className="mt-1 rounded bg-red-950/40 px-2 py-1.5 text-[10px] text-red-300">
+                      {item.error}
+                    </div>
+                  )}
                 </div>
-                <StatusBadge status={item.status} />
-                <div className="w-20 text-right text-[10px] text-zinc-400">
-                  {item.outputSize != null
-                    ? formatBytes(item.outputSize)
-                    : item.status === 'error'
-                      ? '—'
-                      : ''}
-                </div>
-                <div className="w-16 text-right">
-                  {item.status === 'done' && item.outputBlob ? (
-                    <button
-                      onClick={() => handleDownloadOne(item)}
-                      className="text-[10px] text-indigo-400 hover:text-indigo-300"
-                    >
-                      下载
-                    </button>
-                  ) : item.status === 'error' ? (
-                    <span className="text-[10px] text-red-400" title={item.error}>
-                      查看错误
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 

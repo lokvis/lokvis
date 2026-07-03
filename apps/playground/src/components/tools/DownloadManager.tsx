@@ -21,19 +21,25 @@ interface DownloadItem {
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 // 用 canvas 生成示例图片 Blob(供 demo)
+// toBlob 回调可能返回 null(某些 Safari 场景或 canvas 被污染),
+// 此时拒绝 Promise 让调用方走 catch 分支(#7 修复)
 async function makeDemoImage(text: string, color: string): Promise<Blob> {
   const canvas = document.createElement('canvas');
   canvas.width = 200;
   canvas.height = 100;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas 2D context unavailable');
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, 200, 100);
   ctx.fillStyle = '#fff';
   ctx.font = '20px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText(text, 100, 55);
-  return new Promise<Blob>((resolve) => {
-    canvas.toBlob((b) => resolve(b!), 'image/png');
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => {
+      if (b) resolve(b);
+      else reject(new Error('canvas.toBlob returned null'));
+    }, 'image/png');
   });
 }
 

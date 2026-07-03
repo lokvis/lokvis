@@ -7,7 +7,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 export interface UploadBoxProps {
-  /** 接受的文件类型,如 'image/*' */
+  /** 接受的文件类型,如 'image/*'(同时用于 input accept 与拖拽校验) */
   accept?: string;
   /** 是否允许多文件 */
   multiple?: boolean;
@@ -16,6 +16,31 @@ export interface UploadBoxProps {
   /** 提示文案 */
   hint?: string;
   className?: string;
+}
+
+/**
+ * 校验文件类型是否匹配 accept 模式。
+ * 支持 MIME 通配(image/*)和具体类型(image/png)及扩展名(.png)。
+ * accept 为空时放行所有文件。
+ */
+function fileMatchesAccept(file: File, accept: string): boolean {
+  if (!accept) return true;
+  const patterns = accept.split(',').map((p) => p.trim().toLowerCase());
+  const mime = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return patterns.some((p) => {
+    if (p.endsWith('/*')) {
+      // image/* → 匹配 image/任意
+      const prefix = p.slice(0, -1);
+      return mime.startsWith(prefix);
+    }
+    if (p.startsWith('.')) {
+      // .png → 匹配扩展名
+      return name.endsWith(p);
+    }
+    // image/png → 精确匹配 MIME
+    return mime === p;
+  });
 }
 
 export function UploadBox({
@@ -27,14 +52,24 @@ export function UploadBox({
 }: UploadBoxProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [rejectMsg, setRejectMsg] = useState<string | null>(null);
 
   const handleFiles = useCallback(
     (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return;
-      const files = Array.from(fileList);
-      onFiles(multiple ? files : [files[0]!]);
+      const all = Array.from(fileList);
+      // 校验文件类型:accept=image/* 时拒绝非图片文件(#4 修复)
+      const accepted = all.filter((f) => fileMatchesAccept(f, accept));
+      const rejected = all.length - accepted.length;
+      if (rejected > 0) {
+        setRejectMsg(`已忽略 ${rejected} 个不支持的文件(仅接受 ${accept})`);
+      } else {
+        setRejectMsg(null);
+      }
+      if (accepted.length === 0) return;
+      onFiles(multiple ? accepted : [accepted[0]!]);
     },
-    [multiple, onFiles]
+    [multiple, onFiles, accept]
   );
 
   return (
@@ -92,6 +127,7 @@ export function UploadBox({
         <line x1="12" y1="3" x2="12" y2="15" />
       </svg>
       <p className="text-xs text-zinc-400">{hint}</p>
+      {rejectMsg && <p className="mt-1 text-[10px] text-amber-400">{rejectMsg}</p>}
     </div>
   );
 }
