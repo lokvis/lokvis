@@ -1,0 +1,7 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import CropTool from '../../components/tools/CropTool.tsx';
+---
+<BaseLayout title="Lokvis Playground · Crop" active="tools/crop">
+  <CropTool client:only="react" />
+</BaseLayout>

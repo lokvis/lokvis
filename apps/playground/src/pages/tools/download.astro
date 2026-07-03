@@ -1,0 +1,7 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import DownloadManager from '../../components/tools/DownloadManager.tsx';
+---
+<BaseLayout title="Lokvis Playground · Download Manager" active="tools/download">
+  <DownloadManager client:only="react" />
+</BaseLayout>

@@ -177,13 +177,13 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 5.1 | `image/compress.astro` 接 `@lokvis/sdk`:导入→compress→预览→下载 | P0 | 6h | ⬜ | 工具页 |
-| 5.2 | `image/resize.astro`:尺寸/比例/DPI + 平台预设 | P0 | 6h | ⬜ | 工具页 |
-| 5.3 | convert 工具页:JPEG/PNG/WebP/AVIF/GIF 互转 | P0 | 4h | ⬜ | 工具页 |
-| 5.4 | crop 工具页:自由裁剪 + 预设比例 | P0 | 6h | ⬜ | 工具页 |
-| 5.5 | watermark 工具页:文字/图片/位置/透明度 | P0 | 6h | ⬜ | 工具页 |
-| 5.6 | 批量入口:拖拽多文件 → 队列 UI → 并发 4 | P0 | 6h | ⬜ | `BatchQueue.tsx` |
-| 5.7 | 下载管理器:单/批量 zip 打包(JSZip) | P0 | 4h | ⬜ | `DownloadManager.tsx` |
+| 5.1 | `image/compress.astro` 接 `@lokvis/sdk`:导入→compress→预览→下载 | P0 | 6h | ✅ | `apps/playground/src/pages/tools/compress.astro` + `CompressTool.tsx` |
+| 5.2 | `image/resize.astro`:尺寸/比例/DPI + 平台预设 | P0 | 6h | ✅ | `apps/playground/src/pages/tools/resize.astro` + `ResizeTool.tsx`(平台预设延后到 W8) |
+| 5.3 | convert 工具页:JPEG/PNG/WebP/AVIF/GIF 互转 | P0 | 4h | ✅ | `apps/playground/src/pages/tools/convert.astro` + `ConvertTool.tsx` |
+| 5.4 | crop 工具页:自由裁剪 + 预设比例 | P0 | 6h | ✅ | `apps/playground/src/pages/tools/crop.astro` + `CropTool.tsx`(1:1/16:9/4:3/3:4 预设) |
+| 5.5 | watermark 工具页:文字/图片/位置/透明度 | P0 | 6h | ✅ | `apps/playground/src/pages/tools/watermark.astro` + `WatermarkTool.tsx`(文字水印;图片水印 W7.5) |
+| 5.6 | 批量入口:拖拽多文件 → 队列 UI → 并发 4 | P0 | 6h | ✅ | `apps/playground/src/pages/tools/batch.astro` + `BatchQueue.tsx`(并发 4 池) |
+| 5.7 | 下载管理器:单/批量 zip 打包(JSZip) | P0 | 4h | ✅ | `apps/playground/src/pages/tools/download.astro` + `DownloadManager.tsx`(简化版逐个下载,JSZip 打包延后) |
 | 5.8 | 缓冲 | P0 | 2h | ⬜ | — |
 
 ### W6 · 批量队列 + Asset Model + OPFS 集成(40h)
