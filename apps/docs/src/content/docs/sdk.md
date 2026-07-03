@@ -52,29 +52,36 @@ All SDK errors extend `LokvisError` with a stable `code` field for programmatic
 branching. Use `fromLokvisError()` to normalize any caught value:
 
 ```typescript
-import { LokvisError, fromLokvisError } from '@lokvis/sdk';
+import {
+  DegradationRejectedError,
+  fromLokvisError,
+} from '@lokvis/sdk';
 
 try {
   await lokvis.run(workflow, [assetId]);
 } catch (e) {
+  // fromLokvisError() 总是返回 LokvisError(包括把非 lokvis 值归一为
+  // code: 'UNKNOWN'),所以这里不再需要 instanceof LokvisError 守卫。
   const err = fromLokvisError(e);
-  if (err instanceof LokvisError) {
-    switch (err.code) {
-      case 'STORAGE_QUOTA_EXCEEDED':
-        alert('Storage full — clean up assets');
-        break;
-      case 'DEGRADATION_REJECTED':
+  switch (err.code) {
+    case 'STORAGE_QUOTA_EXCEEDED':
+      alert('Storage full — clean up assets');
+      break;
+    case 'DEGRADATION_REJECTED':
+      // guide 字段只存在于 DegradationRejectedError 上,需用 instanceof 窄化类型。
+      if (err instanceof DegradationRejectedError) {
         // err.guide: user-readable suggestions
         console.warn(err.guide);
-        break;
-      case 'CAPABILITY_NOT_REGISTERED':
-        console.warn('Install the plugin for:', err.context?.capability);
-        break;
-      default:
-        console.error(err.code, err.message);
-    }
-  } else {
-    throw e; // non-lokvis error, rethrow
+      }
+      break;
+    case 'CAPABILITY_NOT_REGISTERED':
+      console.warn('Install the plugin for:', err.context?.capability);
+      break;
+    case 'UNKNOWN':
+      // 归一后仍无法识别的错误:按需上抛或上报
+      throw e;
+    default:
+      console.error(err.code, err.message);
   }
 }
 ```

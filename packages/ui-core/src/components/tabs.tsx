@@ -48,15 +48,15 @@ export function Tabs({
   const isControlled = value !== undefined;
   const active = isControlled ? value : internal;
 
-  const select = React.useCallback(
-    (v: string) => {
-      const item = items.find((i) => i.value === v);
-      if (item?.disabled) return;
-      if (!isControlled) setInternal(v);
-      onChange?.(v);
-    },
-    [items, isControlled, onChange]
-  );
+  // 不用 useCallback:`items` 通常是渲染时内联的数组字面量,每次都是新引用,
+  // 把它放进依赖数组会让 useCallback 每次重建——等于没 memo。
+  // 组件本身很轻量,直接用普通函数,避免无意义的 memo 开销与误导。
+  const select = (v: string) => {
+    const item = items.find((i) => i.value === v);
+    if (item?.disabled) return;
+    if (!isControlled) setInternal(v);
+    onChange?.(v);
+  };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     const idx = items.findIndex((i) => i.value === active);

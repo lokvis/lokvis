@@ -4,7 +4,7 @@
  * 展示 @lokvis/ui-core 的全部组件,供开发时预览设计与暗色模式。
  * 含 Button / Card / Badge / Slider / Toggle / Select / Tabs / Dialog / Tooltip。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Button,
   Card,
@@ -28,15 +28,13 @@ export default function ComponentsDemo() {
   const [dark, setDark] = useState(false);
 
   // 暗色模式:在 documentElement 上切换 .dark 类(Tailwind v4 dark 策略)。
-  // 用函数式更新保证 setDark 与 classList 操作基于同一值,避免闭包旧值不同步。
+  // DOM 副作用放在 useEffect 里,避免 React Strict Mode 下 state updater 被调用两次
+  // 导致 classList.toggle 两次后状态不变。updater 必须是纯函数,不产生副作用。
   // 不在容器 div 上重复加 .dark —— documentElement 已是全局根,组件内 dark: 工具类即可生效。
-  const toggleDark = () => {
-    setDark((prev) => {
-      const next = !prev;
-      document.documentElement.classList.toggle('dark', next);
-      return next;
-    });
-  };
+  const toggleDark = () => setDark((prev) => !prev);
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+  }, [dark]);
 
   return (
     <div className="h-full overflow-auto p-6">

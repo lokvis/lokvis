@@ -5,7 +5,7 @@
  * 演示：导入图片 -> 构造 image.resize 工作流 -> 执行 -> 预览结果。
  * 同时演示 LokvisError 错误处理体系(W4.2)。
  */
-import { createLokvis, LokvisError, DegradationRejectedError, fromLokvisError } from '@lokvis/sdk';
+import { createLokvis, DegradationRejectedError, fromLokvisError } from '@lokvis/sdk';
 import type { LokvisRuntime } from '@lokvis/runtime';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
 import type { Workflow } from '@lokvis/schema';
@@ -111,10 +111,12 @@ async function onResize(): Promise<void> {
     setStatus(`Done in ${result.duration}ms.`);
   } catch (err) {
     // 用 LokvisError 体系归一错误,按 code 分支处理(W4.2)
+    // fromLokvisError() 总是返回 LokvisError,无需 instanceof LokvisError 守卫;
+    // DegradationRejectedError 是 LokvisError 子类,先判断以访问 guide 字段。
     const lokvisErr = fromLokvisError(err);
     if (lokvisErr instanceof DegradationRejectedError) {
       setStatus(`图片过大被拒绝:${lokvisErr.guide[0] ?? ''}`, true);
-    } else if (lokvisErr instanceof LokvisError) {
+    } else {
       switch (lokvisErr.code) {
         case 'STORAGE_QUOTA_EXCEEDED': {
           // context.usage 是 unknown,需类型守卫后用于模板字符串
@@ -126,8 +128,6 @@ async function onResize(): Promise<void> {
         default:
           setStatus(`[${lokvisErr.code}] ${lokvisErr.message}`, true);
       }
-    } else {
-      setStatus(err instanceof Error ? err.message : String(err), true);
     }
   } finally {
     resizeBtn.disabled = false;

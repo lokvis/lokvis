@@ -35,10 +35,15 @@ export function Slider({
   onChange,
   ...props
 }: SliderProps) {
-  const current = value ?? defaultValue ?? 0;
+  // 非受控模式:用 internal state 跟踪当前值,保证 showValue 显示随拖动实时更新。
+  // 受控模式(value !== undefined)优先用外部 value,不写 internal。
+  const isControlled = value !== undefined;
+  const [internal, setInternal] = React.useState(defaultValue ?? 0);
+  const current = isControlled ? (value as number) : internal;
   const display = format ? format(Number(current)) : String(current);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isControlled) setInternal(Number(e.target.value));
     onChange?.(e);
     onValueChange?.(Number(e.target.value));
   };
