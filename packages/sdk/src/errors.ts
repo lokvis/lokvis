@@ -169,9 +169,10 @@ export class WorkflowNodeError extends LokvisError {
 /** 能力未注册 */
 export class CapabilityNotRegisteredError extends LokvisError {
   readonly capability: string;
-  constructor(capability: string) {
+  constructor(capability: string, cause?: unknown) {
     super(`No implementation registered for capability "${capability}"`, {
       code: 'CAPABILITY_NOT_REGISTERED',
+      cause,
       context: { capability },
     });
     this.name = 'CapabilityNotRegisteredError';
@@ -374,10 +375,14 @@ export function fromLokvisError(value: unknown): LokvisError {
       // 从 message 提取 capability 名:"No implementation registered for capability \"image.resize\""
       const m = msg.match(/capability "([^"]+)"/);
       const cap = m?.[1] ?? '';
-      return new CapabilityNotRegisteredError(cap);
+      return new CapabilityNotRegisteredError(cap, value);
     }
     if (/^Transform node .* has no capability/.test(msg)) {
-      return new WorkflowNodeError('', '', msg, value);
+      // runtime 抛 `Transform node "<nodeId>" has no capability`,提取 nodeId
+      // 便于消费方据 context.nodeId 定位失败节点。capability 缺失故留空串。
+      const m = msg.match(/Transform node "([^"]+)"/);
+      const nodeId = m?.[1] ?? '';
+      return new WorkflowNodeError(nodeId, '', msg, value);
     }
     if (/^Blob not found/.test(msg)) {
       return new AssetExportError(msg, value);
