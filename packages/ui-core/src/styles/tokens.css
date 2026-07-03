@@ -92,6 +92,11 @@
 /*
  * 系统暗色模式兜底(无 .dark 类时跟随 prefers-color-scheme)。
  * 仅当未显式添加 .dark 时生效,避免双重覆盖。
+ *
+ * 注意:此块与 `.dark` 选择器的变量值有意保持一致,但 CSS 不支持变量继承到
+ * 其他选择器,无法用 `--dark-*` 中间变量抽离后引用(否则会变成"运行时切换"
+ * 而非"编译时确定")。若需改色,请同步修改 `.dark` 与此处的 `:root:not(.light)`。
+ * 维护约定:两处暗色值必须保持一致,改一处即改两处。
  */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
@@ -116,16 +121,38 @@
 }
 
 /*
- * Tailwind v4 @theme 映射示例(消费方在自己的 CSS 中添加):
+ * Tailwind v4 @theme 集成(W4.5 要求)。
  *
- *   @import 'tailwindcss';
- *   @theme {
- *     --color-lokvis-bg: var(--lokvis-bg);
- *     --color-lokvis-surface: var(--lokvis-surface);
- *     --color-lokvis-fg: var(--lokvis-fg);
- *     --color-lokvis-primary: var(--lokvis-primary);
- *     ...
- *   }
+ * `@theme` 是 Tailwind v4 的标准 at-rule,把 CSS 变量注册为 Tailwind 主题 token,
+ * 之后即可用 `bg-lokvis-surface` / `text-lokvis-fg` / `border-lokvis-border` 等工具类。
+ * 值用 `var(--lokvis-*)` 引用上述语义变量,保证 Tailwind 工具类与组件内联
+ * `var(--lokvis-*)` 始终同源(改一处即整体换肤)。
  *
- * 之后即可用 `bg-lokvis-surface` / `text-lokvis-fg` 等工具类。
+ * 非 Tailwind 环境:浏览器会忽略未识别的 `@theme` 块,无副作用。
+ *
+ * 使用前提:消费方 CSS 需 `@import 'tailwindcss';` 后再 `@import` 本文件,
+ * 或把本文件内容并入主 CSS。Tailwind v4 会扫描并应用 @theme。
  */
+@theme {
+  --color-lokvis-bg: var(--lokvis-bg);
+  --color-lokvis-surface: var(--lokvis-surface);
+  --color-lokvis-surface-muted: var(--lokvis-surface-muted);
+  --color-lokvis-fg: var(--lokvis-fg);
+  --color-lokvis-fg-muted: var(--lokvis-fg-muted);
+  --color-lokvis-fg-subtle: var(--lokvis-fg-subtle);
+  --color-lokvis-border: var(--lokvis-border);
+  --color-lokvis-border-strong: var(--lokvis-border-strong);
+  --color-lokvis-primary: var(--lokvis-primary);
+  --color-lokvis-primary-hover: var(--lokvis-primary-hover);
+  --color-lokvis-primary-fg: var(--lokvis-primary-fg);
+  --color-lokvis-success: var(--lokvis-success);
+  --color-lokvis-warning: var(--lokvis-warning);
+  --color-lokvis-danger: var(--lokvis-danger);
+  --color-lokvis-danger-hover: var(--lokvis-danger-hover);
+  --color-lokvis-info: var(--lokvis-info);
+
+  --radius-lokvis-sm: var(--lokvis-radius-sm);
+  --radius-lokvis: var(--lokvis-radius);
+  --radius-lokvis-lg: var(--lokvis-radius-lg);
+  --radius-lokvis-full: var(--lokvis-radius-full);
+}

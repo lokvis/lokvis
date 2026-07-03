@@ -87,17 +87,28 @@ try {
 | Code | Class | When |
 |---|---|---|
 | `ASSET_NOT_FOUND` | `AssetNotFoundError` | Asset ID doesn't exist |
-| `ASSET_IMPORT_FAILED` | `AssetImportError` | Import failed (corrupt file, etc.) |
-| `WORKFLOW_INVALID` | `WorkflowInvalidError` | Workflow schema validation failed |
+| `ASSET_IMPORT_FAILED` | `AssetImportError` | Import failed (corrupt file, fetch error) |
+| `ASSET_EXPORT_FAILED` | `AssetExportError` | Export failed (blob not found, encode error) |
+| `WORKFLOW_INVALID` | `WorkflowInvalidError` | Workflow schema validation failed (duplicate node id, etc.) |
 | `WORKFLOW_CYCLE` | `WorkflowCycleError` | Workflow contains a cycle |
+| `WORKFLOW_NODE_ERROR` | `WorkflowNodeError` | Node execution failed (missing capability, etc.) |
 | `CAPABILITY_NOT_REGISTERED` | `CapabilityNotRegisteredError` | No plugin provides this capability |
 | `CAPABILITY_STUB_ONLY` | `CapabilityStubOnlyError` | Only stub engine registered |
 | `STORAGE_QUOTA_EXCEEDED` | `StorageQuotaExceededError` | Storage quota exceeded |
-| `WORKER_CRASHED` | `WorkerCrashedError` | Worker process crashed |
+| `STORAGE_OPFS_UNAVAILABLE` | `StorageOpfsUnavailableError` | OPFS not supported or permission denied |
+| `STORAGE_IDB_UNAVAILABLE` | `StorageIdbUnavailableError` | IndexedDB unavailable (private mode, etc.) |
+| `WORKER_CRASHED` | `WorkerCrashedError` | Worker process crashed or restarting |
 | `WORKER_TIMEOUT` | `WorkerTimeoutError` | Worker request timed out |
+| `WORKER_DEAD` | `WorkerDeadError` | Worker exceeded max restarts, unrecoverable |
+| `WORKER_REQUEST_ABORTED` | `WorkerRequestAbortedError` | Request aborted via AbortSignal |
+| `WORKER_HANDSHAKE_FAILED` | `WorkerHandshakeError` | Worker ready handshake failed (timeout / protocol mismatch) |
 | `DEGRADATION_REJECTED` | `DegradationRejectedError` | Memory budget exceeded (L4 reject) |
 | `PLUGIN_LOAD_FAILED` | `PluginLoadError` | Plugin install threw |
-| `UNKNOWN` | `LokvisError` | Catch-all |
+| `UNKNOWN` | `LokvisError` | Catch-all for unrecognized errors |
+
+> **Note**: `fromLokvisError()` normalizes both typed runtime errors (via `instanceof`) and
+> untyped `Error` throws (via best-effort message matching) into the corresponding class above.
+> Always run caught values through `fromLokvisError()` before switching on `code`.
 
 ## Examples
 

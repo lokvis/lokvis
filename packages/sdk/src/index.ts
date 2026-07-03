@@ -21,7 +21,7 @@ import type { AssetStore, CapabilityRegistry } from '@lokvis/runtime';
 import type { EventBus } from '@lokvis/schema';
 import type { PluginConfig, PluginContext, PluginInstaller } from '@lokvis/plugin-sdk';
 import { createRuntime, LokvisRuntimeImpl } from '@lokvis/runtime';
-import { PluginLoadError } from './errors.js';
+import { AssetNotFoundError, PluginLoadError } from './errors.js';
 
 /** 插件加载项 */
 export interface PluginLoadEntry {
@@ -90,12 +90,22 @@ export async function createLokvis(
   const runtime = await createRuntime(runtimeConfig);
 
   // 预加载插件(复用 installPlugin,避免与 loadPlugin 重复实现)
-  if (plugins.length > 0 && runtime instanceof LokvisRuntimeImpl) {
-    const assetStore = runtime._getAssetStore();
-    const capabilityRegistry = runtime._getCapabilityRegistry();
-    const eventBus = runtime.eventBus;
-    for (const plugin of plugins) {
-      await installPlugin(plugin, assetStore, capabilityRegistry, eventBus);
+  if (plugins.length > 0) {
+    if (runtime instanceof LokvisRuntimeImpl) {
+      const assetStore = runtime._getAssetStore();
+      const capabilityRegistry = runtime._getCapabilityRegistry();
+      const eventBus = runtime.eventBus;
+      for (const plugin of plugins) {
+        await installPlugin(plugin, assetStore, capabilityRegistry, eventBus);
+      }
+    } else {
+      // 非 LokvisRuntimeImpl(如测试 mock / 自定义实现):跳过插件加载但给出明确警告,
+      // 避免用户困惑"为何插件没生效"。调用方若需在自定义 runtime 上加载插件,
+      // 应直接使用 loadPlugin 并自行确保 runtime 暴露所需内部 API。
+      console.warn(
+        '[lokvis/sdk] createLokvis: runtime is not LokvisRuntimeImpl, ' +
+          `${plugins.length} plugin(s) skipped. Use loadPlugin() manually if needed.`
+      );
     }
   }
 
@@ -146,7 +156,7 @@ function createPluginContext(
     runtime: {
       getAsset: async (id) => {
         const asset = await assetStore.get(id);
-        if (!asset) throw new Error(`Asset not found: ${id}`);
+        if (!asset) throw new AssetNotFoundError(id);
         return asset;
       },
       importAsset: async (file) => {

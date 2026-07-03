@@ -116,9 +116,13 @@ async function onResize(): Promise<void> {
       setStatus(`图片过大被拒绝:${lokvisErr.guide[0] ?? ''}`, true);
     } else if (lokvisErr instanceof LokvisError) {
       switch (lokvisErr.code) {
-        case 'STORAGE_QUOTA_EXCEEDED':
-          setStatus(`存储已满(已用 ${lokvisErr.context?.usage} 字节),请清理资产后重试`, true);
+        case 'STORAGE_QUOTA_EXCEEDED': {
+          // context.usage 是 unknown,需类型守卫后用于模板字符串
+          const usage = lokvisErr.context?.usage;
+          const usageStr = typeof usage === 'number' ? String(usage) : '?';
+          setStatus(`存储已满(已用 ${usageStr} 字节),请清理资产后重试`, true);
           break;
+        }
         default:
           setStatus(`[${lokvisErr.code}] ${lokvisErr.message}`, true);
       }

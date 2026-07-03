@@ -27,13 +27,19 @@ export default function ComponentsDemo() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dark, setDark] = useState(false);
 
+  // 暗色模式:在 documentElement 上切换 .dark 类(Tailwind v4 dark 策略)。
+  // 用函数式更新保证 setDark 与 classList 操作基于同一值,避免闭包旧值不同步。
+  // 不在容器 div 上重复加 .dark —— documentElement 已是全局根,组件内 dark: 工具类即可生效。
   const toggleDark = () => {
-    setDark((d) => !d);
-    document.documentElement.classList.toggle('dark', !dark);
+    setDark((prev) => {
+      const next = !prev;
+      document.documentElement.classList.toggle('dark', next);
+      return next;
+    });
   };
 
   return (
-    <div className={`h-full overflow-auto p-6 ${dark ? 'dark' : ''}`}>
+    <div className="h-full overflow-auto p-6">
       <div className="mx-auto max-w-3xl space-y-8 bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
         {/* 顶部:暗色模式切换 */}
         <div className="flex items-center justify-between">
@@ -79,8 +85,8 @@ export default function ComponentsDemo() {
         {/* Slider */}
         <Section title="Slider">
           <div className="max-w-sm space-y-3">
-            <Slider value={sliderVal} onChange={(e) => setSliderVal(Number(e.target.value))} showValue />
-            <Slider value={sliderVal} onChange={(e) => setSliderVal(Number(e.target.value))} showValue format={(v) => `${v}%`} />
+            <Slider value={sliderVal} onValueChange={setSliderVal} showValue />
+            <Slider value={sliderVal} onValueChange={setSliderVal} showValue format={(v) => `${v}%`} />
           </div>
         </Section>
 
