@@ -3,8 +3,9 @@
  *
  * 仅使用 @lokvis/sdk + @lokvis/plugin-image，不依赖 @lokvis/ui-react。
  * 演示：导入图片 -> 构造 image.resize 工作流 -> 执行 -> 预览结果。
+ * 同时演示 LokvisError 错误处理体系(W4.2)。
  */
-import { createLokvis } from '@lokvis/sdk';
+import { createLokvis, LokvisError, DegradationRejectedError, fromLokvisError } from '@lokvis/sdk';
 import type { LokvisRuntime } from '@lokvis/runtime';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
 import type { Workflow } from '@lokvis/schema';
@@ -109,7 +110,21 @@ async function onResize(): Promise<void> {
     resultPreview.hidden = false;
     setStatus(`Done in ${result.duration}ms.`);
   } catch (err) {
-    setStatus(err instanceof Error ? err.message : String(err), true);
+    // 用 LokvisError 体系归一错误,按 code 分支处理(W4.2)
+    const lokvisErr = fromLokvisError(err);
+    if (lokvisErr instanceof DegradationRejectedError) {
+      setStatus(`图片过大被拒绝:${lokvisErr.guide[0] ?? ''}`, true);
+    } else if (lokvisErr instanceof LokvisError) {
+      switch (lokvisErr.code) {
+        case 'STORAGE_QUOTA_EXCEEDED':
+          setStatus(`存储已满(已用 ${lokvisErr.context?.usage} 字节),请清理资产后重试`, true);
+          break;
+        default:
+          setStatus(`[${lokvisErr.code}] ${lokvisErr.message}`, true);
+      }
+    } else {
+      setStatus(err instanceof Error ? err.message : String(err), true);
+    }
   } finally {
     resizeBtn.disabled = false;
   }
