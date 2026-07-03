@@ -362,29 +362,29 @@ export function fromLokvisError(value: unknown): LokvisError {
     // 匹配 runtime 抛出的已知 message 前缀,转成对应 SDK 错误类。
     // 注意:这是过渡方案,后续 runtime 层应抛类型化错误,届时可移除此层。
     const msg = value.message;
-    if (/^Asset not found/.test(msg)) {
+    if (msg.startsWith('Asset not found')) {
       return new AssetNotFoundError(msg.replace(/^Asset not found:?\s*/, ''), value);
     }
-    if (/^Workflow contains a cycle/.test(msg)) {
+    if (msg.startsWith('Workflow contains a cycle')) {
       return new WorkflowCycleError(msg, value);
     }
-    if (/^Workflow contains duplicate node id/.test(msg)) {
+    if (msg.startsWith('Workflow contains duplicate node id')) {
       return new WorkflowInvalidError(msg, value);
     }
-    if (/^No implementation registered for capability/.test(msg)) {
+    if (msg.startsWith('No implementation registered for capability')) {
       // 从 message 提取 capability 名:"No implementation registered for capability \"image.resize\""
       const m = msg.match(/capability "([^"]+)"/);
       const cap = m?.[1] ?? '';
       return new CapabilityNotRegisteredError(cap, value);
     }
-    if (/^Transform node .* has no capability/.test(msg)) {
+    if (msg.startsWith('Transform node ') && msg.endsWith(' has no capability')) {
       // runtime 抛 `Transform node "<nodeId>" has no capability`,提取 nodeId
       // 便于消费方据 context.nodeId 定位失败节点。capability 缺失故留空串。
       const m = msg.match(/Transform node "([^"]+)"/);
       const nodeId = m?.[1] ?? '';
       return new WorkflowNodeError(nodeId, '', msg, value);
     }
-    if (/^Blob not found/.test(msg)) {
+    if (msg.startsWith('Blob not found')) {
       return new AssetExportError(msg, value);
     }
 
