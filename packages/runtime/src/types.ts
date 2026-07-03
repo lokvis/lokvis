@@ -18,6 +18,7 @@ import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { EventBus } from '@lokvis/schema';
 import type { AssetStore } from './asset-store.js';
 import type { BatchProcessor } from './batch-processor.js';
+import type { HistoryStore, HistoryStoreOptions } from './history-store.js';
 
 /** Runtime 配置 */
 export interface RuntimeConfig {
@@ -41,6 +42,17 @@ export interface RuntimeConfig {
    * 按 OPFS → IndexedDB → Memory 降级。
    */
   assetStore?: AssetStore;
+  /**
+   * 注入自定义 HistoryStore(W7.2 历史持久化)。
+   * 默认由 createRuntime 在 enableIndexedDB 时通过 createHistoryStore 自动创建;
+   * IndexedDB 不可用时为 undefined,历史退化为仅内存模式。
+   */
+  historyStore?: HistoryStore;
+  /**
+   * HistoryStore 工厂选项(W7.2,仅 historyStore 未注入时生效)。
+   * 测试可注入 dbInstance 或自定义 dbName。
+   */
+  historyStoreOptions?: HistoryStoreOptions;
   /**
    * 是否启用 Pro 模式(W6.2 / PROJECT_PLAN 17.4)。
    * - false(默认):批量上限 10 文件、并发 4、workflow 槽位 5
@@ -121,10 +133,24 @@ export interface LokvisRuntime {
   // ─── 历史与撤销 ──────────────────────────────────────
   /** 获取工作流的执行历史 */
   history(workflowId: string): Promise<HistoryEntry[]>;
+  /**
+   * 获取工作流历史状态(条目 + 当前游标)。
+   * 游标 -1 表示无已应用条目(初始状态);i 表示第 i 条已应用。
+   * 比 history() 多返回 cursor,UI 据此高亮当前步骤。
+   */
+  getHistoryState(
+    workflowId: string
+  ): Promise<{ entries: HistoryEntry[]; cursor: number }>;
   /** 撤销一步 */
   undo(workflowId: string): Promise<void>;
   /** 重做一步 */
   redo(workflowId: string): Promise<void>;
+  /**
+   * 跳转到指定历史条目(按时间顺序的索引,-1 表示回到初始)。
+   * 用于 HistoryPanel 点击条目直接跳转,等价于连续 undo/redo 到目标位置。
+   * 越界或游标未变时为 no-op。
+   */
+  jumpTo(workflowId: string, index: number): Promise<void>;
 
   // ─── Asset 管理 ──────────────────────────────────────
   /** 导入资产 */

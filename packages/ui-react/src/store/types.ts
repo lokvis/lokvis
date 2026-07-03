@@ -4,7 +4,7 @@
  * 把原 store.ts 顶部的 WorkspaceState / WorkspaceActions 抽出,
  * 供各 slice 引用,避免循环依赖。
  */
-import type { Asset, Capability } from '@lokvis/schema';
+import type { Asset, Capability, HistoryEntry } from '@lokvis/schema';
 import type { LokvisRuntime } from '@lokvis/runtime';
 import type { CapabilityMap, NodeStatus, WorkspaceNode } from '../types.js';
 
@@ -43,6 +43,13 @@ export interface WorkspaceState {
 
   /** 存储配额使用情况(W6.7):{ usage, quota } 字节,null 表示未查询 */
   storageUsage: { usage: number; quota: number } | null;
+
+  /** 历史栈条目(W7.1):当前活跃工作流的执行历史 */
+  historyEntries: HistoryEntry[];
+  /** 历史栈游标(W7.1):-1 表示无已应用条目(初始);i 表示第 i 条已应用 */
+  historyCursor: number;
+  /** 当前历史所属的工作流 ID(W7.1) */
+  historyWorkflowId: string | null;
 }
 
 /** 工作台操作 */
@@ -81,6 +88,14 @@ export interface WorkspaceActions {
   setError(error: string | null): void;
   /** 刷新存储配额使用情况(W6.7) */
   refreshStorageUsage(): Promise<void>;
+  /** 刷新历史栈(W7.1) */
+  refreshHistory(workflowId: string): Promise<void>;
+  /** 撤销一步(W7.1) */
+  undo(): Promise<void>;
+  /** 重做一步(W7.1) */
+  redo(): Promise<void>;
+  /** 跳转到指定历史条目(W7.1) */
+  jumpToHistory(index: number): Promise<void>;
   /** 清空工作流 */
   clearWorkflow(): void;
 }

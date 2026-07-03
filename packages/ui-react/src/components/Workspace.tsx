@@ -17,6 +17,7 @@ import { Icon } from '@lokvis/ui-core';
 import { useLokvis, type UseLokvisOptions } from '../hooks/useLokvis.js';
 import { Toolbar } from './Toolbar.js';
 import { AssetPanel } from './AssetPanel.js';
+import { HistoryPanel } from './HistoryPanel.js';
 import { Canvas } from './Canvas.js';
 import { Inspector } from './Inspector.js';
 import { PipelineBar } from './PipelineBar.js';
@@ -27,12 +28,15 @@ export interface WorkspaceProps extends UseLokvisOptions {
   title?: string;
   /** 是否显示状态栏（默认 true） */
   showStatusBar?: boolean;
+  /** 是否显示历史面板（默认 true,W7.1） */
+  showHistoryPanel?: boolean;
   className?: string;
 }
 
 export function Workspace({
   title,
   showStatusBar = true,
+  showHistoryPanel = true,
   className = '',
   ...lokvisOptions
 }: WorkspaceProps) {
@@ -74,9 +78,10 @@ export function Workspace({
       {/* Top: Toolbar */}
       <Toolbar title={title} />
 
-      {/* Middle: Three-panel area */}
+      {/* Middle: Panel area */}
       <div className="flex flex-1 overflow-hidden">
         <AssetPanel />
+        {showHistoryPanel && <HistoryPanel />}
         <Canvas />
         <Inspector />
       </div>
