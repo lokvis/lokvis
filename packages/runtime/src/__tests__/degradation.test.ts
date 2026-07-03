@@ -216,7 +216,7 @@ describe('applyDegradationToResizeParams', () => {
     expect(out.width).toBe(9999); // 不覆盖既有参数
   });
 
-  it('L3 时若用户已指定更小目标尺寸,不加 maxEdge', () => {
+  it('L3 时若用户已指定两个更小的目标尺寸,不加 maxEdge', () => {
     const decision = {
       level: 'L3-degraded' as const,
       maxEdge: DEGRADED_MAX_EDGE,
@@ -224,12 +224,25 @@ describe('applyDegradationToResizeParams', () => {
       spill: false,
       reason: 'test',
     };
-    // width < maxEdge → 尊重用户尺寸
+    // width 和 height 都已小于 maxEdge → 尊重用户尺寸
+    const out = applyDegradationToResizeParams({ width: 100, height: 200 }, decision);
+    expect(out.maxEdge).toBeUndefined();
+  });
+
+  it('L3 时若仅指定一个小于 maxEdge 的边,不加 maxEdge', () => {
+    const decision = {
+      level: 'L3-degraded' as const,
+      maxEdge: DEGRADED_MAX_EDGE,
+      quality: DEGRADED_QUALITY,
+      spill: false,
+      reason: 'test',
+    };
+    // 只有 width 指定且 < maxEdge,height 未指定 → 尊重用户约束
     const out = applyDegradationToResizeParams({ width: 100 }, decision);
     expect(out.maxEdge).toBeUndefined();
   });
 
-  it('L3 时若 height 已小于 maxEdge,不加 maxEdge', () => {
+  it('L3 时若一边超 maxEdge 而另一边很小,仍应注入 maxEdge', () => {
     const decision = {
       level: 'L3-degraded' as const,
       maxEdge: DEGRADED_MAX_EDGE,
@@ -237,8 +250,21 @@ describe('applyDegradationToResizeParams', () => {
       spill: false,
       reason: 'test',
     };
-    const out = applyDegradationToResizeParams({ height: 100 }, decision);
-    expect(out.maxEdge).toBeUndefined();
+    // width=10000 远超 maxEdge,height=100 很小 → 仍需 maxEdge 保护内存
+    const out = applyDegradationToResizeParams({ width: 10000, height: 100 }, decision);
+    expect(out.maxEdge).toBe(DEGRADED_MAX_EDGE);
+  });
+
+  it('L3 时若两条边均未指定,应注入 maxEdge', () => {
+    const decision = {
+      level: 'L3-degraded' as const,
+      maxEdge: DEGRADED_MAX_EDGE,
+      quality: DEGRADED_QUALITY,
+      spill: false,
+      reason: 'test',
+    };
+    const out = applyDegradationToResizeParams({}, decision);
+    expect(out.maxEdge).toBe(DEGRADED_MAX_EDGE);
   });
 
   it('L1-full 应原样返回 params(无 maxEdge)', () => {
@@ -301,6 +327,13 @@ describe('formatBytes', () => {
   it('GB 级', () => {
     expect(formatBytes(1024 * 1024 * 1024)).toBe('1.00GB');
     expect(formatBytes(2.5 * 1024 * 1024 * 1024)).toBe('2.50GB');
+  });
+
+  it('非有限或负数应回退到 0B', () => {
+    expect(formatBytes(-1)).toBe('0B');
+    expect(formatBytes(NaN)).toBe('0B');
+    expect(formatBytes(Infinity)).toBe('0B');
+    expect(formatBytes(-Infinity)).toBe('0B');
   });
 });
 

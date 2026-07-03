@@ -217,8 +217,9 @@ describe('startImageWorker 异常与边界', () => {
     const originalSelf = (globalThis as { self?: unknown }).self;
     delete (globalThis as { self?: unknown }).self;
     try {
-      const { startImageWorker: startNoSelf } = await import('../worker-adapter.js');
-      expect(() => startNoSelf()).toThrow(/no global `self`/);
+      // 使用静态导入的 startImageWorker:self 检查在调用时求值,
+      // 无需动态 import(动态 import 命中模块缓存,行为等同静态)。
+      expect(() => startImageWorker()).toThrow(/no global `self`/);
     } finally {
       if (originalSelf !== undefined) {
         (globalThis as { self?: unknown }).self = originalSelf;

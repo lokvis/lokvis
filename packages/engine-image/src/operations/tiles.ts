@@ -22,6 +22,7 @@
 
 import type { ImageChunk, ImageTile, ImageOutputFormat } from '../types.js';
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
+import { throwIfAborted } from './utils.js';
 
 /** 默认 tile 边长(像素)。512² ≈ 1MB RGBA,单 tile 内存开销可控 */
 export const DEFAULT_TILE_SIZE = 512;
@@ -66,13 +67,15 @@ export function splitIntoTiles(
  * @param totalHeight 输出图总高
  * @param format 输出格式
  * @param quality 质量(0-100),仅对有损格式生效
+ * @param signal 可选取消信号;每个 chunk decode 前检查(W3.5)
  */
 export async function mergeChunks(
   chunks: ImageChunk[],
   totalWidth: number,
   totalHeight: number,
   format: ImageOutputFormat,
-  quality: number = 95
+  quality: number = 95,
+  signal?: AbortSignal
 ): Promise<Blob> {
   if (chunks.length === 0) {
     throw new Error('mergeChunks: no chunks provided');
@@ -85,6 +88,7 @@ export async function mergeChunks(
   const ctx = get2DContext(canvas);
 
   for (const chunk of chunks) {
+    throwIfAborted(signal);
     const { bitmap } = await canvasEngine.decode(chunk.blob);
     ctx.drawImage(bitmap, chunk.tile.x, chunk.tile.y, chunk.tile.width, chunk.tile.height);
     bitmap.close?.();

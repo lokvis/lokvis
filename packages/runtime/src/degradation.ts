@@ -47,6 +47,10 @@ export interface DegradationContext {
   /**
    * 解码后位图估算字节(用于 L4 判定:decode 后超 critical 且
    * 已是 maxEdge 缩放后仍超 → reject)。可选,缺省时仅按 pressure 判。
+   *
+   * **强烈建议提供**:可通过 estimateDecodedBytes(width, height) 计算。
+   * 缺省时 pressure=critical + canSpill=true 场景会跳过 L4 判定,
+   * 直接返回 L3-degraded,可能导致超大图缩放后仍 OOM。
    */
   decodedBytes?: number;
 }
@@ -78,6 +82,12 @@ export interface DegradationDecision {
  *
  * L4 触发条件:pressure=critical 且 decodedBytes 已按 maxEdge 缩放后
  * 估算仍 >= budget 的 critical 阈值(0.95),即"再怎么缩也会撑爆"。
+ *
+ * **调用方注意**:当 pressure=critical 且 canSpill=true 时,若不提供
+ * decodedBytes,函数将跳过 L4 判定直接返回 L3-degraded。这意味着对于
+ * 超大单张图(无法通过 spill 分块),L3 缩放后仍可能 OOM。
+ * 建议:尽可能通过 estimateDecodedBytes(width, height) 提供 decodedBytes,
+ * 以提高 L4 判定精度,避免静默降级后崩溃。
  */
 export function pickDegradation(ctx: DegradationContext): DegradationDecision {
   const { pressure, canTile, canSpill, inputBytes, budget, decodedBytes } = ctx;
@@ -195,6 +205,7 @@ function buildGuide(inputBytes: number, budget: number): string[] {
 
 /** 字节数 → 人类可读(MB/GB) */
 export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '0B';
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
@@ -215,10 +226,15 @@ export function applyDegradationToResizeParams(
     return params;
   }
   const next = { ...params };
-  // 若用户已指定更小的目标尺寸,尊重之;否则加上 maxEdge 上限
+  // 只要任一已指定的边超过 maxEdge,就注入 maxEdge 上限保护内存。
+  // undefined 视为"未约束",不参与 veto;已指定且 ≤ maxEdge 的边才排除 maxEdge。
   const w = next.width as number | undefined;
   const h = next.height as number | undefined;
-  if ((w === undefined || w > decision.maxEdge) && (h === undefined || h > decision.maxEdge)) {
+  const wOver = w !== undefined && w > decision.maxEdge;
+  const hOver = h !== undefined && h > decision.maxEdge;
+  const wUnset = w === undefined;
+  const hUnset = h === undefined;
+  if (wOver || hOver || (wUnset && hUnset)) {
     next.maxEdge = decision.maxEdge;
   }
   return next;

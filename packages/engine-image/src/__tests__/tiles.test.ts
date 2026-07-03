@@ -196,4 +196,15 @@ describe('mergeChunks', () => {
     await mergeChunks(chunks, 10, 10, 'webp');
     expect(mockEncode).toHaveBeenCalledWith(expect.anything(), 'webp', 95);
   });
+
+  it('signal 已 abort 应在 decode 前抛 AbortError', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const chunks = [{ tile: { x: 0, y: 0, width: 10, height: 10 }, blob: new Blob() }];
+    await expect(mergeChunks(chunks, 10, 10, 'png', 95, controller.signal)).rejects.toThrow(
+      /aborted/i
+    );
+    // decode 不应被调用(signal 在循环首步即检查)
+    expect(mockDecode).not.toHaveBeenCalled();
+  });
 });

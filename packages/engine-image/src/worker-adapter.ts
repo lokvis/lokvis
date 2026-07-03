@@ -78,6 +78,10 @@ interface WorkerReady {
  * 取消一个正在执行的请求(W3.5 cancel 贯穿)。
  * 与 @lokvis/runtime worker-protocol 的 WorkerCancel 结构兼容,
  * 本地声明以避免 engine-image → runtime 跨层依赖。
+ *
+ * IMPORTANT: 若修改此类型,必须同步修改 packages/runtime/src/worker-protocol.ts
+ * 中的 WorkerCancel,否则 Host↔Worker 的 cancel 协议将断裂。
+ * 长期目标:提取共享协议包后统一从此处删除。
  */
 interface WorkerCancel {
   type: 'cancel';

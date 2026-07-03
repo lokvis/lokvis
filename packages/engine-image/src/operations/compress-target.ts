@@ -50,5 +50,6 @@ export async function compressToTargetSize(
     throwIfAborted(signal);
     best = await canvasEngine.encode(canvas, format, 10);
   }
+  throwIfAborted(signal);
   return best;
 }

@@ -27,7 +27,7 @@
  *   alloc.release();                                // 回退
  */
 
-import type { Asset, AssetMetadata } from '@lokvis/schema';
+import type { Asset, AssetMetadata, AssetType } from '@lokvis/schema';
 import type { AssetStore } from './asset-store.js';
 
 /** 默认内存预算:512MB(见上) */
@@ -163,8 +163,9 @@ export class MemoryGuard {
    *
    * @param blob 要溢出的中间结果
    * @param mimeType Blob 的 MIME(用于元数据);默认取 blob.type
+   * @param assetType 资产类型(默认 'image');video/pdf 管线可传对应类型
    */
-  async spill(blob: Blob, mimeType?: string): Promise<Asset> {
+  async spill(blob: Blob, mimeType?: string, assetType: AssetType = 'image'): Promise<Asset> {
     if (!this.assetStore) {
       throw new Error(
         'MemoryGuard.spill requires an assetStore (OPFS-backed). ' +
@@ -177,7 +178,7 @@ export class MemoryGuard {
       size: blob.size,
       format: mime.split('/')[1] ?? 'bin',
     };
-    return this.assetStore.create(blob, metadata, 'image');
+    return this.assetStore.create(blob, metadata, assetType);
   }
 
   /** 从 OPFS 读回之前 spill 的中间结果 */
