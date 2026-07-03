@@ -128,6 +128,42 @@ export async function reencode(
   return canvasEngine.encode(canvas, format, quality);
 }
 
+/**
+ * 解码并直接缩放到目标尺寸(W3.2 大图内存优化)。
+ *
+ * 使用 createImageBitmap 的 resizeWidth/resizeHeight 选项,在解码阶段
+ * 就缩放,避免先 decode 全分辨率 bitmap 再缩放——后者会短暂持有全分辨率
+ * 位图(对超大图是 OOM 风险点)。这是 canvas 引擎最大的单点内存优化。
+ *
+ * 仅对"缩小"有意义(target < source);放大时行为等同普通 decode 后再缩放。
+ * 兼容性:createImageBitmap resize 选项在 Chrome/Edge/Firefox 现代版本可用,
+ * Safari 16.4+ 支持;不支持(抛错)时回退到普通 decode + drawImage 缩放。
+ *
+ * @param blob 输入图
+ * @param targetWidth 目标宽(像素)
+ * @param targetHeight 目标高(像素)
+ */
+export async function decodeResized(
+  blob: Blob,
+  targetWidth: number,
+  targetHeight: number
+): Promise<DecodedImage> {
+  if (typeof createImageBitmap !== 'function') {
+    throw new Error('createImageBitmap is not supported in this environment');
+  }
+  try {
+    const bitmap = await createImageBitmap(blob, {
+      resizeWidth: targetWidth,
+      resizeHeight: targetHeight,
+      resizeQuality: 'high',
+    });
+    return { bitmap, width: bitmap.width, height: bitmap.height };
+  } catch {
+    // 回退:不支持 resize 选项 → 普通 decode 后由调用方 drawImage 缩放
+    return canvasEngine.decode(blob);
+  }
+}
+
 /** 创建 Canvas（优先 OffscreenCanvas，回退到 DOM Canvas） */
 export function createCanvas(
   width: number,

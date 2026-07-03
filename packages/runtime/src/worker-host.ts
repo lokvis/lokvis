@@ -28,6 +28,7 @@ import {
   isWorkerFatalError,
   type WorkerRequest,
   type WorkerPing,
+  type WorkerCancel,
 } from './worker-protocol.js';
 
 // ─── 传输层抽象 ─────────────────────────────────────────────────
@@ -102,6 +103,22 @@ export class WorkerHandshakeError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'WorkerHandshakeError';
+  }
+}
+
+/**
+ * 请求被 AbortSignal 取消(W3.5 cancel 贯穿)。
+ *
+ * 与超时/崩溃不同:cancel 是调用方主动发起的,Host 会向 Worker
+ * 发送 WorkerCancel 消息让在途操作尽快中止,同时本地立即 reject,
+ * 不等 Worker 回响应。
+ */
+export class WorkerRequestAbortedError extends Error {
+  readonly method: string;
+  constructor(method: string) {
+    super(`Request "${method}" was aborted via AbortSignal`);
+    this.name = 'WorkerRequestAbortedError';
+    this.method = method;
   }
 }
 
@@ -247,12 +264,23 @@ export class WorkerHost {
   async request<T = unknown>(
     method: string,
     params?: unknown,
-    options?: { transfer?: Transferable[]; timeoutMs?: number }
+    options?: {
+      transfer?: Transferable[];
+      timeoutMs?: number;
+      /** 取消信号:触发时向 Worker 发送 WorkerCancel 并立即 reject(W3.5) */
+      signal?: AbortSignal;
+    }
   ): Promise<T> {
     if (this.status === 'disposed') throw new Error('WorkerHost is disposed');
     if (this.status === 'dead') throw new WorkerDeadError(this.restartCount);
     if (this.status === 'restarting' || this.status === 'idle') {
       throw new WorkerRestartingError();
+    }
+
+    const signal = options?.signal;
+    // 已取消:不发送,直接 reject
+    if (signal?.aborted) {
+      throw new WorkerRequestAbortedError(method);
     }
 
     const id = createRequestId();
@@ -262,13 +290,34 @@ export class WorkerHost {
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         if (this.pending.delete(id)) {
+          offAbort();
           reject(new WorkerRequestTimeoutError(method, timeoutMs));
         }
       }, timeoutMs);
 
+      // W3.5:signal 触发 → 发 WorkerCancel + 立即 reject(不等 Worker 回响应)
+      const onAbort = () => {
+        if (this.pending.delete(id)) {
+          clearTimeout(timer);
+          const cancelMsg: WorkerCancel = { type: 'cancel', id };
+          this.send(cancelMsg);
+          reject(new WorkerRequestAbortedError(method));
+        }
+      };
+      const offAbort = signal
+        ? () => signal.removeEventListener('abort', onAbort)
+        : () => {};
+      if (signal) signal.addEventListener('abort', onAbort, { once: true });
+
       this.pending.set(id, {
-        resolve: (v) => resolve(v as T),
-        reject,
+        resolve: (v) => {
+          offAbort();
+          resolve(v as T);
+        },
+        reject: (e) => {
+          offAbort();
+          reject(e);
+        },
         timer,
         method,
       });

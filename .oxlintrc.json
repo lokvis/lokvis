@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "import"],
+  "categories": {
+    "correctness": "error"
+  },
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2024": true
+  },
+  "globals": {
+    "OffscreenCanvas": "readonly",
+    "createImageBitmap": "readonly",
+    "crypto": "readonly",
+    "self": "readonly"
+  },
+  "rules": {
+    "unicorn/no-useless-spread": "off",
+    "unicorn/no-empty-file": "off",
+    "typescript/triple-slash-reference": "off"
+  },
+  "ignorePatterns": [
+    "dist/**",
+    "node_modules/**",
+    "coverage/**",
+    "**/.astro/**",
+    "**/env.d.ts",
+    "**/*.config.{js,mjs,cjs,ts}",
+    "pnpm-lock.yaml"
+  ]
+}

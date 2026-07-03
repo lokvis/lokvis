@@ -3,10 +3,12 @@
  *
  * 基于 Canvas 2D filter 属性实现,浏览器原生支持,
  * 性能优于逐像素操作。
+ *
+ * W3.5:接受可选 AbortSignal,在 decode / draw / encode 之间检查。
  */
 import type { FilterParams, FilterPreset } from '../types.js';
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
-import { inferFormat } from './utils.js';
+import { inferFormat, throwIfAborted } from './utils.js';
 
 const CSS_FILTERS: Record<FilterPreset, (radius?: number) => string> = {
   grayscale: () => 'grayscale(100%)',
@@ -18,7 +20,8 @@ const CSS_FILTERS: Record<FilterPreset, (radius?: number) => string> = {
 /** Filter：应用预设滤镜 */
 export async function filter(
   blob: Blob,
-  params: Record<string, any>
+  params: Record<string, any>,
+  signal?: AbortSignal
 ): Promise<Blob> {
   const { preset, radius } = params as FilterParams;
   if (!preset || !(preset in CSS_FILTERS)) {
@@ -31,11 +34,13 @@ export async function filter(
   }
 
   const { bitmap, width, height } = await canvasEngine.decode(blob);
+  throwIfAborted(signal);
   const canvas = createCanvas(width, height);
   const ctx = get2DContext(canvas);
   ctx.filter = CSS_FILTERS[preset](radius);
   ctx.drawImage(bitmap, 0, 0);
   bitmap.close?.();
+  throwIfAborted(signal);
 
   const format = inferFormat(blob, 'png');
   return canvasEngine.encode(canvas, format, 95);

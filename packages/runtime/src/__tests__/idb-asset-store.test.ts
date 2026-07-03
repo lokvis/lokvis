@@ -6,7 +6,7 @@
  * 故 Dexie 能正确使用 fake 实现。afterAll 删除全局,避免污染其他测试文件
  * (如 opfs 降级链断言 isIdbSupported()===false)。
  */
-// eslint-disable-next-line import/no-unresolved
+// oxlint-disable-next-line import/no-unresolved
 import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import Dexie from 'dexie';

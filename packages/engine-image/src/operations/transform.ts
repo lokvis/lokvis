@@ -3,6 +3,9 @@
  *
  * 这组操作共享 computeTargetSize / inferFormat 工具,
  * 都基于 Canvas 的 drawImage / translate / rotate / scale 实现。
+ *
+ * W3.5:每个操作接受可选 AbortSignal,在 decode / draw / encode 之间检查,
+ * 使 cancel() 在长耗时的 canvas 编码阶段也能及时生效。
  */
 import type {
   CropParams,
@@ -11,11 +14,26 @@ import type {
   RotateParams,
 } from '../types.js';
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
-import { computeTargetSize, inferFormat } from './utils.js';
+import { computeTargetSize, inferFormat, throwIfAborted } from './utils.js';
 
-/** Resize：调整尺寸 */
-export async function resize(blob: Blob, params: Record<string, any>): Promise<Blob> {
+/**
+ * Resize：调整尺寸
+ *
+ * W3.2 备注:canvas 引擎的 createImageBitmap 一次性全量解码,无法在解码
+ * 阶段就按目标尺寸缩放(需先 decode 拿到源图比例才能算目标,陷入循环)。
+ * 因此 resize 走标准的 decode → computeTargetSize → drawImage 缩放路径。
+ * 大图缩小的单点内存优化(createImageBitmap resize 选项)留给未来"显式
+ * maxEdge"型 API 或 WASM 引擎使用(见 canvas-engine.decodeResized)。
+ * W3.2 真正落地的是分片基础设施(tiles.ts:splitIntoTiles / mergeChunks),
+ * 供流式流水线按 tile 处理 + 中间结果溢出 OPFS。
+ */
+export async function resize(
+  blob: Blob,
+  params: Record<string, any>,
+  signal?: AbortSignal
+): Promise<Blob> {
   const { bitmap, width: srcW, height: srcH } = await canvasEngine.decode(blob);
+  throwIfAborted(signal);
   const target = computeTargetSize(srcW, srcH, params as ResizeParams);
   const canvas = createCanvas(target.width, target.height);
   const ctx = get2DContext(canvas);
@@ -23,26 +41,38 @@ export async function resize(blob: Blob, params: Record<string, any>): Promise<B
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(bitmap, 0, 0, target.width, target.height);
   bitmap.close?.();
+  throwIfAborted(signal);
   const format = inferFormat(blob, 'png');
   return canvasEngine.encode(canvas, format, 95);
 }
 
 /** Crop：裁剪 */
-export async function crop(blob: Blob, params: Record<string, any>): Promise<Blob> {
+export async function crop(
+  blob: Blob,
+  params: Record<string, any>,
+  signal?: AbortSignal
+): Promise<Blob> {
   const { x, y, width, height } = params as CropParams;
   const { bitmap } = await canvasEngine.decode(blob);
+  throwIfAborted(signal);
   const canvas = createCanvas(width, height);
   const ctx = get2DContext(canvas);
   ctx.drawImage(bitmap, x, y, width, height, 0, 0, width, height);
   bitmap.close?.();
+  throwIfAborted(signal);
   const format = inferFormat(blob, 'png');
   return canvasEngine.encode(canvas, format, 95);
 }
 
 /** Rotate：旋转 */
-export async function rotate(blob: Blob, params: Record<string, any>): Promise<Blob> {
+export async function rotate(
+  blob: Blob,
+  params: Record<string, any>,
+  signal?: AbortSignal
+): Promise<Blob> {
   const { angle: rawAngle, background } = params as RotateParams;
   const { bitmap, width, height } = await canvasEngine.decode(blob);
+  throwIfAborted(signal);
   const angle = ((rawAngle % 360) + 360) % 360;
   const swap = angle === 90 || angle === 270;
   const outW = swap ? height : width;
@@ -55,14 +85,20 @@ export async function rotate(blob: Blob, params: Record<string, any>): Promise<B
   ctx.rotate((angle * Math.PI) / 180);
   ctx.drawImage(bitmap, -width / 2, -height / 2);
   bitmap.close?.();
+  throwIfAborted(signal);
   const format = inferFormat(blob, 'png');
   return canvasEngine.encode(canvas, format, 95);
 }
 
 /** Flip：翻转 */
-export async function flip(blob: Blob, params: Record<string, any>): Promise<Blob> {
+export async function flip(
+  blob: Blob,
+  params: Record<string, any>,
+  signal?: AbortSignal
+): Promise<Blob> {
   const { axis } = params as FlipParams;
   const { bitmap, width, height } = await canvasEngine.decode(blob);
+  throwIfAborted(signal);
   const canvas = createCanvas(width, height);
   const ctx = get2DContext(canvas);
   ctx.translate(
@@ -75,6 +111,7 @@ export async function flip(blob: Blob, params: Record<string, any>): Promise<Blo
   );
   ctx.drawImage(bitmap, 0, 0);
   bitmap.close?.();
+  throwIfAborted(signal);
   const format = inferFormat(blob, 'png');
   return canvasEngine.encode(canvas, format, 95);
 }

@@ -127,5 +127,72 @@ export interface FormatSupport {
   gif: boolean;
 }
 
+// ─── Streaming 接口规范(W3.1)────────────────────────────────────
+//
+// Canvas 引擎无法像 WASM 编解码器那样逐行流式处理(createImageBitmap
+// 全量解码),但大型图片(>500MB)需分片(tiling)处理以控制内存。
+// 以下类型定义了流式操作的契约,供未来 WASM 引擎实现;
+// canvas 引擎在 W3.2 通过 tile + createImageBitmap resize 选项近似实现。
+
+/**
+ * 图像分片(tile):大图按网格切分后的子区域。
+ * 用于 tile-based 处理,避免一次性把整张图解码到内存。
+ */
+export interface ImageTile {
+  /** 源图中的 x 偏移(像素) */
+  x: number;
+  /** 源图中的 y 偏移(像素) */
+  y: number;
+  /** tile 宽度(像素) */
+  width: number;
+  /** tile 高度(像素) */
+  height: number;
+}
+
+/**
+ * 流式操作结果:产出一系列 Blob 分片(chunk),最后合并。
+ * 每个 chunk 携带其在输出图中的位置信息。
+ */
+export interface ImageChunk {
+  /** 该 chunk 在输出图中的 tile 区域 */
+  tile: ImageTile;
+  /** 该区域的编码 Blob */
+  blob: Blob;
+}
+
+/**
+ * 流式图像操作接口(供未来 WASM / WebCodecs 引擎实现)。
+ *
+ * 约定:输入是一个 ReadableStream<Blob>(每个 Blob 是一个 tile 的编码数据),
+ * 输出是 AsyncIterable<ImageChunk>(处理后的分片)。
+ * 主线程可边接收边拼合,无需等待整张图处理完毕。
+ *
+ * canvas 引擎因 API 限制无法真正流式,改用 tile-based 同步处理近似。
+ */
+export interface StreamingImageOperation {
+  (
+    input: ReadableStream<Blob>,
+    params: Record<string, unknown>,
+    signal?: AbortSignal
+  ): AsyncIterable<ImageChunk>;
+}
+
+/**
+ * 流式引擎适配器:在 ImageEngineAdapter 基础上,
+ * 额外支持按 tile 解码/编码(供 W3.2 tile-based 处理使用)。
+ */
+export interface StreamingImageEngineAdapter extends ImageEngineAdapter {
+  /** 按区域解码(仅解码指定 tile,而非整张图) */
+  decodeRegion?(blob: Blob, tile: ImageTile): Promise<DecodedImage>;
+  /** 将多个 chunk 合并为单个 Blob(编码拼合) */
+  mergeChunks?(
+    chunks: ImageChunk[],
+    totalWidth: number,
+    totalHeight: number,
+    format: ImageOutputFormat,
+    quality?: number
+  ): Promise<Blob>;
+}
+
 /** 资产类型别名（避免直接 import AssetType 的循环依赖） */
 export type { AssetType };

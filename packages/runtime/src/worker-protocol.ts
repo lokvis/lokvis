@@ -48,7 +48,17 @@ export interface WorkerPing {
   ts: number;
 }
 
-export type WorkerMessageToWorker = WorkerRequest | WorkerPing;
+/**
+ * 取消一个正在执行的请求(W3.5 cancel 贯穿)。
+ * Host 在 AbortSignal 触发时发送,Worker 据此中止当前计算。
+ */
+export interface WorkerCancel {
+  type: 'cancel';
+  /** 要取消的请求 id */
+  id: string;
+}
+
+export type WorkerMessageToWorker = WorkerRequest | WorkerPing | WorkerCancel;
 
 // ─── Worker → Host 消息 ─────────────────────────────────────────
 

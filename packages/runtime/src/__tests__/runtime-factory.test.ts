@@ -5,6 +5,7 @@
  * 通过导入资产后检查 blob.path 前缀验证实际使用的 store 类型。
  */
 import { describe, it, expect } from 'vitest';
+import type { LokvisEvent } from '@lokvis/schema';
 import { createRuntime, LokvisRuntimeImpl } from '../runtime.js';
 import {
   createAssetStore,
@@ -142,10 +143,12 @@ describe('runtime.run schema 校验（修复 review：__input__ 哨兵边误判�
 
   it('校验失败时应发射 workflow:completed 事件（status=failed）', async () => {
     const runtime = await createRuntime({ enableOpfs: false });
-    const events: { type: string; result?: { status: string } }[] = [];
-    runtime.eventBus.onAny((e) => events.push(e as any));
+    const events: LokvisEvent[] = [];
+    runtime.eventBus.onAny((e) => events.push(e));
     await runtime.run(buildSentinelWorkflow(), []);
-    const completed = events.find((e) => e.type === 'workflow:completed');
+    const completed = events.find((e) => e.type === 'workflow:completed') as
+      | { type: string; result?: { status: string } }
+      | undefined;
     expect(completed).toBeDefined();
     expect(completed?.result?.status).toBe('failed');
   });

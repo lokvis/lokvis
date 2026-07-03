@@ -6,7 +6,7 @@
  */
 import type { WatermarkParams, WatermarkPosition } from '../types.js';
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
-import { inferFormat } from './utils.js';
+import { inferFormat, throwIfAborted } from './utils.js';
 
 /**
  * 校验图片水印 URL 是否安全（防 SSRF）。
@@ -46,7 +46,8 @@ function isSafeImageUrl(url: string): boolean {
 /** Watermark：水印 */
 export async function watermark(
   blob: Blob,
-  params: Record<string, any>
+  params: Record<string, any>,
+  signal?: AbortSignal
 ): Promise<Blob> {
   const {
     text,
@@ -58,6 +59,7 @@ export async function watermark(
   } = params as WatermarkParams;
 
   const { bitmap, width, height } = await canvasEngine.decode(blob);
+  throwIfAborted(signal);
   const canvas = createCanvas(width, height);
   const ctx = get2DContext(canvas);
   ctx.drawImage(bitmap, 0, 0);
@@ -72,7 +74,8 @@ export async function watermark(
         `Watermark image URL not allowed (SSRF guard): ${imageUrl}`
       );
     }
-    const resp = await fetch(imageUrl);
+    // fetch 本身可接受 AbortSignal,使网络阶段也能被 cancel 中断
+    const resp = await fetch(imageUrl, signal ? { signal } : undefined);
     if (!resp.ok) {
       throw new Error(
         `Failed to fetch watermark image from ${imageUrl}: ${resp.status} ${resp.statusText}`
@@ -86,6 +89,7 @@ export async function watermark(
     if (position === 'tile') {
       const spacing = Math.max(wmW, wmH);
       for (let y = 0; y < height + wmH; y += wmH + spacing) {
+        throwIfAborted(signal);
         for (let x = 0; x < width + wmW; x += wmW + spacing) {
           ctx.drawImage(wmBitmap, x, y, wmW, wmH);
         }
@@ -112,6 +116,7 @@ export async function watermark(
     if (position === 'tile') {
       const spacing = Math.max(textW, size) * 1.5;
       for (let y = 0; y < height + size; y += size + spacing) {
+        throwIfAborted(signal);
         for (let x = 0; x < width + textW; x += textW + spacing) {
           ctx.fillText(text, x, y);
         }
@@ -128,6 +133,7 @@ export async function watermark(
     }
   }
   ctx.globalAlpha = 1;
+  throwIfAborted(signal);
 
   const format = inferFormat(blob, 'png');
   return canvasEngine.encode(canvas, format, 95);
