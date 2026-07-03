@@ -71,7 +71,7 @@ export function useLokvis(options: UseLokvisOptions = {}): UseLokvisResult {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return { runtime, status, error };
