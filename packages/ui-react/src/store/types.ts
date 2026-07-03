@@ -40,6 +40,9 @@ export interface WorkspaceState {
   statusMessage: string;
   /** 错误信息 */
   error: string | null;
+
+  /** 存储配额使用情况(W6.7):{ usage, quota } 字节,null 表示未查询 */
+  storageUsage: { usage: number; quota: number } | null;
 }
 
 /** 工作台操作 */
@@ -76,6 +79,8 @@ export interface WorkspaceActions {
   setStatus(message: string): void;
   /** 设置错误 */
   setError(error: string | null): void;
+  /** 刷新存储配额使用情况(W6.7) */
+  refreshStorageUsage(): Promise<void>;
   /** 清空工作流 */
   clearWorkflow(): void;
 }

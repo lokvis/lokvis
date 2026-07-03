@@ -36,6 +36,7 @@ export const createAssetsSlice: StateCreator<
       await runtime.importAsset({ kind: 'file', file });
     }
     await get().refreshAssets();
+    await get().refreshStorageUsage();
     set({ statusMessage: `Imported ${files.length} file(s)` });
   },
 
@@ -52,6 +53,7 @@ export const createAssetsSlice: StateCreator<
     if (!runtime) return;
     await runtime.removeAsset(id);
     await get().refreshAssets();
+    await get().refreshStorageUsage();
     if (get().selectedAssetId === id) set({ selectedAssetId: null });
 
     // 修复 review 报告：原实现删除 asset 后未 revoke 缩略图 ObjectURL，导致

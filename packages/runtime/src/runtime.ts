@@ -442,6 +442,15 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     return this.assetStore.list();
   }
 
+  async getStorageUsage(): Promise<{ usage: number; quota: number }> {
+    // 基于 listAssets 实时计算 usage(与 wrapAssetStoreWithQuota.ensureInit
+    // 的初始 usage 计算一致),反映 runtime 实际占用。
+    // 不读 wrapAssetStoreWithQuota 内部 usage 闭包,避免泄露包装器内部状态。
+    const all = await this.assetStore.list();
+    const usage = all.reduce((sum, a) => sum + a.metadata.size, 0);
+    return { usage, quota: this.config.storageQuota };
+  }
+
   // ─── 能力查询 ────────────────────────────────────────
 
   async capabilities(): Promise<Capability[]> {

@@ -147,6 +147,7 @@ export const createWorkflowSlice: StateCreator<
       }
 
       await get().refreshAssets();
+      await get().refreshStorageUsage();
       return outputs;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

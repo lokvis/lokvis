@@ -137,6 +137,18 @@ export interface LokvisRuntime {
   removeAsset(id: AssetId): Promise<void>;
   /** 列出所有资产 */
   listAssets(): Promise<Asset[]>;
+  /**
+   * 查询存储配额使用情况(W6.7)。
+   *
+   * 返回 `{ usage, quota }`:
+   * - `usage`:当前已用字节数(所有资产 metadata.size 之和)
+   * - `quota`:配置的存储配额上限(RuntimeConfig.storageQuota,默认 1GB)
+   *
+   * UI 据此展示"已用/总额"进度条,接近上限(>=80%)时警告。
+   * 注意:usage 基于 listAssets 实时计算,反映 runtime 实际占用,
+   * 与浏览器 `navigator.storage.estimate()`(origin 整体 OPFS)不同。
+   */
+  getStorageUsage(): Promise<{ usage: number; quota: number }>;
 
   // ─── 能力查询 ────────────────────────────────────────
   /** 列出所有已注册能力 */
