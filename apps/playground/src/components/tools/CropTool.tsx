@@ -40,13 +40,12 @@ export default function CropTool() {
   const [preset, setPreset] = useState<Preset>('free');
   const [skipped, setSkipped] = useState(0);
 
-  const handleFiles = useCallback(
-    async (files: File[]) => {
-      const res = await tool.handleFiles(files);
-      setSkipped(res.skipped);
-    },
-    [tool]
-  );
+  // 不用 useCallback:`tool` 是 useImageTool() 每次返回的新对象字面量,
+  // 放进依赖数组会让 callback 每次重建——等于没 memo。函数本身轻量,直接用普通函数。
+  const handleFiles = async (files: File[]) => {
+    const res = await tool.handleFiles(files);
+    setSkipped(res.skipped);
+  };
 
   // 应用预设比例:按图片尺寸计算居中裁剪框(注意依赖 tool.inputInfo)
   const applyPreset = useCallback((p: Preset) => {

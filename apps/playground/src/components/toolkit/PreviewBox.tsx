@@ -1,9 +1,10 @@
 /**
  * PreviewBox — 图片预览容器,显示 Blob URL + 元信息(尺寸/大小/格式)。
  *
- * 用于工具页的 Input/Output 双栏对比。自动在 unmount 时 revoke ObjectURL。
+ * 用于工具页的 Input/Output 双栏对比。容器只展示 url,
+ * url 的生命周期(createObjectURL / revokeObjectURL)由调用方管理,
+ * 便于 Input/Output 复用同一 url 或在切换图片时统一 revoke。
  */
-import { useEffect } from 'react';
 
 export interface PreviewBoxProps {
   /** Blob URL(由 URL.createObjectURL 生成),null 时显示占位 */
@@ -17,11 +18,6 @@ export interface PreviewBoxProps {
 }
 
 export function PreviewBox({ url, title, meta, action, className = '' }: PreviewBoxProps) {
-  // 容器只展示 url,url 的生命周期由调用方管理(便于 Input/Output 复用同一 url)
-  useEffect(() => {
-    // no-op:仅保留 hook 形态以备未来扩展(如自动 revoke)
-  }, [url]);
-
   return (
     <div className={`flex flex-col overflow-hidden rounded-lg border border-zinc-800 ${className}`}>
       {title && (
