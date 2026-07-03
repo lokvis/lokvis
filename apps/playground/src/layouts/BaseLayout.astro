@@ -13,8 +13,8 @@ import '../styles/global.css';
 
 interface Props {
   title?: string;
-  /** 当前激活的 sidebar 项 ID */
-  active?: 'home' | 'runtime' | 'image' | 'history' | 'mcp' | 'components' | 'tools/compress' | 'tools/resize' | 'tools/convert' | 'tools/crop' | 'tools/watermark' | 'tools/batch' | 'tools/download';
+  /** 当前激活的 sidebar 项 ID(对应 NAV_GROUPS 中 item.id) */
+  active?: string;
 }
 
 const { title = 'Lokvis Playground', active = 'home' } = Astro.props;

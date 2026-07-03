@@ -22,6 +22,9 @@ export default defineConfig({
     include: [
       'packages/**/src/__tests__/**/*.test.ts',
       'packages/**/src/__tests__/**/*.test.tsx',
+      // W5 后 playground toolkit 有纯函数单测
+      'apps/playground/src/**/*.test.ts',
+      'apps/playground/src/**/*.test.tsx',
     ],
     environment: 'node',
     globals: false,

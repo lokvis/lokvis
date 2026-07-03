@@ -4,12 +4,12 @@
  * 导入图片 → x/y/width/height 数值输入 + 预设比例(1:1/16:9/4:3/3:4/自由)→ crop → before/after 对比 + 下载
  * 调用 image.crop capability。预设比例按图片尺寸自动计算居中裁剪框。
  */
-import { useCallback, useEffect, useState } from 'react';
-import type { AssetId, Workflow } from '@lokvis/sdk';
+import { useCallback, useState } from 'react';
+import type { Workflow } from '@lokvis/sdk';
 import { UploadBox } from '../toolkit/UploadBox';
 import { PreviewBox } from '../toolkit/PreviewBox';
-import { useLokvisRuntime } from '../toolkit/useLokvisRuntime';
-import { downloadBlob, formatBytes, getImageInfo, imageInfoToMeta, type ImageInfo } from '../toolkit/download';
+import { useImageTool } from '../toolkit/useImageTool';
+import { downloadBlob, formatBytes, imageInfoToMeta } from '../toolkit/download';
 
 type Preset = '1:1' | '16:9' | '4:3' | '3:4' | 'free';
 
@@ -32,38 +32,23 @@ function computeCenteredCrop(w: number, h: number, rw: number, rh: number) {
 }
 
 export default function CropTool() {
-  const { runtime, ready, error: initError } = useLokvisRuntime();
-  const [inputId, setInputId] = useState<AssetId | null>(null);
-  const [inputUrl, setInputUrl] = useState<string | null>(null);
-  const [inputInfo, setInputInfo] = useState<ImageInfo | null>(null);
-  const [outputBlob, setOutputBlob] = useState<Blob | null>(null);
-  const [outputInfo, setOutputInfo] = useState<ImageInfo | null>(null);
+  const tool = useImageTool();
   const [x, setX] = useState(0);
   const [y, setY] = useState(0);
   const [width, setWidth] = useState(200);
   const [height, setHeight] = useState(200);
   const [preset, setPreset] = useState<Preset>('free');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [skipped, setSkipped] = useState(0);
 
-  const handleFiles = useCallback(async (files: File[]) => {
-    if (!runtime || files.length === 0) return;
-    try {
-      const file = files[0]!;
-      const id = await runtime.importAsset({ kind: 'file', file });
-      setInputId(id);
-      const url = URL.createObjectURL(file);
-      setInputUrl(url);
-      setInputInfo(await getImageInfo(file));
-      setOutputBlob(null);
-      setOutputInfo(null);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [runtime]);
+  const handleFiles = useCallback(
+    async (files: File[]) => {
+      const res = await tool.handleFiles(files);
+      setSkipped(res.skipped);
+    },
+    [tool]
+  );
 
-  // 应用预设比例:按图片尺寸计算居中裁剪框
+  // 应用预设比例:按图片尺寸计算居中裁剪框(注意依赖 tool.inputInfo)
   const applyPreset = useCallback((p: Preset) => {
     setPreset(p);
     if (p === 'free') {
@@ -74,7 +59,7 @@ export default function CropTool() {
       setHeight(200);
       return;
     }
-    if (!inputInfo) return;
+    if (!tool.inputInfo) return;
     const ratios: Record<Exclude<Preset, 'free'>, [number, number]> = {
       '1:1': [1, 1],
       '16:9': [16, 9],
@@ -82,68 +67,34 @@ export default function CropTool() {
       '3:4': [3, 4],
     };
     const [rw, rh] = ratios[p];
-    const box = computeCenteredCrop(inputInfo.width, inputInfo.height, rw, rh);
+    const box = computeCenteredCrop(tool.inputInfo.width, tool.inputInfo.height, rw, rh);
     setX(box.x);
     setY(box.y);
     setWidth(box.width);
     setHeight(box.height);
-  }, [inputInfo]);
+  }, [tool.inputInfo]);
 
   const handleCrop = useCallback(async () => {
-    if (!runtime || !inputId) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const wf: Workflow = {
-        id: `crop-${Date.now()}`,
-        version: '1.0',
-        name: 'Crop',
-        description: 'Crop image to a region',
-        author: { id: 'playground', name: 'Playground' },
-        category: 'image',
-        tags: [],
-        nodes: [
-          { id: 'n1', type: 'transform', capability: 'image.crop', params: { x, y, width, height } },
-        ],
-        edges: [],
-        inputs: { type: 'image', multiple: false },
-        outputs: { type: 'image' },
-      };
-      const result = await runtime.run(wf, [inputId]);
-      if (result.status === 'completed' && result.outputs[0]) {
-        const blob = await runtime.exportAsset(result.outputs[0]);
-        setOutputBlob(blob);
-        setOutputInfo(await getImageInfo(blob));
-      } else {
-        setError(result.error ?? 'crop 失败');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }, [runtime, inputId, x, y, width, height]);
-
-  // output Blob → URL,自动 revoke
-  const [outputUrl, setOutputUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!outputBlob) {
-      setOutputUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(outputBlob);
-    setOutputUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [outputBlob]);
-
-  // cleanup input url
-  useEffect(() => {
-    return () => {
-      if (inputUrl) URL.revokeObjectURL(inputUrl);
+    const wf: Workflow = {
+      id: `crop-${Date.now()}`,
+      version: '1.0',
+      name: 'Crop',
+      description: 'Crop image to a region',
+      author: { id: 'playground', name: 'Playground' },
+      category: 'image',
+      tags: [],
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'image.crop', params: { x, y, width, height } },
+      ],
+      edges: [],
+      inputs: { type: 'image', multiple: false },
+      outputs: { type: 'image' },
     };
-  }, [inputUrl]);
+    await tool.runWorkflow(wf);
+  }, [tool, x, y, width, height]);
 
   const presets: Preset[] = ['1:1', '16:9', '4:3', '3:4', 'free'];
+  const { inputInfo, outputInfo } = tool;
 
   return (
     <div className="flex h-full flex-col">
@@ -154,7 +105,7 @@ export default function CropTool() {
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
         {/* 参数面板 */}
-        <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-5">
           <label className="flex flex-col gap-1">
             <span className="text-[10px] font-medium text-zinc-500">X(px)</span>
             <input
@@ -195,6 +146,15 @@ export default function CropTool() {
               className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
             />
           </label>
+          <div className="flex items-end">
+            <button
+              onClick={handleCrop}
+              disabled={!tool.ready || !tool.inputId || tool.busy || width < 1 || height < 1}
+              className="w-full rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {tool.busy ? 'Crop 中…' : 'Crop'}
+            </button>
+          </div>
         </div>
 
         {/* 预设比例 */}
@@ -204,7 +164,7 @@ export default function CropTool() {
             <button
               key={p}
               onClick={() => applyPreset(p)}
-              disabled={!inputInfo}
+              disabled={!tool.inputInfo}
               className={`rounded border px-2.5 py-1 text-[11px] disabled:cursor-not-allowed disabled:opacity-40 ${
                 preset === p
                   ? 'border-indigo-500 bg-indigo-600/20 text-indigo-300'
@@ -216,18 +176,13 @@ export default function CropTool() {
           ))}
         </div>
 
-        <div className="flex justify-end">
-          <button
-            onClick={handleCrop}
-            disabled={!ready || !inputId || busy || width < 1 || height < 1}
-            className="rounded-lg bg-indigo-600 px-6 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {busy ? 'Crop 中…' : 'Crop'}
-          </button>
-        </div>
-
-        {initError && <p className="text-xs text-red-400">初始化失败:{initError}</p>}
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {tool.initError && <p className="text-xs text-red-400">初始化失败:{tool.initError}</p>}
+        {tool.error && <p className="text-xs text-red-400">{tool.error}</p>}
+        {skipped > 0 && (
+          <p className="text-xs text-amber-400">
+            仅处理首个文件,已忽略其余 {skipped} 个(批量处理请用 Batch Queue)
+          </p>
+        )}
         {inputInfo && outputInfo && (
           <p className="text-xs text-emerald-400">
             {inputInfo.width}×{inputInfo.height} → {outputInfo.width}×{outputInfo.height} · {formatBytes(inputInfo.size)} → {formatBytes(outputInfo.size)}
@@ -236,21 +191,21 @@ export default function CropTool() {
 
         {/* Input / Output 对比 */}
         <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
-          {!inputId ? (
+          {!tool.inputId ? (
             <UploadBox onFiles={handleFiles} hint="选择或拖入图片" className="md:col-span-2" />
           ) : (
             <>
-              <PreviewBox title="Input" url={inputUrl} meta={imageInfoToMeta(inputInfo)} />
+              <PreviewBox title="Input" url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
               <PreviewBox
                 title="Output"
-                url={outputUrl}
-                meta={imageInfoToMeta(outputInfo)}
+                url={tool.outputUrl}
+                meta={imageInfoToMeta(tool.outputInfo)}
                 action={
-                  outputBlob && (
+                  tool.outputBlob && (
                     <button
                       onClick={() =>
                         downloadBlob(
-                          outputBlob,
+                          tool.outputBlob!,
                           `cropped-${outputInfo?.width ?? width}x${outputInfo?.height ?? height}.${(outputInfo?.format ?? 'png').toLowerCase()}`
                         )
                       }
@@ -265,15 +220,9 @@ export default function CropTool() {
           )}
         </div>
 
-        {inputId && (
+        {tool.inputId && (
           <button
-            onClick={() => {
-              setInputId(null);
-              setInputUrl(null);
-              setInputInfo(null);
-              setOutputBlob(null);
-              setOutputInfo(null);
-            }}
+            onClick={tool.reset}
             className="self-start text-[10px] text-zinc-500 hover:text-zinc-300"
           >
             ← 重新选择图片

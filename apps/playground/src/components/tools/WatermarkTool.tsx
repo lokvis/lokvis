@@ -4,12 +4,12 @@
  * 导入图片 → 水印文字 + 位置(6 个)+ 透明度 + 字号 + 颜色 → 加水印 → before/after 对比 + 下载
  * 调用 image.watermark capability。
  */
-import { useCallback, useEffect, useState } from 'react';
-import type { AssetId, Workflow } from '@lokvis/sdk';
+import { useCallback, useState } from 'react';
+import type { Workflow } from '@lokvis/sdk';
 import { UploadBox } from '../toolkit/UploadBox';
 import { PreviewBox } from '../toolkit/PreviewBox';
-import { useLokvisRuntime } from '../toolkit/useLokvisRuntime';
-import { downloadBlob, formatBytes, getImageInfo, imageInfoToMeta, type ImageInfo } from '../toolkit/download';
+import { useImageTool } from '../toolkit/useImageTool';
+import { downloadBlob, formatBytes, imageInfoToMeta } from '../toolkit/download';
 
 type Position = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center' | 'tile';
 
@@ -23,95 +23,51 @@ const POSITIONS: { value: Position; label: string }[] = [
 ];
 
 export default function WatermarkTool() {
-  const { runtime, ready, error: initError } = useLokvisRuntime();
-  const [inputId, setInputId] = useState<AssetId | null>(null);
-  const [inputUrl, setInputUrl] = useState<string | null>(null);
-  const [inputInfo, setInputInfo] = useState<ImageInfo | null>(null);
-  const [outputBlob, setOutputBlob] = useState<Blob | null>(null);
-  const [outputInfo, setOutputInfo] = useState<ImageInfo | null>(null);
+  const tool = useImageTool();
   const [text, setText] = useState('Lokvis');
   const [position, setPosition] = useState<Position>('bottom-right');
   const [opacity, setOpacity] = useState(0.8);
   const [fontSize, setFontSize] = useState(24);
   const [color, setColor] = useState('#ffffff');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [skipped, setSkipped] = useState(0);
 
-  const handleFiles = useCallback(async (files: File[]) => {
-    if (!runtime || files.length === 0) return;
-    try {
-      const file = files[0]!;
-      const id = await runtime.importAsset({ kind: 'file', file });
-      setInputId(id);
-      const url = URL.createObjectURL(file);
-      setInputUrl(url);
-      setInputInfo(await getImageInfo(file));
-      setOutputBlob(null);
-      setOutputInfo(null);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [runtime]);
+  const handleFiles = useCallback(
+    async (files: File[]) => {
+      const res = await tool.handleFiles(files);
+      setSkipped(res.skipped);
+    },
+    [tool]
+  );
 
   const handleWatermark = useCallback(async () => {
-    if (!runtime || !inputId) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const wf: Workflow = {
-        id: `watermark-${Date.now()}`,
-        version: '1.0',
-        name: 'Watermark',
-        description: 'Add text watermark to image',
-        author: { id: 'playground', name: 'Playground' },
-        category: 'image',
-        tags: [],
-        nodes: [
-          {
-            id: 'n1',
-            type: 'transform',
-            capability: 'image.watermark',
-            params: { text, position, opacity, fontSize, color },
-          },
-        ],
-        edges: [],
-        inputs: { type: 'image', multiple: false },
-        outputs: { type: 'image' },
-      };
-      const result = await runtime.run(wf, [inputId]);
-      if (result.status === 'completed' && result.outputs[0]) {
-        const blob = await runtime.exportAsset(result.outputs[0]);
-        setOutputBlob(blob);
-        setOutputInfo(await getImageInfo(blob));
-      } else {
-        setError(result.error ?? '加水印失败');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }, [runtime, inputId, text, position, opacity, fontSize, color]);
-
-  // output Blob → URL,自动 revoke
-  const [outputUrl, setOutputUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!outputBlob) {
-      setOutputUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(outputBlob);
-    setOutputUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [outputBlob]);
-
-  // cleanup input url
-  useEffect(() => {
-    return () => {
-      if (inputUrl) URL.revokeObjectURL(inputUrl);
+    // #13:text 为空时不执行 runWorkflow,只通过 UI 提示(按钮始终可点击)
+    if (!text) return;
+    const wf: Workflow = {
+      id: `watermark-${Date.now()}`,
+      version: '1.0',
+      name: 'Watermark',
+      description: 'Add text watermark to image',
+      author: { id: 'playground', name: 'Playground' },
+      category: 'image',
+      tags: [],
+      nodes: [
+        {
+          id: 'n1',
+          type: 'transform',
+          capability: 'image.watermark',
+          params: { text, position, opacity, fontSize, color },
+        },
+      ],
+      edges: [],
+      inputs: { type: 'image', multiple: false },
+      outputs: { type: 'image' },
     };
-  }, [inputUrl]);
+    await tool.runWorkflow(wf);
+  }, [tool, text, position, opacity, fontSize, color]);
+
+  // text 为空时给出友好提示,按钮仍可点击(#13)
+  const textEmpty = !text;
+  const { inputInfo, outputInfo } = tool;
 
   return (
     <div className="flex h-full flex-col">
@@ -180,15 +136,23 @@ export default function WatermarkTool() {
         <div className="flex justify-end">
           <button
             onClick={handleWatermark}
-            disabled={!ready || !inputId || busy || !text}
+            disabled={!tool.ready || !tool.inputId || tool.busy}
             className="rounded-lg bg-indigo-600 px-6 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {busy ? '加水印中…' : '加水印'}
+            {tool.busy ? '加水印中…' : '加水印'}
           </button>
         </div>
 
-        {initError && <p className="text-xs text-red-400">初始化失败:{initError}</p>}
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {tool.initError && <p className="text-xs text-red-400">初始化失败:{tool.initError}</p>}
+        {tool.error && <p className="text-xs text-red-400">{tool.error}</p>}
+        {textEmpty && tool.inputId && (
+          <p className="text-xs text-amber-400">请输入水印文字</p>
+        )}
+        {skipped > 0 && (
+          <p className="text-xs text-amber-400">
+            仅处理首个文件,已忽略其余 {skipped} 个(批量处理请用 Batch Queue)
+          </p>
+        )}
         {inputInfo && outputInfo && (
           <p className="text-xs text-emerald-400">
             水印已应用 · {formatBytes(inputInfo.size)} → {formatBytes(outputInfo.size)}
@@ -197,20 +161,20 @@ export default function WatermarkTool() {
 
         {/* Input / Output 对比 */}
         <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
-          {!inputId ? (
+          {!tool.inputId ? (
             <UploadBox onFiles={handleFiles} hint="选择或拖入图片" className="md:col-span-2" />
           ) : (
             <>
-              <PreviewBox title="Input" url={inputUrl} meta={imageInfoToMeta(inputInfo)} />
+              <PreviewBox title="Input" url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
               <PreviewBox
                 title="Output"
-                url={outputUrl}
-                meta={imageInfoToMeta(outputInfo)}
+                url={tool.outputUrl}
+                meta={imageInfoToMeta(tool.outputInfo)}
                 action={
-                  outputBlob && (
+                  tool.outputBlob && (
                     <button
                       onClick={() =>
-                        downloadBlob(outputBlob, `watermarked.${(outputInfo?.format ?? 'png').toLowerCase()}`)
+                        downloadBlob(tool.outputBlob!, `watermarked.${(outputInfo?.format ?? 'png').toLowerCase()}`)
                       }
                       className="text-[10px] text-indigo-400 hover:text-indigo-300"
                     >
@@ -223,15 +187,9 @@ export default function WatermarkTool() {
           )}
         </div>
 
-        {inputId && (
+        {tool.inputId && (
           <button
-            onClick={() => {
-              setInputId(null);
-              setInputUrl(null);
-              setInputInfo(null);
-              setOutputBlob(null);
-              setOutputInfo(null);
-            }}
+            onClick={tool.reset}
             className="self-start text-[10px] text-zinc-500 hover:text-zinc-300"
           >
             ← 重新选择图片

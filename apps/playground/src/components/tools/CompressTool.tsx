@@ -4,101 +4,59 @@
  * 导入图片 → 选择格式(WebP/AVIF/JPEG/PNG)+ 质量滑块 → 压缩 → before/after 对比 + 下载
  * 调用 image.compress capability。
  */
-import { useCallback, useEffect, useState } from 'react';
-import type { AssetId, Workflow } from '@lokvis/sdk';
+import { useCallback, useState } from 'react';
+import type { Workflow } from '@lokvis/sdk';
 import { UploadBox } from '../toolkit/UploadBox';
 import { PreviewBox } from '../toolkit/PreviewBox';
-import { useLokvisRuntime } from '../toolkit/useLokvisRuntime';
-import { downloadBlob, formatBytes, getImageInfo, imageInfoToMeta, type ImageInfo } from '../toolkit/download';
+import { useImageTool } from '../toolkit/useImageTool';
+import { downloadBlob, formatBytes, imageInfoToMeta } from '../toolkit/download';
 
 type Format = 'webp' | 'avif' | 'jpeg' | 'png';
 
 export default function CompressTool() {
-  const { runtime, ready, error: initError } = useLokvisRuntime();
-  const [inputId, setInputId] = useState<AssetId | null>(null);
-  const [inputUrl, setInputUrl] = useState<string | null>(null);
-  const [inputInfo, setInputInfo] = useState<ImageInfo | null>(null);
-  const [outputBlob, setOutputBlob] = useState<Blob | null>(null);
-  const [outputInfo, setOutputInfo] = useState<ImageInfo | null>(null);
+  const tool = useImageTool();
   const [format, setFormat] = useState<Format>('webp');
   const [quality, setQuality] = useState(85);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [skipped, setSkipped] = useState(0);
 
-  const handleFiles = useCallback(async (files: File[]) => {
-    if (!runtime || files.length === 0) return;
-    try {
-      const file = files[0]!;
-      const id = await runtime.importAsset({ kind: 'file', file });
-      setInputId(id);
-      const url = URL.createObjectURL(file);
-      setInputUrl(url);
-      setInputInfo(await getImageInfo(file));
-      setOutputBlob(null);
-      setOutputInfo(null);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [runtime]);
+  const handleFiles = useCallback(
+    async (files: File[]) => {
+      const res = await tool.handleFiles(files);
+      setSkipped(res.skipped);
+    },
+    [tool]
+  );
 
   const handleCompress = useCallback(async () => {
-    if (!runtime || !inputId) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const wf: Workflow = {
-        id: `compress-${Date.now()}`,
-        version: '1.0',
-        name: 'Compress',
-        description: 'Compress image with specified quality',
-        author: { id: 'playground', name: 'Playground' },
-        category: 'image',
-        tags: [],
-        nodes: [
-          { id: 'n1', type: 'transform', capability: 'image.compress', params: { format, quality } },
-        ],
-        edges: [],
-        inputs: { type: 'image', multiple: false },
-        outputs: { type: 'image' },
-      };
-      const result = await runtime.run(wf, [inputId]);
-      if (result.status === 'completed' && result.outputs[0]) {
-        const blob = await runtime.exportAsset(result.outputs[0]);
-        setOutputBlob(blob);
-        setOutputInfo(await getImageInfo(blob));
-      } else {
-        setError(result.error ?? '压缩失败');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }, [runtime, inputId, format, quality]);
-
-  // output Blob → URL,自动 revoke
-  const [outputUrl, setOutputUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!outputBlob) {
-      setOutputUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(outputBlob);
-    setOutputUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [outputBlob]);
-
-  // cleanup input url
-  useEffect(() => {
-    return () => {
-      if (inputUrl) URL.revokeObjectURL(inputUrl);
+    const wf: Workflow = {
+      id: `compress-${Date.now()}`,
+      version: '1.0',
+      name: 'Compress',
+      description: 'Compress image with specified quality',
+      author: { id: 'playground', name: 'Playground' },
+      category: 'image',
+      tags: [],
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'image.compress', params: { format, quality } },
+      ],
+      edges: [],
+      inputs: { type: 'image', multiple: false },
+      outputs: { type: 'image' },
     };
-  }, [inputUrl]);
+    await tool.runWorkflow(wf);
+  }, [tool, format, quality]);
 
-  const compressionRatio = inputInfo && outputInfo
-    ? ((1 - outputInfo.size / inputInfo.size) * 100).toFixed(1)
-    : null;
+  // 压缩率:输出比输入小时为正(节省),比输入大时为负(增大),分别给不同文案
+  const { inputInfo, outputInfo } = tool;
+  let ratioText: string | null = null;
+  if (inputInfo && outputInfo) {
+    const ratio = (1 - outputInfo.size / inputInfo.size) * 100;
+    if (ratio >= 0) {
+      ratioText = `节省 ${ratio.toFixed(1)}%(${formatBytes(inputInfo.size)} → ${formatBytes(outputInfo.size)})`;
+    } else {
+      ratioText = `增大 ${(-ratio).toFixed(1)}%(${formatBytes(inputInfo.size)} → ${formatBytes(outputInfo.size)})`;
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -137,37 +95,42 @@ export default function CompressTool() {
           <div className="flex items-end">
             <button
               onClick={handleCompress}
-              disabled={!ready || !inputId || busy}
+              disabled={!tool.ready || !tool.inputId || tool.busy}
               className="w-full rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {busy ? '压缩中…' : '压缩'}
+              {tool.busy ? '压缩中…' : '压缩'}
             </button>
           </div>
         </div>
 
-        {initError && <p className="text-xs text-red-400">初始化失败:{initError}</p>}
-        {error && <p className="text-xs text-red-400">{error}</p>}
-        {compressionRatio && (
-          <p className="text-xs text-emerald-400">
-            压缩率 {compressionRatio}%({formatBytes(inputInfo!.size)} → {formatBytes(outputInfo!.size)})
+        {tool.initError && <p className="text-xs text-red-400">初始化失败:{tool.initError}</p>}
+        {tool.error && <p className="text-xs text-red-400">{tool.error}</p>}
+        {skipped > 0 && (
+          <p className="text-xs text-amber-400">
+            仅处理首个文件,已忽略其余 {skipped} 个(批量处理请用 Batch Queue)
+          </p>
+        )}
+        {ratioText && (
+          <p className={`text-xs ${outputInfo && inputInfo && outputInfo.size <= inputInfo.size ? 'text-emerald-400' : 'text-amber-400'}`}>
+            {ratioText}
           </p>
         )}
 
         {/* Input / Output 对比 */}
         <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
-          {!inputId ? (
+          {!tool.inputId ? (
             <UploadBox onFiles={handleFiles} hint="选择或拖入图片" className="md:col-span-2" />
           ) : (
             <>
-              <PreviewBox title="Input" url={inputUrl} meta={imageInfoToMeta(inputInfo)} />
+              <PreviewBox title="Input" url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
               <PreviewBox
                 title="Output"
-                url={outputUrl}
-                meta={imageInfoToMeta(outputInfo)}
+                url={tool.outputUrl}
+                meta={imageInfoToMeta(tool.outputInfo)}
                 action={
-                  outputBlob && (
+                  tool.outputBlob && (
                     <button
-                      onClick={() => downloadBlob(outputBlob, `compressed.${format}`)}
+                      onClick={() => downloadBlob(tool.outputBlob!, `compressed.${format}`)}
                       className="text-[10px] text-indigo-400 hover:text-indigo-300"
                     >
                       下载
@@ -179,15 +142,9 @@ export default function CompressTool() {
           )}
         </div>
 
-        {inputId && (
+        {tool.inputId && (
           <button
-            onClick={() => {
-              setInputId(null);
-              setInputUrl(null);
-              setInputInfo(null);
-              setOutputBlob(null);
-              setOutputInfo(null);
-            }}
+            onClick={tool.reset}
             className="self-start text-[10px] text-zinc-500 hover:text-zinc-300"
           >
             ← 重新选择图片

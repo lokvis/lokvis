@@ -4,102 +4,54 @@
  * 导入图片 → 宽度/高度输入 + fit 选择(cover/contain/fill/inside/outside)+ 保持比例 toggle → resize → before/after 对比 + 下载
  * 调用 image.resize capability。高度留空(0)表示按比例自动。
  */
-import { useCallback, useEffect, useState } from 'react';
-import type { AssetId, Workflow } from '@lokvis/sdk';
+import { useCallback, useState } from 'react';
+import type { Workflow } from '@lokvis/sdk';
 import { UploadBox } from '../toolkit/UploadBox';
 import { PreviewBox } from '../toolkit/PreviewBox';
-import { useLokvisRuntime } from '../toolkit/useLokvisRuntime';
-import { downloadBlob, formatBytes, getImageInfo, imageInfoToMeta, type ImageInfo } from '../toolkit/download';
+import { useImageTool } from '../toolkit/useImageTool';
+import { downloadBlob, formatBytes, imageInfoToMeta } from '../toolkit/download';
 
 type Fit = 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
 
 export default function ResizeTool() {
-  const { runtime, ready, error: initError } = useLokvisRuntime();
-  const [inputId, setInputId] = useState<AssetId | null>(null);
-  const [inputUrl, setInputUrl] = useState<string | null>(null);
-  const [inputInfo, setInputInfo] = useState<ImageInfo | null>(null);
-  const [outputBlob, setOutputBlob] = useState<Blob | null>(null);
-  const [outputInfo, setOutputInfo] = useState<ImageInfo | null>(null);
+  const tool = useImageTool();
   const [width, setWidth] = useState(800);
   const [height, setHeight] = useState(0); // 0 表示按比例自动
   const [fit, setFit] = useState<Fit>('inside');
   const [maintainAspectRatio, setMaintainAspectRatio] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [skipped, setSkipped] = useState(0);
 
-  const handleFiles = useCallback(async (files: File[]) => {
-    if (!runtime || files.length === 0) return;
-    try {
-      const file = files[0]!;
-      const id = await runtime.importAsset({ kind: 'file', file });
-      setInputId(id);
-      const url = URL.createObjectURL(file);
-      setInputUrl(url);
-      setInputInfo(await getImageInfo(file));
-      setOutputBlob(null);
-      setOutputInfo(null);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [runtime]);
+  const handleFiles = useCallback(
+    async (files: File[]) => {
+      const res = await tool.handleFiles(files);
+      setSkipped(res.skipped);
+    },
+    [tool]
+  );
 
   const handleResize = useCallback(async () => {
-    if (!runtime || !inputId) return;
-    setBusy(true);
-    setError(null);
-    try {
-      // 高度为 0 时省略,由 engine 按比例自动计算
-      const params: Record<string, unknown> = { width, fit, maintainAspectRatio };
-      if (height > 0) params.height = height;
-      const wf: Workflow = {
-        id: `resize-${Date.now()}`,
-        version: '1.0',
-        name: 'Resize',
-        description: 'Resize image to specified dimensions',
-        author: { id: 'playground', name: 'Playground' },
-        category: 'image',
-        tags: [],
-        nodes: [
-          { id: 'n1', type: 'transform', capability: 'image.resize', params },
-        ],
-        edges: [],
-        inputs: { type: 'image', multiple: false },
-        outputs: { type: 'image' },
-      };
-      const result = await runtime.run(wf, [inputId]);
-      if (result.status === 'completed' && result.outputs[0]) {
-        const blob = await runtime.exportAsset(result.outputs[0]);
-        setOutputBlob(blob);
-        setOutputInfo(await getImageInfo(blob));
-      } else {
-        setError(result.error ?? 'resize 失败');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }, [runtime, inputId, width, height, fit, maintainAspectRatio]);
-
-  // output Blob → URL,自动 revoke
-  const [outputUrl, setOutputUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!outputBlob) {
-      setOutputUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(outputBlob);
-    setOutputUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [outputBlob]);
-
-  // cleanup input url
-  useEffect(() => {
-    return () => {
-      if (inputUrl) URL.revokeObjectURL(inputUrl);
+    // 高度为 0 时省略,由 engine 按比例自动计算
+    const params: Record<string, unknown> = { width, fit, maintainAspectRatio };
+    if (height > 0) params.height = height;
+    const wf: Workflow = {
+      id: `resize-${Date.now()}`,
+      version: '1.0',
+      name: 'Resize',
+      description: 'Resize image to specified dimensions',
+      author: { id: 'playground', name: 'Playground' },
+      category: 'image',
+      tags: [],
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'image.resize', params },
+      ],
+      edges: [],
+      inputs: { type: 'image', multiple: false },
+      outputs: { type: 'image' },
     };
-  }, [inputUrl]);
+    await tool.runWorkflow(wf);
+  }, [tool, width, height, fit, maintainAspectRatio]);
+
+  const { inputInfo, outputInfo } = tool;
 
   return (
     <div className="flex h-full flex-col">
@@ -110,7 +62,7 @@ export default function ResizeTool() {
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
         {/* 参数面板 */}
-        <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-5">
           <label className="flex flex-col gap-1">
             <span className="text-[10px] font-medium text-zinc-500">宽度(px)</span>
             <input
@@ -160,20 +112,24 @@ export default function ResizeTool() {
               </label>
             </div>
           </div>
+          <div className="flex items-end">
+            <button
+              onClick={handleResize}
+              disabled={!tool.ready || !tool.inputId || tool.busy || width <= 0}
+              className="w-full rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {tool.busy ? 'Resize 中…' : 'Resize'}
+            </button>
+          </div>
         </div>
 
-        <div className="flex justify-end">
-          <button
-            onClick={handleResize}
-            disabled={!ready || !inputId || busy || width <= 0}
-            className="rounded-lg bg-indigo-600 px-6 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {busy ? 'Resize 中…' : 'Resize'}
-          </button>
-        </div>
-
-        {initError && <p className="text-xs text-red-400">初始化失败:{initError}</p>}
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {tool.initError && <p className="text-xs text-red-400">初始化失败:{tool.initError}</p>}
+        {tool.error && <p className="text-xs text-red-400">{tool.error}</p>}
+        {skipped > 0 && (
+          <p className="text-xs text-amber-400">
+            仅处理首个文件,已忽略其余 {skipped} 个(批量处理请用 Batch Queue)
+          </p>
+        )}
         {inputInfo && outputInfo && (
           <p className="text-xs text-emerald-400">
             {inputInfo.width}×{inputInfo.height} → {outputInfo.width}×{outputInfo.height} · {formatBytes(inputInfo.size)} → {formatBytes(outputInfo.size)}
@@ -182,21 +138,21 @@ export default function ResizeTool() {
 
         {/* Input / Output 对比 */}
         <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
-          {!inputId ? (
+          {!tool.inputId ? (
             <UploadBox onFiles={handleFiles} hint="选择或拖入图片" className="md:col-span-2" />
           ) : (
             <>
-              <PreviewBox title="Input" url={inputUrl} meta={imageInfoToMeta(inputInfo)} />
+              <PreviewBox title="Input" url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
               <PreviewBox
                 title="Output"
-                url={outputUrl}
-                meta={imageInfoToMeta(outputInfo)}
+                url={tool.outputUrl}
+                meta={imageInfoToMeta(tool.outputInfo)}
                 action={
-                  outputBlob && (
+                  tool.outputBlob && (
                     <button
                       onClick={() =>
                         downloadBlob(
-                          outputBlob,
+                          tool.outputBlob!,
                           `resized-${outputInfo?.width ?? width}x${outputInfo?.height ?? height}.${(outputInfo?.format ?? 'png').toLowerCase()}`
                         )
                       }
@@ -211,15 +167,9 @@ export default function ResizeTool() {
           )}
         </div>
 
-        {inputId && (
+        {tool.inputId && (
           <button
-            onClick={() => {
-              setInputId(null);
-              setInputUrl(null);
-              setInputInfo(null);
-              setOutputBlob(null);
-              setOutputInfo(null);
-            }}
+            onClick={tool.reset}
             className="self-start text-[10px] text-zinc-500 hover:text-zinc-300"
           >
             ← 重新选择图片
