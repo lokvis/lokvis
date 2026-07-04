@@ -1,9 +1,15 @@
 /**
  * StatusBar - 底部状态栏
  *
- * 紧凑单行：左侧状态指示，右侧资源统计 + 存储配额(W6.7)。
+ * 紧凑单行:左侧状态指示 + 当前工具 + 进度,右侧在线状态 + 资源统计 + 存储配额。
+ *
+ * W9.6 新增:
+ *   - 当前选中工具名(从 selectedNode 取)
+ *   - 执行进度(已完成节点数 / 总节点数)
+ *   - 在线状态(navigator.onLine + 事件监听)
  */
 
+import * as React from 'react';
 import { useWorkspaceStore } from '../store/index.js';
 
 export interface StatusBarProps {
@@ -18,6 +24,24 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
+/** useOnlineStatus - 监听 navigator.onLine + online/offline 事件(W9.6) */
+function useOnlineStatus(): boolean {
+  const [online, setOnline] = React.useState<boolean>(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+  React.useEffect(() => {
+    const onOnline = () => setOnline(true);
+    const onOffline = () => setOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+  return online;
+}
+
 export function StatusBar({ className = '' }: StatusBarProps) {
   const statusMessage = useWorkspaceStore((s) => s.statusMessage);
   const error = useWorkspaceStore((s) => s.error);
@@ -25,8 +49,20 @@ export function StatusBar({ className = '' }: StatusBarProps) {
   const assets = useWorkspaceStore((s) => s.assets);
   const capabilities = useWorkspaceStore((s) => s.capabilities);
   const nodes = useWorkspaceStore((s) => s.nodes);
+  const selectedNodeId = useWorkspaceStore((s) => s.selectedNodeId);
   const storageUsage = useWorkspaceStore((s) => s.storageUsage);
   const setError = useWorkspaceStore((s) => s.setError);
+  const online = useOnlineStatus();
+
+  // W9.6 当前选中工具名
+  const selectedNode = nodes.find((n) => n.id === selectedNodeId);
+
+  // W9.6 执行进度:已完成节点数 / 总节点数
+  const totalNodes = nodes.length;
+  const doneNodes = nodes.filter(
+    (n) => n.status === 'success' || n.status === 'failed' || n.status === 'cancelled'
+  ).length;
+  const progressPct = totalNodes > 0 ? Math.round((doneNodes / totalNodes) * 100) : 0;
 
   // W6.7 存储配额压力:>=95% 红(临界),>=80% 琥珀(警告),其余正常
   const ratio = storageUsage ? storageUsage.usage / storageUsage.quota : 0;
@@ -58,6 +94,27 @@ export function StatusBar({ className = '' }: StatusBarProps) {
             {statusMessage}
           </span>
         </span>
+
+        {/* W9.6 当前工具名 */}
+        {selectedNode && (
+          <>
+            <span className="text-zinc-300 dark:text-zinc-700" aria-hidden="true">·</span>
+            <span className="shrink-0 font-mono text-[10px] text-indigo-500 dark:text-indigo-400 truncate max-w-[120px]">
+              {selectedNode.capability}
+            </span>
+          </>
+        )}
+
+        {/* W9.6 执行进度 */}
+        {running && totalNodes > 0 && (
+          <>
+            <span className="text-zinc-300 dark:text-zinc-700" aria-hidden="true">·</span>
+            <span className="shrink-0 tabular-nums text-[10px] text-amber-600 dark:text-amber-400">
+              {doneNodes}/{totalNodes} ({progressPct}%)
+            </span>
+          </>
+        )}
+
         {error && (
           <button
             type="button"
@@ -71,6 +128,17 @@ export function StatusBar({ className = '' }: StatusBarProps) {
 
       {/* Right: Stats */}
       <div className="flex items-center gap-3 shrink-0 text-[10px] text-zinc-400 tabular-nums">
+        {/* W9.6 在线状态 */}
+        <span
+          className={`flex items-center gap-1 ${online ? 'text-emerald-500' : 'text-amber-500'}`}
+          title={online ? 'Online' : 'Offline — running locally, no upload needed'}
+          aria-label={online ? 'Online' : 'Offline — files still processed locally'}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-emerald-500' : 'bg-amber-500'}`} aria-hidden="true" />
+          {online ? 'Online' : 'Offline'}
+        </span>
+        <span className="text-zinc-300 dark:text-zinc-700" aria-hidden="true">|</span>
+
         {/* W6.7 存储配额:接近上限时变色警告;m5 加 aria-label 让屏幕阅读器播报告警 */}
         {storageUsage && (
           <>

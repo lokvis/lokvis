@@ -50,6 +50,11 @@ export interface WorkspaceState {
   historyCursor: number;
   /** 当前历史所属的工作流 ID(W7.1) */
   historyWorkflowId: string | null;
+
+  /** 上次工作流执行的输出 Asset ID 列表(W9.4/W9.5):用于 before/after 对比与下载管理 */
+  lastOutputIds: string[];
+  /** 当前选中的输出 Asset ID(W9.4):用于多输出场景选择 */
+  selectedOutputId: string | null;
 }
 
 /** 工作台操作 */
@@ -98,6 +103,10 @@ export interface WorkspaceActions {
   jumpToHistory(index: number): Promise<void>;
   /** 清空工作流 */
   clearWorkflow(): void;
+  /** 选择输出资产(W9.4) */
+  selectOutput(id: string | null): void;
+  /** 清空上次输出列表(W9.4/W9.5) */
+  clearOutputs(): void;
 }
 
 export type WorkspaceStore = WorkspaceState & WorkspaceActions;
