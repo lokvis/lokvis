@@ -239,14 +239,14 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 9.1 | 布局重构:左 Asset / 中 Canvas / 右 Inspector / 底 History / 顶 Toolbar | P0 | 6h | ⬜ | Workspace.tsx |
-| 9.2 | 工具选择器(Command Palette 风格,⌘K) | P0 | 6h | ⬜ | `CommandPalette.tsx` |
-| 9.3 | 文件拖拽区:全屏 dropzone,类型校验,多文件 | P0 | 4h | ⬜ | AssetPanel |
-| 9.4 | 处理结果预览:before/after 对比滑块 | P0 | 6h | ⬜ | Canvas |
-| 9.5 | 下载管理器集成 | P0 | 4h | ⬜ | DownloadManager |
-| 9.6 | 状态栏:当前工具/进度/存储/在线状态 | P0 | 4h | ⬜ | StatusBar |
-| 9.7 | 暗色模式切换 UI + 持久化 | P0 | 2h | ⬜ | Toolbar |
-| 9.8 | 响应式断点:桌面/平板/移动 | P0 | 4h | ⬜ | 全组件 |
+| 9.1 | 布局重构:左 Asset / 中 Canvas / 右 Inspector / 底 History / 顶 Toolbar | P0 | 6h | ✅ | Workspace.tsx |
+| 9.2 | 工具选择器(Command Palette 风格,⌘K) | P0 | 6h | ✅ | `CommandPalette.tsx` |
+| 9.3 | 文件拖拽区:全屏 dropzone,类型校验,多文件 | P0 | 4h | ✅ | `GlobalDropzone.tsx` |
+| 9.4 | 处理结果预览:before/after 对比滑块 | P0 | 6h | ✅ | `CompareSlider.tsx` + Canvas |
+| 9.5 | 下载管理器集成 | P0 | 4h | ✅ | `DownloadPanel.tsx` |
+| 9.6 | 状态栏:当前工具/进度/存储/在线状态 | P0 | 4h | ✅ | StatusBar.tsx |
+| 9.7 | 暗色模式切换 UI + 持久化 | P0 | 2h | ✅ | `ThemeToggle.tsx` + `useTheme.ts` |
+| 9.8 | 响应式断点:桌面/平板/移动 | P0 | 4h | ✅ | `useMediaQuery.ts` + Workspace |
 | 9.9 | 缓冲 | P0 | 4h | ⬜ | — |
 
 ### W10 · Workflow Layer 实现(40h)
@@ -550,6 +550,8 @@
 | 2026-07-03 | 4.7 | ✅ 完成 | 4h | `apps/playground` 新增 `ComponentsDemo.tsx`(展示 11 个 ui-core 组件 + 内置暗色模式 Toggle)+ `components.astro`(`client:only="react"`)+ BaseLayout NAV 加 "UI Components" 项 |
 | 2026-07-03 | W4 | 🎉 收尾 | 34h | typecheck ✅(36 tasks)、build ✅(20 tasks)、test ✅(496 测试,新增 25);4.8 docs 三页此前已完成(Starlight 迁移);4.9 缓冲未消耗;3 个 changeset(sdk-error-types / ui-core-components-tokens / playground-components-page) |
 | 2026-07-04 | 8.1-8.9 | ✅ 完成 | 32h | W8 预设库 + 工具页打磨全部落地。8.1 `capability/src/presets/platform.ts`(20+ 平台 63 预设,social/ecommerce/video/print/other 五大类,本地定义 `PlatformFitStrategy` 与 engine-image FitStrategy 字面量对齐,避免五层依赖违规);8.2 `toolkit/PlatformPresetSelector.tsx`(按 category 分组 optgroup + 自定义预设命名空间 `custom.` 前缀);8.3 `toolkit/useCustomPresets.ts`(localStorage 持久化 + storage 事件多 tab 同步 + 免费 3 / Pro 无限 + JSON 解析容错);8.4 `tools/ResizeTool.tsx` 加 DPI 输入(72/150/300/自定义,作为元数据写入 workflow params,打印类预设自动 300 DPI)+ 印刷尺寸 mm 提示;8.5 `tools/CompressTool.tsx` 加压缩模式切换(质量 / 目标体积)+ 目标 KB 输入,委托 engine 已有 `compressToTargetSize` 二分查找;8.6 `toolkit/download.ts#detectTransparency`(canvas + getImageData 扫描 alpha 通道)+ CompressTool 智能格式选项(含透明 → PNG 保留 / 否则 → WebP,目标体积模式统一 WebP);8.7 `layouts/ToolLayout.astro` + `tools/seo.ts`(8 工具页 SEO 配置 + `generateOgImage` SVG data URI 1200×630 + OG/Twitter Card meta + BaseLayout 扩展 description/keywords/ogTitle/ogDescription/ogImage/ogType props);8.8 `toolkit/PrivacyBadge.tsx`(online/offline 事件监听 + 断网验证指引 modal + 离线时绿色 "✓ 断网模式 · 仍在工作");8.9 单测 37 个:`capability/__tests__/platform-presets.test.ts`(22,数据完整性 + 4 辅助函数 + 分类标签)+ `engine-image/__tests__/compress-target.test.ts`(15,二分边界 [10,95] + 单调性 + 最多 6 轮 + 兜底 quality=10 + best 保留最高满足质量 + 格式参数透传)。Review 修复:① ResizeTool `onSaveCustom` 死 prop 移除(原 `as unknown as void` 占位违反 AGENTS.md 禁双断言规则);② ResizeTool `preset.category !== 'print'` 在 TS narrowing 后恒真,简化条件;③ compress-target.test.ts 未使用 `i` 参数触发 TS6133。验证:typecheck ✅(36 tasks)、build ✅(20 tasks)、test ✅(660/660,新增 37) |
+| 2026-07-04 | 9.1-9.8 | ✅ 完成 | 36h | W9 Workspace SPA 主界面 8 项任务全部落地。9.1 `HistoryPanel` 新增 `variant?: 'vertical' \| 'horizontal'` prop(horizontal 模式 h-12 横向滚动条目,移到底部 PipelineBar 下方)+ `Workspace.tsx` 重构为 Toolbar → [Asset \| Canvas \| Inspector] → PipelineBar → HistoryPanel(h) → DownloadPanel → StatusBar 五段编排;9.2 `CommandPalette.tsx`(基于 ui-core `Dialog` portal + ESC + focus trap + body overflow lock)+ `useCommandPalette()` hook 注册 ⌘K/Ctrl+K 全局快捷键,列出 capabilities + 工作流操作(undo/redo/clear),键盘 ↑↓ 导航 Enter 选中;9.3 `GlobalDropzone.tsx`(全屏 dropzone + `isFileAccepted()` 三种模式:`image/*` prefix / `image/jpeg` 精确 mime / `.png` 扩展名匹配;dragCounter 计数避免子元素抖动;拒绝文件红色提示 5 秒自动清空);9.4 `CompareSlider.tsx`(鼠标 + 触摸 + 键盘 ← → 5% 步长三模式;before 用 `selectedAssetId`,after 用 `selectedOutputId ?? lastOutputIds[0]`)+ Canvas 集成(`compareMode` 状态 + outputs 变化时自动切到 compare 模式 + 右上角 Single/Compare 切换按钮 `canCompare` 条件);9.5 `DownloadPanel.tsx`(从 `lastOutputIds` 取输出,逐项 `runtime.exportAsset(id)` → `downloadBlob`,批量下载间隔 200ms 避免浏览器拦截);9.6 StatusBar 增强(`useOnlineStatus()` hook 监听 online/offline 事件 + 当前选中工具名 `selectedNode.capability` + 执行进度 `doneNodes/totalNodes (progressPct%)` + 在线状态指示灯);9.7 `useTheme.ts`(localStorage 持久化 + 跨 tab storage 事件同步 + matchMedia 系统偏好监听;`applyTheme()` 操作 `document.documentElement.classList` 添加/移除 `dark`/`light`)+ `ThemeToggle.tsx`(左键 toggle,右键弹出菜单 light/dark/system 三态);9.8 `useMediaQuery.ts`(`useMediaQuery(query)` 订阅 matchMedia + `useBreakpoints()` 返回 `{ isMobile, isTablet, isDesktop }` 断点 768/1024)+ Workspace 响应式(移动端 `isMobile` 切换为抽屉模式)。store 扩展:`WorkflowState` 新增 `lastOutputIds: string[]` / `selectedOutputId: string \| null`,`WorkflowActions` 新增 `selectOutput(id)` / `clearOutputs()`,`run()` 在 status === 'completed' 时自动写入。Workspace 新增 props:`enableGlobalDropzone`/`enableCommandPalette`/`enableThemeToggle`/`enableCompare`/`enableDownloadPanel`(默认 true,便于消费方按需关闭)。`index.ts` 导出全部新组件和 hooks。验证:typecheck ✅(36 tasks)、test ✅(677/677,新增 7)、build ✅(20 tasks)、覆盖率 lines 91.27% / branches 88.27% |
+| 2026-07-04 | W9 | 🎉 收尾 | 36h | 9.9 缓冲未消耗(4h)。typecheck 36/36、test 677/677(新增 7)、build 20/20、覆盖率 lines 91.27% / branches 88.27% |
 
 
 ---
@@ -568,6 +570,7 @@
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
+| 2026-07-04 | v2.7 | **W9 完成**:Workspace SPA 主界面 8 项任务(9.1-9.8)全部 ✅,9.9 缓冲未消耗。`@lokvis/ui-react` 新增 5 个组件 + 3 个 hooks:① `CommandPalette.tsx`(⌘K 命令面板,基于 ui-core `Dialog` portal + 全局快捷键 hook);② `GlobalDropzone.tsx`(全屏拖拽 + MIME 三种校验模式 + dragCounter 防抖);③ `CompareSlider.tsx`(before/after 对比,鼠标/触摸/键盘三模式);④ `DownloadPanel.tsx`(工作流输出批量下载,200ms 间隔避免浏览器拦截);⑤ `ThemeToggle.tsx`(light/dark/system 三态切换)。新增 hooks:`useTheme`(localStorage + storage 事件 + matchMedia 三方同步)、`useMediaQuery` / `useBreakpoints`(响应式断点 768/1024)、`useCommandPalette`(⌘K 全局监听)。store 扩展 `lastOutputIds` / `selectedOutputId` / `selectOutput` / `clearOutputs`。`HistoryPanel` 加 `variant` prop 支持横向布局,`StatusBar` 加 `useOnlineStatus` + 工具名 + 进度展示。`Workspace.tsx` 完整重构:五段编排 + 5 个 enable* props(消费方可按需关闭)+ 移动端抽屉模式。验证:typecheck 36/36、test 677/677(新增 7)、build 20/20、覆盖率 lines 91.27% / branches 88.27% |
 | 2026-07-04 | v2.6 | **W8 完成**:预设库 + 工具页打磨 9 项任务(8.1-8.9)全部 ✅,8.10 缓冲未消耗。新增 `@lokvis/capability` 平台预设 API(`PLATFORM_PRESETS` 63 预设 + 4 辅助函数 + 5 分类);playground 工具页升级:ResizeTool 加 DPI 输入 + 平台预设选择器,CompressTool 加目标体积模式 + 智能格式(透明 → PNG / 否则 WebP);新增 `ToolLayout.astro` 自动注入 SEO 元数据(OG/Twitter Card + SVG og-image)+ `PrivacyBadge.tsx` 隐私声明与断网验证。新增 37 单测(平台预设数据完整性 + 压缩算法二分查找边界),全量 660/660 通过 |
 | 2026-07-04 | v2.5 | **PR #11 Review #2 修复**(1 Blocker + 2 Major + 3 Minor):① [Blocker] batch-processor 重试路径加 `removeAsset` 清理上一次失败的 input,避免孤儿累积(maxRetries=3 全失败原会累积 3 个孤儿);② [Major] sdk `createPluginContext.getAsset` 恢复 `throw new AssetNotFoundError(id)`,修复 `err instanceof AssetNotFoundError` 判断失效;③ [Major] opfs-asset-store `remove` 区分 NotFoundError(静默)与其他错误(warn),消除幂等删除噪音;④ [Minor] plugin-pdf `derivePdfMetadata` 改签名只接受 outBlob,single kind 用包装层适配工厂 (source, outBlob) 签名;⑤ [Minor] runtime `persistHistory` 内部加 try/catch + console.warn,防 IDB 故障 unhandled promise rejection;⑥ [Minor] batch-processor `maybeComplete` 加注释说明 batch:completed 事件语义("所有项已终结含部分失败")。technical-debt.md 加 Review #2 记录 + TD-C4~C9 清偿条目。验证:lint 0 errors、typecheck 全绿、test 623/623 通过 |
 | 2026-07-04 | v2.4 | **新增技术债务登记簿**:`docs/technical-debt.md`。记录 2026-07-04 架构 review 发现的 7 类已知技术债务(Phase 2 路线 2 项 / 测试时序 2 项 / 静默吞错 4 处 / 类型 workaround 4 处 / UI ObjectURL 分散 2 处 / 事件订阅 cleanup 3 处 / 测试环境 hack 3 处),每项含位置、问题、影响、长期方案、暂不修复原因、触发条件。含 Review 记录与已清偿章节(TD-C1/C2/C3 对应 commit `f194cb9`)。docs/README.md 加导航链接 |

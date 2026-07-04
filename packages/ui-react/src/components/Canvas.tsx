@@ -3,11 +3,15 @@
  *
  * 只负责展示当前选中资产的预览，以及空状态引导。
  * 工作流节点链已移至独立的 PipelineBar 组件。
+ *
+ * W9.4: 当存在 lastOutputIds 时,可切换到 CompareSlider 模式,
+ *       并排展示 before/after。
  */
 
 import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
+import { CompareSlider } from './CompareSlider.js';
 
 export interface CanvasProps {
   className?: string;
@@ -18,9 +22,27 @@ export function Canvas({ className = '' }: CanvasProps) {
   const assets = useWorkspaceStore((s) => s.assets);
   const thumbnails = useWorkspaceStore((s) => s.thumbnails);
   const importFiles = useWorkspaceStore((s) => s.importFiles);
+  const lastOutputIds = useWorkspaceStore((s) => s.lastOutputIds);
+  const selectedOutputId = useWorkspaceStore((s) => s.selectedOutputId);
 
   const selected = assets.find((a) => a.id === selectedAssetId);
   const preview = selected ? thumbnails[selected.id] : undefined;
+
+  // W9.4 是否有可对比的输出
+  const outputId = selectedOutputId ?? lastOutputIds[0] ?? null;
+  const outputThumbnail = outputId ? thumbnails[outputId] : undefined;
+  const canCompare = !!(preview && outputThumbnail);
+
+  // W9.4 默认开启 compare 模式:当 outputs 生成后,用户首次希望对比
+  // 切换状态由用户控制,直到下次 outputs 重新生成时再默认开启
+  const [compareMode, setCompareMode] = React.useState(false);
+  React.useEffect(() => {
+    // outputs 变化时,自动切到 compare 模式(若可以)
+    if (lastOutputIds.length > 0 && canCompare) {
+      setCompareMode(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastOutputIds]);
 
   // 全局拖拽支持（直接拖到画布区）
   const [dragOver, setDragOver] = React.useState(false);
@@ -49,6 +71,36 @@ export function Canvas({ className = '' }: CanvasProps) {
           }}
         />
 
+        {/* W9.4 Compare 模式切换按钮(右上) */}
+        {canCompare && (
+          <div className="absolute top-2 right-2 z-20 flex items-center gap-1 rounded-md bg-white/90 p-0.5 shadow-sm backdrop-blur-sm dark:bg-zinc-900/90">
+            <button
+              type="button"
+              onClick={() => setCompareMode(false)}
+              aria-pressed={!compareMode}
+              className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${
+                !compareMode
+                  ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300'
+                  : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+              }`}
+            >
+              Single
+            </button>
+            <button
+              type="button"
+              onClick={() => setCompareMode(true)}
+              aria-pressed={compareMode}
+              className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${
+                compareMode
+                  ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300'
+                  : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+              }`}
+            >
+              Compare
+            </button>
+          </div>
+        )}
+
         {dragOver && (
           <div className="absolute inset-4 z-10 rounded-xl border-2 border-dashed border-indigo-400 bg-indigo-50/80 flex items-center justify-center dark:border-indigo-600 dark:bg-indigo-950/60">
             <div className="text-center">
@@ -58,7 +110,12 @@ export function Canvas({ className = '' }: CanvasProps) {
           </div>
         )}
 
-        {selected ? (
+        {/* W9.4 Compare 模式:展示 before/after 滑块 */}
+        {compareMode && canCompare ? (
+          <div className="relative flex max-h-[calc(100%-4rem)] max-w-[calc(100%-4rem)] items-center justify-center">
+            <CompareSlider className="max-h-[calc(100vh-12rem)] max-w-full" />
+          </div>
+        ) : selected ? (
           preview ? (
             <div className="relative">
               <img
