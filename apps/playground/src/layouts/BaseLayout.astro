@@ -112,6 +112,16 @@ const NAV_GROUPS: NavGroup[] = [
     <meta name="twitter:title" content={finalOgTitle} />
     <meta name="twitter:description" content={finalOgDescription} />
     {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+    {/* Sentry 监控接入(W12.3)
+        - DSN 通过 PUBLIC_SENTRY_DSN 注入,未配置时为 no-op
+        - SDK 走 ES dynamic import 懒加载,不进首屏 bundle
+        - 遵循 DNT,用户拒绝跟踪时不上报
+        - 隐私保护:beforeBreadcrumb 剔除可能含文件名的输入,只保留 category */}
+    <script>
+      import { initSentry } from '../toolkit/sentry.js';
+      initSentry();
+    </script>
   </head>
   <body class="h-screen overflow-hidden bg-zinc-950 text-zinc-100">
     <div class="flex h-full flex-col">

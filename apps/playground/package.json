@@ -29,6 +29,7 @@
     "@lokvis/sdk": "workspace:*",
     "@lokvis/ui-core": "workspace:*",
     "@lokvis/ui-react": "workspace:*",
+    "@sentry/browser": "^8.40.0",
     "@tailwindcss/vite": "^4.0.0",
     "astro": "^7.0.0",
     "react": "^19.0.0",
