@@ -25,7 +25,7 @@ const CRC_TABLE = (() => {
 })();
 function crc32(bytes: Uint8Array): number {
   let c = 0xffffffff;
-  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]!) & 0xff] ^ (c >>> 8);
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]!) & 0xff]! ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }
 function u32be(value: number): [number, number, number, number] {
@@ -99,7 +99,10 @@ function findChunk(bytes: Uint8Array, type: string): number {
 }
 
 function blobOf(bytes: Uint8Array): Blob {
-  return new Blob([bytes], { type: 'image/png' });
+  // 拷贝到新 ArrayBuffer,确保 BlobPart 接受(TS 5.7+ 要求 ArrayBufferView<ArrayBuffer>)
+  const ab = new ArrayBuffer(bytes.length);
+  new Uint8Array(ab).set(bytes);
+  return new Blob([ab], { type: 'image/png' });
 }
 
 // ─── 嵌入与读回 ───────────────────────────────────────────────

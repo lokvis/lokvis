@@ -70,7 +70,6 @@ const { filter } = await import('../operations/filters.js');
 const { watermark, computeWatermarkPosition } = await import('../operations/watermark.js');
 const { compressToTargetSize } = await import('../operations/compress-target.js');
 const { readPngDpi } = await import('../operations/png-metadata.js');
-import { deflateSync } from 'node:zlib';
 
 /** 构造一个 fake bitmap + decode 返回值 */
 function fakeBitmap(w = 100, h = 100) {
@@ -121,6 +120,115 @@ describe('resize AbortSignal', () => {
     expect(mockDecode).toHaveBeenCalledTimes(1);
     // encode 不应被调用(已抛错)
     expect(mockEncode).not.toHaveBeenCalled();
+  });
+});
+
+// ─── resize + DPI 集成(W8.4)──────────────────────────────────
+// 验证 resize 在 encode 完成后,按 params.dpi 调用 embedPngDpi,
+// 把物理分辨率写入 PNG pHYs chunk(打印软件可读)。
+// mock encode 返回真实最小 PNG,使 embedPngDpi 的 isPng / chunk 写入真实生效。
+
+const D_CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function dCrc32(bytes: Uint8Array): number {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) c = D_CRC_TABLE[(c ^ bytes[i]!) & 0xff]! ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+function dU32be(v: number): [number, number, number, number] {
+  const x = v >>> 0;
+  return [(x >>> 24) & 0xff, (x >>> 16) & 0xff, (x >>> 8) & 0xff, x & 0xff];
+}
+function dChunk(type: string, data: Uint8Array = new Uint8Array(0)): Uint8Array {
+  const typeBytes = Uint8Array.from(type, (ch) => ch.charCodeAt(0));
+  const out = new Uint8Array(4 + 4 + data.length + 4);
+  out.set(dU32be(data.length), 0);
+  out.set(typeBytes, 4);
+  out.set(data, 8);
+  const crcInput = new Uint8Array(4 + data.length);
+  crcInput.set(typeBytes, 0);
+  crcInput.set(data, 4);
+  out.set(dU32be(dCrc32(crcInput)), 8 + data.length);
+  return out;
+}
+const D_PNG_SIG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** 构造最小合法 PNG(1×1 RGBA,无 pHYs),供 encode mock 返回 */
+function buildMinimalPng(): Uint8Array {
+  const ihdr = new Uint8Array(13);
+  ihdr.set(dU32be(1), 0);
+  ihdr.set(dU32be(1), 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 6; // color type = RGBA
+  ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+  const scanline = new Uint8Array([0, 0xff, 0x00, 0x00, 0xff]);
+  const idat = deflateSync(scanline);
+  const parts: Uint8Array[] = [D_PNG_SIG, dChunk('IHDR', ihdr), dChunk('IDAT', idat), dChunk('IEND')];
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) { out.set(p, off); off += p.length; }
+  return out;
+}
+
+/**
+ * 把 Uint8Array 包装成 image/png Blob。
+ * 显式拷贝到新 ArrayBuffer,确保 BlobPart 接受(TS 5.7+ 要求 ArrayBufferView<ArrayBuffer>,
+ * 直接传 Uint8Array<ArrayBufferLike> 会因 SharedArrayBuffer 兼容性报错)。
+ */
+function pngBlob(bytes: Uint8Array): Blob {
+  const ab = new ArrayBuffer(bytes.length);
+  new Uint8Array(ab).set(bytes);
+  return new Blob([ab], { type: 'image/png' });
+}
+
+describe('resize + DPI 集成(W8.4)', () => {
+  it('PNG 输出 + dpi=300 应写入 pHYs chunk(打印软件可读)', async () => {
+    mockEncode.mockResolvedValueOnce(pngBlob(buildMinimalPng()));
+    const out = await resize(INPUT, { width: 50, dpi: 300 });
+    expect(out.type).toBe('image/png');
+    const dpi = await readPngDpi(out);
+    expect(dpi).not.toBeNull();
+    expect(dpi!).toBeCloseTo(300, 0);
+  });
+
+  it('PNG 输出 + dpi=72 应写入正确 DPI', async () => {
+    mockEncode.mockResolvedValueOnce(pngBlob(buildMinimalPng()));
+    const out = await resize(INPUT, { width: 50, dpi: 72 });
+    const dpi = await readPngDpi(out);
+    expect(dpi).toBeCloseTo(72, 0);
+  });
+
+  it('非 PNG 输入(webp)应跳过 DPI 嵌入(format != png)', async () => {
+    const webpInput = new Blob([new Uint8Array([1])], { type: 'image/webp' });
+    const out = await resize(webpInput, { width: 50, dpi: 300 });
+    // inferFormat(webp) === 'webp' → 不进入 embedPngDpi 分支,返回 encode 原始结果
+    expect(out).toBe(OUT);
+  });
+
+  it('dpi 非正(0 / 负 / NaN)应跳过 DPI 嵌入', async () => {
+    for (const bad of [0, -1, NaN]) {
+      mockEncode.mockResolvedValueOnce(pngBlob(buildMinimalPng()));
+      const out = await resize(INPUT, { width: 50, dpi: bad });
+      // embedPngDpi 对非正 dpi 原样返回 → 无 pHYs
+      expect(await readPngDpi(out)).toBeNull();
+    }
+  });
+
+  it('未传 dpi 时不应嵌入 pHYs', async () => {
+    const blob = pngBlob(buildMinimalPng());
+    mockEncode.mockResolvedValueOnce(blob);
+    const out = await resize(INPUT, { width: 50 });
+    // typeof dpi === 'undefined' → 不进入 embedPngDpi 分支,返回 encode 原始引用
+    expect(out).toBe(blob);
+    expect(await readPngDpi(out)).toBeNull();
   });
 });
 

@@ -13,14 +13,15 @@
  *   </ToolLayout>
  *
  * ToolLayout 根据 slug 从 TOOL_SEO 查表得到 title/description/keywords,
- * 调 generateOgImage 生成 OG 图像(SVG data URI),透传给 BaseLayout。
+ * 计算 OG 图像的绝对 URL(指向 `src/pages/og/[slug].png.ts` 构建期生成的 PNG),
+ * 透传给 BaseLayout。
  *
  * W8.8:工具页顶部注入 PrivacyBadge(隐私声明 + 断网验证入口),
  *      让用户在每次使用工具时都能看到"文件未上传"承诺。
  */
 import BaseLayout from './BaseLayout.astro';
 import { PrivacyBadge } from '../components/toolkit/PrivacyBadge';
-import { TOOL_SEO, generateOgImage } from '../components/tools/seo';
+import { TOOL_SEO } from '../components/tools/seo';
 
 interface Props {
   /** 工具 slug,对应 TOOL_SEO 的 key,如 'compress' */
@@ -39,7 +40,10 @@ if (!seo) {
 }
 
 const fullTitle = `${seo.title} · Lokvis Playground`;
-const ogImage = generateOgImage(seo.title);
+// OG 图像:指向构建期生成的 PNG 端点(og/<slug>.png),拼接 base + site 得到绝对 URL。
+// og:image 规范要求绝对 HTTPS URL,data URI / 相对路径 / SVG 均不被平台接受。
+const base = import.meta.env.BASE_URL;
+const ogImage = new URL(`${base}og/${slug}.png`, Astro.site).toString();
 const keywords = seo.keywords?.join(', ');
 ---
 <BaseLayout

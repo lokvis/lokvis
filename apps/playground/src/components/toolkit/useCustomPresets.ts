@@ -16,11 +16,20 @@ import { useCallback, useEffect, useState } from 'react';
 import type { PlatformFitStrategy, PlatformRecommendedFormat } from '@lokvis/capability';
 
 const STORAGE_KEY = 'lokvis.custom-presets';
+/**
+ * 同 tab 内多实例同步用的自定义事件名。
+ *
+ * 浏览器的 `storage` 事件仅在【其他 tab】触发,本 tab 的 setItem 不会触发。
+ * 为让同 tab 内多个 useCustomPresets 实例(如 resize / crop 工具页同时挂载)
+ * 保持一致,writeToStorage 额外派发一个 CustomEvent;原生 `storage` 事件仍负责
+ * 跨 tab 同步。两者各司其职,不混用 StorageEvent 模拟同 tab 信号。
+ */
+const SYNC_EVENT = 'lokvis:custom-presets-change';
 
 /** 免费用户自定义预设上限 */
 export const FREE_CUSTOM_PRESET_LIMIT = 3;
-/** Pro 用户无上限(用 Number.MAX_SAFE_INTEGER 表"无限") */
-export const PRO_CUSTOM_PRESET_LIMIT = Number.MAX_SAFE_INTEGER;
+/** Pro 用户无上限(Infinity 表"无限",与 limit < presets.length 比较语义一致) */
+export const PRO_CUSTOM_PRESET_LIMIT = Infinity;
 
 /** 自定义预设存储格式 */
 export interface CustomPreset {
@@ -84,8 +93,8 @@ function writeToStorage(presets: CustomPreset[]): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(presets));
-    // 触发 storage 事件让同源其他 tab 同步(window.setItem 不会在本 tab 触发 storage 事件)
-    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
+    // 同 tab 多实例同步:派发自定义事件(原生 storage 事件不会在本 tab 触发)
+    window.dispatchEvent(new CustomEvent(SYNC_EVENT));
   } catch {
     /* 静默 */
   }
@@ -119,16 +128,17 @@ export function useCustomPresets(isPro = false): UseCustomPresetsResult {
   const limit = isPro ? PRO_CUSTOM_PRESET_LIMIT : FREE_CUSTOM_PRESET_LIMIT;
   const [presets, setPresets] = useState<CustomPreset[]>(() => readFromStorage());
 
-  // 监听 storage 事件:同源其他 tab 修改 localStorage 时同步
-  // 同时本 tab 的 writeToStorage 也会手动 dispatch storage 事件,
-  // 让多个 useCustomPresets 实例(如 resize/crop 工具页同时打开)状态一致。
+  // 监听两类事件,均重新从 localStorage 读取:
+  // - 原生 `storage`:跨 tab 同步(浏览器在其他 tab 修改 localStorage 时触发)
+  // - 自定义 SYNC_EVENT:同 tab 多实例同步(writeToStorage 派发)
   useEffect(() => {
-    const handler = (e: StorageEvent) => {
-      if (e.key !== null && e.key !== STORAGE_KEY) return;
-      setPresets(readFromStorage());
-    };
+    const handler = () => setPresets(readFromStorage());
     window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
+    window.addEventListener(SYNC_EVENT, handler);
+    return () => {
+      window.removeEventListener('storage', handler);
+      window.removeEventListener(SYNC_EVENT, handler);
+    };
   }, []);
 
   const save = useCallback(

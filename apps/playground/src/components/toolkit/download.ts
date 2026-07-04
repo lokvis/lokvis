@@ -89,20 +89,37 @@ export function imageInfoToMeta(info: ImageInfo | null): string {
  * 后续可下放到 Web Worker。当前在 import 后异步触发,不阻塞 UI。
  *
  * JPEG/BMP 不支持透明通道,直接返回 false 以跳过解码。
+ *
+ * 异常处理:解码(createImageBitmap)与 canvas 读回(getImageData)分两阶段,
+ * 各自捕获并记录具体异常类型(DOMException name / Error name),便于排查
+ * "格式不支持 / 图片损坏"(decode)与"tainted canvas / 0×0 / GPU 失败"(canvas)
+ * 两类不同根因,而非一律静默吞掉。任一阶段失败都保守返回 false(按 WebP 处理)。
  */
 export async function detectTransparency(blob: Blob): Promise<boolean> {
   const mime = blob.type.toLowerCase();
   // JPEG / BMP 不支持透明 → 短路返回,免去解码开销
   if (mime === 'image/jpeg' || mime === 'image/bmp' || mime === 'image/jpg') return false;
 
+  // 阶段 1:解码。损坏图片 / 不支持的格式会抛 DataError / InvalidStateError / NotSupportedError
+  let bitmap: ImageBitmap;
   try {
-    const bitmap = await createImageBitmap(blob);
+    bitmap = await createImageBitmap(blob);
+  } catch (err) {
+    console.warn('[detectTransparency] decode failed:', describeError(err));
+    return false;
+  }
+
+  // 阶段 2:canvas 渲染 + 像素读回。SecurityError(tainted canvas)/ IndexSizeError(0×0)/
+  // InvalidStateError(GPU 上下文丢失)可能在此阶段抛出
+  try {
     const canvas = document.createElement('canvas');
     canvas.width = bitmap.width;
     canvas.height = bitmap.height;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) {
+      // canvas 2D context 不可用(罕见:浏览器禁用加速 / 内存耗尽)
       bitmap.close?.();
+      console.warn('[detectTransparency] canvas 2d context unavailable');
       return false;
     }
     ctx.drawImage(bitmap, 0, 0);
@@ -113,8 +130,16 @@ export async function detectTransparency(blob: Blob): Promise<boolean> {
       if (data[i]! < 255) return true;
     }
     return false;
-  } catch {
-    // 解码失败或 canvas 不可用:保守返回 false(后续按 WebP 处理)
+  } catch (err) {
+    bitmap.close?.();
+    console.warn('[detectTransparency] canvas/readback failed:', describeError(err));
     return false;
   }
+}
+
+/** 把异常归一为可读字符串,便于在日志里区分类型(DOMException 按 name,其余按 name+message) */
+function describeError(err: unknown): string {
+  if (err instanceof DOMException) return `DOMException:${err.name}`;
+  if (err instanceof Error) return `${err.name}: ${err.message}`;
+  return String(err);
 }

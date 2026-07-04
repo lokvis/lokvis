@@ -8,9 +8,10 @@
  *   - Open Graph:title / description / image / type
  *   - Twitter Card:summary_large_image
  *
- * og-image 采用 SVG data URI(无外部依赖):
- *   - 1200×630,品牌渐变背景
- *   - 工具名 + 副标 + "Lokvis · 本地处理不上传"
+ * og-image:构建期由 `src/pages/og/[slug].png.ts` 用 sharp 把 buildOgSvg 产出的
+ * SVG 栅格化成 1200×630 PNG,og:image 指向该 PNG 的绝对 HTTPS URL。
+ * 不使用 SVG data URI —— Twitter / Facebook / LinkedIn 等平台均不支持 SVG
+ * (无论 data URI 还是 .svg URL)作为 og:image,且 og:image 规范要求绝对 URL。
  *
  * 注意:playground 整体 `noindex,nofollow`(开发者 demo,非公开 SEO 站点),
  *      OG/Twitter 卡片仅供分享时预览,不影响搜索引擎收录。
@@ -38,7 +39,7 @@ export const TOOL_SEO: Record<string, ToolSeo> = {
     slug: 'resize',
     title: '在线图片缩放 · 平台预设 · DPI',
     description:
-      '本地浏览器调整图片尺寸,内置 20+ 平台 80+ 尺寸预设(YouTube/IG/TikTok/Shopify 等),支持自定义预设、DPI 输入(72/150/300)。文件不上传。',
+      '本地浏览器调整图片尺寸,内置 20+ 平台 63 尺寸预设(YouTube/IG/TikTok/Shopify 等),支持自定义预设、DPI 输入(72/150/300)。文件不上传。',
     keywords: ['图片缩放', '图片 resize', '平台预设', 'YouTube 封面', 'DPI', '本地处理'],
   },
   convert: {
@@ -86,12 +87,12 @@ export const TOOL_SEO: Record<string, ToolSeo> = {
 };
 
 /**
- * 生成 OG 图像(SVG data URI)。1200×630,品牌渐变 + 工具名 + 副标。
+ * 构建 OG 图像的 SVG 源码(1200×630,品牌渐变 + 工具名 + 副标)。
  *
- * 用 SVG 而非 PNG/JPG:无需 canvas 渲染,纯字符串拼接,体积小(< 2KB)。
- * Twitter/Facebook 在 2024+ 已支持 SVG data URI 作为 og:image。
+ * 返回 SVG 字符串,供 `src/pages/og/[slug].png.ts` 在构建期用 sharp 栅格化成 PNG。
+ * 不在此处生成 data URI —— 见文件头注释,SVG data URI 不能作为 og:image。
  */
-export function generateOgImage(title: string, subtitle = '本地处理 · 不上传'): string {
+export function buildOgSvg(title: string, subtitle = '本地处理 · 不上传'): string {
   // 转义 SVG 中的特殊字符(< > & " ')
   const esc = (s: string) =>
     s
@@ -100,7 +101,7 @@ export function generateOgImage(title: string, subtitle = '本地处理 · 不�
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#0f0f23"/>
@@ -118,6 +119,4 @@ export function generateOgImage(title: string, subtitle = '本地处理 · 不�
   <text x="80" y="540" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="600" fill="url(#accent)">◆ Lokvis Playground</text>
   <text x="80" y="580" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#71717a">open source · runs in your browser</text>
 </svg>`;
-  // encodeURIComponent + data URI(SVG 需要 utf-8 charset)
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
