@@ -26,6 +26,7 @@
 | [项目计划](./PROJECT_PLAN.md) | Phase 1（2026.07–12）24 周小时级任务拆分 |
 | [AI 生态冲击调整方案](./AI生态冲击调整方案.md) | MCP-first 战略转型、Plugin SDK 降级、ADR-O1/O2/O3 |
 | [路线图](./roadmap.md) | 三年四阶段战略、里程碑与 Go/No-Go 决策点 |
+| [技术债务登记簿](./technical-debt.md) | 已知技术债务分类、长期方案、触发条件、Review 记录 |
 
 ### 商业与战略（白皮书）
 
@@ -65,6 +66,7 @@ lokvis-open/docs/
 ├── mcp-integration.md             # MCP 集成
 ├── plugins.md                     # 插件开发
 ├── roadmap.md                     # 路线图（合并多源）
+├── technical-debt.md              # 技术债务登记簿
 ├── PROJECT_PLAN.md                # Phase 1 项目计划
 ├── AI生态冲击调整方案.md           # AI 生态调整方案
 ├── business/                      # 白皮书（8 篇）
