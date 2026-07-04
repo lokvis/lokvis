@@ -11,6 +11,7 @@
 
 import * as React from 'react';
 import { useWorkspaceStore } from '../store/index.js';
+import { useWorkflowProgress } from '../hooks/useWorkflowProgress.js';
 
 export interface StatusBarProps {
   className?: string;
@@ -57,12 +58,8 @@ export function StatusBar({ className = '' }: StatusBarProps) {
   // W9.6 当前选中工具名
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
 
-  // W9.6 执行进度:已完成节点数 / 总节点数
-  const totalNodes = nodes.length;
-  const doneNodes = nodes.filter(
-    (n) => n.status === 'success' || n.status === 'failed' || n.status === 'cancelled'
-  ).length;
-  const progressPct = totalNodes > 0 ? Math.round((doneNodes / totalNodes) * 100) : 0;
+  // W9.6 执行进度(抽取到共享 hook,与 ProgressBar 共用,避免重复逻辑)
+  const { total: totalNodes, done: doneNodes, pct: progressPct } = useWorkflowProgress();
 
   // W6.7 存储配额压力:>=95% 红(临界),>=80% 琥珀(警告),其余正常
   const ratio = storageUsage ? storageUsage.usage / storageUsage.quota : 0;

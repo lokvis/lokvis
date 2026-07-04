@@ -124,16 +124,21 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
     setBatchDownloading(true);
     setError(null);
     setStatus('Downloading outputs...');
+    // 用本地 Set 跟踪本次循环已下载 id,避免 downloaded 闭包快照与 state 不同步
+    // (review 反馈:循环中 setDownloaded 更新 state 但闭包 downloaded 不变,
+    //  虽有 batchDownloading guard 阻止并发,逻辑上仍应读取最新已下载集合)
+    const localDownloaded = new Set(downloaded);
     try {
       for (const asset of outputAssets) {
         // 卸载后立即停止循环(避免对已卸载组件 setState)
         if (!mountedRef.current) return;
-        if (downloaded.has(asset.id)) continue;
+        if (localDownloaded.has(asset.id)) continue;
         try {
           const blob = await runtime.exportAsset(asset.id);
           const ext = extFromMime(asset.metadata.mimeType);
           const filename = `lokvis-output-${asset.id.slice(0, 8)}.${ext}`;
           downloadBlob(blob, filename);
+          localDownloaded.add(asset.id);
           if (mountedRef.current) {
             setDownloaded((prev) => new Set(prev).add(asset.id));
           }

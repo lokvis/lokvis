@@ -14,6 +14,7 @@
 
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
+import { useWorkflowProgress } from '../hooks/useWorkflowProgress.js';
 
 export interface ProgressBarProps {
   className?: string;
@@ -21,19 +22,11 @@ export interface ProgressBarProps {
 
 export function ProgressBar({ className = '' }: ProgressBarProps) {
   const running = useWorkspaceStore((s) => s.running);
-  const nodes = useWorkspaceStore((s) => s.nodes);
   const statusMessage = useWorkspaceStore((s) => s.statusMessage);
   const cancelRun = useWorkspaceStore((s) => s.cancelRun);
 
-  const total = nodes.length;
-  // 完成数:success + failed + cancelled(已结束的节点)
-  const done = nodes.filter(
-    (n) => n.status === 'success' || n.status === 'failed' || n.status === 'cancelled'
-  ).length;
-  const failedCount = nodes.filter((n) => n.status === 'failed').length;
-
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const hasFailure = failedCount > 0;
+  // 进度计算抽取到共享 hook(与 StatusBar 共用,避免重复逻辑)
+  const { total, done, failedCount, pct, hasFailure } = useWorkflowProgress();
 
   // 没有节点或未运行且无最近结果时不渲染
   if (total === 0) return null;

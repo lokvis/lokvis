@@ -30,7 +30,9 @@ export function ThemeToggle({ className = '', showLabel = false }: ThemeTogglePr
   React.useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: MouseEvent) => {
-      if (btnRef.current && !btnRef.current.contains(e.target as Node)) {
+      // e.target 可能是任意 EventTarget;用 instanceof Node 类型守卫收窄,
+      // 避免 as 断言(与 WorkflowEditor 等处统一)
+      if (e.target instanceof Node && btnRef.current && !btnRef.current.contains(e.target)) {
         setMenuOpen(false);
       }
     };

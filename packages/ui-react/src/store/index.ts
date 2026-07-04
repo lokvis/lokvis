@@ -27,3 +27,4 @@ export const useWorkspaceStore = create<WorkspaceStore>()((...a) => ({
 }));
 
 export type { WorkspaceState, WorkspaceActions, WorkspaceStore } from './types.js';
+export { MAX_WORKFLOW_STEPS } from './types.js';
