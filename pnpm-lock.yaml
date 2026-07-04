@@ -482,9 +482,6 @@ importers:
       '@lokvis/capability':
         specifier: workspace:*
         version: link:../capability
-      '@lokvis/engine-image':
-        specifier: workspace:*
-        version: link:../engine-image
       '@lokvis/runtime':
         specifier: workspace:*
         version: link:../runtime

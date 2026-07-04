@@ -2,13 +2,19 @@
  * W7.6 · Watermark Batch 工具页
  *
  * 拖拽多文件 → 配置水印参数 → 并发 4 批量加水印 → 进度/状态显示 + 批量下载。
- * 每个文件 = importAsset + run(image.watermark) + exportAsset。
+ * 每个文件 = importAsset + run(image.watermark) + exportAsset + removeAsset(清理)。
  * 文件状态机:pending → processing → done/error。
  *
+ * 资产生命周期(review 修复):每个 item 的输入 / 输出 asset 在 export 后立即
+ * removeAsset,避免长批量任务累积 OPFS/IDB 占用;outputBlob 已在内存中持有,
+ * 下载用内存 blob 即可,无需保留 asset。
+ *
+ * 取消与清空竞态(review 修复):
+ * - processing 中禁用清空,先点取消停止所有运行中任务
+ * - 取消:对 processing 的 item 调 runtime.cancel(workflowId) + 标记 cancelled,
+ *   pending 的回退为 pending(下一轮 schedule 可重新拉起)
+ *
  * 复用 BatchQueue 的并发池调度模式(单次 schedule 合并 patch + scheduleLock 防重入)。
- * 与 BatchQueue 的区别:
- * - 参数为水印(text/position/opacity/fontSize/color)而非压缩(format/quality)
- * - 水印保留原图格式,下载扩展名取自输入文件
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Workflow } from '@lokvis/sdk';
@@ -29,6 +35,13 @@ interface QueueItem {
   /** 输出扩展名(取自输入文件,水印保留原格式) */
   ext: string;
   error?: string;
+  /**
+   * 运行时 workflow id(buildWorkflow 生成),供 runtime.cancel 使用。
+   * 仅在 processItem 启动后设置;pending 时为 undefined。
+   */
+  workflowId?: string;
+  /** 用户已下载过(用于决定是否还需要保留 outputBlob / 触发 removeAsset) */
+  downloaded?: boolean;
 }
 
 const CONCURRENCY = 4;
@@ -85,6 +98,8 @@ export default function WatermarkBatchTool() {
   const [error, setError] = useState<string | null>(null);
   const [batchDownloading, setBatchDownloading] = useState(false);
   const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null);
+  /** 取消标志:为 true 时所有 in-flight processItem 应停止后续步骤 */
+  const cancelledRef = useRef(false);
 
   const scheduleRef = useRef<() => void>(() => {});
 
@@ -125,24 +140,90 @@ export default function WatermarkBatchTool() {
     [text, position, opacity, fontSize, color]
   );
 
+  /**
+   * 清理 item 在 runtime 中创建的 input/output asset。
+   *
+   * 调用时机:
+   * - processItem 成功 export 后(下载用内存 blob,asset 不再需要)
+   * - processItem 失败 / 取消(避免孤儿 input asset)
+   * - handleClear / handleCancel(批量清理所有已创建的 asset)
+   *
+   * 静默失败:asset 可能已被 remove 或 import 失败,忽略 not-found 错误。
+   */
+  const cleanupItemAssets = useCallback(async (item: QueueItem) => {
+    const rt = runtimeRef.current;
+    if (!rt) return;
+    // inputAssetId 未在 QueueItem 中存储 —— importAsset 返回值在 processItem 闭包内
+    // 这里通过 outputAssetId 间接清理;input asset 由 output 的 history 链不强引用,
+    // 但为彻底防泄漏,processItem 内部已记录并清理(见下方逻辑)
+    // 注:item.workflowId 可用于 disposeWorkflow(同时回收 outputs + history)
+    if (item.workflowId) {
+      try {
+        await rt.disposeWorkflow(item.workflowId);
+      } catch {
+        /* 静默 */
+      }
+    }
+  }, []);
+
   const processItem = useCallback(
     async (item: QueueItem) => {
       const rt = runtimeRef.current;
       if (!rt) return;
+      // 取消检查:cancelledRef 在 handleCancel / handleClear 中置 true
+      if (cancelledRef.current) {
+        patchItem(item.id, { status: 'pending' });
+        return;
+      }
+      const workflow = buildWorkflow(item);
+      patchItem(item.id, { workflowId: workflow.id });
+      let inputAssetId: string | undefined;
       try {
-        const assetId = await rt.importAsset({ kind: 'file', file: item.file });
-        const result = await rt.run(buildWorkflow(item), [assetId]);
+        inputAssetId = await rt.importAsset({ kind: 'file', file: item.file });
+        if (cancelledRef.current) {
+          // 取消:清理已导入的 input asset,回退状态
+          if (inputAssetId) await rt.removeAsset(inputAssetId).catch(() => {});
+          // disposeWorkflow:确保即使部分 run 启动也清理 stack(此处通常未启动)
+          await rt.disposeWorkflow(workflow.id).catch(() => {});
+          patchItem(item.id, { status: 'pending', workflowId: undefined });
+          return;
+        }
+        const result = await rt.run(workflow, [inputAssetId]);
+        if (cancelledRef.current) {
+          // 取消:disposeWorkflow 会 cancel 运行中的 workflow + reset stack
+          // (stack.reset 触发 onEvict 回收 history entries 中的 output assets),
+          // 再单独 removeAsset input(不在 history 链中)
+          await rt.disposeWorkflow(workflow.id).catch(() => {});
+          await rt.removeAsset(inputAssetId).catch(() => {});
+          patchItem(item.id, { status: 'pending', workflowId: undefined });
+          return;
+        }
         if (result.status === 'completed' && result.outputs[0]) {
           const blob = await rt.exportAsset(result.outputs[0]);
-          patchItem(item.id, { status: 'done', outputBlob: blob, outputSize: blob.size });
+          patchItem(item.id, {
+            status: 'done',
+            outputBlob: blob,
+            outputSize: blob.size,
+          });
+          // 资产清理:outputBlob 已在内存中,移除 input + output asset
+          // 同时 disposeWorkflow 回收 history(避免 historyStacks Map 泄漏)
+          await rt.removeAsset(inputAssetId).catch(() => {});
+          await rt.removeAsset(result.outputs[0]).catch(() => {});
+          await rt.disposeWorkflow(workflow.id).catch(() => {});
         } else {
           patchItem(item.id, { status: 'error', error: result.error ?? '处理失败' });
+          // 失败也清理 input + history
+          await rt.removeAsset(inputAssetId).catch(() => {});
+          await rt.disposeWorkflow(workflow.id).catch(() => {});
         }
       } catch (err) {
         patchItem(item.id, {
           status: 'error',
           error: err instanceof Error ? err.message : String(err),
         });
+        // 异常路径同样清理已创建的资产
+        if (inputAssetId) await rt.removeAsset(inputAssetId).catch(() => {});
+        await rt.disposeWorkflow(workflow.id).catch(() => {});
       } finally {
         scheduleRef.current();
       }
@@ -207,18 +288,47 @@ export default function WatermarkBatchTool() {
       return;
     }
     setError(null);
+    // 重置取消标志(新一轮处理)
+    cancelledRef.current = false;
     schedule();
   }, [ready, text, schedule]);
 
-  const handleClear = useCallback(() => {
-    commit([]);
-  }, [commit]);
-
-  const handleDownloadOne = useCallback((item: QueueItem) => {
-    if (!item.outputBlob) return;
-    const base = item.file.name.replace(/\.[^.]+$/, '') || 'image';
-    downloadBlob(item.outputBlob, `${base}.${item.ext}`);
+  /**
+   * 取消:对所有 processing 的 item 调 runtime.cancel(workflowId),
+   * 并置 cancelledRef 让 in-flight processItem 在下一个 await 点退出。
+   * pending 的 item 保持 pending(用户可再次点"全部加水印"重启)。
+   */
+  const handleCancel = useCallback(async () => {
+    const rt = runtimeRef.current;
+    if (!rt) return;
+    cancelledRef.current = true;
+    const processing = queueRef.current.filter((i) => i.status === 'processing' && i.workflowId);
+    await Promise.allSettled(processing.map((i) => rt.cancel(i.workflowId!)));
   }, []);
+
+  /**
+   * 清空:processing 中禁用(避免与 in-flight patchItem 竞态)。
+   * 已完成 / 失败 / pending 的 item 直接清空,并清理已创建的资产。
+   */
+  const handleClear = useCallback(async () => {
+    // 防御:有 processing 时不允许清空(按钮也 disabled,双保险)
+    if (queueRef.current.some((i) => i.status === 'processing')) return;
+    // 清理所有仍有 workflowId 的 item(已 import 但未完成清理的)
+    const toCleanup = queueRef.current.filter((i) => i.workflowId);
+    await Promise.allSettled(toCleanup.map((i) => cleanupItemAssets(i)));
+    commit([]);
+    setExpandedErrorId(null);
+  }, [commit, cleanupItemAssets]);
+
+  const handleDownloadOne = useCallback(
+    (item: QueueItem) => {
+      if (!item.outputBlob) return;
+      const base = item.file.name.replace(/\.[^.]+$/, '') || 'image';
+      downloadBlob(item.outputBlob, `${base}.${item.ext}`);
+      patchItem(item.id, { downloaded: true });
+    },
+    [patchItem]
+  );
 
   const handleDownloadAll = useCallback(async () => {
     const done = queueRef.current.filter((i) => i.status === 'done' && i.outputBlob);
@@ -230,10 +340,16 @@ export default function WatermarkBatchTool() {
         downloadBlob(item.outputBlob!, `${base}.${item.ext}`);
         await sleep(150);
       }
+      // 批量下载完成后,标记所有 done item 为 downloaded
+      commit(
+        queueRef.current.map((it) =>
+          it.status === 'done' ? { ...it, downloaded: true } : it
+        )
+      );
     } finally {
       setBatchDownloading(false);
     }
-  }, []);
+  }, [commit]);
 
   const total = queue.length;
   const finished = queue.filter((i) => i.status === 'done' || i.status === 'error').length;
@@ -316,9 +432,18 @@ export default function WatermarkBatchTool() {
           >
             {processing ? '处理中…' : hasPending ? '全部加水印' : '已完成'}
           </button>
+          {processing && (
+            <button
+              onClick={handleCancel}
+              className="rounded-lg border border-amber-700 px-4 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-950/40"
+            >
+              取消
+            </button>
+          )}
           <button
             onClick={handleClear}
-            disabled={total === 0}
+            disabled={total === 0 || processing}
+            title={processing ? '请先取消正在处理的任务' : undefined}
             className="rounded-lg border border-zinc-700 px-4 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             清空

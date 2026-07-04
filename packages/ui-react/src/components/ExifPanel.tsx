@@ -1,13 +1,13 @@
 /**
  * ExifPanel - EXIF 元数据查看面板(W7.4)
  *
- * 监听当前选中的 image asset,通过 runtime.exportAsset 取出 Blob,
- * 调用 @lokvis/engine-image 的 readExif 解析后展示结构化字段。
+ * 监听当前选中的 image asset,通过 runtime.readAssetExif 桥接调用
+ * @lokvis/engine-image 的 readExif 解析后展示结构化字段。
  *
  * 设计要点:
  * - 独立可折叠面板(与 Inspector 同列,渲染在其上方)
  * - 仅 image 类型 asset 显示;非 image 隐藏整个面板
- * - 缓存:按 assetId 缓存 ExifData,切换 asset 不重复解析
+ * - 缓存:按 assetId 缓存(剔除 raw 字段以控内存),LRU 上限 16 防长会话堆积
  * - 取消:effect 重跑/卸载时不更新 state(避免 stale update)
  * - 加载/空态/错误三态明确
  *
@@ -18,12 +18,15 @@
 
 import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
-import { readExif, formatExifRows, type ExifData } from '@lokvis/engine-image';
+import { formatExifRows, type ExifData } from '@lokvis/schema';
 import { useWorkspaceStore } from '../store/index.js';
 
 export interface ExifPanelProps {
   className?: string;
 }
+
+/** cache LRU 上限:防止长会话切换大量图片时 Map 无限增长 */
+const EXIF_CACHE_LIMIT = 16;
 
 export function ExifPanel({ className = '' }: ExifPanelProps) {
   const selectedAssetId = useWorkspaceStore((s) => s.selectedAssetId);
@@ -37,6 +40,8 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
 
   // 仅 image 类型 asset 显示 EXIF 面板
   const isImage = selectedAsset?.type === 'image';
+  // effect 依赖用 id 而非 asset 引用:避免 assets 数组重渲染触发重复 effect
+  const selectedAssetIdForEffect = selectedAsset?.id;
 
   const [open, setOpen] = React.useState(true);
   const [exif, setExif] = React.useState<ExifData | null>(null);
@@ -47,17 +52,22 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
   const cacheRef = React.useRef<Map<string, ExifData | null>>(new Map());
 
   React.useEffect(() => {
-    if (!isImage || !selectedAsset || !runtime) {
+    if (!isImage || !selectedAssetIdForEffect || !runtime) {
       setExif(null);
       setError(null);
       setLoading(false);
       return;
     }
 
-    // 命中缓存:同步设置,不发请求
+    const assetId = selectedAssetIdForEffect;
     const cache = cacheRef.current;
-    if (cache.has(selectedAsset.id)) {
-      setExif(cache.get(selectedAsset.id) ?? null);
+
+    // 命中缓存:同步设置,不发请求(LRU 命中后重排到末尾)
+    if (cache.has(assetId)) {
+      const cached = cache.get(assetId) ?? null;
+      cache.delete(assetId);
+      cache.set(assetId, cached);
+      setExif(cached);
       setError(null);
       setLoading(false);
       return;
@@ -69,12 +79,21 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
 
     (async () => {
       try {
-        const blob = await runtime.exportAsset(selectedAsset.id);
+        // 通过 runtime.readAssetExif 桥接,UI 不直接依赖 Engine 包
+        const data = await runtime.readAssetExif(assetId);
         if (cancelled) return;
-        const data = await readExif(blob);
-        if (cancelled) return;
-        cache.set(selectedAsset.id, data);
-        setExif(data);
+        // 缓存前剔除 raw 字段:UI 不展示该字段,且体积大(可能数十 KB),
+        // 缓存原始对象会让长会话内存占用显著膨胀
+        const stripped: ExifData | null = data
+          ? { ...data, raw: undefined }
+          : null;
+        // LRU 上限:超出时删除最旧 entry(Map 第一个,即最近最少命中)
+        if (cache.size >= EXIF_CACHE_LIMIT) {
+          const oldestKey = cache.keys().next().value;
+          if (oldestKey !== undefined) cache.delete(oldestKey);
+        }
+        cache.set(assetId, stripped);
+        setExif(stripped);
         setError(null);
       } catch (err) {
         if (cancelled) return;
@@ -89,7 +108,7 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [isImage, selectedAsset, runtime]);
+  }, [isImage, selectedAssetIdForEffect, runtime]);
 
   // 非 image 或无选中 asset:不渲染(避免占用布局空间)
   if (!isImage || !selectedAsset) return null;
