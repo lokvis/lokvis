@@ -25,7 +25,7 @@
 
 | SPDX | 名称 | 数量 | 备注 |
 |------|------|------|------|
-| **MIT** | MIT License | 22 | 主体依赖,与 Lokvis 同许可证 |
+| **MIT** | MIT License | 39 | 主体依赖(运行时 20 + dev 16 + types 3),与 Lokvis 同许可证 |
 | **Apache-2.0** | Apache License 2.0 | 4 | `dexie` / `sharp` / `fake-indexeddb` / `typescript` |
 | **BSD-3-Clause** | BSD 3-Clause | (传递依赖) | 见 `pnpm-license` 报告 |
 | **ISC** | ISC License | (传递依赖) | 见 `pnpm-license` 报告 |
@@ -128,7 +128,7 @@
 
 ## License Texts
 
-### MIT License(本项目 + 22 个依赖)
+### MIT License(本项目 + 39 个依赖)
 
 ```
 MIT License

@@ -1,7 +1,10 @@
 ---
 import ToolLayout from '../../layouts/ToolLayout.astro';
 import ConvertTool from '../../components/tools/ConvertTool.tsx';
+import { ErrorBoundary } from '../../components/ErrorBoundary.tsx';
 ---
 <ToolLayout slug="convert">
-  <ConvertTool client:only="react" />
+  <ErrorBoundary client:only="react">
+    <ConvertTool />
+  </ErrorBoundary>
 </ToolLayout>

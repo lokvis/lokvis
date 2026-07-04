@@ -1,7 +1,10 @@
 ---
 import ToolLayout from '../../layouts/ToolLayout.astro';
 import BatchQueue from '../../components/tools/BatchQueue.tsx';
+import { ErrorBoundary } from '../../components/ErrorBoundary.tsx';
 ---
 <ToolLayout slug="batch">
-  <BatchQueue client:only="react" />
+  <ErrorBoundary client:only="react">
+    <BatchQueue />
+  </ErrorBoundary>
 </ToolLayout>

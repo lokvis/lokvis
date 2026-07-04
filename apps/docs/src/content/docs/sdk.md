@@ -215,7 +215,7 @@ try {
 | `WORKER_TIMEOUT` | Worker 请求超时 | 单请求超 60s(默认) |
 | `DEGRADATION_REJECTED` | 内存 critical 且不可降级 | L4 拒绝,携带 `guide` 用户建议 |
 | `PLUGIN_LOAD_FAILED` | 插件加载失败 | plugin install 抛错 |
-| `BATCH_LIMIT_EXCEEDED` | 批量超免费上限 | 11 项免费 / Pro 无限 |
+| `BATCH_LIMIT_EXCEEDED` | 批量超免费上限 | 10 项免费 / Pro 无限 |
 | `UNKNOWN` | 归一后仍无法识别 | 非 lokvis 错误 |
 
 ## CLI

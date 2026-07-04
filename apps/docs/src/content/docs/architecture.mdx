@@ -58,7 +58,7 @@ Metadata in IndexedDB (via Dexie in future), large files in OPFS (Origin Private
 
 ## Worker 隔离(Worker Isolation)
 
-所有重计算(图像编解码、未来 WASM 引擎)运行在独立 Web Worker 内,与主线程 UI 解耦,避免长任务阻塞渲染(对应白皮书 T1「浏览器内存/性能 ★★★★★」)。跨域隔离(COOP/COEP)在 `apps/web/public/_headers` 配置,启用 `SharedArrayBuffer` 供多线程 WASM 使用。
+所有重计算(图像编解码、未来 WASM 引擎)运行在独立 Web Worker 内,与主线程 UI 解耦,避免长任务阻塞渲染(对应白皮书 T1「浏览器内存/性能 ★★★★★」)。跨域隔离(COOP/COEP)在 `apps/playground/public/_headers` 配置,启用 `SharedArrayBuffer` 供多线程 WASM 使用。
 
 ### 通信协议(`@lokvis/runtime` worker-protocol)
 

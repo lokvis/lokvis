@@ -89,7 +89,7 @@ pnpm dev --filter @lokvis/docs
 ```bash
 pnpm typecheck      # 36 包类型检查
 pnpm build          # 20 任务构建
-pnpm test           # 763 测试
+pnpm test           # 777 测试
 pnpm test:coverage  # 覆盖率(lines 91%+ / branches 88%+)
 ```
 
@@ -211,7 +211,7 @@ pnpm dev --filter @lokvis/docs          # 启动文档站
 # 质量
 pnpm typecheck      # 全量类型检查(36 包)
 pnpm build          # 构建(20 任务)
-pnpm test           # 运行测试(763 测试)
+pnpm test           # 运行测试(777 测试)
 pnpm test:fast      # 跳过覆盖率快速测试
 pnpm test:coverage  # 覆盖率
 pnpm lint           # oxlint
@@ -239,11 +239,11 @@ lokvis mcp                                  # 启动 MCP server
 | Workflow 编排 | ✅ | 5 步线性 + 拖拽编辑器 + 5 模板 + JSON 导入导出 + 分享链接 |
 | 基础设施 | ✅ | Worker 隔离 + Streaming + MemoryGuard + 降级阶梯 + Cancel + OPFS/IDB 三级 |
 | Workspace UI | ✅ | CommandPalette + GlobalDropzone + CompareSlider + DownloadPanel + ThemeToggle |
-| Playground | ✅ | 5 工具页 + Workflow 编辑器 + History + 隐私指示器 |
+| Playground | ✅ | 8 工具页 + Workflow 编辑器 + History + 隐私指示器 |
 | CLI | ✅ | run / capabilities / plugin create / mcp / version |
 | 文档 | ✅ | Starlight 三页定稿(Architecture / Getting Started / SDK) |
 | Sentry 监控 | ✅ | 接入完成,DSN 待部署时配置 |
-| 性能基线 | ✅ | 751 测试 / 91% 覆盖率 / 18.51s 套件 |
+| 性能基线 | ✅ | 777 测试 / 91% 覆盖率 / 19.16s 套件 |
 | 视频/PDF/Audio 引擎 | 🚧 stub | Phase 2 接入 ffmpeg.wasm / pdf-lib |
 | Plugin SDK | 🚧 Alpha | Phase 2 优先 MCP server(ADR-O2) |
 
@@ -341,7 +341,7 @@ Lokvis 使用以下开源依赖(完整列表见 `THIRD_PARTY_LICENSES.md`):
 - **CodeMirror 6** (MIT) — playground 代码编辑器
 
 Phase 2 将引入:
-- **ffmpeg.wasm** (MIT / Apache 2.0) — 视频引擎
+- **ffmpeg.wasm** (MIT + LGPL-2.1+) — 视频引擎
 - **pdf-lib** (MIT) — PDF 引擎
 - **transformers.js** (Apache 2.0) — AI 引擎
 

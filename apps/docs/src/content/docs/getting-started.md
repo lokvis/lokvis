@@ -35,7 +35,7 @@ pnpm dev --filter @lokvis/playground
 ```
 
 Playground 提供:
-- 5 个工具页(resize / compress / convert / crop / watermark)+ 批量水印
+- 8 个工具页(resize / compress / convert / crop / watermark / 批量水印 / 批量处理 / 下载)
 - Workflow 编辑器(拖拽 + 模板 + 分享链接)
 - History 面板(undo/redo)
 - 隐私指示器(离线检测 + Local-only badge)
@@ -45,7 +45,7 @@ Playground 提供:
 ```bash
 pnpm typecheck   # 全量类型检查(36 包)
 pnpm build       # 构建(20 任务)
-pnpm test        # 运行测试(751 测试)
+pnpm test        # 运行测试(777 测试)
 pnpm test:coverage  # 覆盖率(lines 91%+ / branches 88%+)
 ```
 

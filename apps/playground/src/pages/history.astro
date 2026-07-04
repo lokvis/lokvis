@@ -1,7 +1,10 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import HistoryDemo from '../components/demos/HistoryDemo.tsx';
+import { ErrorBoundary } from '../components/ErrorBoundary.tsx';
 ---
 <BaseLayout title="Lokvis Playground · Undo / Redo" active="history">
-  <HistoryDemo client:only="react" />
+  <ErrorBoundary client:only="react">
+    <HistoryDemo />
+  </ErrorBoundary>
 </BaseLayout>

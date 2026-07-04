@@ -223,13 +223,13 @@
 - **范围**:W12 里程碑(W12.1-W12.6 共 6 项任务)完成后的技术债状态复核
 - **方法**:全量 typecheck + test + build 验证 + 文档与代码一致性检查
 - **验证结果**:
-  - typecheck 0 errors(9 包抽样:`@lokvis/playground` / `runtime` / `schema` / `sdk` / `ui-react` / `engine-image` / `plugin-image` / `cli` / `mcp-server`)
-  - test 763/763 通过(42 测试文件,19.88s)
+  - typecheck 0 errors(9 包抽样:`@lokvis/playground` / `runtime` / `schema` / `sdk` / `ui-react` / `engine-image` / `plugin-image` / `cli` / `mcp-server`;非全量 36 包,详见 PR #14 Review #4 补充说明)
+  - test 777/777 通过(42 测试文件,19.16s;PR #14 Review #4 修复后 sentry 测试从 12 重写为 26,总量 763→777)
   - build 20/20 任务通过(W12.2 基线)
 - **新债务登记**:**0 项**——W12.1-W12.6 期间未引入新技术债
   - W12.1 Alpha 验收(报告):非代码任务,无债务引入
   - W12.2 性能基线(报告):非代码任务,识别 CodeMirror 444KB chunk 为 W21.3 优化候选(已记入 W12.2 报告,非新债务)
-  - W12.3 Sentry 接入:新增 `sentry.ts` + `ErrorBoundary.tsx`,DSN 未配置时 no-op,无静默吞错 / 类型 workaround
+  - W12.3 Sentry 接入:新增 `sentry.ts` + `ErrorBoundary.tsx`,DSN 未配置时 no-op。**PR #14 Review #4 补充**:初版 `sentry.ts` 含 `as unknown as` 双断言(访问 `window.doNotTrack`),已在 PR #14 review 修复中改为 `navigator.doNotTrack` + `navigator.globalPrivacyControl` 直接访问,无需登记为 TD-4.5(已清偿)
   - W12.4 文档三页定稿:非代码任务,无债务引入
   - W12.5 README 重写:非代码任务,无债务引入
   - W12.6 LICENSE 审计:非代码任务,无债务引入
