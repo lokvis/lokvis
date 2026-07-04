@@ -49,11 +49,14 @@ import { Canvas } from './Canvas.js';
 import { Inspector } from './Inspector.js';
 import { PipelineBar } from './PipelineBar.js';
 import { WorkflowEditor } from './WorkflowEditor.js';
+import { ProgressBar } from './ProgressBar.js';
+import { ErrorBanner } from './ErrorBanner.js';
 import { StatusBar } from './StatusBar.js';
 import { DownloadPanel } from './DownloadPanel.js';
 import { CommandPalette, useCommandPalette } from './CommandPalette.js';
 import { GlobalDropzone } from './GlobalDropzone.js';
 import { ThemeToggle } from './ThemeToggle.js';
+import { useShareLink } from '../hooks/useShareLink.js';
 
 export interface WorkspaceProps extends UseLokvisOptions {
   /** 顶部标题 */
@@ -74,6 +77,12 @@ export interface WorkspaceProps extends UseLokvisOptions {
   enableDownloadPanel?: boolean;
   /** 是否启用拖拽式 WorkflowEditor（默认 false,W10.4;关闭则用只读 PipelineBar） */
   enableWorkflowEditor?: boolean;
+  /** 是否启用 ProgressBar + Cancel 按钮（默认 true,W11.6） */
+  enableProgressBar?: boolean;
+  /** 是否启用 ErrorBanner 错误信息横幅（默认 true,W11.3） */
+  enableErrorBanner?: boolean;
+  /** 是否从 URL ?workflow= 参数加载分享工作流（默认 true,W11.5） */
+  enableShareLink?: boolean;
   className?: string;
 }
 
@@ -90,6 +99,9 @@ export function Workspace({
   enableCompare = true,
   enableDownloadPanel = true,
   enableWorkflowEditor = false,
+  enableProgressBar = true,
+  enableErrorBanner = true,
+  enableShareLink = true,
   className = '',
   ...lokvisOptions
 }: WorkspaceProps) {
@@ -98,6 +110,16 @@ export function Workspace({
   const [paletteOpen, setPaletteOpen] = useCommandPalette({ enabled: enableCommandPalette });
   // W9.8 移动端抽屉:Asset / Inspector 切换显示
   const [mobilePanel, setMobilePanel] = React.useState<MobilePanel>(null);
+
+  // W11.5: 从 URL ?workflow= 参数加载分享工作流(runtime 就绪后执行一次)
+  const { loadFromCurrentUrl } = useShareLink();
+  const shareLoadedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (enableShareLink && !shareLoadedRef.current && status !== 'initializing' && status !== 'error') {
+      shareLoadedRef.current = true;
+      loadFromCurrentUrl();
+    }
+  }, [enableShareLink, status, loadFromCurrentUrl]);
 
   if (status === 'initializing') {
     return (
@@ -177,6 +199,9 @@ export function Workspace({
       {/* Top: Toolbar */}
       <Toolbar title={title} rightExtra={toolbarRight} />
 
+      {/* W11.3 ErrorBanner (有 error 时显示) */}
+      {enableErrorBanner && <ErrorBanner />}
+
       {/* W9.3 全屏拖拽 */}
       {enableGlobalDropzone && <GlobalDropzone />}
 
@@ -227,6 +252,9 @@ export function Workspace({
 
       {/* Pipeline bar */}
       {enableWorkflowEditor ? <WorkflowEditor /> : <PipelineBar />}
+
+      {/* W11.6 ProgressBar + Cancel */}
+      {enableProgressBar && <ProgressBar />}
 
       {/* W9.1 History panel (horizontal at bottom) */}
       {showHistoryPanel && <HistoryPanel variant="horizontal" />}

@@ -27,6 +27,8 @@ export { useLokvis, type UseLokvisOptions, type UseLokvisResult } from './hooks/
 export { useTheme, type UseThemeResult, type ThemeMode } from './hooks/useTheme.js';
 export { useMediaQuery, useBreakpoints, type Breakpoints } from './hooks/useMediaQuery.js';
 export { useWorkflows, FREE_WORKFLOW_LIMIT, PRO_WORKFLOW_LIMIT, type UseWorkflowsResult, type WorkflowSlot, type SaveWorkflowInput } from './hooks/useWorkflows.js';
+export { useDebouncedRun, type UseDebouncedRunOptions, type UseDebouncedRunResult } from './hooks/useDebouncedRun.js';
+export { useShareLink, type UseShareLinkResult, encodeWorkflowForShare, decodeWorkflowFromShare } from './hooks/useShareLink.js';
 export { useWorkspaceStore, type WorkspaceState, type WorkspaceActions } from './store/index.js';
 
 export { Workspace, type WorkspaceProps } from './components/Workspace.js';
@@ -36,6 +38,9 @@ export { Inspector } from './components/Inspector.js';
 export { ExifPanel, type ExifPanelProps } from './components/ExifPanel.js';
 export { PipelineBar } from './components/PipelineBar.js';
 export { WorkflowEditor, type WorkflowEditorProps } from './components/WorkflowEditor.js';
+export { ProgressBar, type ProgressBarProps } from './components/ProgressBar.js';
+export { ErrorBanner, type ErrorBannerProps } from './components/ErrorBanner.js';
+export { WorkflowTemplates, type WorkflowTemplatesProps } from './components/WorkflowTemplates.js';
 export { Toolbar } from './components/Toolbar.js';
 export { StatusBar } from './components/StatusBar.js';
 export { ParamForm, type ParamFormProps } from './components/ParamForm.js';
@@ -45,6 +50,13 @@ export { GlobalDropzone, type GlobalDropzoneProps } from './components/GlobalDro
 export { CompareSlider, type CompareSliderProps } from './components/CompareSlider.js';
 export { DownloadPanel, type DownloadPanelProps } from './components/DownloadPanel.js';
 export { ThemeToggle, type ThemeToggleProps } from './components/ThemeToggle.js';
+
+export {
+  WORKFLOW_TEMPLATES,
+  type WorkflowTemplate,
+  type WorkflowTemplateNode,
+  findTemplate,
+} from './data/workflow-templates.js';
 
 export type {
   WorkspaceEvent,

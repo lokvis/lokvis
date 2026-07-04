@@ -15,7 +15,7 @@ import type { WorkspaceStore, WorkspaceState, WorkspaceActions } from './types.j
 import { genNodeId } from './types.js';
 
 export interface WorkflowSlice
-  extends Pick<WorkspaceState, 'nodes' | 'selectedNodeId' | 'lastOutputIds' | 'selectedOutputId'>,
+  extends Pick<WorkspaceState, 'nodes' | 'selectedNodeId' | 'lastOutputIds' | 'selectedOutputId' | 'currentRunId'>,
     Pick<
       WorkspaceActions,
       | 'addNode'
@@ -24,7 +24,10 @@ export interface WorkflowSlice
       | 'selectNode'
       | 'setNodeStatus'
       | 'moveNode'
+      | 'insertNodeAt'
       | 'run'
+      | 'cancelRun'
+      | 'loadWorkflowTemplate'
       | 'clearWorkflow'
       | 'selectOutput'
       | 'clearOutputs'
@@ -40,6 +43,7 @@ export const createWorkflowSlice: StateCreator<
   selectedNodeId: null,
   lastOutputIds: [],
   selectedOutputId: null,
+  currentRunId: null,
 
   addNode(capability) {
     // W10.1/W10.3: 最多 5 步限制(与 MAX_WORKFLOW_STEPS 对齐)
@@ -102,13 +106,74 @@ export const createWorkflowSlice: StateCreator<
     });
   },
 
+  insertNodeAt(index, capability) {
+    // W11.1: 在指定位置插入节点(与 5 步上限对齐)
+    if (get().nodes.length >= 5) {
+      set({
+        error: `工作流最多 5 个节点(M1 MVP 限制),请先删除不需要的节点`,
+      });
+      return;
+    }
+    if (!capability) return;
+    const node: WorkspaceNode = {
+      id: genNodeId(),
+      capability,
+      params: {},
+      status: 'idle',
+    };
+    set((state) => {
+      const next = [...state.nodes];
+      const at = Math.max(0, Math.min(index, next.length));
+      next.splice(at, 0, node);
+      return { nodes: next, selectedNodeId: node.id };
+    });
+  },
+
+  loadWorkflowTemplate(templateNodes) {
+    // W11.4: 用模板节点序列替换当前工作流,清空上次输出
+    const nodes: WorkspaceNode[] = templateNodes.map(({ capability, params }) => ({
+      id: genNodeId(),
+      capability,
+      params,
+      status: 'idle' as const,
+    }));
+    set({
+      nodes,
+      selectedNodeId: nodes[0]?.id ?? null,
+      lastOutputIds: [],
+      selectedOutputId: null,
+      error: null,
+    });
+  },
+
+  async cancelRun() {
+    // W11.6: 取消当前运行,把仍在 pending/running 的节点标 cancelled
+    const { runtime, currentRunId } = get();
+    if (!runtime || !currentRunId) return;
+    try {
+      await runtime.cancel(currentRunId);
+    } catch {
+      // 取消失败不阻断 UI,仍把节点状态归位
+    }
+    set((state) => ({
+      running: false,
+      currentRunId: null,
+      statusMessage: 'Cancelled',
+      nodes: state.nodes.map((n) =>
+        n.status === 'pending' || n.status === 'running'
+          ? { ...n, status: 'cancelled' as const }
+          : n
+      ),
+    }));
+  },
+
   async run() {
     const { runtime, nodes, selectedAssetId } = get();
     if (!runtime) throw new Error('Runtime not initialized');
     if (nodes.length === 0) throw new Error('Workflow is empty');
     if (!selectedAssetId) throw new Error('No asset selected');
 
-    set({ running: true, error: null, statusMessage: 'Running...' });
+    set({ running: true, error: null, statusMessage: 'Running...', currentRunId: null });
 
     // 重置所有节点状态
     set((state) => ({
@@ -138,6 +203,8 @@ export const createWorkflowSlice: StateCreator<
     try {
       // 构建 Workflow
       const workflow = buildLinearWorkflow(nodes);
+      // W11.6: 记录当前 workflowId 供 cancelRun() 使用
+      set({ currentRunId: workflow.id });
       const input = await runtime.getAsset(selectedAssetId);
 
       set({ statusMessage: 'Running workflow...' });
@@ -191,6 +258,7 @@ export const createWorkflowSlice: StateCreator<
       const message = err instanceof Error ? err.message : String(err);
       set({
         running: false,
+        currentRunId: null,
         error: message,
         statusMessage: 'Failed',
       });
@@ -202,6 +270,8 @@ export const createWorkflowSlice: StateCreator<
       }
       throw err;
     } finally {
+      // W11.6: 清除 currentRunId(成功/失败/取消都应清除)
+      set({ currentRunId: null });
       offStarted();
       offFinished();
       offNodeFailed();
