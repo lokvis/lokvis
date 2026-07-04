@@ -40,6 +40,12 @@ export interface WorkspaceState {
   statusMessage: string;
   /** 错误信息 */
   error: string | null;
+  /**
+   * 错误事件序号(单调递增)。每次 setError(非 null) 都递增,使
+   * ErrorBanner 能在相同错误消息重复出现时仍感知到"新错误事件"重新弹出。
+   * null error 不递增。0 表示初始无错误状态。
+   */
+  errorSeq: number;
 
   /** 存储配额使用情况(W6.7):{ usage, quota } 字节,null 表示未查询 */
   storageUsage: { usage: number; quota: number } | null;

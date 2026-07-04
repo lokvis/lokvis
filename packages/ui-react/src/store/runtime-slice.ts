@@ -17,6 +17,7 @@ export interface RuntimeSlice
       | 'running'
       | 'statusMessage'
       | 'error'
+      | 'errorSeq'
       | 'storageUsage'
     >,
     Pick<
@@ -47,6 +48,7 @@ export const createRuntimeSlice: StateCreator<
     running: false,
     statusMessage: 'Idle',
     error: null,
+    errorSeq: 0,
     storageUsage: null,
 
     async init(runtime) {
@@ -86,7 +88,12 @@ export const createRuntimeSlice: StateCreator<
     },
 
     setError(error) {
-      set({ error });
+      // errorSeq 在设置非 null error 时递增,使 ErrorBanner 能感知新错误事件
+      // 重新弹出(避免相同错误消息重复出现时 banner 因引用相等不触发 useEffect)
+      set((state) => ({
+        error,
+        errorSeq: error !== null ? state.errorSeq + 1 : state.errorSeq,
+      }));
     },
 
     async refreshStorageUsage() {

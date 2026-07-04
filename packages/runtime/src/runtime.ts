@@ -195,7 +195,14 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
 
   private config: Required<Omit<RuntimeConfig, 'assetStore' | 'historyStore' | 'historyStoreOptions'>>;
   private _status: RuntimeStatus = 'idle';
-  private assetStore: AssetStore;
+  /**
+   * AssetStore 实例。类型为 QuotaAwareAssetStore —— 由 wrapAssetStoreWithQuota
+   * 返回(在构造函数中无条件包裹,即使是注入的 assetStore 也会被包装以提供配额校验)。
+   * 保留 _getQuotaUsage 内部 API 供 getStorageUsage O(1) 读取 usage。
+   * 注:外部注入的 assetStore 在 wrapAssetStoreWithQuota 中同样被包装,
+   * 因此所有路径下 this.assetStore 都是 QuotaAwareAssetStore。
+   */
+  private assetStore: QuotaAwareAssetStore;
   private capabilityRegistry: CapabilityRegistry;
   private executor: WorkflowExecutor;
   private memoryGuard: MemoryGuard;
@@ -590,13 +597,13 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   async getStorageUsage(): Promise<{ usage: number; quota: number }> {
     // m6 优化:优先用配额包装器内部维护的 usage(O(1),import/create/remove
     // 时增量更新),避免每次 O(n) 全量 listAssets 影响 StatusBar 刷新。
-    // 包装器未就绪(ensureInit 未完成)或未暴露 _getQuotaUsage 时,fallback
-    // 到 listAssets 实时计算(source of truth,与 W6.4 富元数据一致)。
-    const quotaAware = this.assetStore as AssetStore & {
-      _getQuotaUsage?: () => number;
-    };
-    const cached = quotaAware._getQuotaUsage?.();
-    if (cached !== undefined && cached >= 0) {
+    // 包装器未就绪(ensureInit 未完成)返回 -1 时,fallback 到 listAssets
+    // 实时计算(source of truth,与 W6.4 富元数据一致)。
+    //
+    // 类型说明:assetStore 字段类型为 QuotaAwareAssetStore(含 _getQuotaUsage),
+    // 由 wrapAssetStoreWithQuota 返回。无需重新断言 —— 类型信息未丢失。
+    const cached = this.assetStore._getQuotaUsage();
+    if (cached >= 0) {
       return { usage: cached, quota: this.config.storageQuota };
     }
     const all = await this.assetStore.list();

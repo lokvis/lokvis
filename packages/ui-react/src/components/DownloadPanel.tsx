@@ -3,7 +3,7 @@
  *
  * 展示上次工作流执行的输出资产,提供:
  *   - 单项下载(从 runtime.exportAsset 取 blob,触发浏览器下载)
- *   - 全部下载(逐项触发,200ms 间隔,避免浏览器拦截)
+ *   - 全部下载(逐项触发,BATCH_DOWNLOAD_DELAY_MS 间隔,避免浏览器拦截;长期方案见该常量注释)
  *   - 清空输出列表
  *
  * 与 apps/playground 的 DownloadManager(独立工具页)不同:本组件是 Workspace
@@ -28,7 +28,20 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-/** 延迟工具,避免浏览器拦截多下载 */
+/**
+ * 批量下载时每项之间的延迟毫秒数。
+ *
+ * 短期方案:浏览器(尤其 Chrome)会拦截同一 tick 内触发的多个 programmatic
+ * `<a download>` 点击,把第一个之后的视为"非用户手势"弹窗拦截。两次下载之间
+ * 插入小延迟可绕过该启发式判定。该值是经验值,不是规范要求 —— 不同浏览器
+ * 版本行为可能变化。
+ *
+ * 长期方案:用 JSZip 将多个输出打包成单个 ZIP 下载(只需一次用户手势)。
+ * 本组件暂未引入 JSZip 依赖(见文件头注释),待 M2 引入 archive capability 后
+ * 一并迁移,届时可移除此常量与 sleep 调用。
+ */
+const BATCH_DOWNLOAD_DELAY_MS = 200;
+
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /** 从扩展名或 mime 推断下载扩展名 */
@@ -124,7 +137,7 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
           if (mountedRef.current) {
             setDownloaded((prev) => new Set(prev).add(asset.id));
           }
-          await sleep(200);
+          await sleep(BATCH_DOWNLOAD_DELAY_MS);
         } catch (err) {
           if (mountedRef.current) {
             setError(err instanceof Error ? err.message : String(err));

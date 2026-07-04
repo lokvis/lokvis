@@ -77,8 +77,8 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
     setHoverIndex(null);
   };
 
-  // 键盘支持:选中节点后用 ← → 移动
-  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+  // 键盘支持:选中节点后用 ← → 移动。传 node.id 而非 index 避免异步操作后 stale index
+  const handleKeyDown = (e: React.KeyboardEvent, nodeId: string, index: number) => {
     if (e.key === 'ArrowLeft' && index > 0) {
       e.preventDefault();
       moveNode(index, index - 1);
@@ -87,7 +87,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
       moveNode(index, index + 1);
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
-      removeNode(nodes[index]!.id);
+      removeNode(nodeId);
     }
   };
 
@@ -171,7 +171,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
                     onDrop={(e) => handleDrop(e, i)}
                     onDragEnd={handleDragEnd}
                     onClick={() => selectNode(node.id)}
-                    onKeyDown={(e) => handleKeyDown(e, i)}
+                    onKeyDown={(e) => handleKeyDown(e, node.id, i)}
                     aria-label={`节点 ${node.capability},位置 ${i + 1},拖拽或方向键重排,Delete 删除`}
                     className={`group relative flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all ${
                       isDragging
@@ -195,17 +195,21 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
                     </span>
                     <span className="font-mono">{node.capability}</span>
                     <StatusDot status={node.status} />
-                    <span
+                    {/* 删除按钮:作为兄弟 button 而非嵌套(HTML 规范禁止 button 嵌套)
+                        使用 position absolute 浮在节点 button 之上,避免叠加在 capability 文字上;
+                        group-hover 显示;stopPropagation 避免触发 selectNode */}
+                    <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         removeNode(node.id);
                       }}
-                      className="ml-0.5 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40"
-                      role="button"
                       aria-label="删除节点"
+                      tabIndex={-1}
+                      className="absolute -right-1 -top-1 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40"
                     >
                       <Icon size={10} strokeWidth={3}><path d="M6 18L18 6M6 6l12 12" /></Icon>
-                    </span>
+                    </button>
                   </button>
 
                   {/* W11.1: 每个节点后的插入连接器(最后一个用于追加到 Output 前) */}
@@ -283,7 +287,9 @@ function InsertConnector({
   React.useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      // 用 instanceof guard 替代 as Node 断言:运行时安全 + 类型安全
+      if (!(e.target instanceof Node)) return;
+      if (ref.current && !ref.current.contains(e.target)) {
         setOpen(false);
         setFilter('');
       }

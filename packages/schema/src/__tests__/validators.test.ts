@@ -371,12 +371,17 @@ describe('W10.2 capability 兼容性校验', () => {
     expect(result.success).toBe(false);
   });
 
-  it('未注册的 capability 应跳过兼容性校验(向后兼容)', () => {
+  it('未注册的 capability 应在 schema 层显式报错(不静默跳过)', () => {
     const result = validateWorkflow(linearWf('unknown.cap', 'image.resize'), {
       resolveCapability: resolveCap,
     });
-    // unknown.cap 未注册,跳过该节点的所有校验;image.resize 兼容 image
-    expect(result.success).toBe(true);
+    // unknown.cap 未注册:不再静默跳过,schema 层应报错
+    // 避免用户得到"校验通过"假象,运行时才报错
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => /unknown capability "unknown\.cap"/.test(i.message)))
+        .toBe(true);
+    }
   });
 
   it('resolveCapability 未提供时应跳过兼容性校验(向后兼容)', () => {
