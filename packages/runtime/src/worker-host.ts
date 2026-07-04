@@ -247,14 +247,8 @@ export class WorkerHost {
   async dispose(): Promise<void> {
     if (this.status === 'disposed') return;
     this.status = 'disposed';
-    this.clearHeartbeat();
     this.rejectAllPending(new Error('WorkerHost disposed'));
-    this.offMessage?.();
-    this.offError?.();
-    this.offMessage = null;
-    this.offError = null;
-    this.transport?.terminate();
-    this.transport = null;
+    this.teardownTransport();
     this.listeners.clear();
   }
 
@@ -364,12 +358,9 @@ export class WorkerHost {
       });
     } catch (err) {
       clearTimeout(readyTimer!);
-      this.offMessage?.();
-      this.offError?.();
-      this.offMessage = null;
-      this.offError = null;
-      transport.terminate();
-      this.transport = null;
+      // this.transport 在 spawn 顶部已赋值,teardownTransport 可安全清理
+      // (clearHeartbeat 对未启动的心跳是无害 no-op)
+      this.teardownTransport();
       throw err as Error;
     }
 

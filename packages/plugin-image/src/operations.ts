@@ -1,21 +1,16 @@
 /**
  * Image Capability 实现
  *
- * 把 engine-image 的 Blob ↔ Blob 操作包装为 CapabilityImplementation：
- *   Asset[] + params → Asset[]
+ * 通过 plugin-sdk 的 createBlobCapabilityImpl 工厂把 engine-image 的
+ * Blob↔Blob 操作包装为 CapabilityImplementation:Asset[] + params → Asset[]
  *
- * 关键流程：
- *   1. 通过 ctx.runtime.getAssetBlob 读取输入 Asset 的 Blob
- *   2. 调用 engine-image 对应操作（resize / compress / ...）
- *   3. 通过 ctx.runtime.createAsset 把输出 Blob 注册为新 Asset
+ * 工厂封装了"取 blob → 调 operation → 派生 metadata → createAsset → 进度/取消"
+ * 五步样板,本文件只需提供 operation 函数与 isStub 检测。
  */
 
-import type {
-  Asset,
-  CapabilityImplementation,
-  ExecutionContext,
-} from '@lokvis/schema';
 import type { PluginContext } from '@lokvis/schema';
+import type { CapabilityImplementation } from '@lokvis/schema';
+import { createBlobCapabilityImpl } from '@lokvis/plugin-sdk';
 import {
   canvasEngine,
   resize as opResize,
@@ -42,58 +37,8 @@ export interface ImageCapabilityEntry {
   capability: string;
   /** 引擎名 */
   engine: string;
-  /** 实际执行函数（Blob → Blob） */
+  /** 实际执行函数(Blob → Blob) */
   operation: ImageOperation;
-}
-
-/** 将 Blob 操作包装为标准 CapabilityImplementation */
-function wrapAsImplementation(
-  entry: ImageCapabilityEntry,
-  ctx: PluginContext
-): CapabilityImplementation {
-  const isStub = canvasEngine.version.includes('stub');
-  return {
-    capability: entry.capability,
-    engine: entry.engine,
-    status: isStub ? 'stub' : 'stable',
-    async execute(inputs: Asset[], params: Record<string, unknown>, execCtx: ExecutionContext): Promise<Asset[]> {
-      if (inputs.length === 0) {
-        throw new Error(`Capability "${entry.capability}" requires at least one input asset`);
-      }
-      const outputs: Asset[] = [];
-      for (let i = 0; i < inputs.length; i++) {
-        // W3.5:asset 之间检查,且把 signal 下传给操作,使 cancel 在
-        // 长耗时的 canvas decode/encode 期间也能生效(而非仅在 asset 间隙)
-        if (execCtx.signal.aborted) {
-          throw new DOMException('Aborted', 'AbortError');
-        }
-        const asset = inputs[i]!;
-        execCtx.onProgress?.(i / inputs.length, `Processing ${i + 1}/${inputs.length}`);
-        const blob = await ctx.runtime.getAssetBlob(asset);
-        const outBlob = await entry.operation(blob, params, execCtx.signal);
-        const metadata = deriveOutputMetadata(asset, outBlob);
-        const outAsset = await ctx.runtime.createAsset(outBlob, metadata, 'image');
-        outputs.push(outAsset);
-      }
-      execCtx.onProgress?.(1, 'Done');
-      return outputs;
-    },
-  };
-}
-
-/** 从原 Asset 与输出 Blob 派生新 Asset 的元数据 */
-function deriveOutputMetadata(
-  source: Asset,
-  outBlob: Blob
-): import('@lokvis/schema').AssetMetadata {
-  const mimeType = outBlob.type || source.metadata.mimeType;
-  const format = mimeType.split('/')[1] ?? source.metadata.format;
-  return {
-    mimeType,
-    size: outBlob.size,
-    format,
-    dimensions: source.metadata.dimensions,
-  };
 }
 
 // ─── 各操作的参数转换 + 调用 ───────────────────────────────
@@ -122,12 +67,26 @@ export const IMAGE_CAPABILITY_ENTRIES: ImageCapabilityEntry[] = [
   { capability: 'image.filter',      engine: 'canvas', operation: filterOp },
 ];
 
+/** engine-image stub 检测(AGENTS.md 约定:version.includes('stub')) */
+const isStub = canvasEngine.version.includes('stub');
+
 /**
  * 构造所有图像能力的 CapabilityImplementation
- * （由 plugin.ts 在 installer 中调用）
+ * (由 plugin.ts 在 installer 中调用)
  */
 export function buildImageCapabilityImplementations(
   ctx: PluginContext
 ): CapabilityImplementation[] {
-  return IMAGE_CAPABILITY_ENTRIES.map((entry) => wrapAsImplementation(entry, ctx));
+  return IMAGE_CAPABILITY_ENTRIES.map((entry) =>
+    createBlobCapabilityImpl(
+      {
+        capability: entry.capability,
+        engine: entry.engine,
+        outputType: 'image',
+        operation: entry.operation,
+        isStub,
+      },
+      ctx
+    )
+  );
 }
