@@ -115,7 +115,10 @@ export function Workspace({
   // W11.5: 从 URL ?workflow= 参数加载分享工作流(runtime 就绪后执行一次)
   // 保护:若用户已通过其它路径(如 localStorage 恢复或手动添加)有 nodes,
   // 不静默替换 —— 用 confirm 让用户显式选择,避免丢失未保存工作。
-  const nodesLength = useWorkspaceStore((s) => s.nodes.length);
+  // 注:不用 useWorkspaceStore 订阅 nodes.length 做 effect 依赖
+  //   (review 反馈:那样 nodesLength 变化会触发 effect 重跑,而 ref 已 true
+  //   时重跑无意义,且语义上 effect 只应在 status 切换时跑一次)。
+  //   改用 getState() 在体内读取最新值,既不订阅也不进 deps。
   const { loadFromCurrentUrl } = useShareLink();
   const shareLoadedRef = React.useRef(false);
   React.useEffect(() => {
@@ -125,16 +128,17 @@ export function Workspace({
       const hasShareParam = typeof window !== 'undefined'
         && new URLSearchParams(window.location.search).has('workflow');
       if (!hasShareParam) return;
-      // 若当前已有 nodes,需用户确认覆盖
-      if (nodesLength > 0) {
+      // 读取当前 nodes 长度(最新值,非订阅快照)
+      const currentNodesLength = useWorkspaceStore.getState().nodes.length;
+      if (currentNodesLength > 0) {
         const ok = window.confirm(
-          `检测到分享工作流链接,但当前已有 ${nodesLength} 个节点。是否替换为分享的工作流?`
+          `检测到分享工作流链接,但当前已有 ${currentNodesLength} 个节点。是否替换为分享的工作流?`
         );
         if (!ok) return;
       }
       loadFromCurrentUrl();
     }
-  }, [enableShareLink, status, loadFromCurrentUrl, nodesLength]);
+  }, [enableShareLink, status, loadFromCurrentUrl]);
 
   if (status === 'initializing') {
     return (

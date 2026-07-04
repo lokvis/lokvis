@@ -12,7 +12,7 @@ import type { StateCreator } from 'zustand';
 import type { Asset, Workflow, WorkflowEdge, WorkflowNode } from '@lokvis/schema';
 import type { WorkspaceNode } from '../types.js';
 import type { WorkspaceStore, WorkspaceState, WorkspaceActions } from './types.js';
-import { genNodeId } from './types.js';
+import { genNodeId, MAX_WORKFLOW_STEPS } from './types.js';
 
 export interface WorkflowSlice
   extends Pick<WorkspaceState, 'nodes' | 'selectedNodeId' | 'lastOutputIds' | 'selectedOutputId' | 'currentRunId'>,
@@ -46,9 +46,9 @@ export const createWorkflowSlice: StateCreator<
   currentRunId: null,
 
   addNode(capability) {
-    // W10.1/W10.3: 最多 5 步限制(与 MAX_WORKFLOW_STEPS 对齐)
-    if (get().nodes.length >= 5) {
-      get().setError(`工作流最多 5 个节点(M1 MVP 限制),请先删除不需要的节点`);
+    // W10.1/W10.3: 节点数上限(与 runtime MAX_WORKFLOW_STEPS 对齐,UI 层独立常量)
+    if (get().nodes.length >= MAX_WORKFLOW_STEPS) {
+      get().setError(`工作流最多 ${MAX_WORKFLOW_STEPS} 个节点(M1 MVP 限制),请先删除不需要的节点`);
       return;
     }
     const node: WorkspaceNode = {
@@ -106,9 +106,9 @@ export const createWorkflowSlice: StateCreator<
   },
 
   insertNodeAt(index, capability) {
-    // W11.1: 在指定位置插入节点(与 5 步上限对齐)
-    if (get().nodes.length >= 5) {
-      get().setError(`工作流最多 5 个节点(M1 MVP 限制),请先删除不需要的节点`);
+    // W11.1: 在指定位置插入节点(与节点数上限对齐)
+    if (get().nodes.length >= MAX_WORKFLOW_STEPS) {
+      get().setError(`工作流最多 ${MAX_WORKFLOW_STEPS} 个节点(M1 MVP 限制),请先删除不需要的节点`);
       return;
     }
     if (!capability) return;
@@ -144,27 +144,27 @@ export const createWorkflowSlice: StateCreator<
   },
 
   async cancelRun() {
-    // W11.6: 取消当前运行,把仍在 pending/running 的节点标 cancelled
+    // W11.6: 取消当前运行。本函数仅负责向 runtime 发起 cancel 信号;
+    // running / currentRunId / 节点状态的归位由 run() 的 finally 统一处理,
+    // 避免 cancel 与 run() 的 finally 同时写状态造成竞态
+    // (review 反馈:若 cancel() 抛错,旧实现仍会 set running: false 伪造
+    //  "已停止",但底层工作流仍在运行,UI 状态与实际不符)。
+    //
+    // 时序:cancel() 成功 → runtime.run() 返回 status='cancelled'
+    //       → run() 兜底把 pending/running 节点标 cancelled + finally 归位。
+    // cancel() 抛错:不伪造停止状态,仅记录错误让用户感知"取消失败,仍在运行"。
     const { runtime, currentRunId } = get();
     if (!runtime || !currentRunId) return;
+    set({ statusMessage: 'Cancelling...' });
     try {
       await runtime.cancel(currentRunId);
     } catch (err) {
-      // 取消失败不阻断 UI 归位节点状态,但记录错误供用户感知
       const message = err instanceof Error ? err.message : String(err);
       console.warn('[lokvis] cancelRun failed:', message);
-      get().setError(`取消失败:${message}`);
+      get().setError(`取消失败,工作流仍在运行:${message}`);
     }
-    set((state) => ({
-      running: false,
-      currentRunId: null,
-      statusMessage: 'Cancelled',
-      nodes: state.nodes.map((n) =>
-        n.status === 'pending' || n.status === 'running'
-          ? { ...n, status: 'cancelled' as const }
-          : n
-      ),
-    }));
+    // 不在此设置 running / currentRunId / 节点状态;
+    // 等 run() 的 await runtime.run() 返回后,由 run() 统一归位。
   },
 
   async run() {

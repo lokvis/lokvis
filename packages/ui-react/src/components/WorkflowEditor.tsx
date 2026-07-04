@@ -5,7 +5,7 @@
  *   - 拖拽节点到任意位置重排线性链
  *   - 拖拽时显示插入指示器
  *   - 键盘支持:选中节点后 ← → 移动(无障碍)
- *   - 节点数上限 5(M1 MVP 约束,与 MAX_WORKFLOW_STEPS 对齐)
+ *   - 节点数上限 MAX_WORKFLOW_STEPS=5(M1 MVP 约束,UI 层常量)
  *
  * 与 PipelineBar 区别:
  *   - PipelineBar:只读 + 选中/删除(快速预览)
@@ -20,10 +20,7 @@
 import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
 import type { Capability } from '@lokvis/schema';
-import { useWorkspaceStore } from '../store/index.js';
-
-/** 工作流最大节点数(与 runtime MAX_WORKFLOW_STEPS 对齐) */
-const MAX_STEPS = 5;
+import { useWorkspaceStore, MAX_WORKFLOW_STEPS } from '../store/index.js';
 
 export interface WorkflowEditorProps {
   className?: string;
@@ -91,7 +88,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
     }
   };
 
-  const canAddMore = nodes.length < MAX_STEPS;
+  const canAddMore = nodes.length < MAX_WORKFLOW_STEPS;
 
   return (
     <div
@@ -112,7 +109,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
                 : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
             }`}
           >
-            {nodes.length}/{MAX_STEPS}
+            {nodes.length}/{MAX_WORKFLOW_STEPS}
           </span>
         </div>
         {nodes.length > 0 && (
@@ -152,7 +149,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
               index={0}
               capabilities={capabilities}
               onInsert={insertNodeAt}
-              disabled={nodes.length >= MAX_STEPS}
+              disabled={nodes.length >= MAX_WORKFLOW_STEPS}
             />
 
             {/* 节点 */}
@@ -217,7 +214,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
                     index={i + 1}
                     capabilities={capabilities}
                     onInsert={insertNodeAt}
-                    disabled={nodes.length >= MAX_STEPS}
+                    disabled={nodes.length >= MAX_WORKFLOW_STEPS}
                   />
                 </React.Fragment>
               );
