@@ -714,11 +714,9 @@ describe('BatchProcessor 进度事件', () => {
 
 describe('BatchProcessor 暂停/恢复', () => {
   it('pause 后不再补新项,resume 后继续', async () => {
-    let completedCount = 0;
     const runtime = createMockRuntime({
       runImpl: async (wf) => {
         await new Promise((r) => setTimeout(r, 20));
-        completedCount++;
         return {
           workflowId: wf.id,
           outputs: ['out'],
