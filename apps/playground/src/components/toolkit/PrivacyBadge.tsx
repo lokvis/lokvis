@@ -36,7 +36,7 @@ export function PrivacyBadge() {
 
   return (
     <div
-      className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-[11px] transition-colors ${
+      className={`relative flex items-center gap-2 rounded-md border px-3 py-1.5 text-[11px] transition-colors ${
         online
           ? 'border-zinc-800 bg-zinc-900/50 text-zinc-400'
           : 'border-emerald-700/50 bg-emerald-900/20 text-emerald-300'

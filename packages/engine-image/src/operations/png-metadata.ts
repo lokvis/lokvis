@@ -107,24 +107,34 @@ export async function embedPngDpi(png: Blob, dpi: number): Promise<Blob> {
 
   const ppm = dpiToPixelsPerMeter(dpi);
   const phys = buildPhysChunk(ppm, ppm);
-  const { insertOffset, existingRange } = locatePhysInsertionPoint(bytes);
+  const { insertOffset, existingRanges } = locatePhysInsertionPoint(bytes);
 
-  if (existingRange) {
-    // 替换已有 pHYs:用新 chunk 覆盖 [start, end)
-    const start = existingRange.start;
-    const end = existingRange.end;
-    const out = new Uint8Array(bytes.length - (end - start) + phys.length);
-    out.set(bytes.subarray(0, start), 0);
-    out.set(phys, start);
-    out.set(bytes.subarray(end), start + phys.length);
+  if (existingRanges.length === 0) {
+    // 无已存在 pHYs:在 IHDR 之后插入新的
+    const out = new Uint8Array(bytes.length + phys.length);
+    out.set(bytes.subarray(0, insertOffset), 0);
+    out.set(phys, insertOffset);
+    out.set(bytes.subarray(insertOffset), insertOffset + phys.length);
     return new Blob([out], { type: 'image/png' });
   }
 
-  // 插入新 pHYs 到 IHDR 之后
-  const out = new Uint8Array(bytes.length + phys.length);
-  out.set(bytes.subarray(0, insertOffset), 0);
+  // 移除所有已存在的 pHYs(PNG 规范不允许重复 chunk),再在 IHDR 后插入单个新 pHYs。
+  // 所有 pHYs 都位于 IHDR 之后、IDAT 之前,移除它们不影响 insertOffset(IHDR 结束位置)。
+  const removedTotal = existingRanges.reduce((sum, r) => sum + (r.end - r.start), 0);
+  const cleaned = new Uint8Array(bytes.length - removedTotal);
+  let readOff = 0;
+  let writeOff = 0;
+  for (const range of existingRanges) {
+    cleaned.set(bytes.subarray(readOff, range.start), writeOff);
+    writeOff += range.start - readOff;
+    readOff = range.end;
+  }
+  cleaned.set(bytes.subarray(readOff), writeOff);
+
+  const out = new Uint8Array(cleaned.length + phys.length);
+  out.set(cleaned.subarray(0, insertOffset), 0);
   out.set(phys, insertOffset);
-  out.set(bytes.subarray(insertOffset), insertOffset + phys.length);
+  out.set(cleaned.subarray(insertOffset), insertOffset + phys.length);
   return new Blob([out], { type: 'image/png' });
 }
 
@@ -132,10 +142,12 @@ export async function embedPngDpi(png: Blob, dpi: number): Promise<Blob> {
 export async function readPngDpi(png: Blob): Promise<number | null> {
   const bytes = new Uint8Array(await png.arrayBuffer());
   if (!isPng(bytes)) return null;
-  const { existingRange } = locatePhysInsertionPoint(bytes);
-  if (!existingRange) return null;
+  const { existingRanges } = locatePhysInsertionPoint(bytes);
+  if (existingRanges.length === 0) return null;
+  // 规范上只应有 1 个 pHYs;若异常存在多个,读取第一个(PNG 规范要求读取器读第一个)
+  const first = existingRanges[0]!;
   // pHYs data 在 [chunkStart+8, chunkStart+17)
-  const dataStart = existingRange.start + 8; // 跳过 length(4) + type(4)
+  const dataStart = first.start + 8; // 跳过 length(4) + type(4)
   const ppmX = readUint32BE(bytes, dataStart);
   const ppmY = readUint32BE(bytes, dataStart + 4);
   const unit = bytes[dataStart + 8]!;
@@ -156,8 +168,8 @@ function isPng(bytes: Uint8Array): boolean {
 interface ChunkLocation {
   /** pHYs 应插入的偏移(IHDR 之后)。若已存在 pHYs,此值仍为 IHDR 之后 */
   insertOffset: number;
-  /** 已存在 pHYs chunk 的完整字节范围(length+type+data+crc);不存在为 null */
-  existingRange: { start: number; end: number } | null;
+  /** 所有已存在 pHYs chunk 的完整字节范围(length+type+data+crc);无则为空数组 */
+  existingRanges: Array<{ start: number; end: number }>;
 }
 
 /**
@@ -168,14 +180,17 @@ interface ChunkLocation {
  *
  * 返回:
  * - insertOffset:IHDR chunk 结束位置(pHYs 推荐插入点)
- * - existingRange:若途中遇到 pHYs,返回其完整字节范围;扫描到 IDAT 时停止
+ * - existingRanges:途中遇到的所有 pHYs chunk 的完整字节范围;扫描到 IDAT 时停止
+ *
+ * 注意:PNG 规范不允许重复 pHYs。某些第三方工具可能产出含多个 pHYs 的异常 PNG,
+ * 这里收集全部范围,由 embedPngDpi 一次性移除后插入单个新 pHYs,确保输出合规。
  */
 function locatePhysInsertionPoint(bytes: Uint8Array): ChunkLocation {
   // 跳过 8 字节签名
   let offset = 8;
   // IHDR: length(4) + type(4) + data(13) + crc(4) = 25
   const ihdrEnd = offset + 25;
-  let existingRange: { start: number; end: number } | null = null;
+  const existingRanges: Array<{ start: number; end: number }> = [];
 
   while (offset + 8 <= bytes.length) {
     const dataLen = readUint32BE(bytes, offset);
@@ -189,8 +204,7 @@ function locatePhysInsertionPoint(bytes: Uint8Array): ChunkLocation {
     const chunkEnd = offset + chunkTotal;
 
     if (type === 'pHYs') {
-      existingRange = { start: offset, end: chunkEnd };
-      // 继续扫描确保没有第二个 pHYs(异常情况);遇到 IDAT 停止
+      existingRanges.push({ start: offset, end: chunkEnd });
     }
     if (type === 'IDAT') {
       break; // pHYs 必须在 IDAT 之前,继续扫描无意义
@@ -201,5 +215,5 @@ function locatePhysInsertionPoint(bytes: Uint8Array): ChunkLocation {
     offset = chunkEnd;
   }
 
-  return { insertOffset: ihdrEnd, existingRange };
+  return { insertOffset: ihdrEnd, existingRanges };
 }

@@ -49,8 +49,8 @@ function chunk(type: string, data: Uint8Array = new Uint8Array(0)): Uint8Array {
 
 const PNG_SIG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-/** 构造最小合法 PNG(1×1 RGBA)。可选在 IHDR 后插入额外 chunk 测试定位。 */
-function buildMinimalPng(extraChunkAfterIhdr?: Uint8Array): Uint8Array {
+/** 构造最小合法 PNG(1×1 RGBA)。可在 IHDR 后插入若干额外 chunk 测试定位。 */
+function buildMinimalPng(...extraChunksAfterIhdr: Uint8Array[]): Uint8Array {
   // IHDR data: width(4) + height(4) + bitDepth(1) + colorType(1) + compression(1) + filter(1) + interlace(1)
   const ihdr = new Uint8Array(13);
   ihdr.set(u32be(1), 0); // width=1
@@ -66,7 +66,7 @@ function buildMinimalPng(extraChunkAfterIhdr?: Uint8Array): Uint8Array {
   const idat = deflateSync(scanline);
 
   const parts: Uint8Array[] = [PNG_SIG, chunk('IHDR', ihdr)];
-  if (extraChunkAfterIhdr) parts.push(extraChunkAfterIhdr);
+  parts.push(...extraChunksAfterIhdr);
   parts.push(chunk('IDAT', idat));
   parts.push(chunk('IEND'));
 
@@ -78,6 +78,12 @@ function buildMinimalPng(extraChunkAfterIhdr?: Uint8Array): Uint8Array {
     off += p.length;
   }
   return out;
+}
+
+/** 构造测试用 pHYs chunk(9 字节数据:ppmX + ppmY + unit=1 米) */
+function buildTestPhysChunk(ppmX: number, ppmY: number): Uint8Array {
+  const data = new Uint8Array([...u32be(ppmX), ...u32be(ppmY), 1]);
+  return chunk('pHYs', data);
 }
 
 /** 在 bytes 中查找指定 chunk 类型的起始偏移(扫描到 IDAT 为止) */
@@ -168,6 +174,29 @@ describe('embedPngDpi / readPngDpi', () => {
     // 读回应是最新值 150
     const dpi = await readPngDpi(twice);
     expect(dpi!).toBeCloseTo(150, 1);
+  });
+
+  it('输入含多个 pHYs 时应全部移除并只插入一个新的', async () => {
+    // 构造含 2 个 pHYs 的异常 PNG(模拟第三方工具产出的重复 chunk,PNG 规范不允许)
+    const phys1 = buildTestPhysChunk(100, 100); // ~2.54 DPI
+    const phys2 = buildTestPhysChunk(200, 200); // ~5.08 DPI
+    const png = blobOf(buildMinimalPng(phys1, phys2));
+    const embedded = await embedPngDpi(png, 300);
+    const bytes = new Uint8Array(await embedded.arrayBuffer());
+    // 统计 pHYs 出现次数:应只有 1 个(全部旧 pHYs 被移除)
+    let count = 0;
+    let off = 8;
+    while (off + 8 <= bytes.length) {
+      const t = String.fromCharCode(bytes[off + 4]!, bytes[off + 5]!, bytes[off + 6]!, bytes[off + 7]!);
+      if (t === 'pHYs') count++;
+      const dataLen = (bytes[off]! << 24) | (bytes[off + 1]! << 16) | (bytes[off + 2]! << 8) | bytes[off + 3]!;
+      off += 4 + 4 + dataLen + 4;
+      if (t === 'IDAT') break;
+    }
+    expect(count).toBe(1);
+    // 读回应是新嵌入的 300 DPI
+    const dpi = await readPngDpi(embedded);
+    expect(dpi!).toBeCloseTo(300, 1);
   });
 
   it('dpi 非正数应原样返回(不嵌入)', async () => {

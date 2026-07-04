@@ -66,9 +66,10 @@ export default function CompressTool() {
    * - 目标体积模式:PNG 无法质量压缩到目标体积,统一回退 WebP(支持透明 + 有损)
    */
   const resolveFormat = useCallback((): EngineFormat => {
-    if (format !== 'smart') return format;
-    if (mode === 'target') return 'webp';
-    return hasTransparency ? 'png' : 'webp';
+    // 目标体积模式:PNG 无损,quality 二分查找无法收敛,统一回退 WebP(支持有损 + 透明)
+    if (mode === 'target' && (format === 'smart' || format === 'png')) return 'webp';
+    if (format === 'smart') return hasTransparency ? 'png' : 'webp';
+    return format;
   }, [format, mode, hasTransparency]);
 
   const handleCompress = useCallback(async () => {
@@ -128,7 +129,9 @@ export default function CompressTool() {
           : hasTransparency
             ? '检测到透明 → PNG(保留透明)'
             : '无透明 → WebP(更高压缩率)'
-      : '';
+      : mode === 'target' && format === 'png'
+        ? 'PNG 无损无法压到目标体积,已回退 WebP'
+        : '';
 
   // PNG 无损,质量滑块在 PNG 下不生效
   const qualityDisabled = resolvedFormat === 'png';
