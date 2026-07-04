@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* @lokvis/ui-core Dialog CSS 变量:匹配 playground 暗色主题 */
+:root {
+  --lokvis-surface: #18181b; /* zinc-900 */
+  --lokvis-overlay: rgb(0 0 0 / 0.7);
+}
+
 html,
 body {
   margin: 0;

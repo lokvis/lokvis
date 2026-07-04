@@ -142,7 +142,10 @@ export function PlatformPresetSelector({
 
   const openDeleteDialog = () => {
     if (customPresets.length === 0) return;
-    setDeleteId(customPresets[0]!.id);
+    // 优先默认选中当前选中的自定义预设(若当前选中的是自定义预设),否则列表第一个
+    const selectedCustomId =
+      value?.startsWith('custom.') ? value.slice('custom.'.length) : null;
+    setDeleteId(selectedCustomId ?? customPresets[0]!.id);
     setDeleteOpen(true);
   };
 

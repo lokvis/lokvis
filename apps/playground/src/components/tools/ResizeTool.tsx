@@ -9,7 +9,7 @@
  *       (engine-image `embedPngDpi`),打印软件据此读取物理分辨率。仅 PNG 输出生效;
  *       非 PNG 时 DPI 仅用于 UI 的印刷尺寸 mm 提示。预设切换时按目标平台推荐 DPI 自动设置。
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { Workflow } from '@lokvis/sdk';
 import { UploadBox } from '../toolkit/UploadBox';
 import { PreviewBox } from '../toolkit/PreviewBox';
@@ -41,6 +41,11 @@ export default function ResizeTool() {
   /** 当前 DPI 数值(供 workflow 参数与 UI 显示) */
   const dpi = dpiMode === 'custom' ? dpiCustom : dpiMode;
 
+  // 用 ref 跟踪 dpiMode,避免 handlePresetSelect 因 dpiMode 变化而重建
+  // (DPI 改动不应触发下游依赖 handlePresetSelect 的组件 re-render)
+  const dpiModeRef = useRef(dpiMode);
+  dpiModeRef.current = dpiMode;
+
   // 不用 useCallback:`tool` 是 useImageTool() 每次返回的新对象字面量,
   // 放进依赖数组会让 callback 每次重建——等于没 memo。函数本身轻量,直接用普通函数。
   const handleFiles = async (files: File[]) => {
@@ -61,11 +66,11 @@ export default function ResizeTool() {
     // 打印类预设默认 300 DPI,其余默认 72(屏幕)
     if (preset.category === 'print') {
       setDpiMode(300);
-    } else if (dpiMode === 300) {
+    } else if (dpiModeRef.current === 300) {
       // 从打印预设切到非打印预设时,把 DPI 也降回 72(避免误用 300 DPI 给 Web 图)
       setDpiMode(72);
     }
-  }, [dpiMode]);
+  }, []);
 
   const handleResize = useCallback(async () => {
     // 高度为 0 时省略,由 engine 按比例自动计算
@@ -163,12 +168,13 @@ export default function ResizeTool() {
           </label>
           {dpiMode === 'custom' && (
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium text-zinc-500">自定义 DPI</span>
+              <span className="text-[10px] font-medium text-zinc-500">自定义 DPI(1–4800)</span>
               <input
                 type="number"
                 min={1}
+                max={4800}
                 value={dpiCustom}
-                onChange={(e) => setDpiCustom(Math.max(1, Number(e.target.value)))}
+                onChange={(e) => setDpiCustom(Math.min(4800, Math.max(1, Number(e.target.value))))}
                 className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
               />
             </label>
