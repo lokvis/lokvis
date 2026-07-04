@@ -273,3 +273,193 @@ describe('版本常量', () => {
     expect(RUNTIME_MIN_VERSION).toBe('0.1.0');
   });
 });
+
+// ─── W10.2: capability 兼容性校验 ──────────────────────────
+
+describe('W10.2 capability 兼容性校验', () => {
+  /** 模拟 capability 解析回调 */
+  const resolveCap = (name: string) => {
+    const map: Record<string, { inputTypes: string[]; outputTypes: string[] }> = {
+      'image.resize': { inputTypes: ['image'], outputTypes: ['image'] },
+      'image.compress': { inputTypes: ['image'], outputTypes: ['image'] },
+      'image.watermark': { inputTypes: ['image'], outputTypes: ['image'] },
+      'pdf.to-images': { inputTypes: ['pdf'], outputTypes: ['image'] },
+      'video.to-frames': { inputTypes: ['video'], outputTypes: ['image'] },
+    };
+    return map[name];
+  };
+
+  /** 构造 transform-only 线性工作流(2 节点) */
+  const linearWf = (cap1: string, cap2: string) => ({
+    ...validWorkflow,
+    nodes: [
+      { id: 'n1', type: 'transform' as const, capability: cap1, params: {} },
+      { id: 'n2', type: 'transform' as const, capability: cap2, params: {} },
+    ],
+    edges: [{ from: 'n1', to: 'n2' }],
+    inputs: { type: 'image', multiple: false },
+    outputs: { type: 'image' },
+  });
+
+  it('相邻节点类型兼容应通过(image.resize → image.compress)', () => {
+    const result = validateWorkflow(linearWf('image.resize', 'image.compress'), {
+      resolveCapability: resolveCap,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('相邻节点类型兼容应通过(pdf.to-images → image.resize,inputs.type=pdf)', () => {
+    // pdf.to-images 接受 pdf 输出 image;image.resize 接受 image → 兼容
+    const result = validateWorkflow({
+      ...linearWf('pdf.to-images', 'image.resize'),
+      inputs: { type: 'pdf', multiple: false },
+    }, {
+      resolveCapability: resolveCap,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('相邻节点类型不兼容应失败(image.resize → video.to-frames)', () => {
+    // image.resize 输出 image,video.to-frames 接受 video → 不兼容
+    const result = validateWorkflow(linearWf('image.resize', 'video.to-frames'), {
+      resolveCapability: resolveCap,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/Capability mismatch.*image\.resize.*video\.to-frames/);
+    }
+  });
+
+  it('输入节点 inputTypes 与 workflow.inputs.type 不兼容应失败', () => {
+    // workflow.inputs.type = image,但首节点 video.to-frames 接受 video
+    const result = validateWorkflow(linearWf('video.to-frames', 'image.resize'), {
+      resolveCapability: resolveCap,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/expects input types.*video.*workflow input is "image"/);
+    }
+  });
+
+  it('输出节点 outputTypes 与 workflow.outputs.type 不兼容应失败', () => {
+    // workflow.outputs.type = image,末节点 video.to-frames 输出 image → 兼容
+    const result = validateWorkflow({
+      ...linearWf('image.resize', 'video.to-frames'),
+      outputs: { type: 'video' },
+    }, {
+      resolveCapability: resolveCap,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/produces output types.*image.*workflow output is "video"/);
+    }
+  });
+
+  it('archive 输出类型允许任意末节点输出', () => {
+    const result = validateWorkflow({
+      ...linearWf('image.resize', 'video.to-frames'),
+      outputs: { type: 'archive' },
+    }, {
+      resolveCapability: resolveCap,
+    });
+    // 但输入仍是 image,首节点 image.resize 接受 image,兼容;末节点 video.to-frames 输出 image
+    // 但相邻节点 image.resize → video.to-frames 不兼容(image → video)
+    // 所以应该失败在相邻节点检查
+    expect(result.success).toBe(false);
+  });
+
+  it('未注册的 capability 应跳过兼容性校验(向后兼容)', () => {
+    const result = validateWorkflow(linearWf('unknown.cap', 'image.resize'), {
+      resolveCapability: resolveCap,
+    });
+    // unknown.cap 未注册,跳过该节点的所有校验;image.resize 兼容 image
+    expect(result.success).toBe(true);
+  });
+
+  it('resolveCapability 未提供时应跳过兼容性校验(向后兼容)', () => {
+    const result = validateWorkflow(linearWf('image.resize', 'video.to-frames'));
+    expect(result.success).toBe(true);
+  });
+});
+
+// ─── W10.3: maxSteps 节点数上限校验 ─────────────────────────
+
+describe('W10.3 maxSteps 节点数上限校验', () => {
+  it('节点数等于 maxSteps 应通过', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'image.resize', params: {} },
+        { id: 'n2', type: 'transform', capability: 'image.compress', params: {} },
+      ],
+      edges: [{ from: 'n1', to: 'n2' }],
+    }, { maxSteps: 2 });
+    expect(result.success).toBe(true);
+  });
+
+  it('节点数超过 maxSteps 应失败', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'image.resize', params: {} },
+        { id: 'n2', type: 'transform', capability: 'image.compress', params: {} },
+        { id: 'n3', type: 'transform', capability: 'image.watermark', params: {} },
+      ],
+      edges: [
+        { from: 'n1', to: 'n2' },
+        { from: 'n2', to: 'n3' },
+      ],
+    }, { maxSteps: 2 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/3 nodes.*exceeds max 2/i);
+    }
+  });
+
+  it('maxSteps 未提供时不限制节点数', () => {
+    const nodes = Array.from({ length: 10 }, (_, i) => ({
+      id: `n${i + 1}`,
+      type: 'transform' as const,
+      capability: 'image.resize',
+      params: {},
+    }));
+    const edges = nodes.slice(0, -1).map((n, i) => ({ from: n.id, to: `n${i + 2}` }));
+    const result = validateWorkflow({
+      ...validWorkflow,
+      nodes,
+      edges,
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+// ─── W10: 枚举 schema 校验 ─────────────────────────────────
+
+describe('W10 枚举 schema 校验', () => {
+  it('category 必须为合法 WorkflowCategory', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      category: 'invalid-category',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('category 合法值应通过(image/video/audio/pdf/ai/data/developer/ecommerce/content-creation/other)', () => {
+    for (const cat of ['image', 'video', 'audio', 'pdf', 'ai', 'data', 'developer', 'ecommerce', 'content-creation', 'other']) {
+      const result = validateWorkflow({ ...validWorkflow, category: cat });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it('outputs.type 必须为合法枚举(含 archive)', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      outputs: { type: 'invalid-output' },
+    });
+    expect(result.success).toBe(false);
+  });
+});

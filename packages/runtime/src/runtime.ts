@@ -36,6 +36,7 @@ import {
 } from './asset-store.js';
 import { CapabilityRegistry } from './capability-registry.js';
 import { WorkflowExecutor } from './executor.js';
+import { MAX_WORKFLOW_STEPS } from './workflow-builder.js';
 import { HistoryStack, type HistoryStackConfig } from './history.js';
 import {
   createHistoryStore,
@@ -343,7 +344,23 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     // 在入口处暴露，错误信息精准（如 "Edge from __input__ references a
     // reserved sentinel id"），而不是被 executor 拓扑排序误判为含糊的 "cycle"。
     // 三层防御的第 3 层（前两层：executor 防御性校验 + 单元测试覆盖）。
-    const validation = validateWorkflow(workflow);
+    //
+    // W10.2/W10.3 增强:
+    //   - resolveCapability 回调注入 capability 兼容性校验(相邻节点
+    //     outputTypes 与 inputTypes 必须有交集;输入/输出节点类型与
+    //     workflow.inputs/outputs.type 兼容)
+    //   - maxSteps: 5(由 MAX_WORKFLOW_STEPS 常量定义,M1 MVP 约束)
+    const validation = validateWorkflow(workflow, {
+      maxSteps: MAX_WORKFLOW_STEPS,
+      resolveCapability: (name) => {
+        const cap = this.capabilityRegistry.get(name);
+        if (!cap) return undefined;
+        return {
+          inputTypes: cap.inputTypes,
+          outputTypes: cap.outputTypes,
+        };
+      },
+    });
     if (!validation.success) {
       this._status = 'error';
       const error = validation.error.issues

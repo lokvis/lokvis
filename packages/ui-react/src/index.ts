@@ -26,6 +26,7 @@
 export { useLokvis, type UseLokvisOptions, type UseLokvisResult } from './hooks/useLokvis.js';
 export { useTheme, type UseThemeResult, type ThemeMode } from './hooks/useTheme.js';
 export { useMediaQuery, useBreakpoints, type Breakpoints } from './hooks/useMediaQuery.js';
+export { useWorkflows, FREE_WORKFLOW_LIMIT, PRO_WORKFLOW_LIMIT, type UseWorkflowsResult, type WorkflowSlot, type SaveWorkflowInput } from './hooks/useWorkflows.js';
 export { useWorkspaceStore, type WorkspaceState, type WorkspaceActions } from './store/index.js';
 
 export { Workspace, type WorkspaceProps } from './components/Workspace.js';
@@ -34,6 +35,7 @@ export { Canvas } from './components/Canvas.js';
 export { Inspector } from './components/Inspector.js';
 export { ExifPanel, type ExifPanelProps } from './components/ExifPanel.js';
 export { PipelineBar } from './components/PipelineBar.js';
+export { WorkflowEditor, type WorkflowEditorProps } from './components/WorkflowEditor.js';
 export { Toolbar } from './components/Toolbar.js';
 export { StatusBar } from './components/StatusBar.js';
 export { ParamForm, type ParamFormProps } from './components/ParamForm.js';

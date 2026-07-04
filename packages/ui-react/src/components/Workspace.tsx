@@ -48,6 +48,7 @@ import { HistoryPanel } from './HistoryPanel.js';
 import { Canvas } from './Canvas.js';
 import { Inspector } from './Inspector.js';
 import { PipelineBar } from './PipelineBar.js';
+import { WorkflowEditor } from './WorkflowEditor.js';
 import { StatusBar } from './StatusBar.js';
 import { DownloadPanel } from './DownloadPanel.js';
 import { CommandPalette, useCommandPalette } from './CommandPalette.js';
@@ -71,6 +72,8 @@ export interface WorkspaceProps extends UseLokvisOptions {
   enableCompare?: boolean;
   /** 是否启用 DownloadPanel（默认 true,W9.5） */
   enableDownloadPanel?: boolean;
+  /** 是否启用拖拽式 WorkflowEditor（默认 false,W10.4;关闭则用只读 PipelineBar） */
+  enableWorkflowEditor?: boolean;
   className?: string;
 }
 
@@ -86,6 +89,7 @@ export function Workspace({
   enableThemeToggle = true,
   enableCompare = true,
   enableDownloadPanel = true,
+  enableWorkflowEditor = false,
   className = '',
   ...lokvisOptions
 }: WorkspaceProps) {
@@ -222,7 +226,7 @@ export function Workspace({
       </div>
 
       {/* Pipeline bar */}
-      <PipelineBar />
+      {enableWorkflowEditor ? <WorkflowEditor /> : <PipelineBar />}
 
       {/* W9.1 History panel (horizontal at bottom) */}
       {showHistoryPanel && <HistoryPanel variant="horizontal" />}

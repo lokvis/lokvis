@@ -23,6 +23,7 @@ export interface WorkflowSlice
       | 'removeNode'
       | 'selectNode'
       | 'setNodeStatus'
+      | 'moveNode'
       | 'run'
       | 'clearWorkflow'
       | 'selectOutput'
@@ -41,6 +42,13 @@ export const createWorkflowSlice: StateCreator<
   selectedOutputId: null,
 
   addNode(capability) {
+    // W10.1/W10.3: 最多 5 步限制(与 MAX_WORKFLOW_STEPS 对齐)
+    if (get().nodes.length >= 5) {
+      set({
+        error: `工作流最多 5 个节点(M1 MVP 限制),请先删除不需要的节点`,
+      });
+      return;
+    }
     const node: WorkspaceNode = {
       id: genNodeId(),
       capability,
@@ -76,6 +84,22 @@ export const createWorkflowSlice: StateCreator<
         n.id === id ? { ...n, status, error, duration } : n
       ),
     }));
+  },
+
+  moveNode(from, to) {
+    set((state) => {
+      if (
+        from < 0 || from >= state.nodes.length ||
+        to < 0 || to >= state.nodes.length ||
+        from === to
+      ) {
+        return {};
+      }
+      const next = [...state.nodes];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved!);
+      return { nodes: next };
+    });
   },
 
   async run() {

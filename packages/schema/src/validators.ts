@@ -16,6 +16,32 @@ export const assetTypeSchema = z.enum([
   'unknown',
 ]);
 
+/** W10: Workflow 分类枚举(与 WorkflowCategory 类型对齐) */
+export const workflowCategorySchema = z.enum([
+  'image',
+  'video',
+  'audio',
+  'pdf',
+  'ai',
+  'data',
+  'developer',
+  'ecommerce',
+  'content-creation',
+  'other',
+]);
+
+/** W10: Workflow 输出类型枚举(含 archive 用于打包下载场景) */
+export const workflowOutputTypeSchema = z.enum([
+  'image',
+  'video',
+  'audio',
+  'pdf',
+  'text',
+  'data',
+  'unknown',
+  'archive',
+]);
+
 export const assetMetadataSchema = z.object({
   mimeType: z.string(),
   size: z.number().nonnegative(),
@@ -51,7 +77,7 @@ export const workflowSchema = z.object({
   name: z.string(),
   description: z.string(),
   author: z.object({ id: z.string(), name: z.string() }),
-  category: z.string(),
+  category: workflowCategorySchema,
   tags: z.array(z.string()),
   nodes: z.array(workflowNodeSchema),
   edges: z.array(workflowEdgeSchema),
@@ -62,7 +88,7 @@ export const workflowSchema = z.object({
     accept: z.array(z.string()).optional(),
   }),
   outputs: z.object({
-    type: z.enum(['image', 'video', 'audio', 'pdf', 'text', 'data', 'unknown', 'archive']),
+    type: workflowOutputTypeSchema,
     format: z.string().optional(),
   }),
   official: z.boolean().optional(),
@@ -83,13 +109,36 @@ export const pluginManifestSchema = z.object({
   permissions: z.array(z.string()),
 });
 
-/** 校验 Workflow JSON。
+/**
+ * 校验 Workflow JSON。
  *
  * 修复 review 报告：原实现仅做 Zod 形状校验，不检查 edge 引用、保留字、DAG 合法性，
  * 导致 demo 用 `__input__` 哨兵边时 Zod 通过但 executor 抛 "cycle"。
  * 现增加结构层校验，让错误在入口处暴露。
+ *
+ * W10.2 增强：新增 capability 兼容性校验(可选)。
+ * 通过 `options.resolveCapability` 回调查询 capability 的 inputTypes/outputTypes,
+ * 检查相邻节点的输出类型与下一节点的输入类型是否兼容。schema 包无法直接访问
+ * CapabilityRegistry,故采用回调注入模式(避免五层依赖违规)。
+ *
+ * @param data 待校验的 Workflow JSON
+ * @param options 可选项:
+ *   - resolveCapability: (name: string) => Capability | undefined
+ *       返回 capability 声明;返回 undefined 时跳过该节点的兼容性校验(向后兼容)
+ *   - maxSteps: number
+ *       最大节点数限制(默认不限制;W10 要求 5 步,调用方按需传入)
  */
-export function validateWorkflow(data: unknown) {
+export interface ValidateWorkflowOptions {
+  /** 查询 capability 声明的回调(返回 undefined 时跳过该节点校验) */
+  resolveCapability?: (name: string) => {
+    inputTypes: string[];
+    outputTypes: string[];
+  } | undefined;
+  /** 最大节点数限制(可选) */
+  maxSteps?: number;
+}
+
+export function validateWorkflow(data: unknown, options?: ValidateWorkflowOptions) {
   const parsed = workflowSchema.safeParse(data);
   if (!parsed.success) {
     return parsed;
@@ -97,6 +146,13 @@ export function validateWorkflow(data: unknown) {
 
   const wf = parsed.data;
   const errors: string[] = [];
+
+  // 0. W10.2: 节点数上限校验(可选)
+  if (options?.maxSteps !== undefined && wf.nodes.length > options.maxSteps) {
+    errors.push(
+      `Workflow has ${wf.nodes.length} nodes, exceeds max ${options.maxSteps}.`
+    );
+  }
 
   // 1. 保留字哨兵：禁止 __input__ / __output__ 出现在 nodes 或 edges
   //    （executor 不支持哨兵节点，输入资产注入到入度 0 的首节点）
@@ -183,6 +239,15 @@ export function validateWorkflow(data: unknown) {
     }
   }
 
+  // 5. W10.2: capability 兼容性校验(可选,仅在 resolveCapability 提供时)
+  //    检查相邻节点(通过 edge 连接)的 outputTypes 与下一节点的 inputTypes 是否有交集。
+  //    - 线性链:edge.from → edge.to,from 节点的 outputTypes 与 to 节点的 inputTypes 交集为空则报错
+  //    - 输入节点(入度 0)的 inputTypes 与 workflow.inputs.type 兼容性
+  //    - 输出节点(出度 0)的 outputTypes 与 workflow.outputs.type 兼容性
+  if (options?.resolveCapability && errors.length === 0) {
+    validateCapabilityCompatibility(wf, options.resolveCapability, errors);
+  }
+
   if (errors.length > 0) {
     return {
       success: false as const,
@@ -197,6 +262,85 @@ export function validateWorkflow(data: unknown) {
   }
 
   return { success: true as const, data: wf };
+}
+
+/** W10.2: capability 兼容性校验内部实现 */
+function validateCapabilityCompatibility(
+  wf: z.infer<typeof workflowSchema>,
+  resolveCapability: (name: string) => { inputTypes: string[]; outputTypes: string[] } | undefined,
+  errors: string[]
+): void {
+  // 计算每个节点的入度/出度,识别输入/输出节点
+  const inDegree = new Map<string, number>();
+  const outDegree = new Map<string, number>();
+  for (const node of wf.nodes) {
+    inDegree.set(node.id, 0);
+    outDegree.set(node.id, 0);
+  }
+  for (const edge of wf.edges) {
+    inDegree.set(edge.to, (inDegree.get(edge.to) ?? 0) + 1);
+    outDegree.set(edge.from, (outDegree.get(edge.from) ?? 0) + 1);
+  }
+
+  // 缓存每个节点的 capability 声明
+  const capCache = new Map<string, { inputTypes: string[]; outputTypes: string[] } | undefined>();
+  type InferredNode = z.infer<typeof workflowNodeSchema>;
+  const getCap = (node: InferredNode) => {
+    if (!node.capability) return undefined;
+    if (capCache.has(node.capability)) return capCache.get(node.capability);
+    const cap = resolveCapability(node.capability);
+    capCache.set(node.capability, cap);
+    return cap;
+  };
+
+  // 5a. 输入节点(入度 0)的 inputTypes 与 workflow.inputs.type 兼容
+  for (const node of wf.nodes) {
+    if ((inDegree.get(node.id) ?? 0) > 0) continue;
+    const cap = getCap(node);
+    if (!cap) continue; // 未注册的 capability 跳过(executor 会给出更明确错误)
+    const inputTypeMatches = cap.inputTypes.includes(wf.inputs.type as string);
+    if (!inputTypeMatches) {
+      errors.push(
+        `Node "${node.id}" (capability "${node.capability}") expects input types ` +
+          `[${cap.inputTypes.join(', ')}], but workflow input is "${wf.inputs.type}".`
+      );
+    }
+  }
+
+  // 5b. 相邻节点:from 的 outputTypes 与 to 的 inputTypes 必须有交集
+  for (const edge of wf.edges) {
+    const fromNode = wf.nodes.find((n) => n.id === edge.from);
+    const toNode = wf.nodes.find((n) => n.id === edge.to);
+    if (!fromNode || !toNode) continue;
+    const fromCap = getCap(fromNode);
+    const toCap = getCap(toNode);
+    if (!fromCap || !toCap) continue;
+    const compatible = fromCap.outputTypes.some((t) => toCap.inputTypes.includes(t));
+    if (!compatible) {
+      errors.push(
+        `Capability mismatch on edge "${edge.from}" → "${edge.to}": ` +
+          `"${fromNode.capability}" outputs [${fromCap.outputTypes.join(', ')}], ` +
+          `but "${toNode.capability}" accepts [${toCap.inputTypes.join(', ')}].`
+      );
+    }
+  }
+
+  // 5c. 输出节点(出度 0)的 outputTypes 与 workflow.outputs.type 兼容
+  //     (archive 类型输出允许任意类型,用于打包下载场景)
+  for (const node of wf.nodes) {
+    if ((outDegree.get(node.id) ?? 0) > 0) continue;
+    const cap = getCap(node);
+    if (!cap) continue;
+    const outputType = wf.outputs.type;
+    if (outputType === 'archive') continue;
+    const outputTypeMatches = cap.outputTypes.includes(outputType as string);
+    if (!outputTypeMatches) {
+      errors.push(
+        `Node "${node.id}" (capability "${node.capability}") produces output types ` +
+          `[${cap.outputTypes.join(', ')}], but workflow output is "${outputType}".`
+      );
+    }
+  }
 }
 
 /** 校验 Plugin Manifest */
