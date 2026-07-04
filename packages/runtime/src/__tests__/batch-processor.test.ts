@@ -929,7 +929,7 @@ describe('BatchProcessor 失败时清理 input asset (M4)', () => {
     expect(removedInputs[0]).toMatch(/^in_/);
   });
 
-  it('M4: 重试期间不清理 input(仅最终失败才清理)', async () => {
+  it('M4: 重试期间清理上一次失败的 input(避免孤儿累积)', async () => {
     let callCount = 0;
     const removedInputs: string[] = [];
     const runtime = createMockRuntime({
@@ -961,9 +961,10 @@ describe('BatchProcessor 失败时清理 input asset (M4)', () => {
     const job = bp.enqueue({ items: makeItems(1), maxRetries: 1 });
     const finalJob = await bp.waitForCompletion(job.id);
 
-    // 重试后成功 → 不应清理 input(只有最终失败才清理)
+    // 重试后成功 → 应清理第 1 次失败的 input(避免孤儿累积),
+    // 成功的 input 不清理(它是有效的工作流输入资产)
     expect(finalJob.status).toBe('completed');
     expect(finalJob.completed).toBe(1);
-    expect(removedInputs).toHaveLength(0);
+    expect(removedInputs).toHaveLength(1);
   });
 });

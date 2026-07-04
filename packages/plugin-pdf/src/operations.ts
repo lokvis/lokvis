@@ -100,12 +100,12 @@ export const PDF_CAPABILITY_ENTRIES: PdfCapabilityEntry[] = [
   { capability: 'pdf.sign',      engine: 'pdf-lib', kind: 'single', outputType: 'pdf',  operation: signOp },
 ];
 
-/** 从输出 Blob 派生新 Asset 的元数据(不传播 source dimensions) */
+/** 从输出 Blob 派生新 Asset 的元数据(不读 source,PDF 变换不传播 dimensions) */
 function derivePdfMetadata(
   outputType: AssetType
-): (source: Asset, outBlob: Blob) => AssetMetadata {
+): (outBlob: Blob) => AssetMetadata {
   const fallback = defaultMimeTypeAndFormat(outputType);
-  return (_source: Asset, outBlob: Blob) => {
+  return (outBlob: Blob) => {
     const mimeType = outBlob.type || fallback.mimeType;
     const format = mimeType.split('/')[1] ?? fallback.format;
     return { mimeType, size: outBlob.size, format };
@@ -163,7 +163,7 @@ function wrapMergeOrSplitImplementation(
         const outBlob = await (entry.operation as MergePdfOperation)(blobs, params);
         const outAsset = await ctx.runtime.createAsset(
           outBlob,
-          derivePdfMetadata(entry.outputType)(inputs[0]!, outBlob),
+          derivePdfMetadata(entry.outputType)(outBlob),
           entry.outputType
         );
         execCtx.onProgress?.(1, 'Done');
@@ -183,7 +183,7 @@ function wrapMergeOrSplitImplementation(
         const derive = derivePdfMetadata(entry.outputType);
         for (const outBlob of outBlobs) {
           outputs.push(
-            await ctx.runtime.createAsset(outBlob, derive(asset, outBlob), entry.outputType)
+            await ctx.runtime.createAsset(outBlob, derive(outBlob), entry.outputType)
           );
         }
       }
@@ -205,6 +205,7 @@ export function buildPdfCapabilityImplementations(
   return PDF_CAPABILITY_ENTRIES.map((entry) => {
     // single kind:用 plugin-sdk 工厂,与 image/video 共享样板
     if (entry.kind === 'single') {
+      const derive = derivePdfMetadata(entry.outputType);
       return createBlobCapabilityImpl(
         {
           capability: entry.capability,
@@ -212,7 +213,9 @@ export function buildPdfCapabilityImplementations(
           outputType: entry.outputType,
           operation: entry.operation as SinglePdfOperation,
           isStub,
-          deriveMetadata: derivePdfMetadata(entry.outputType),
+          // 工厂签名是 (source, outBlob) => AssetMetadata,但 PDF 不读 source,
+          // 用包装层丢弃 source 只传 outBlob,语义更清晰
+          deriveMetadata: (_source, outBlob) => derive(outBlob),
         },
         ctx
       );
