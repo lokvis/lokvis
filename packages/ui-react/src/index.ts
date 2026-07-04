@@ -38,7 +38,7 @@ export { Toolbar } from './components/Toolbar.js';
 export { StatusBar } from './components/StatusBar.js';
 export { ParamForm, type ParamFormProps } from './components/ParamForm.js';
 export { HistoryPanel, type HistoryPanelProps } from './components/HistoryPanel.js';
-export { CommandPalette, useCommandPalette, type CommandPaletteProps } from './components/CommandPalette.js';
+export { CommandPalette, useCommandPalette, type CommandPaletteProps, type UseCommandPaletteOptions } from './components/CommandPalette.js';
 export { GlobalDropzone, type GlobalDropzoneProps } from './components/GlobalDropzone.js';
 export { CompareSlider, type CompareSliderProps } from './components/CompareSlider.js';
 export { DownloadPanel, type DownloadPanelProps } from './components/DownloadPanel.js';

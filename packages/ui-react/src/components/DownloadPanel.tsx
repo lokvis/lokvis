@@ -9,9 +9,7 @@
  * 与 apps/playground 的 DownloadManager(独立工具页)不同:本组件是 Workspace
  * 内嵌的轻量面板,数据来自 store.lastOutputIds(由 workflow-slice.run 写入)。
  *
- * 下载命名:原文件名 + 节点链摘要后缀,避免覆盖。
- *   - 输入:foo.png → 输出:foo-resize-watermark.png
- *
+ * 下载命名:`lokvis-output-{assetId前8位}.{ext}`,简洁且避免覆盖。
  * 不引入 JSZip(需新增依赖),用浏览器原生 downloadBlob 实现。
  */
 
@@ -36,7 +34,7 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 /** 从扩展名或 mime 推断下载扩展名 */
 function extFromMime(mime: string): string {
   const sub = mime.split('/')[1] ?? 'bin';
-  // image/svg+xml → svg+xml → svg
+  // image/svg+xml → svg+xml → svg(取 + 前部分)
   return sub.split('+')[0] ?? sub;
 }
 
@@ -62,6 +60,15 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
   const [downloaded, setDownloaded] = React.useState<Set<string>>(new Set());
   const [batchDownloading, setBatchDownloading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  // 卸载标志:批量下载是异步循环,卸载后不应再 setState
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // 输出资产列表(从 store.assets 中按 lastOutputIds 顺序取)
   const outputAssets = React.useMemo(() => {
@@ -89,9 +96,13 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
       const ext = extFromMime(asset.metadata.mimeType);
       const filename = `lokvis-output-${asset.id.slice(0, 8)}.${ext}`;
       downloadBlob(blob, filename);
-      setDownloaded((prev) => new Set(prev).add(id));
+      if (mountedRef.current) {
+        setDownloaded((prev) => new Set(prev).add(id));
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (mountedRef.current) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     }
   }
 
@@ -102,22 +113,32 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
     setStatus('Downloading outputs...');
     try {
       for (const asset of outputAssets) {
+        // 卸载后立即停止循环(避免对已卸载组件 setState)
+        if (!mountedRef.current) return;
         if (downloaded.has(asset.id)) continue;
         try {
           const blob = await runtime.exportAsset(asset.id);
           const ext = extFromMime(asset.metadata.mimeType);
           const filename = `lokvis-output-${asset.id.slice(0, 8)}.${ext}`;
           downloadBlob(blob, filename);
-          setDownloaded((prev) => new Set(prev).add(asset.id));
+          if (mountedRef.current) {
+            setDownloaded((prev) => new Set(prev).add(asset.id));
+          }
           await sleep(200);
         } catch (err) {
-          setError(err instanceof Error ? err.message : String(err));
+          if (mountedRef.current) {
+            setError(err instanceof Error ? err.message : String(err));
+          }
           // 单项失败不阻断后续
         }
       }
-      setStatus('Downloads complete');
+      if (mountedRef.current) {
+        setStatus('Downloads complete');
+      }
     } finally {
-      setBatchDownloading(false);
+      if (mountedRef.current) {
+        setBatchDownloading(false);
+      }
     }
   }
 

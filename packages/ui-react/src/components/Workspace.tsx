@@ -91,13 +91,9 @@ export function Workspace({
 }: WorkspaceProps) {
   const { status, error } = useLokvis(lokvisOptions);
   const { isMobile } = useBreakpoints();
-  const [paletteOpen, setPaletteOpen] = useCommandPalette();
+  const [paletteOpen, setPaletteOpen] = useCommandPalette({ enabled: enableCommandPalette });
   // W9.8 移动端抽屉:Asset / Inspector 切换显示
   const [mobilePanel, setMobilePanel] = React.useState<MobilePanel>(null);
-
-  // ⌘K 与 CommandPalette 集成:useCommandPalette 内部已注册全局快捷键
-  // 这里仅负责渲染面板;paletteOpen 由 hook 管理状态
-  void paletteOpen;
 
   if (status === 'initializing') {
     return (
@@ -200,7 +196,7 @@ export function Workspace({
           <AssetPanel className="h-full" />
         </div>
 
-        <Canvas className={enableCompare ? '' : ''} />
+        <Canvas enableCompare={enableCompare} />
 
         <div
           className={`${

@@ -144,9 +144,10 @@ export const createWorkflowSlice: StateCreator<
       // W9.4/W9.5: 记录输出 Asset ID,供 before/after 对比与下载管理使用。
       // 仅在 status === 'completed' 时记录,失败/取消的输出无意义。
       if (result.status === 'completed' && outputs.length > 0) {
+        const firstOutput = outputs[0];
         set({
           lastOutputIds: outputs.map((o) => o.id),
-          selectedOutputId: outputs[0]!.id,
+          selectedOutputId: firstOutput ? firstOutput.id : null,
         });
       }
 
