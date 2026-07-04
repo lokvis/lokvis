@@ -9,6 +9,7 @@ import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 import { ParamForm } from './ParamForm.js';
+import { ExifPanel } from './ExifPanel.js';
 
 export interface InspectorProps {
   className?: string;
@@ -49,6 +50,9 @@ export function Inspector({ className = '' }: InspectorProps) {
     <aside
       className={`flex w-72 shrink-0 flex-col border-l border-zinc-200 dark:border-zinc-800 ${className}`}
     >
+      {/* EXIF 面板(W7.4):仅 image asset 显示,非 image 时 ExifPanel 自身返回 null */}
+      <ExifPanel />
+
       {/* Configure section (when a node is selected) */}
       {showConfigure && (
         <div className="shrink-0 border-b border-zinc-200 dark:border-zinc-800">

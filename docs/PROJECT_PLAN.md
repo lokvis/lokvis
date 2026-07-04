@@ -207,13 +207,13 @@
 |---|---|---|---|---|---|
 | 7.1 | History Panel UI:列表、跳转、undo/redo 按钮 | P0 | 6h | ✅ | `ui-react/src/components/HistoryPanel.tsx` + `store/history-slice.ts` |
 | 7.2 | 历史持久化到 IndexedDB,跨会话保留 | P0 | 4h | ✅ | `runtime/src/history-store.ts` + `runtime.loadPersistedHistory()` |
-| 7.3 | EXIF 读取(exifr) | P1 | 4h | ⬜ | `engine-image/src/exif.ts` |
-| 7.4 | EXIF 查看/编辑面板 | P1 | 4h | ⬜ | Inspector.tsx |
+| 7.3 | EXIF 读取(exifr) | P1 | 4h | ✅ | `engine-image/src/operations/exif.ts`(`readExif` + `formatExifRows`) |
+| 7.4 | EXIF 查看/编辑面板 | P1 | 4h | ✅ | `ui-react/src/components/ExifPanel.tsx`(查看;编辑预留 onEdit 钩子) |
 | 7.5 | 水印图片支持:PNG 叠加,9 宫格位置 | P0 | 4h | ✅ | operations/watermark.ts |
 | 7.6 | 水印批量应用到队列所有图 | P0 | 2h | ✅ | `apps/playground/.../WatermarkBatchTool.tsx` |
 | 7.7 | 旋转/翻转(P1):任意角度、flip H/V/both | P1 | 4h | ✅ | operations/transform.ts |
 | 7.8 | 简单滤镜(P1):黑白/棕褐/模糊 | P1 | 4h | ✅ | operations/filters.ts |
-| 7.9 | 单测:EXIF、水印位置、旋转、滤镜 | P0 | 6h | ✅ | `runtime/src/__tests__/history-store.test.ts` + `integration/history-persistence.test.ts`(历史持久化 + jumpTo) |
+| 7.9 | 单测:EXIF、水印位置、旋转、滤镜 | P0 | 6h | ✅ | `engine-image/__tests__/exif.test.ts`(16 测试)+ 历史持久化 + jumpTo |
 | 7.10 | 缓冲 | P0 | 2h | — | 未使用 |
 
 ### W8 · 预设库 + 工具页打磨(40h)
