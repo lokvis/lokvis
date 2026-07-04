@@ -218,6 +218,17 @@
 
 ## Review 记录
 
+### Review #2 — 2026-07-04 PR #11 review 修复
+
+- **范围**:PR #11 review 发现的 6 个问题(1 Blocker + 2 Major + 3 Minor)
+- **清偿**(见「已清偿」章节 TD-C4/TD-C5/TD-C6/TD-C7/TD-C8/TD-C9):
+  - TD-C4:[Blocker] 批量重试期间 input asset 孤儿累积 — 重试路径加 `removeAsset`
+  - TD-C5:[Major] createPluginContext 降级错误类型 — 恢复 `AssetNotFoundError`
+  - TD-C6:[Major] OPFS removeEntry 对所有错误都 warn — 区分 NotFoundError
+  - TD-C7:[Minor] PDF merge derivePdfMetadata 语义不准确 — 改签名只接受 outBlob
+  - TD-C8:[Minor] persistHistory fire-and-forget 无错误处理 — 内部加 try/catch
+  - TD-C9:[Minor] batch:completed 事件语义模糊 — 加注释说明语义
+
 ### Review #1 — 2026-07-04 架构 review
 
 - **范围**:全项目 18 个包,聚焦五层架构依赖方向、短期方案、重复代码
@@ -253,3 +264,39 @@
 - **原债务**:`exif-reader.ts` 先构造 `RawExifData` 再 `const { raw: _raw, ...exifData } = data; void _raw` 解构删 raw 的 patch
 - **清偿方案**:直接构造 `ExifData`,不构造 RawExifData。RawExifData 类型保留在 schema 供未来调试场景
 - **清偿 commit**:`f194cb9`(PR #11)
+
+### TD-C4 批量重试期间 input asset 孤儿累积(2026-07-04 清偿,Review #2)
+
+- **原债务**:`batch-processor.ts` processItem 重试路径(attempts <= maxRetries)只回退 status 为 pending,不清理 inputAssetId。下次重试重新 import 产生新 input,前一次 input 成为孤儿。maxRetries=3 全失败会累积 3 个孤儿 input
+- **清偿方案**:重试路径加 `removeAsset(inputAssetId).catch(() => {})` 清理上一次失败的 input
+- **清偿 commit**:`(PR #11,Review #2)`
+
+### TD-C5 createPluginContext 降级错误类型(2026-07-04 清偿,Review #2)
+
+- **原债务**:`sdk/src/index.ts` getAsset 用 `throw new Error('Asset not found: ...')` 替代 `throw new AssetNotFoundError(id)`,导致 `err instanceof AssetNotFoundError` 判断失效
+- **清偿方案**:恢复 `throw new AssetNotFoundError(id)`,import AssetNotFoundError
+- **清偿 commit**:`(PR #11,Review #2)`
+
+### TD-C6 OPFS removeEntry 对所有错误都 warn(2026-07-04 清偿,Review #2)
+
+- **原债务**:`opfs-asset-store.ts` remove 对所有错误(包括无害的 NotFoundError)都 console.warn,产生噪音
+- **清偿方案**:区分 NotFoundError(静默忽略)和其他错误(warn),继续清理 IDB metadata
+- **清偿 commit**:`(PR #11,Review #2)`
+
+### TD-C7 PDF merge derivePdfMetadata 语义不准确(2026-07-04 清偿,Review #2)
+
+- **原债务**:`plugin-pdf/src/operations.ts` derivePdfMetadata 返回 `(source, outBlob) => AssetMetadata`,但内部只用 outBlob(不读 source)。merge 传 `inputs[0]` 作为 source 语义暗示输出与第一个输入有关系,造成歧义
+- **清偿方案**:derivePdfMetadata 改签名只接受 `(outBlob) => AssetMetadata`。single kind 传给工厂时用包装层 `(_source, outBlob) => derive(outBlob)` 适配工厂签名
+- **清偿 commit**:`(PR #11,Review #2)`
+
+### TD-C8 persistHistory fire-and-forget 无错误处理(2026-07-04 清偿,Review #2)
+
+- **原债务**:`runtime.ts` persistHistory 内部无 try/catch,调用方用 `void this.persistHistory(...)`,IDB 故障(数据库关闭/quota exceeded)会变成 unhandled promise rejection
+- **清偿方案**:persistHistory 内部加 try/catch + console.warn,失败只 warn 不抛(非关键路径)。不改 fire-and-forget 语义,不加上报机制
+- **清偿 commit**:`(PR #11,Review #2)`
+
+### TD-C9 batch:completed 事件语义模糊(2026-07-04 清偿,Review #2)
+
+- **原债务**:`batch-processor.ts` maybeComplete 对 failed>0 的 job 也发 batch:completed 事件,对新消费方造成困惑(事件名暗示"全部成功")
+- **清偿方案**:在 emit 处加注释说明"事件名表示所有项已终结(含部分失败),消费方应通过 payload.failed 区分"
+- **清偿 commit**:`(PR #11,Review #2)`

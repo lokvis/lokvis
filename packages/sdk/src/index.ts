@@ -21,7 +21,7 @@ import type { AssetStore, CapabilityRegistry } from '@lokvis/runtime';
 import type { EventBus, MetadataReader } from '@lokvis/schema';
 import type { PluginConfig, PluginContext, PluginInstaller } from '@lokvis/plugin-sdk';
 import { createRuntime, LokvisRuntimeImpl } from '@lokvis/runtime';
-import { PluginLoadError } from './errors.js';
+import { AssetNotFoundError, PluginLoadError } from './errors.js';
 
 /** 插件加载项 */
 export interface PluginLoadEntry {
@@ -152,7 +152,7 @@ function createPluginContext(
     runtime: {
       getAsset: async (id) => {
         const asset = await assetStore.get(id);
-        if (!asset) throw new Error(`Asset not found: ${id}`);
+        if (!asset) throw new AssetNotFoundError(id);
         return asset;
       },
       importAsset: async (file) => {

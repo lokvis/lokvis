@@ -799,32 +799,42 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       this.dirtyDuringLoad.add(workflowId);
       return;
     }
-    const stack = this.historyStacks.get(workflowId);
-    // 栈已从内存移除(disposeWorkflow / enforceHistoryStacksLimit 的 reset+delete
-    // 后异步到达此处)→ 删除持久化记录,避免孤儿数据跨会话残留
-    if (!stack) {
-      await this.historyStore.delete(workflowId);
-      return;
+    // fire-and-forget 调用方用 `void this.persistHistory(...)`,故内部必须
+    // try/catch,否则 IDB 故障(数据库关闭 / quota exceeded)会变成 unhandled
+    // promise rejection。历史持久化是非关键路径,失败只 warn 不抛。
+    try {
+      const stack = this.historyStacks.get(workflowId);
+      // 栈已从内存移除(disposeWorkflow / enforceHistoryStacksLimit 的 reset+delete
+      // 后异步到达此处)→ 删除持久化记录,避免孤儿数据跨会话残留
+      if (!stack) {
+        await this.historyStore.delete(workflowId);
+        return;
+      }
+      const { entries, cursor } = stack.snapshot();
+      if (entries.length === 0) {
+        await this.historyStore.delete(workflowId);
+        return;
+      }
+      // 从 snapshot 派生 currentOutputs,而非读 currentOutputsMap —— 后者在
+      // onChanged 触发时尚未更新(见方法文档注释)
+      const initialInputs = this.initialInputsMap.get(workflowId) ?? [];
+      const currentOutputs = cursor === -1
+        ? initialInputs
+        : (entries[cursor]?.outputs ?? initialInputs);
+      await this.historyStore.save({
+        workflowId,
+        entries,
+        cursor,
+        initialInputs,
+        currentOutputs,
+        updatedAt: Date.now(),
+      });
+    } catch (err) {
+      console.warn(
+        `[lokvis] persistHistory failed for workflow ${workflowId}:`,
+        err
+      );
     }
-    const { entries, cursor } = stack.snapshot();
-    if (entries.length === 0) {
-      await this.historyStore.delete(workflowId);
-      return;
-    }
-    // 从 snapshot 派生 currentOutputs,而非读 currentOutputsMap —— 后者在
-    // onChanged 触发时尚未更新(见方法文档注释)
-    const initialInputs = this.initialInputsMap.get(workflowId) ?? [];
-    const currentOutputs = cursor === -1
-      ? initialInputs
-      : (entries[cursor]?.outputs ?? initialInputs);
-    await this.historyStore.save({
-      workflowId,
-      entries,
-      cursor,
-      initialInputs,
-      currentOutputs,
-      updatedAt: Date.now(),
-    });
   }
 
   /**

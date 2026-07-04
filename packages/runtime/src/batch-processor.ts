@@ -547,6 +547,11 @@ export class BatchProcessor {
         // 重试:回 pending,schedule 会再次拉起
         item.status = 'pending';
         // 注意:不重置 attempts,保留累计重试次数
+        // 清理本次导入的 input asset,避免重试重新 import 时旧 input 成为孤儿
+        // (Blocker 修复:maxRetries=3 全失败原本会累积 3 个孤儿 input)
+        if (inputAssetId !== undefined) {
+          void this.runtime.removeAsset(inputAssetId).catch(() => {});
+        }
       } else {
         item.status = 'failed';
         item.error = err instanceof Error ? err : new Error(String(err));
@@ -616,6 +621,10 @@ export class BatchProcessor {
 
     job.endedAt = Date.now();
     job.status = job.failed > 0 ? 'failed' : 'completed';
+    // 注意:无论 job.status 是 'completed' 还是 'failed',都发 batch:completed 事件。
+    // 事件名表示"所有项已终结(含部分失败)",而非"全部成功"。
+    // 消费方应通过 payload.failed 区分;waitForCompletion 依赖此行为(只监听
+    // batch:completed + batch:cancelled 两种终态事件)。
     this.emit({
       type: 'batch:completed',
       jobId: job.id,

@@ -245,12 +245,15 @@ export async function createOpfsAssetStore(
       try {
         await assetsDir.removeEntry(fileName(id));
       } catch (err) {
-        // m7:文件不存在视为已删除,静默忽略;其他错误(如权限)记录 warn,
-        // 便于排查孤儿 OPFS 文件长期累积占空间(metadata 已删但文件残留)
-        console.warn(
-          `[lokvis] OPFS removeEntry failed for asset ${id}:`,
-          err
-        );
+        // NotFoundError 是幂等删除的预期场景(文件已不存在),静默忽略;
+        // 其他错误(权限/IO 等)记录 warn,便于排查孤儿 OPFS 文件长期累积
+        // 无论文件删除是否成功,都继续清理 IDB metadata(见下方)
+        if (!(err instanceof DOMException && err.name === 'NotFoundError')) {
+          console.warn(
+            `[lokvis] OPFS removeEntry unexpected failure for asset ${id}:`,
+            err
+          );
+        }
       }
       await deleteMetadata(db, id);
     },
