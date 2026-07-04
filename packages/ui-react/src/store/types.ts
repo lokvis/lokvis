@@ -84,6 +84,12 @@ export interface WorkspaceActions {
   selectNode(id: string | null): void;
   /** 设置节点状态 */
   setNodeStatus(id: string, status: NodeStatus, error?: string, duration?: number): void;
+  /**
+   * 移动节点到新位置(线性链重排,W10.4)。
+   * @param from 源索引(0-based)
+   * @param to 目标索引(0-based,移动后该节点的新位置)
+   */
+  moveNode(from: number, to: number): void;
 
   /** 执行工作流 */
   run(): Promise<Asset[]>;
