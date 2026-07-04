@@ -5,8 +5,9 @@
  * 调用 image.resize capability。高度留空(0)表示按比例自动。
  *
  * W8.2:平台预设选择器,选预设后自动填充 width/height/fit(format 在 convert/compress 页用)
- * W8.4:DPI 输入(72/150/300/自定义),仅作为元数据提示(canvas 引擎不修改像素尺寸,仅记录到
- *       Asset.metadata.dpi,供下游下载/打印使用)。预设切换时按目标平台推荐 DPI 自动设置。
+ * W8.4:DPI 输入(72/150/300/自定义),不改变像素尺寸,而是写入 PNG 输出文件的 pHYs chunk
+ *       (engine-image `embedPngDpi`),打印软件据此读取物理分辨率。仅 PNG 输出生效;
+ *       非 PNG 时 DPI 仅用于 UI 的印刷尺寸 mm 提示。预设切换时按目标平台推荐 DPI 自动设置。
  */
 import { useCallback, useState } from 'react';
 import type { Workflow } from '@lokvis/sdk';
@@ -200,7 +201,7 @@ export default function ResizeTool() {
 
         {/* DPI 提示 */}
         <p className="text-[10px] text-zinc-600">
-          DPI 仅作为元数据写入输出 Asset(供打印软件读取),不改变像素尺寸。
+          DPI 写入 PNG 输出文件的 pHYs chunk(打印软件可读),不改变像素尺寸。
           当前 {dpi} DPI · 印刷尺寸约 {((width || 0) / dpi * 25.4).toFixed(1)}×{((height || (width || 0)) / dpi * 25.4).toFixed(1)} mm
         </p>
 

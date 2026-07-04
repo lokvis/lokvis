@@ -15,6 +15,7 @@ import type {
 } from '../types.js';
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
 import { computeTargetSize, inferFormat, throwIfAborted } from './utils.js';
+import { embedPngDpi } from './png-metadata.js';
 
 /**
  * Resize：调整尺寸
@@ -43,7 +44,14 @@ export async function resize(
   bitmap.close?.();
   throwIfAborted(signal);
   const format = inferFormat(blob, 'png');
-  return canvasEngine.encode(canvas, format, 95);
+  const out = await canvasEngine.encode(canvas, format, 95);
+  // W8.4:把 DPI 写入 PNG pHYs chunk,供打印软件读取。
+  // 仅 PNG 生效;canvas encode 不写物理分辨率,这里补写。
+  const { dpi } = params as ResizeParams;
+  if (format === 'png' && typeof dpi === 'number' && dpi > 0) {
+    return embedPngDpi(out, dpi);
+  }
+  return out;
 }
 
 /** Crop：裁剪 */
