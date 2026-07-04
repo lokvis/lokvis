@@ -12,10 +12,12 @@
  *   - 用户可手动触发 runNow() 立即执行(取消 pending debounce)
  *
  * 实现说明:
- *   - effect 依赖 [nodesKey, enabled, selectedAssetId, delay](用户输入)
- *   - run / running 通过 ref 读取最新值,避免把 store action 引用加入 deps
- *     (action 引用每次 store 变化都会变,加入 deps 会触发 debounce 重置 → 循环)
- *   - 这是 React 社区标准模式(避免 effect 与 store action 循环),非 workaround
+ *   - 主 effect 依赖 [nodesKey, enabled, selectedAssetId, delay](用户输入)
+ *   - run / running / nodes.length 通过 ref 读取最新值,避免加入 deps:
+ *     - run / running:store action 引用每次 store 变化都变,加入 deps 触发循环重订阅
+ *     - nodes.length:节点数量变化必然使 nodesKey(JSON 序列化)变化,
+ *       加入 deps 是冗余触发源(节点增减会触发两次 effect 重新计时)
+ *   - 这是 React 社区标准模式(避免 effect 与 store action 循环 + 消除冗余触发),非 workaround
  *
  * 典型用法:
  * ```tsx
@@ -71,16 +73,21 @@ export function useDebouncedRun(
   const running = useWorkspaceStore((s) => s.running);
   const run = useWorkspaceStore((s) => s.run);
 
-  // 用 ref 持有最新的 run / running 引用:
-  // effect 依赖数组只跟踪用户输入(nodesKey / enabled / selectedAssetId / delay),
+  // 用 ref 持有最新的 run / running / nodes.length 引用:
+  // 主 effect 依赖数组只跟踪用户输入(nodesKey / enabled / selectedAssetId / delay),
   // 不包含 store action 引用(每次 store 变化都生成新函数引用,加入 deps 会
   // 触发 effect 重订阅 → debounce timer 重置 → 无法稳定等待 delay)。
+  // nodes.length 同样用 ref 读取:节点数量变化必然导致 nodesKey(JSON 序列化)
+  // 变化,nodes.length 在主 effect deps 中是冗余触发源,改用 ref 在 body 中读取
+  // 最新值即可(与 run / running 同模式,非 workaround)。
   const runRef = useRef(run);
   const runningRef = useRef(running);
+  const nodesLengthRef = useRef(nodes.length);
   useEffect(() => {
     runRef.current = run;
     runningRef.current = running;
-  }, [run, running]);
+    nodesLengthRef.current = nodes.length;
+  }, [run, running, nodes.length]);
 
   // 序列化节点,作为 debounce 触发依赖
   const nodesKey = serializeNodes(nodes);
@@ -95,16 +102,18 @@ export function useDebouncedRun(
 
   const runNow = useCallback(() => {
     clearTimer();
-    if (!selectedAssetId || nodes.length === 0 || runningRef.current) return;
+    if (!selectedAssetId || nodesLengthRef.current === 0 || runningRef.current) return;
     void runRef.current();
-  }, [clearTimer, selectedAssetId, nodes.length]);
+  }, [clearTimer, selectedAssetId]);
 
   // 监听节点序列变化。依赖数组为用户输入:
   //   nodesKey(序列化节点) / enabled / selectedAssetId / delay
-  // run / running 通过 ref 读取最新值(见上),避免 action 引用变化触发重订阅。
+  // run / running / nodes.length 通过 ref 读取最新值(见上):
+  //   - run / running:action 引用每次 store 变化都变,加入 deps 触发循环重订阅
+  //   - nodes.length:节点数量变化必然使 nodesKey 变化,加入 deps 是冗余触发源
   useEffect(() => {
     if (!enabled) return;
-    if (!selectedAssetId || nodes.length === 0 || runningRef.current) return;
+    if (!selectedAssetId || nodesLengthRef.current === 0 || runningRef.current) return;
 
     // 清除上一次 pending,重新计时
     if (timerRef.current !== null) {
@@ -114,8 +123,9 @@ export function useDebouncedRun(
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
       setIsPending(false);
-      // 再次检查 running,避免在 timer 排队期间用户已手动触发 run
-      if (!runningRef.current) {
+      // 再次检查 running + 节点非空,避免 timer 排队期间状态已变化
+      // (用户手动触发 run / 清空节点)
+      if (!runningRef.current && nodesLengthRef.current > 0) {
         void runRef.current();
       }
     }, delay);
@@ -129,7 +139,7 @@ export function useDebouncedRun(
       }
       setIsPending(false);
     };
-  }, [nodesKey, enabled, selectedAssetId, delay, nodes.length]);
+  }, [nodesKey, enabled, selectedAssetId, delay]);
 
   return {
     enabled,
