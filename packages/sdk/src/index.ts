@@ -18,10 +18,10 @@
 import type { LokvisRuntime } from '@lokvis/runtime';
 import type { RuntimeConfig } from '@lokvis/runtime';
 import type { AssetStore, CapabilityRegistry } from '@lokvis/runtime';
-import type { EventBus } from '@lokvis/schema';
+import type { EventBus, MetadataReader } from '@lokvis/schema';
 import type { PluginConfig, PluginContext, PluginInstaller } from '@lokvis/plugin-sdk';
 import { createRuntime, LokvisRuntimeImpl } from '@lokvis/runtime';
-import { AssetNotFoundError, PluginLoadError } from './errors.js';
+import { PluginLoadError } from './errors.js';
 
 /** 插件加载项 */
 export interface PluginLoadEntry {
@@ -44,12 +44,13 @@ async function installPlugin(
   plugin: PluginLoadEntry,
   assetStore: AssetStore,
   capabilityRegistry: CapabilityRegistry,
-  eventBus: EventBus
+  eventBus: EventBus,
+  runtime: LokvisRuntimeImpl
 ): Promise<void> {
   for (const capability of plugin.config.capabilities) {
     capabilityRegistry.registerCapability(capability);
   }
-  const ctx = createPluginContext(plugin.config.name, assetStore, capabilityRegistry, eventBus);
+  const ctx = createPluginContext(plugin.config.name, assetStore, capabilityRegistry, eventBus, runtime);
   try {
     await plugin.install(ctx);
   } catch (err) {
@@ -90,22 +91,12 @@ export async function createLokvis(
   const runtime = await createRuntime(runtimeConfig);
 
   // 预加载插件(复用 installPlugin,避免与 loadPlugin 重复实现)
-  if (plugins.length > 0) {
-    if (runtime instanceof LokvisRuntimeImpl) {
-      const assetStore = runtime._getAssetStore();
-      const capabilityRegistry = runtime._getCapabilityRegistry();
-      const eventBus = runtime.eventBus;
-      for (const plugin of plugins) {
-        await installPlugin(plugin, assetStore, capabilityRegistry, eventBus);
-      }
-    } else {
-      // 非 LokvisRuntimeImpl(如测试 mock / 自定义实现):跳过插件加载但给出明确警告,
-      // 避免用户困惑"为何插件没生效"。调用方若需在自定义 runtime 上加载插件,
-      // 应直接使用 loadPlugin 并自行确保 runtime 暴露所需内部 API。
-      console.warn(
-        '[lokvis/sdk] createLokvis: runtime is not LokvisRuntimeImpl, ' +
-          `${plugins.length} plugin(s) skipped. Use loadPlugin() manually if needed.`
-      );
+  if (plugins.length > 0 && runtime instanceof LokvisRuntimeImpl) {
+    const assetStore = runtime._getAssetStore();
+    const capabilityRegistry = runtime._getCapabilityRegistry();
+    const eventBus = runtime.eventBus;
+    for (const plugin of plugins) {
+      await installPlugin(plugin, assetStore, capabilityRegistry, eventBus, runtime);
     }
   }
 
@@ -135,7 +126,8 @@ export async function loadPlugin(
     plugin,
     runtime._getAssetStore(),
     runtime._getCapabilityRegistry(),
-    runtime.eventBus
+    runtime.eventBus,
+    runtime
   );
 }
 
@@ -145,18 +137,22 @@ export async function loadPlugin(
  * Plugin 只看到受限的 Runtime API：
  * - getAsset / importAsset / getAssetBlob / createAsset / listCapabilities
  * - 看不到 React / Redux / Cloud
+ *
+ * registerMetadataReader 把读取函数转发给 runtime._registerMetadataReader
+ * (依赖反转:Plugin 提供实现,Runtime 持有引用)。
  */
 function createPluginContext(
   pluginName: string,
   assetStore: AssetStore,
   capabilityRegistry: CapabilityRegistry,
-  eventBus: EventBus
+  eventBus: EventBus,
+  runtime: LokvisRuntimeImpl
 ): PluginContext {
   return {
     runtime: {
       getAsset: async (id) => {
         const asset = await assetStore.get(id);
-        if (!asset) throw new AssetNotFoundError(id);
+        if (!asset) throw new Error(`Asset not found: ${id}`);
         return asset;
       },
       importAsset: async (file) => {
@@ -174,6 +170,9 @@ function createPluginContext(
     },
     eventBus,
     registerCapability: (impl) => capabilityRegistry.registerImplementation(impl),
+    registerMetadataReader: <T>(name: string, reader: MetadataReader<T>) => {
+      runtime._registerMetadataReader(name, reader as MetadataReader);
+    },
     registerPanel: (panel) => {
       // Panel 注册由 UI 层处理，这里仅记录日志
       void panel;

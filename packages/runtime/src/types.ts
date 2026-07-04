@@ -163,12 +163,15 @@ export interface LokvisRuntime {
   /**
    * 读取 image 资产的 EXIF 元数据(W7.3/7.4)。
    *
-   * 内部通过 assetStore.getBlob 取出 Blob,再调用 @lokvis/engine-image 的
-   * readExif(变量驱动动态 import,避免 runtime 静态依赖 Engine)。
-   * UI 通过此方法访问 EXIF,不直接依赖 Engine 包(五层架构单向依赖)。
+   * 长期方案(MetadataReader 依赖反转):Runtime 持有 plugin-image 通过
+   * `ctx.registerMetadataReader('image.read-exif', fn)` 注册的读取器引用,
+   * 按名调用。Plugin 未安装时优雅降级返回 null。
+   * readExif 实现位于 plugin-image(Capability 层),不进 engine-image
+   * (不符合 Engine 层 Blob↔Blob 纯函数约束)。
+   * UI 通过此方法访问 EXIF,不直接依赖 Engine/Plugin 包(五层架构单向依赖)。
    *
    * @param id 资产 ID(须为 image 类型)
-   * @returns ExifData;非 image / 无 EXIF / 解析失败返回 null
+   * @returns ExifData;非 image / 无 EXIF / 解析失败 / reader 未注册返回 null
    */
   readAssetExif(id: AssetId): Promise<ExifData | null>;
   /** 删除资产 */

@@ -16,6 +16,7 @@ import type {
   LokvisEvent,
   McpManifest,
   McpToolManifest,
+  MetadataReader,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import { validateWorkflow } from '@lokvis/schema';
@@ -232,6 +233,25 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
    *  补 persist 仅多一次等价写回,幂等无害。)
    */
   private dirtyDuringLoad = new Set<string>();
+
+  /**
+   * 元数据读取器注册表(W7.3/7.4 长期方案:MetadataReader 依赖反转)。
+   *
+   * Plugin(plugin-image)通过 PluginContext.registerMetadataReader 注册
+   * 查询函数(如 'image.read-exif'),Runtime 持有引用并按名调用。
+   * 解决了 readExif(Blob→ExifData)不符合 Engine 层 Blob↔Blob 纯函数约束、
+   * 也不符合 CapabilityImplementation Asset[]→Asset[] 契约的问题。
+   * UI 经 runtime.readAssetExif 间接调用,不直接依赖 plugin/engine。
+   */
+  private metadataReaders = new Map<string, MetadataReader>();
+
+  /**
+   * 注册元数据读取器(由 PluginContext.registerMetadataReader 转发)。
+   * 下划线前缀表示内部 API,不暴露在 LokvisRuntime 公开接口。
+   */
+  _registerMetadataReader(name: string, reader: MetadataReader): void {
+    this.metadataReaders.set(name, reader);
+  }
 
   constructor(config: RuntimeConfig = {}) {
     this.config = {
@@ -523,26 +543,22 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   }
 
   /**
-   * 读取 image 资产的 EXIF 元数据(W7.3/7.4)。
+   * 读取 image 资产的 EXIF 元数据(W7.3/7.4 长期方案:MetadataReader 依赖反转)。
    *
-   * 架构合规:Runtime 层不直接依赖 Engine 包(AGENTS.md 五层单向依赖),
-   * 此处用变量驱动的动态 import 按需加载 @lokvis/engine-image 的 readExif,
-   * 让 TypeScript 不解析该模块(否则需把 engine-image 加入 dependencies,
-   * 违反五层架构)。运行时由消费方(playground / ui-react)通过 plugin-image
-   * 间接安装 engine-image,模块可正常解析。
+   * Runtime 持有 plugin-image 通过 ctx.registerMetadataReader('image.read-exif', fn)
+   * 注册的 reader 引用,按名调用。reader 内部调 readExifFromBlob(exifr)。
+   * Plugin 未安装时优雅降级返回 null(不抛错)。
    *
-   * 非 image 资产 / 无 EXIF / 解析失败均返回 null,不抛错。
+   * 架构决策:readExif 是 Blob→ExifData 查询,不符合 Engine 层 Blob↔Blob 纯函数
+   * 约束,也不符合 Capability Asset[]→Asset[] 契约,故走 MetadataReader 机制,
+   * 不进 engine-image、不走 Capability execute。
    */
   async readAssetExif(id: AssetId): Promise<ExifData | null> {
     const asset = await this.getAsset(id);
     if (asset.type !== 'image') return null;
-    const blob = await this.assetStore.getBlob(asset.blob);
-    // 变量驱动的动态 import:绕过 TS 模块解析,保持 runtime 不静态依赖 engine
-    const moduleName = '@lokvis/engine-image';
-    const mod = (await import(/* @vite-ignore */ moduleName)) as {
-      readExif: (blob: Blob) => Promise<ExifData | null>;
-    };
-    return mod.readExif(blob);
+    const reader = this.metadataReaders.get('image.read-exif');
+    if (!reader) return null; // Plugin 未安装,优雅降级
+    return reader(asset) as Promise<ExifData | null>;
   }
 
   async removeAsset(id: AssetId): Promise<void> {
