@@ -15,9 +15,14 @@ import { CompareSlider } from './CompareSlider.js';
 
 export interface CanvasProps {
   className?: string;
+  /**
+   * 是否启用 before/after 对比模式(W9.4)。
+   * 默认 true;关闭后即使有 outputs 也只显示单图预览。
+   */
+  enableCompare?: boolean;
 }
 
-export function Canvas({ className = '' }: CanvasProps) {
+export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
   const selectedAssetId = useWorkspaceStore((s) => s.selectedAssetId);
   const assets = useWorkspaceStore((s) => s.assets);
   const thumbnails = useWorkspaceStore((s) => s.thumbnails);
@@ -31,18 +36,19 @@ export function Canvas({ className = '' }: CanvasProps) {
   // W9.4 是否有可对比的输出
   const outputId = selectedOutputId ?? lastOutputIds[0] ?? null;
   const outputThumbnail = outputId ? thumbnails[outputId] : undefined;
-  const canCompare = !!(preview && outputThumbnail);
+  const canCompare = enableCompare && !!(preview && outputThumbnail);
 
   // W9.4 默认开启 compare 模式:当 outputs 生成后,用户首次希望对比
   // 切换状态由用户控制,直到下次 outputs 重新生成时再默认开启
   const [compareMode, setCompareMode] = React.useState(false);
   React.useEffect(() => {
     // outputs 变化时,自动切到 compare 模式(若可以)
-    if (lastOutputIds.length > 0 && canCompare) {
+    // 依赖 lastOutputIds + preview + outputThumbnail:因为缩略图可能在
+    // outputs 之后才异步生成,需在两者都就绪时再切换
+    if (lastOutputIds.length > 0 && preview && outputThumbnail) {
       setCompareMode(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastOutputIds]);
+  }, [lastOutputIds, preview, outputThumbnail]);
 
   // 全局拖拽支持（直接拖到画布区）
   const [dragOver, setDragOver] = React.useState(false);
@@ -54,6 +60,9 @@ export function Canvas({ className = '' }: CanvasProps) {
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => {
         e.preventDefault();
+        // stopPropagation 防止事件冒泡到 window 的 GlobalDropzone 监听,
+        // 否则文件会被导入两次(Canvas 处理一次 + GlobalDropzone 再处理一次)
+        e.stopPropagation();
         setDragOver(false);
         if (e.dataTransfer.files.length > 0) {
           void importFiles(Array.from(e.dataTransfer.files));

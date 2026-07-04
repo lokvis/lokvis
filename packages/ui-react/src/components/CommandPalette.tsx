@@ -91,12 +91,13 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
 
   // 打开时重置 query + activeIndex + 聚焦输入
   React.useEffect(() => {
-    if (open) {
-      setQuery('');
-      setActiveIndex(0);
-      // Dialog 聚焦首个可聚焦元素(input)后,input ref 才有值
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
+    if (!open) return;
+    setQuery('');
+    setActiveIndex(0);
+    // Dialog 聚焦首个可聚焦元素(input)后,input ref 才有值
+    // 用 timer 句柄 + cleanup 避免卸载后 setState 警告
+    const t = setTimeout(() => inputRef.current?.focus(), 0);
+    return () => clearTimeout(t);
   }, [open]);
 
   // filtered 变化时校正 activeIndex 越界
@@ -262,6 +263,8 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  * @example
  * ```tsx
  * const [open, setOpen] = useCommandPalette();
+ * // 或禁用快捷键(仍可受控使用 open/setOpen):
+ * const [open, setOpen] = useCommandPalette({ enabled: false });
  * return (
  *   <>
  *     <CommandPalette open={open} onClose={() => setOpen(false)} />
@@ -269,10 +272,19 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  * );
  * ```
  */
-export function useCommandPalette(): [boolean, React.Dispatch<React.SetStateAction<boolean>>] {
+export interface UseCommandPaletteOptions {
+  /** 是否注册 ⌘K 全局快捷键(默认 true)。设为 false 时仍可受控使用 open/setOpen */
+  enabled?: boolean;
+}
+
+export function useCommandPalette(
+  options: UseCommandPaletteOptions = {}
+): [boolean, React.Dispatch<React.SetStateAction<boolean>>] {
+  const { enabled = true } = options;
   const [open, setOpen] = React.useState(false);
 
   React.useEffect(() => {
+    if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
       // ⌘K (mac) / Ctrl+K (win/linux),忽略纯 K(避免拦截输入)
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -282,7 +294,7 @@ export function useCommandPalette(): [boolean, React.Dispatch<React.SetStateActi
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  }, [enabled]);
 
   return [open, setOpen];
 }

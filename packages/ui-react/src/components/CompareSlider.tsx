@@ -116,7 +116,7 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
     >
-      {/* after 全图(底层) */}
+      {/* after 全图(底层)——决定容器尺寸 */}
       <img
         src={afterUrl}
         alt="After"
@@ -124,18 +124,17 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
         className="block max-h-full max-w-full object-contain pointer-events-none"
       />
 
-      {/* before 覆盖层(clip 到 pos 左侧) */}
+      {/* before 覆盖层:绝对定位同尺寸,用 clip-path 从右侧裁剪到 pos%
+          (避免读取 containerRef.current.clientWidth 这种"渲染期读 ref"反模式) */}
       <div
-        className="absolute inset-0 overflow-hidden"
-        style={{ width: `${pos}%` }}
+        className="absolute inset-0"
+        style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
       >
         <img
           src={beforeUrl}
           alt="Before"
           draggable={false}
-          // 用容器宽度的反比缩放,保证 before 与 after 同尺寸对齐
-          className="block max-h-full object-contain pointer-events-none"
-          style={{ width: containerRef.current?.clientWidth ?? 'auto' }}
+          className="block max-h-full max-w-full object-contain pointer-events-none"
         />
       </div>
 

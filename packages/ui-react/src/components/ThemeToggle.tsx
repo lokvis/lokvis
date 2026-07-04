@@ -4,10 +4,11 @@
  * 使用 `useTheme()` hook 读写 localStorage + 跟随系统偏好。
  * 与 `tokens.css` 的 `.dark` / `.light` 类双触发机制对齐。
  *
- * 三态图标:light(☀) / dark(☾) / system(⚙)。
- * 点击切换 light ↔ dark;长按或右键弹出菜单可切到 system。
- *
- * 简化版:点击直接 toggle,alt+click切回 system。
+ * 交互:
+ *   - 左键单击:在 light / dark 之间切换(基于当前 resolvedTheme 决定下一态)
+ *   - 右键单击:弹出菜单(light / dark / system 三态)
+ *   - ESC:关闭菜单
+ *   - 点击菜单外部:关闭菜单
  */
 
 import * as React from 'react';
@@ -25,7 +26,7 @@ export function ThemeToggle({ className = '', showLabel = false }: ThemeTogglePr
   const [menuOpen, setMenuOpen] = React.useState(false);
   const btnRef = React.useRef<HTMLButtonElement>(null);
 
-  // 点击外部关闭菜单
+  // 点击外部关闭菜单 + ESC 关闭
   React.useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: MouseEvent) => {
@@ -33,8 +34,15 @@ export function ThemeToggle({ className = '', showLabel = false }: ThemeTogglePr
         setMenuOpen(false);
       }
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
     document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [menuOpen]);
 
   const isDark = resolvedTheme === 'dark';
@@ -57,11 +65,9 @@ export function ThemeToggle({ className = '', showLabel = false }: ThemeTogglePr
       <button
         ref={btnRef}
         type="button"
-        onClick={() => {
-          // alt+click 切到 system,普通点击 toggle
-          // (alt 在浏览器里有时被绑定到 menu bar,改用更稳定的右键/shift)
-          toggleTheme();
-        }}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        onClick={() => toggleTheme()}
         onContextMenu={(e) => {
           e.preventDefault();
           setMenuOpen((v) => !v);
@@ -79,7 +85,7 @@ export function ThemeToggle({ className = '', showLabel = false }: ThemeTogglePr
           role="menu"
           className="absolute right-0 top-full z-50 mt-1 w-32 overflow-hidden rounded-md border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
         >
-          {(['light', 'dark', null] as ThemeMode[]).map((mode) => {
+          {(['light', 'dark', null] as Array<ThemeMode | null>).map((mode) => {
             const isActive = theme === mode;
             const text = mode === null ? 'System' : mode === 'dark' ? 'Dark' : 'Light';
             return (

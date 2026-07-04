@@ -14,9 +14,13 @@
  *   - 拒绝类型在遮罩中央显示红色提示,并阻止导入
  *
  * 与 AssetPanel / Canvas 内置的局部 dropzone 互不冲突:它们各自处理自己的
- * drop 事件,本组件只在文档级 dragenter 时显示遮罩。drop 事件如果发生在子组件
- * 内部,会被子组件先处理并 stopPropagation;本组件的 window drop 监听仍会触发,
- * 但 dataTransfer.files 此时通常为空(子组件已取走),故是安全的。
+ * drop 事件并 `stopPropagation()`,本组件的 window drop 监听不会触发。
+ *
+ * 防御性兜底:即便子组件忘了 `stopPropagation`,本组件也会再次处理 drop 事件,
+ * 但通过 `importFiles` 的幂等性(以 File 引用去重)— 不,File 引用并不去重,
+ * 所以子组件**必须** `stopPropagation()`。本组件在 drop 事件触发时,先检查
+ * `e.defaultPrevented`(子组件会 `preventDefault()` 表明已处理),若已处理
+ * 则直接 return,避免双重导入。
  *
  * @example
  * ```tsx
@@ -107,6 +111,13 @@ export function GlobalDropzone({
     };
     // drop:校验 + 导入
     const onDrop = (e: DragEvent) => {
+      // 兜底:子组件(Canvas / AssetPanel)若已处理 drop 并 preventDefault(),
+      // 表明文件已导入,本组件跳过避免双重导入。子组件仍需 stopPropagation()
+      // 防止事件冒泡到 window,这里 defaultPrevented 是双保险。
+      if (e.defaultPrevented) {
+        setDragCounter(0);
+        return;
+      }
       preventDefault(e);
       setDragCounter(0);
       const files = e.dataTransfer?.files ? Array.from(e.dataTransfer.files) : [];
