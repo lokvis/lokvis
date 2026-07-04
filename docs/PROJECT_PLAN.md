@@ -220,16 +220,16 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 8.1 | 预设库数据:20+ 平台(YouTube/TikTok/IG/Shopify/Etsy/Twitter/LinkedIn) | P0 | 4h | ⬜ | `capability/src/presets-platform.ts` |
-| 8.2 | 预设选择器 UI(resize/crop 页内) | P0 | 4h | ⬜ | 工具页 |
-| 8.3 | 自定义预设保存(免费 3 个,Pro 无限) | P0 | 4h | ⬜ | runtime + UI |
-| 8.4 | DPI 输入(72/150/300/自定义) | P0 | 2h | ⬜ | resize 页 |
-| 8.5 | 质量滑块 + 目标体积模式(compress 到 <100KB) | P0 | 4h | ⬜ | compress 页 |
-| 8.6 | 输出格式默认智能:PNG 透明→保留,否则 WebP | P0 | 2h | ⬜ | operations |
-| 8.7 | 工具页 SEO 元数据:title/description/og-image 自动生成 | P0 | 4h | ⬜ | ToolLayout |
-| 8.8 | 隐私声明"文件未上传"指示器 + 断网验证 | P0 | 4h | ⬜ | `PrivacyBadge.tsx` |
-| 8.9 | 单测:预设数据、目标体积压缩算法 | P0 | 4h | ⬜ | tests |
-| 8.10 | 缓冲 | P0 | 4h | ⬜ | — |
+| 8.1 | 预设库数据:20+ 平台(YouTube/TikTok/IG/Shopify/Etsy/Twitter/LinkedIn) | P0 | 4h | ✅ | `capability/src/presets/platform.ts`(20+ 平台,63 预设) |
+| 8.2 | 预设选择器 UI(resize/crop 页内) | P0 | 4h | ✅ | `toolkit/PlatformPresetSelector.tsx`(按 category 分组,合并自定义预设) |
+| 8.3 | 自定义预设保存(免费 3 个,Pro 无限) | P0 | 4h | ✅ | `toolkit/useCustomPresets.ts`(localStorage + storage 事件同步) |
+| 8.4 | DPI 输入(72/150/300/自定义) | P0 | 2h | ✅ | `tools/ResizeTool.tsx`(DPI 作为元数据写入 workflow params,打印预设自动 300) |
+| 8.5 | 质量滑块 + 目标体积模式(compress 到 <100KB) | P0 | 4h | ✅ | `tools/CompressTool.tsx`(模式切换 + KB 输入,委托 engine `compressToTargetSize`) |
+| 8.6 | 输出格式默认智能:PNG 透明→保留,否则 WebP | P0 | 2h | ✅ | `toolkit/download.ts#detectTransparency` + CompressTool 智能格式选项 |
+| 8.7 | 工具页 SEO 元数据:title/description/og-image 自动生成 | P0 | 4h | ✅ | `layouts/ToolLayout.astro` + `tools/seo.ts`(OG/Twitter 卡片 + SVG data URI og-image) |
+| 8.8 | 隐私声明"文件未上传"指示器 + 断网验证 | P0 | 4h | ✅ | `toolkit/PrivacyBadge.tsx`(online/offline 事件 + 断网验证指引) |
+| 8.9 | 单测:预设数据、目标体积压缩算法 | P0 | 4h | ✅ | `capability/__tests__/platform-presets.test.ts`(22)+ `engine-image/__tests__/compress-target.test.ts`(15) |
+| 8.10 | 缓冲 | P0 | 4h | — | 未使用 |
 
 ---
 
@@ -549,6 +549,7 @@
 | 2026-07-03 | 4.6 | ✅ 完成 | 6h | `ui-core/src/__tests__/components.test.tsx` 25 单测(`@testing-library/react` 行为级断言);globals:false 下手动 `cleanup()`;Tooltip 用 `vi.useFakeTimers()` + `act(() => vi.advanceTimersByTime(10))`;Dialog 用 `screen.getByRole('dialog').parentElement` 取 overlay;vitest.config.ts 加 `.tsx` include |
 | 2026-07-03 | 4.7 | ✅ 完成 | 4h | `apps/playground` 新增 `ComponentsDemo.tsx`(展示 11 个 ui-core 组件 + 内置暗色模式 Toggle)+ `components.astro`(`client:only="react"`)+ BaseLayout NAV 加 "UI Components" 项 |
 | 2026-07-03 | W4 | 🎉 收尾 | 34h | typecheck ✅(36 tasks)、build ✅(20 tasks)、test ✅(496 测试,新增 25);4.8 docs 三页此前已完成(Starlight 迁移);4.9 缓冲未消耗;3 个 changeset(sdk-error-types / ui-core-components-tokens / playground-components-page) |
+| 2026-07-04 | 8.1-8.9 | ✅ 完成 | 32h | W8 预设库 + 工具页打磨全部落地。8.1 `capability/src/presets/platform.ts`(20+ 平台 63 预设,social/ecommerce/video/print/other 五大类,本地定义 `PlatformFitStrategy` 与 engine-image FitStrategy 字面量对齐,避免五层依赖违规);8.2 `toolkit/PlatformPresetSelector.tsx`(按 category 分组 optgroup + 自定义预设命名空间 `custom.` 前缀);8.3 `toolkit/useCustomPresets.ts`(localStorage 持久化 + storage 事件多 tab 同步 + 免费 3 / Pro 无限 + JSON 解析容错);8.4 `tools/ResizeTool.tsx` 加 DPI 输入(72/150/300/自定义,作为元数据写入 workflow params,打印类预设自动 300 DPI)+ 印刷尺寸 mm 提示;8.5 `tools/CompressTool.tsx` 加压缩模式切换(质量 / 目标体积)+ 目标 KB 输入,委托 engine 已有 `compressToTargetSize` 二分查找;8.6 `toolkit/download.ts#detectTransparency`(canvas + getImageData 扫描 alpha 通道)+ CompressTool 智能格式选项(含透明 → PNG 保留 / 否则 → WebP,目标体积模式统一 WebP);8.7 `layouts/ToolLayout.astro` + `tools/seo.ts`(8 工具页 SEO 配置 + `generateOgImage` SVG data URI 1200×630 + OG/Twitter Card meta + BaseLayout 扩展 description/keywords/ogTitle/ogDescription/ogImage/ogType props);8.8 `toolkit/PrivacyBadge.tsx`(online/offline 事件监听 + 断网验证指引 modal + 离线时绿色 "✓ 断网模式 · 仍在工作");8.9 单测 37 个:`capability/__tests__/platform-presets.test.ts`(22,数据完整性 + 4 辅助函数 + 分类标签)+ `engine-image/__tests__/compress-target.test.ts`(15,二分边界 [10,95] + 单调性 + 最多 6 轮 + 兜底 quality=10 + best 保留最高满足质量 + 格式参数透传)。Review 修复:① ResizeTool `onSaveCustom` 死 prop 移除(原 `as unknown as void` 占位违反 AGENTS.md 禁双断言规则);② ResizeTool `preset.category !== 'print'` 在 TS narrowing 后恒真,简化条件;③ compress-target.test.ts 未使用 `i` 参数触发 TS6133。验证:typecheck ✅(36 tasks)、build ✅(20 tasks)、test ✅(660/660,新增 37) |
 
 
 ---
@@ -567,6 +568,7 @@
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
+| 2026-07-04 | v2.6 | **W8 完成**:预设库 + 工具页打磨 9 项任务(8.1-8.9)全部 ✅,8.10 缓冲未消耗。新增 `@lokvis/capability` 平台预设 API(`PLATFORM_PRESETS` 63 预设 + 4 辅助函数 + 5 分类);playground 工具页升级:ResizeTool 加 DPI 输入 + 平台预设选择器,CompressTool 加目标体积模式 + 智能格式(透明 → PNG / 否则 WebP);新增 `ToolLayout.astro` 自动注入 SEO 元数据(OG/Twitter Card + SVG og-image)+ `PrivacyBadge.tsx` 隐私声明与断网验证。新增 37 单测(平台预设数据完整性 + 压缩算法二分查找边界),全量 660/660 通过 |
 | 2026-07-04 | v2.5 | **PR #11 Review #2 修复**(1 Blocker + 2 Major + 3 Minor):① [Blocker] batch-processor 重试路径加 `removeAsset` 清理上一次失败的 input,避免孤儿累积(maxRetries=3 全失败原会累积 3 个孤儿);② [Major] sdk `createPluginContext.getAsset` 恢复 `throw new AssetNotFoundError(id)`,修复 `err instanceof AssetNotFoundError` 判断失效;③ [Major] opfs-asset-store `remove` 区分 NotFoundError(静默)与其他错误(warn),消除幂等删除噪音;④ [Minor] plugin-pdf `derivePdfMetadata` 改签名只接受 outBlob,single kind 用包装层适配工厂 (source, outBlob) 签名;⑤ [Minor] runtime `persistHistory` 内部加 try/catch + console.warn,防 IDB 故障 unhandled promise rejection;⑥ [Minor] batch-processor `maybeComplete` 加注释说明 batch:completed 事件语义("所有项已终结含部分失败")。technical-debt.md 加 Review #2 记录 + TD-C4~C9 清偿条目。验证:lint 0 errors、typecheck 全绿、test 623/623 通过 |
 | 2026-07-04 | v2.4 | **新增技术债务登记簿**:`docs/technical-debt.md`。记录 2026-07-04 架构 review 发现的 7 类已知技术债务(Phase 2 路线 2 项 / 测试时序 2 项 / 静默吞错 4 处 / 类型 workaround 4 处 / UI ObjectURL 分散 2 处 / 事件订阅 cleanup 3 处 / 测试环境 hack 3 处),每项含位置、问题、影响、长期方案、暂不修复原因、触发条件。含 Review 记录与已清偿章节(TD-C1/C2/C3 对应 commit `f194cb9`)。docs/README.md 加导航链接 |
 | 2026-07-04 | v2.3 | **架构清理:消除重复代码 + 统一清理逻辑**(review 发现的 3 个长期方案修复):① plugin-sdk 新增 `createBlobCapabilityImpl` 工厂 + `defaultDeriveOutputMetadata`,封装"取 blob → operation → metadata → createAsset → 进度/取消"五步样板,消除 plugin-image / plugin-video / plugin-pdf(single)三份近乎逐字相同的 `wrapAsImplementation` + `deriveOutputMetadata`(每份 ~33 行 → 0 行);② runtime `worker-host.ts` 的 `dispose()` + `spawn()` catch 改为调用 `teardownTransport()`,消除三处重复的 offMessage/offError/terminate/null 清理;③ plugin-image `exif-reader.ts` 删除"先构造 RawExifData 再 `const { raw: _raw, ...exifData } = data; void _raw` 解构删 raw"的 patch,改为直接构造 ExifData。未修复项(评估后决定不动):LRU 抽象(仅 1 处真正 LRU,抽象属过度工程化)、测试 setTimeout 轮询(改 disposeWorkflow 等待 persist 会改变 fire-and-forget 语义,影响面大)、静默吞错(均为 intentional cleanup/error-tolerant)。验证:lint 0 errors、typecheck 全绿、test 623/623 通过 |

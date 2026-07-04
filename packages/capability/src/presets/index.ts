@@ -9,6 +9,7 @@
  * - video.ts:     视频能力(7 个)
  * - asset.ts:     Asset 通用能力(2 个)
  * - developer.ts: Developer 工具能力(4 个)
+ * - platform.ts:  平台尺寸预设库(W8.1,20+ 平台)
  * - builtin.ts:   BUILTIN_CAPABILITIES 聚合
  */
 export * from './image.js';
@@ -16,4 +17,5 @@ export * from './pdf.js';
 export * from './video.js';
 export * from './asset.js';
 export * from './developer.js';
+export * from './platform.js';
 export * from './builtin.js';

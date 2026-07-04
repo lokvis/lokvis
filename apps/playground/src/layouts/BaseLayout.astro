@@ -15,9 +15,33 @@ interface Props {
   title?: string;
   /** 当前激活的 sidebar 项 ID(对应 NAV_GROUPS 中 item.id) */
   active?: string;
+  /** SEO description(覆盖默认)。W8.7 工具页通过 ToolLayout 注入 */
+  description?: string;
+  /** SEO keywords(逗号分隔)。可选 */
+  keywords?: string;
+  /** OG 标题(覆盖 title)。可选 */
+  ogTitle?: string;
+  /** OG 描述(默认取 description)。可选 */
+  ogDescription?: string;
+  /** OG 图像 URL 或 data URI。可选 */
+  ogImage?: string;
+  /** OG 类型,默认 website */
+  ogType?: string;
 }
 
-const { title = 'Lokvis Playground', active = 'home' } = Astro.props;
+const {
+  title = 'Lokvis Playground',
+  active = 'home',
+  description = 'Lokvis Playground — try @lokvis/sdk in your browser',
+  keywords,
+  ogTitle,
+  ogDescription,
+  ogImage,
+  ogType = 'website',
+} = Astro.props;
+
+const finalOgTitle = ogTitle ?? title;
+const finalOgDescription = ogDescription ?? description;
 
 // 修复 review 报告：astro.config.mjs 配置了 `base: '/playground'`，
 // 但导航 href 用绝对路径 `/image`/`/runtime` 未拼接 base 前缀，
@@ -71,9 +95,23 @@ const NAV_GROUPS: NavGroup[] = [
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Lokvis Playground — try @lokvis/sdk in your browser" />
+    <meta name="description" content={description} />
+    {keywords && <meta name="keywords" content={keywords} />}
     <meta name="robots" content="noindex, nofollow" />
     <title>{title}</title>
+
+    {/* Open Graph(W8.7)—— 分享到 Twitter/微信/Slack 时显示卡片预览 */}
+    <meta property="og:title" content={finalOgTitle} />
+    <meta property="og:description" content={finalOgDescription} />
+    <meta property="og:type" content={ogType} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta property="og:site_name" content="Lokvis Playground" />
+
+    {/* Twitter Card(W8.7)*/}
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={finalOgTitle} />
+    <meta name="twitter:description" content={finalOgDescription} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
   </head>
   <body class="h-screen overflow-hidden bg-zinc-950 text-zinc-100">
     <div class="flex h-full flex-col">
