@@ -167,7 +167,12 @@ export class WorkflowBuilder {
     }
     if (from === to) return this;
     const [node] = this.nodes.splice(from, 1);
-    this.nodes.splice(to, 0, node!);
+    // splice(from, 1) 在已校验的 in-range 索引上必返回 1 元素;
+    // 此处显式检查以满足 noUncheckedIndexedAccess,并在不变量被打破时报错
+    if (!node) {
+      throw new Error(`WorkflowBuilder.move: source node at index ${from} missing`);
+    }
+    this.nodes.splice(to, 0, node);
     return this;
   }
 
@@ -177,9 +182,14 @@ export class WorkflowBuilder {
       throw new Error('WorkflowBuilder.swap: index out of range');
     }
     if (i === j) return this;
-    const tmp = this.nodes[i]!;
-    this.nodes[i] = this.nodes[j]!;
-    this.nodes[j] = tmp;
+    const a = this.nodes[i];
+    const b = this.nodes[j];
+    // 上方范围校验保证 i / j 在界内;显式检查以满足 noUncheckedIndexedAccess
+    if (!a || !b) {
+      throw new Error('WorkflowBuilder.swap: node missing (invariant violated)');
+    }
+    this.nodes[i] = b;
+    this.nodes[j] = a;
     return this;
   }
 
@@ -233,9 +243,15 @@ export class WorkflowBuilder {
 
     const edges: WorkflowEdge[] = [];
     for (let i = 0; i < workflowNodes.length - 1; i++) {
+      const fromNode = workflowNodes[i];
+      const toNode = workflowNodes[i + 1];
+      // 循环边界 i < length - 1 保证 i 与 i+1 均在界内;显式检查以满足 noUncheckedIndexedAccess
+      if (!fromNode || !toNode) {
+        throw new Error('WorkflowBuilder.build: edge node missing (invariant violated)');
+      }
       edges.push({
-        from: workflowNodes[i]!.id,
-        to: workflowNodes[i + 1]!.id,
+        from: fromNode.id,
+        to: toNode.id,
       });
     }
 

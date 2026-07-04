@@ -224,7 +224,10 @@ export function validateWorkflow(data: unknown, options?: ValidateWorkflowOption
     }
     let visited = 0;
     while (queue.length > 0) {
-      const id = queue.shift()!;
+      const id = queue.shift();
+      // 循环条件 queue.length > 0 保证 shift 必返回元素;
+      // 显式检查以满足 noUncheckedIndexedAccess,并在不变量被打破时跳出
+      if (id === undefined) break;
       visited++;
       for (const next of adjacency.get(id) ?? []) {
         const newDeg = (inDegree.get(next) ?? 0) - 1;
@@ -297,8 +300,19 @@ function validateCapabilityCompatibility(
   for (const node of wf.nodes) {
     if ((inDegree.get(node.id) ?? 0) > 0) continue;
     const cap = getCap(node);
-    if (!cap) continue; // 未注册的 capability 跳过(executor 会给出更明确错误)
-    const inputTypeMatches = cap.inputTypes.includes(wf.inputs.type as string);
+    // 未注册的 capability 不静默跳过:在 schema 层显式报错,避免用户得到"校验通过"
+    // 的假象,运行时才报错。resolveCapability 未提供时(getCap 始终返回 undefined)
+    // 整个 capability 兼容性校验跳过(向后兼容,见 5d 兜底)。
+    if (!cap) {
+      if (node.capability) {
+        errors.push(
+          `Node "${node.id}" references unknown capability "${node.capability}". ` +
+            `Capability is not registered in the registry.`
+        );
+      }
+      continue;
+    }
+    const inputTypeMatches = cap.inputTypes.includes(wf.inputs.type);
     if (!inputTypeMatches) {
       errors.push(
         `Node "${node.id}" (capability "${node.capability}") expects input types ` +
@@ -314,7 +328,7 @@ function validateCapabilityCompatibility(
     if (!fromNode || !toNode) continue;
     const fromCap = getCap(fromNode);
     const toCap = getCap(toNode);
-    if (!fromCap || !toCap) continue;
+    if (!fromCap || !toCap) continue; // 5a 已报告未注册 capability,此处不重复
     const compatible = fromCap.outputTypes.some((t) => toCap.inputTypes.includes(t));
     if (!compatible) {
       errors.push(
@@ -330,10 +344,10 @@ function validateCapabilityCompatibility(
   for (const node of wf.nodes) {
     if ((outDegree.get(node.id) ?? 0) > 0) continue;
     const cap = getCap(node);
-    if (!cap) continue;
+    if (!cap) continue; // 5a 已报告未注册 capability,此处不重复
     const outputType = wf.outputs.type;
     if (outputType === 'archive') continue;
-    const outputTypeMatches = cap.outputTypes.includes(outputType as string);
+    const outputTypeMatches = cap.outputTypes.includes(outputType);
     if (!outputTypeMatches) {
       errors.push(
         `Node "${node.id}" (capability "${node.capability}") produces output types ` +

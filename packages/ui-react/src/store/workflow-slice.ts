@@ -48,9 +48,7 @@ export const createWorkflowSlice: StateCreator<
   addNode(capability) {
     // W10.1/W10.3: 最多 5 步限制(与 MAX_WORKFLOW_STEPS 对齐)
     if (get().nodes.length >= 5) {
-      set({
-        error: `工作流最多 5 个节点(M1 MVP 限制),请先删除不需要的节点`,
-      });
+      get().setError(`工作流最多 5 个节点(M1 MVP 限制),请先删除不需要的节点`);
       return;
     }
     const node: WorkspaceNode = {
@@ -101,7 +99,8 @@ export const createWorkflowSlice: StateCreator<
       }
       const next = [...state.nodes];
       const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved!);
+      if (!moved) return {};
+      next.splice(to, 0, moved);
       return { nodes: next };
     });
   },
@@ -109,9 +108,7 @@ export const createWorkflowSlice: StateCreator<
   insertNodeAt(index, capability) {
     // W11.1: 在指定位置插入节点(与 5 步上限对齐)
     if (get().nodes.length >= 5) {
-      set({
-        error: `工作流最多 5 个节点(M1 MVP 限制),请先删除不需要的节点`,
-      });
+      get().setError(`工作流最多 5 个节点(M1 MVP 限制),请先删除不需要的节点`);
       return;
     }
     if (!capability) return;
@@ -152,8 +149,11 @@ export const createWorkflowSlice: StateCreator<
     if (!runtime || !currentRunId) return;
     try {
       await runtime.cancel(currentRunId);
-    } catch {
-      // 取消失败不阻断 UI,仍把节点状态归位
+    } catch (err) {
+      // 取消失败不阻断 UI 归位节点状态,但记录错误供用户感知
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn('[lokvis] cancelRun failed:', message);
+      get().setError(`取消失败:${message}`);
     }
     set((state) => ({
       running: false,
@@ -168,10 +168,14 @@ export const createWorkflowSlice: StateCreator<
   },
 
   async run() {
-    const { runtime, nodes, selectedAssetId } = get();
+    const { runtime, nodes, selectedAssetId, running } = get();
     if (!runtime) throw new Error('Runtime not initialized');
     if (nodes.length === 0) throw new Error('Workflow is empty');
     if (!selectedAssetId) throw new Error('No asset selected');
+    // 并发保护:正在运行时再次调用直接拒绝(避免事件订阅泄漏 + currentRunId 覆盖)
+    if (running) {
+      throw new Error('Workflow is already running');
+    }
 
     set({ running: true, error: null, statusMessage: 'Running...', currentRunId: null });
 
@@ -222,14 +226,19 @@ export const createWorkflowSlice: StateCreator<
         }
       }
 
-      // 加载输出资产
+      // 加载输出资产。失败时收集失败 id 并设置 error 让用户感知(不静默丢弃)
       const outputs: Asset[] = [];
+      const failedOutputIds: string[] = [];
       for (const id of result.outputs) {
         try {
           outputs.push(await runtime.getAsset(id));
-        } catch {
-          // skip
+        } catch (err) {
+          console.warn(`[lokvis] getAsset(${id}) failed:`, err);
+          failedOutputIds.push(id);
         }
+      }
+      if (failedOutputIds.length > 0) {
+        get().setError(`${failedOutputIds.length} 个输出资产加载失败,可能存储损坏`);
       }
 
       // W9.4/W9.5: 记录输出 Asset ID,供 before/after 对比与下载管理使用。
@@ -248,7 +257,7 @@ export const createWorkflowSlice: StateCreator<
       });
 
       if (result.status === 'failed') {
-        set({ error: result.error ?? 'Workflow failed' });
+        get().setError(result.error ?? 'Workflow failed');
       }
 
       await get().refreshAssets();
@@ -259,9 +268,9 @@ export const createWorkflowSlice: StateCreator<
       set({
         running: false,
         currentRunId: null,
-        error: message,
         statusMessage: 'Failed',
       });
+      get().setError(message);
       // 异常退出时把仍在 pending/running 的节点标 failed
       for (const node of get().nodes) {
         if (node.status === 'pending' || node.status === 'running') {
@@ -304,7 +313,10 @@ function buildLinearWorkflow(nodes: WorkspaceNode[]): Workflow {
   }));
   const edges: WorkflowEdge[] = [];
   for (let i = 0; i < workflowNodes.length - 1; i++) {
-    edges.push({ from: workflowNodes[i]!.id, to: workflowNodes[i + 1]!.id });
+    const fromNode = workflowNodes[i];
+    const toNode = workflowNodes[i + 1];
+    if (!fromNode || !toNode) continue;
+    edges.push({ from: fromNode.id, to: toNode.id });
   }
   return {
     id: `wf_${Date.now().toString(36)}`,

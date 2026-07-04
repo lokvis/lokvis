@@ -8,6 +8,10 @@
  * 节点失败高亮由 WorkflowEditor 的节点状态颜色处理(已实现);
  * 本组件负责全局错误信息的可见性。
  *
+ * 显式错误计数器作为可见性派生依据:
+ * store.error 是字符串,相同错误多次设置时引用不变,useEffect 依赖 [error] 不会触发。
+ * 改为依赖 errorSeq(error 出现的序号),每次 setError(非 null)都递增,确保 banner 重新弹出。
+ *
  * @module ErrorBanner
  */
 
@@ -21,19 +25,31 @@ export interface ErrorBannerProps {
 
 export function ErrorBanner({ className = '' }: ErrorBannerProps) {
   const error = useWorkspaceStore((s) => s.error);
+  const errorSeq = useWorkspaceStore((s) => s.errorSeq);
   const setError = useWorkspaceStore((s) => s.setError);
   const run = useWorkspaceStore((s) => s.run);
   const nodes = useWorkspaceStore((s) => s.nodes);
   const running = useWorkspaceStore((s) => s.running);
 
-  const [dismissed, setDismissed] = React.useState(false);
+  // 用户关闭后隐藏;新错误(errorSeq 变化)时重新显示。
+  // 用 errorSeq 而非 error 字符串本身:store.run() 在 setError(null) 之后才设新 error,
+  // errorSeq 在 setError(非 null) 时递增,即使错误消息相同也能感知到"新的错误事件"。
+  const [dismissedSeq, setDismissedSeq] = React.useState<number | null>(null);
 
-  // error 变化时重置 dismissed
-  React.useEffect(() => {
-    if (error) setDismissed(false);
-  }, [error]);
+  const visible = error !== null && dismissedSeq !== errorSeq;
 
-  if (!error || dismissed) return null;
+  const handleDismiss = React.useCallback(() => {
+    setDismissedSeq(errorSeq);
+    setError(null);
+  }, [errorSeq, setError]);
+
+  const handleRetry = React.useCallback(() => {
+    // 先清 error 再 run,避免 run 同步抛错时 banner 已隐藏且 errorSeq 未变化
+    setError(null);
+    void run();
+  }, [setError, run]);
+
+  if (!visible || !error) return null;
 
   const canRetry = nodes.length > 0 && !running;
 
@@ -59,10 +75,7 @@ export function ErrorBanner({ className = '' }: ErrorBannerProps) {
         {canRetry && (
           <button
             type="button"
-            onClick={() => {
-              setDismissed(true);
-              void run();
-            }}
+            onClick={handleRetry}
             className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700 transition-colors hover:bg-red-200 dark:bg-red-900/40 dark:text-red-400 dark:hover:bg-red-900/60"
           >
             重试
@@ -70,10 +83,7 @@ export function ErrorBanner({ className = '' }: ErrorBannerProps) {
         )}
         <button
           type="button"
-          onClick={() => {
-            setDismissed(true);
-            setError(null);
-          }}
+          onClick={handleDismiss}
           aria-label="关闭错误信息"
           className="rounded p-0.5 text-red-400 transition-colors hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40"
         >

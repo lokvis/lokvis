@@ -41,14 +41,25 @@ export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
   // W9.4 默认开启 compare 模式:当 outputs 生成后,用户首次希望对比
   // 切换状态由用户控制,直到下次 outputs 重新生成时再默认开启
   const [compareMode, setCompareMode] = React.useState(false);
+  // 记录上次已自动切到 compare 模式的 outputId。
+  // 修复 review:原 effect 依赖 [lastOutputIds, preview, outputThumbnail],
+  // 当用户手动切到 Single 后再切换选中资产,preview 变化会触发 effect
+  // 把 compareMode 强制重置为 true,覆盖用户选择。
+  // 现在仅在 outputId 真正变化(新 run 完成 / 切换输出)且 preview/outputThumbnail
+  // 都就绪时才自动切换;同一 outputId 下 preview / outputThumbnail 的异步变化
+  // 不会覆盖用户已选择的 Single 模式。
+  const lastAutoSwitchedOutputId = React.useRef<string | null>(null);
   React.useEffect(() => {
-    // outputs 变化时,自动切到 compare 模式(若可以)
-    // 依赖 lastOutputIds + preview + outputThumbnail:因为缩略图可能在
-    // outputs 之后才异步生成,需在两者都就绪时再切换
-    if (lastOutputIds.length > 0 && preview && outputThumbnail) {
+    if (
+      outputId !== null &&
+      outputId !== lastAutoSwitchedOutputId.current &&
+      preview &&
+      outputThumbnail
+    ) {
+      lastAutoSwitchedOutputId.current = outputId;
       setCompareMode(true);
     }
-  }, [lastOutputIds, preview, outputThumbnail]);
+  }, [outputId, preview, outputThumbnail]);
 
   // 全局拖拽支持（直接拖到画布区）
   const [dragOver, setDragOver] = React.useState(false);

@@ -77,11 +77,16 @@ export interface UseWorkflowsResult {
   exportToJson(id: string): string | null;
   /** 导出所有工作流为 JSON 数组字符串 */
   exportAllToJson(): string;
-  /** 从 JSON 字符导入工作流(单个或数组);返回导入的条目数 */
+  /** 从 JSON 字符导入工作流(单个或数组);返回导入结果(含跳过原因) */
   importFromJson(
     json: string,
     options?: { resolveCapability?: ValidateWorkflowOptions['resolveCapability']; maxSteps?: number }
-  ): number;
+  ): { imported: number; skipped: Array<{ reason: string }> };
+}
+
+/** 类型守卫:判断 unknown 是否为 Record<string, unknown> */
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return typeof x === 'object' && x !== null;
 }
 
 /** 从 localStorage 读取工作流槽位。
@@ -95,18 +100,17 @@ function readFromStorage(): WorkflowSlot[] {
     if (!Array.isArray(parsed)) return [];
     // 字段白名单过滤 + workflowSchema 校验(防御损坏数据)
     return parsed.filter((it): it is WorkflowSlot => {
-      if (!it || typeof it !== 'object') return false;
-      const s = it as Record<string, unknown>;
+      if (!isRecord(it)) return false;
       if (
-        typeof s.id !== 'string' ||
-        typeof s.name !== 'string' ||
-        typeof s.createdAt !== 'number' ||
-        typeof s.updatedAt !== 'number'
+        typeof it.id !== 'string' ||
+        typeof it.name !== 'string' ||
+        typeof it.createdAt !== 'number' ||
+        typeof it.updatedAt !== 'number'
       ) {
         return false;
       }
       // workflow 字段必须通过 schema 校验
-      const result = workflowSchema.safeParse(s.workflow);
+      const result = workflowSchema.safeParse(it.workflow);
       return result.success;
     });
   } catch {
@@ -114,14 +118,22 @@ function readFromStorage(): WorkflowSlot[] {
   }
 }
 
-/** 写入 localStorage(失败静默) */
-function writeToStorage(slots: WorkflowSlot[]): void {
-  if (typeof window === 'undefined') return;
+/**
+ * 写入 localStorage。
+ * @returns true 成功;false 失败(隐私模式 / 配额超限 / 序列化异常)
+ * 失败时不静默:调用方需感知以便提示用户"保存失败,数据未持久化"
+ */
+function writeToStorage(slots: WorkflowSlot[]): boolean {
+  if (typeof window === 'undefined') return false;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(slots));
     window.dispatchEvent(new CustomEvent(SYNC_EVENT));
-  } catch {
-    /* 隐私模式 localStorage 可能不可用,静默 */
+    return true;
+  } catch (err) {
+    // 隐私模式 / Safari 配额 / QuotaExceededError:不静默吞错,
+    // 但也不抛错(保存是 fire-and-forget 操作);返回 false 让调用方决策。
+    console.warn('[lokvis] Failed to persist workflows to localStorage:', err);
+    return false;
   }
 }
 
@@ -164,7 +176,11 @@ export function useWorkflows(isPro = false): UseWorkflowsResult {
             updatedAt: now,
           };
           const next = current.map((s) => (s.id === input.id ? updated : s));
-          writeToStorage(next);
+          const ok = writeToStorage(next);
+          if (!ok) {
+            // 写入失败仍更新内存 state(用户当前会话可见),但提示未持久化
+            console.warn('[lokvis] 工作流未持久化到 localStorage,仅当前会话有效');
+          }
           setSlots(next);
           return updated;
         }
@@ -183,7 +199,10 @@ export function useWorkflows(isPro = false): UseWorkflowsResult {
         updatedAt: now,
       };
       const next = [...current, slot];
-      writeToStorage(next);
+      const ok = writeToStorage(next);
+      if (!ok) {
+        console.warn('[lokvis] 工作流未持久化到 localStorage,仅当前会话有效');
+      }
       setSlots(next);
       return slot;
     },
@@ -222,7 +241,7 @@ export function useWorkflows(isPro = false): UseWorkflowsResult {
         resolveCapability?: ValidateWorkflowOptions['resolveCapability'];
         maxSteps?: number;
       }
-    ): number => {
+    ): { imported: number; skipped: Array<{ reason: string }> } => {
       let parsed: unknown;
       try {
         parsed = JSON.parse(json);
@@ -232,19 +251,29 @@ export function useWorkflows(isPro = false): UseWorkflowsResult {
       const list: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
       const current = readFromStorage();
       const imported: WorkflowSlot[] = [];
+      // 收集被跳过条目的原因,供调用方提示用户(不再静默吞错)
+      const skipped: Array<{ reason: string }> = [];
       const now = Date.now();
 
       for (const item of list) {
         // 先做 zod 形状校验
         const shapeResult = workflowSchema.safeParse(item);
         if (!shapeResult.success) {
-          // 跳过无效条目而非抛错,继续处理后续
+          // 跳过无效条目而非抛错,继续处理后续;记录原因供调用方提示
+          const detail = shapeResult.error.issues
+            .map((i) => `${i.path.join('.') || '<root>'}: ${i.message}`)
+            .join('; ');
+          skipped.push({ reason: `shape validation failed: ${detail}` });
           continue;
         }
         // 再做完整结构校验(含 capability 兼容性若提供回调)
         const fullResult = validateWorkflow(item, options);
         if (!fullResult.success) {
-          // 结构问题也跳过(导入是宽容操作,不阻断有效条目)
+          // 结构问题也跳过(导入是宽容操作,不阻断有效条目),但记录原因
+          const detail = fullResult.error.issues
+            .map((i) => i.message)
+            .join('; ');
+          skipped.push({ reason: `structural validation failed: ${detail}` });
           continue;
         }
         // 检查上限
@@ -263,13 +292,18 @@ export function useWorkflows(isPro = false): UseWorkflowsResult {
       }
 
       if (imported.length === 0) {
-        throw new Error('JSON 中没有有效的工作流定义');
+        // 不再以"没有有效工作流"作为唯一信息;把跳过原因一并抛出,
+        // 让用户知道为什么一个都没导入(而非笼统失败)
+        const skipSummary = skipped.length > 0
+          ? `; skipped: ${skipped.map((s) => s.reason).join(' | ')}`
+          : '';
+        throw new Error(`JSON 中没有有效的工作流定义${skipSummary}`);
       }
 
       const next = [...current, ...imported];
       writeToStorage(next);
       setSlots(next);
-      return imported.length;
+      return { imported: imported.length, skipped };
     },
     [limit]
   );

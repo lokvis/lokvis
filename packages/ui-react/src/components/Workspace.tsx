@@ -57,6 +57,7 @@ import { CommandPalette, useCommandPalette } from './CommandPalette.js';
 import { GlobalDropzone } from './GlobalDropzone.js';
 import { ThemeToggle } from './ThemeToggle.js';
 import { useShareLink } from '../hooks/useShareLink.js';
+import { useWorkspaceStore } from '../store/index.js';
 
 export interface WorkspaceProps extends UseLokvisOptions {
   /** 顶部标题 */
@@ -112,14 +113,28 @@ export function Workspace({
   const [mobilePanel, setMobilePanel] = React.useState<MobilePanel>(null);
 
   // W11.5: 从 URL ?workflow= 参数加载分享工作流(runtime 就绪后执行一次)
+  // 保护:若用户已通过其它路径(如 localStorage 恢复或手动添加)有 nodes,
+  // 不静默替换 —— 用 confirm 让用户显式选择,避免丢失未保存工作。
+  const nodesLength = useWorkspaceStore((s) => s.nodes.length);
   const { loadFromCurrentUrl } = useShareLink();
   const shareLoadedRef = React.useRef(false);
   React.useEffect(() => {
     if (enableShareLink && !shareLoadedRef.current && status !== 'initializing' && status !== 'error') {
       shareLoadedRef.current = true;
+      // 仅在 URL 含 ?workflow= 参数时才提示(避免无谓 confirm 弹窗)
+      const hasShareParam = typeof window !== 'undefined'
+        && new URLSearchParams(window.location.search).has('workflow');
+      if (!hasShareParam) return;
+      // 若当前已有 nodes,需用户确认覆盖
+      if (nodesLength > 0) {
+        const ok = window.confirm(
+          `检测到分享工作流链接,但当前已有 ${nodesLength} 个节点。是否替换为分享的工作流?`
+        );
+        if (!ok) return;
+      }
       loadFromCurrentUrl();
     }
-  }, [enableShareLink, status, loadFromCurrentUrl]);
+  }, [enableShareLink, status, loadFromCurrentUrl, nodesLength]);
 
   if (status === 'initializing') {
     return (
