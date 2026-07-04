@@ -72,7 +72,7 @@ export interface PlatformSizePreset {
 }
 
 /**
- * 内置平台尺寸预设(20+ 平台,80+ 尺寸)。
+ * 内置平台尺寸预设(20+ 平台,63 尺寸)。
  *
  * 排序约定:同 category 内按 platform 分组,同 platform 内按常用度从高到低。
  */

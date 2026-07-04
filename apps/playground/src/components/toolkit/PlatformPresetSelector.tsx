@@ -11,8 +11,12 @@
  * 设计为受控组件:`value` 为当前选中的 preset id(null 表示未选)。
  * onSelect 在用户选择新预设时触发,父组件负责把 width/height/fit 应用到
  * 自身状态(由父组件决定是否同时清零/保留微调)。
+ *
+ * 交互:保存 / 删除自定义预设通过 @lokvis/ui-core 的 Dialog 模态完成,
+ * 不使用 window.prompt(原生 prompt 不支持样式 / 校验 / 移动端体验差)。
+ * 自定义预设作为独立 optgroup「我的预设」展示,不污染内置 'other' 分类。
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   PLATFORM_PRESETS,
   PLATFORM_PRESET_CATEGORY_LABELS,
@@ -20,6 +24,7 @@ import {
   type PlatformSizePreset,
   type PlatformPresetCategory,
 } from '@lokvis/capability';
+import { Dialog } from '@lokvis/ui-core';
 import { useCustomPresets, type CustomPreset } from './useCustomPresets';
 
 export interface PlatformPresetSelectorProps {
@@ -48,10 +53,12 @@ export interface PlatformPresetSelectorProps {
 }
 
 /**
- * 把自定义预设归入 'other' 分类,在选择器末尾以"我的预设"分组展示。
+ * 自定义预设 → PlatformSizePreset 形状。
  *
  * 自定义预设 id 用 `custom.${slug}` 前缀,与内置预设 id 命名空间隔离,
  * 避免用户取了和内置预设同名(如 'youtube.thumbnail')的 name 后产生冲突。
+ * category 字段仅用于满足类型约束,实际渲染时自定义预设走独立 optgroup,
+ * 不参与内置分类分组。
  */
 function toPresetShape(custom: CustomPreset): PlatformSizePreset {
   return {
@@ -67,6 +74,9 @@ function toPresetShape(custom: CustomPreset): PlatformSizePreset {
   };
 }
 
+/** 自定义预设分组标签(独立于内置 'other' 通用分类) */
+const CUSTOM_GROUP_LABEL = '我的预设';
+
 export function PlatformPresetSelector({
   value,
   onSelect,
@@ -76,21 +86,22 @@ export function PlatformPresetSelector({
 }: PlatformPresetSelectorProps) {
   const { presets: customPresets, save, remove, canSaveMore, remaining } = useCustomPresets(isPro);
 
-  // 合并内置 + 自定义预设,按 category 分组
-  const grouped = useMemo(() => {
-    const groups = groupPlatformPresetsByCategory(PLATFORM_PRESETS);
-    // 自定义预设单独作为一组,放在最后(用 'other' 分类下的特殊分组)
-    if (customPresets.length > 0) {
-      const customGroup = customPresets.map(toPresetShape);
-      // 合并到 'other' 分组末尾,保持选择器单 select 简洁
-      const otherArr = groups.get('other') ?? [];
-      groups.set('other', [...otherArr, ...customGroup]);
-    }
-    return groups;
-  }, [customPresets]);
+  // 内置预设按 category 分组(自定义预设独立成组,不合并进来)
+  const builtinGrouped = useMemo(() => groupPlatformPresetsByCategory(PLATFORM_PRESETS), []);
+
+  // 自定义预设单独作为一组(PlatformPresetCategory 不含 'custom',用独立数组渲染)
+  const customShapes = useMemo(() => customPresets.map(toPresetShape), [customPresets]);
 
   // 按 category 出现顺序遍历(social → ecommerce → video → print → other)
   const categoryOrder: PlatformPresetCategory[] = ['social', 'ecommerce', 'video', 'print', 'other'];
+
+  // ─── 保存对话框状态 ───
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [presetName, setPresetName] = useState('');
+
+  // ─── 删除对话框状态 ───
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value;
@@ -110,11 +121,15 @@ export function PlatformPresetSelector({
     if (preset) onSelect(preset);
   };
 
-  const handleSave = () => {
-    if (!currentForm) return;
-    if (!canSaveMore) return;
-    const name = window.prompt('预设名称', `${currentForm.width}×${currentForm.height}`);
-    if (!name) return;
+  const openSaveDialog = () => {
+    if (!currentForm || !canSaveMore) return;
+    setPresetName(`${currentForm.width}×${currentForm.height}`);
+    setSaveOpen(true);
+  };
+
+  const confirmSave = () => {
+    const name = presetName.trim();
+    if (!name || !currentForm) return;
     save({
       name,
       width: currentForm.width,
@@ -122,16 +137,18 @@ export function PlatformPresetSelector({
       fit: currentForm.fit,
       format: currentForm.format,
     });
+    setSaveOpen(false);
   };
 
-  const handleDeleteCustom = () => {
+  const openDeleteDialog = () => {
     if (customPresets.length === 0) return;
-    const list = customPresets.map((c, i) => `${i + 1}. ${c.name} (${c.width}×${c.height})`).join('\n');
-    const input = window.prompt(`要删除哪个预设?输入序号:\n\n${list}`);
-    if (!input) return;
-    const idx = Number(input) - 1;
-    if (Number.isNaN(idx) || idx < 0 || idx >= customPresets.length) return;
-    remove(customPresets[idx]!.id);
+    setDeleteId(customPresets[0]!.id);
+    setDeleteOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (deleteId) remove(deleteId);
+    setDeleteOpen(false);
   };
 
   return (
@@ -147,14 +164,10 @@ export function PlatformPresetSelector({
         >
           <option value="">— 选择平台预设 —</option>
           {categoryOrder.map((cat) => {
-            const arr = grouped.get(cat);
+            const arr = builtinGrouped.get(cat);
             if (!arr || arr.length === 0) return null;
-            const label =
-              cat === 'other' && customPresets.length > 0
-                ? `${PLATFORM_PRESET_CATEGORY_LABELS[cat]}(含我的预设)`
-                : PLATFORM_PRESET_CATEGORY_LABELS[cat];
             return (
-              <optgroup key={cat} label={label}>
+              <optgroup key={cat} label={PLATFORM_PRESET_CATEGORY_LABELS[cat]}>
                 {arr.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.platform} · {p.name} ({p.width}×{p.height})
@@ -163,11 +176,21 @@ export function PlatformPresetSelector({
               </optgroup>
             );
           })}
+          {/* 自定义预设独立分组,不污染内置 'other' 分类 */}
+          {customShapes.length > 0 && (
+            <optgroup label={CUSTOM_GROUP_LABEL}>
+              {customShapes.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.width}×{p.height})
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
         {currentForm && (
           <button
             type="button"
-            onClick={handleSave}
+            onClick={openSaveDialog}
             disabled={!canSaveMore}
             title={canSaveMore ? '保存当前尺寸为新预设' : '已达免费上限(3 个),Pro 用户无限制'}
             className="rounded border border-zinc-700 px-2 py-1 text-[10px] text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
@@ -178,7 +201,7 @@ export function PlatformPresetSelector({
         {customPresets.length > 0 && (
           <button
             type="button"
-            onClick={handleDeleteCustom}
+            onClick={openDeleteDialog}
             title="删除自定义预设"
             className="rounded border border-zinc-700 px-2 py-1 text-[10px] text-zinc-400 hover:bg-zinc-800"
           >
@@ -186,6 +209,93 @@ export function PlatformPresetSelector({
           </button>
         )}
       </div>
+
+      {/* 保存自定义预设对话框 */}
+      <Dialog
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        title="保存为自定义预设"
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setSaveOpen(false)}
+              className="rounded border border-zinc-700 px-3 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={confirmSave}
+              disabled={!presetName.trim()}
+              className="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              保存
+            </button>
+          </>
+        }
+      >
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-zinc-400">预设名称</span>
+          <input
+            type="text"
+            value={presetName}
+            onChange={(e) => setPresetName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') confirmSave();
+            }}
+            autoFocus
+            className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
+          />
+          {currentForm && (
+            <span className="mt-1 text-[10px] text-zinc-500">
+              尺寸:{currentForm.width}×{currentForm.height}
+            </span>
+          )}
+        </label>
+      </Dialog>
+
+      {/* 删除自定义预设对话框 */}
+      <Dialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="删除自定义预设"
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(false)}
+              className="rounded border border-zinc-700 px-3 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={confirmDelete}
+              className="rounded bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-500"
+            >
+              删除
+            </button>
+          </>
+        }
+      >
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-zinc-400">选择要删除的预设</span>
+          <select
+            value={deleteId ?? ''}
+            onChange={(e) => setDeleteId(e.target.value || null)}
+            className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
+          >
+            {customPresets.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.width}×{c.height})
+              </option>
+            ))}
+          </select>
+        </label>
+      </Dialog>
     </div>
   );
 }

@@ -202,7 +202,8 @@ export default function ResizeTool() {
         {/* DPI 提示 */}
         <p className="text-[10px] text-zinc-600">
           DPI 写入 PNG 输出文件的 pHYs chunk(打印软件可读),不改变像素尺寸。
-          当前 {dpi} DPI · 印刷尺寸约 {((width || 0) / dpi * 25.4).toFixed(1)}×{((height || (width || 0)) / dpi * 25.4).toFixed(1)} mm
+          当前 {dpi} DPI · 印刷尺寸约 {((width || 0) / dpi * 25.4).toFixed(1)}×
+          {height > 0 ? `${((height / dpi) * 25.4).toFixed(1)} mm` : '--(高度自动)'}
         </p>
 
         {tool.initError && <p className="text-xs text-red-400">初始化失败:{tool.initError}</p>}
