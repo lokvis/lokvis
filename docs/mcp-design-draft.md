@@ -1,8 +1,8 @@
 # MCP Server 接口设计草案(ADR-011 衔接)
 
-> 状态:**草案**(W11.10,P1)
+> 状态:**评审通过**(W12.8,2026-07-04;ADR-011 升级为 Accepted)
 > 日期:2026-07-04
-> 关联:ADR-011(MCP server 状态确认)、PROJECT_PLAN.md W11.10
+> 关联:ADR-011(MCP server 状态已升级为 Accepted)、PROJECT_PLAN.md W11.10 / W12.8
 
 ## 1. 背景与目标
 
@@ -185,24 +185,39 @@ AI Client ←stdio→ lokvis mcp-server ←→ Runtime(本地)
 - MCP 资源订阅(asset 更新推送)
 - 更多 prompts(基于用户反馈)
 
-## 10. 开放问题(待评审)
+## 10. 开放问题(W12.8 评审已决议)
 
-1. **asset 传递方式**:tool 间如何传递 assetId?当前设计是显式传 `inputAssetIds`,
-   是否需要"当前选中资产"的隐式上下文?
+> 2026-07-04 W12.8 评审:5 个开放问题全部决议,详见 [ADR-011 W12.8 评审记录](./adr/011-mcp-server.md#w128-评审记录2026-07-04)。
+
+1. **asset 传递方式**:tool 间如何传递 assetId?
+   **决议:显式 `inputAssetIds`**——隐式"当前选中资产"上下文会造成 MCP 客户端与服务端状态耦合;
+   显式传递符合 MCP 无状态约定,便于 AI 理解与重放。
+
 2. **workflow JSON 校验**:AI 生成的 workflow 可能不合法,是否在 `lokvis_run_workflow`
-   内部强制 `validateWorkflow()`?是(推荐)— 失败返回结构化错误而非执行。
-3. **历史栈共享**:多个 AI 会话是否共享历史栈?建议不共享(每个 stdio 进程独立 Runtime)。
-4. **Pro 门控**:MCP 是否尊重 `isPro`?是 — batch tool 在免费模式限 10 文件。
-5. **错误信息语言**:tool 错误返回中文还是英文?建议英文(MCP 客户端国际化更友好)。
+   内部强制 `validateWorkflow()`?
+   **决议:强制校验 + 结构化错误返回**——校验失败时返回 MCP 兼容的错误结构
+   (`isError: true` + text content 含错误路径与修复建议),而非让 executor 抛运行时异常。
+
+3. **历史栈共享**:多个 AI 会话是否共享历史栈?
+   **决议:不共享,每个 stdio 进程独立 Runtime**——共享历史会引入跨会话状态污染与权限边界问题;
+   独立 Runtime 与"每个 MCP 客户端连接独立进程"的部署模型一致。
+
+4. **Pro 门控**:MCP 是否尊重 `isPro`?
+   **决议:尊重,batch tool 免费模式限 10 文件**——与 Workspace UI / CLI 的 Pro 门控一致;
+   门控在 Runtime 层而非 MCP 层,Pro 无限。
+
+5. **错误信息语言**:tool 错误返回中文还是英文?
+   **决议:英文**——MCP 客户端国际化更友好,AI 可基于英文错误信息自主修复策略;
+   中文说明保留在 tool `description` 与 `prompts` 模板中。
 
 ## 11. 后续行动
 
-| # | 行动 | 负责人 | 截止 |
-|---|---|---|---|
-| 1 | 本草案评审(W12.8) | 团队 | W12 |
-| 2 | ADR-011 状态确认:从"草案"升级为"接受"或"修订" | 架构 | W12 |
-| 3 | `@lokvis/mcp-server` 包骨架(W17) | 主创 | W17 |
-| 4 | stdio 协议实现 + Claude Desktop 验证(W18) | 主创 | W18 |
+| # | 行动 | 负责人 | 截止 | 状态 |
+|---|---|---|---|---|
+| 1 | 本草案评审(W12.8) | 团队 | W12 | ✅ 完成(2026-07-04) |
+| 2 | ADR-011 状态确认:从"草案"升级为"接受"或"修订" | 架构 | W12 | ✅ Accepted(2026-07-04) |
+| 3 | `@lokvis/mcp-server` 包骨架(W17) | 主创 | W17 | ⏭️ 骨架已存在,实际实现 Phase 2 W1-W2 |
+| 4 | stdio 协议实现 + Claude Desktop 验证(W18) | 主创 | W18 | ⏭️ Phase 2 W3-W10 |
 
 ---
 
@@ -211,3 +226,4 @@ AI Client ←stdio→ lokvis mcp-server ←→ Runtime(本地)
 | 日期 | 版本 | 变更 |
 |---|---|---|
 | 2026-07-04 | 0.1 | 初稿(W11.10),基于 toMcpManifest() 现有实现 + W5-W8 能力清单 |
+| 2026-07-04 | 0.2 | W12.8 评审通过:5 个开放问题全部决议;ADR-011 升级为 Accepted;状态从「草案」改为「评审通过」 |
