@@ -34,6 +34,11 @@ export interface ResizeParams {
   height?: number;
   fit?: FitStrategy;
   maintainAspectRatio?: boolean;
+  /**
+   * 物理分辨率(每英寸像素数)。仅对 PNG 输出生效:嵌入 pHYs chunk,
+   * 供打印软件读取(W8.4)。非正数或非 PNG 输出时忽略。
+   */
+  dpi?: number;
 }
 
 /** 压缩参数 */

@@ -12,6 +12,7 @@
  * watermark(text + image + tile)/ filter / compressToTargetSize。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { deflateSync } from 'node:zlib';
 
 // ─── mock canvas-engine ─────────────────────────────────────────
 // 所有操作依赖 canvasEngine.decode / encode, createCanvas, get2DContext
@@ -68,6 +69,8 @@ const { compress, convert, setBackground } = await import('../operations/encode.
 const { filter } = await import('../operations/filters.js');
 const { watermark, computeWatermarkPosition } = await import('../operations/watermark.js');
 const { compressToTargetSize } = await import('../operations/compress-target.js');
+const { readPngDpi } = await import('../operations/png-metadata.js');
+import { deflateSync } from 'node:zlib';
 
 /** 构造一个 fake bitmap + decode 返回值 */
 function fakeBitmap(w = 100, h = 100) {

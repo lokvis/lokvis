@@ -9,6 +9,7 @@
  * - encode.ts:          编码与格式(compress / convert / setBackground)
  * - watermark.ts:       水印(文字 / 图片)
  * - compress-target.ts: 目标体积压缩(二分查找)
+ * - png-metadata.ts:    PNG 物理分辨率(DPI)嵌入 / 读取 pHYs chunk(W8.4)
  * - utils.ts:           共享工具(inferFormat / computeTargetSize / throwIfAborted)
  * - tiles.ts:           大图分片(splitIntoTiles / mergeChunks / isDownscale)(W3.2)
  *
@@ -29,6 +30,7 @@ export * from './watermark.js';
 export * from './filters.js';
 export * from './compress-target.js';
 export * from './tiles.js';
+export * from './png-metadata.js';
 
 /** 解码图像元数据（不保留 bitmap） */
 export async function probe(blob: Blob): Promise<DecodedImage> {
