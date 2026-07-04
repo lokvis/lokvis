@@ -19,6 +19,7 @@
 
 import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
+import type { Capability } from '@lokvis/schema';
 import { useWorkspaceStore } from '../store/index.js';
 
 /** 工作流最大节点数(与 runtime MAX_WORKFLOW_STEPS 对齐) */
@@ -34,6 +35,8 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
   const selectNode = useWorkspaceStore((s) => s.selectNode);
   const removeNode = useWorkspaceStore((s) => s.removeNode);
   const moveNode = useWorkspaceStore((s) => s.moveNode);
+  const insertNodeAt = useWorkspaceStore((s) => s.insertNodeAt);
+  const capabilities = useWorkspaceStore((s) => s.capabilities);
   const clearWorkflow = useWorkspaceStore((s) => s.clearWorkflow);
 
   // 拖拽状态:被拖拽的节点索引 + 当前 hover 的插入位置
@@ -144,9 +147,13 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
               Source
             </div>
 
-            <Icon size={12} className="shrink-0 text-zinc-300 dark:text-zinc-600">
-              <path d="m9 5 7 7-7 7" />
-            </Icon>
+            {/* W11.1: 节点之间可插入的连接器(+ 按钮) */}
+            <InsertConnector
+              index={0}
+              capabilities={capabilities}
+              onInsert={insertNodeAt}
+              disabled={nodes.length >= MAX_STEPS}
+            />
 
             {/* 节点 */}
             {nodes.map((node, i) => {
@@ -155,16 +162,6 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
               const isHoverTarget = hoverIndex === i && dragIndex !== null && dragIndex !== i;
               return (
                 <React.Fragment key={node.id}>
-                  {i > 0 && (
-                    <Icon
-                      size={12}
-                      className={`shrink-0 ${
-                        isHoverTarget ? 'text-indigo-500' : 'text-zinc-300 dark:text-zinc-600'
-                      }`}
-                    >
-                      <path d="m9 5 7 7-7 7" />
-                    </Icon>
-                  )}
                   <button
                     type="button"
                     draggable
@@ -211,12 +208,13 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
                     </span>
                   </button>
 
-                  {/* 末尾箭头(到 Output) */}
-                  {i === nodes.length - 1 && (
-                    <Icon size={12} className="shrink-0 text-zinc-300 dark:text-zinc-600">
-                      <path d="m9 5 7 7-7 7" />
-                    </Icon>
-                  )}
+                  {/* W11.1: 每个节点后的插入连接器(最后一个用于追加到 Output 前) */}
+                  <InsertConnector
+                    index={i + 1}
+                    capabilities={capabilities}
+                    onInsert={insertNodeAt}
+                    disabled={nodes.length >= MAX_STEPS}
+                  />
                 </React.Fragment>
               );
             })}
@@ -236,7 +234,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
       {nodes.length > 0 && (
         <div className="flex shrink-0 items-center gap-2 border-t border-zinc-100 px-3 py-1 text-[10px] text-zinc-400 dark:border-zinc-800/50">
           <Icon size={10}><path d="M13 5.5a1 1 0 1 1 2 0 1-1 0 0 0-.5.86L16.5 9l1.5-.5a1 1 0 1 1 0 2l-1.5-.5-1 1.5a1 1 0 1 1-2 0l1-1.5-1-1.5a1 1 0 0 1 0-2z" /></Icon>
-          <span>拖拽节点重排 · 方向键移动 · Delete 删除</span>
+          <span>拖拽重排 · 方向键移动 · Delete 删除 · hover 箭头处插入节点</span>
         </div>
       )}
     </div>
@@ -259,3 +257,123 @@ function StatusDot({ status }: { status: string }) {
 
   return <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${color} ${animate}`} />;
 }
+
+/**
+ * InsertConnector - 节点之间的连接器 + 插入按钮(W11.1)
+ *
+ * 默认显示箭头;hover 时变为 + 按钮,点击弹出 capability 选择菜单。
+ * 选择后调用 onInsert(index, capability)。
+ */
+function InsertConnector({
+  index,
+  capabilities,
+  onInsert,
+  disabled,
+}: {
+  index: number;
+  capabilities: Capability[];
+  onInsert: (index: number, capability: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [filter, setFilter] = React.useState('');
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  // 点击外部关闭菜单
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setFilter('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const filtered = React.useMemo(
+    () =>
+      capabilities.filter(
+        (c) =>
+          c.name.toLowerCase().includes(filter.toLowerCase()) ||
+          c.description.toLowerCase().includes(filter.toLowerCase())
+      ),
+    [capabilities, filter]
+  );
+
+  const handleSelect = (capName: string) => {
+    onInsert(index, capName);
+    setOpen(false);
+    setFilter('');
+  };
+
+  if (disabled) {
+    // 5 步上限时只显示箭头,不显示 +
+    return (
+      <Icon size={12} className="shrink-0 text-zinc-300 dark:text-zinc-600">
+        <path d="m9 5 7 7-7 7" />
+      </Icon>
+    );
+  }
+
+  return (
+    <div ref={ref} className="relative flex shrink-0 items-center">
+      {/* 箭头 / + 按钮切换 */}
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-label={`在位置 ${index + 1} 插入节点`}
+        title="插入节点"
+        className="group flex h-5 w-5 items-center justify-center rounded text-zinc-300 transition-colors hover:bg-indigo-100 hover:text-indigo-500 dark:text-zinc-600 dark:hover:bg-indigo-950/40"
+      >
+        <Icon size={12} className="group-hover:hidden">
+          <path d="m9 5 7 7-7 7" />
+        </Icon>
+        <Icon size={12} className="hidden group-hover:block" strokeWidth={2.5}>
+          <path d="M12 5v14M5 12h14" />
+        </Icon>
+      </button>
+
+      {/* 弹出菜单 */}
+      {open && (
+        <div className="absolute top-full left-1/2 z-50 mt-1 w-56 -translate-x-1/2 rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+          {/* 搜索 */}
+          <div className="border-b border-zinc-100 p-1.5 dark:border-zinc-800">
+            <input
+              type="text"
+              autoFocus
+              placeholder="搜索 capability..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="w-full rounded border border-zinc-200 bg-white px-2 py-1 text-[11px] placeholder-zinc-400 focus:border-indigo-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          </div>
+          {/* 列表 */}
+          <div className="max-h-48 overflow-y-auto p-1">
+            {filtered.length === 0 ? (
+              <p className="px-2 py-2 text-center text-[10px] text-zinc-400">无匹配 capability</p>
+            ) : (
+              filtered.map((cap) => (
+                <button
+                  key={cap.name}
+                  type="button"
+                  onClick={() => handleSelect(cap.name)}
+                  className="block w-full rounded px-2 py-1 text-left transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                >
+                  <span className="block font-mono text-[10px] font-medium text-zinc-700 dark:text-zinc-300">
+                    {cap.name}
+                  </span>
+                  <span className="block truncate text-[9px] text-zinc-500 dark:text-zinc-400">
+                    {cap.description}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+

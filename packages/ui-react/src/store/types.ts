@@ -55,6 +55,9 @@ export interface WorkspaceState {
   lastOutputIds: string[];
   /** 当前选中的输出 Asset ID(W9.4):用于多输出场景选择 */
   selectedOutputId: string | null;
+
+  /** 当前正在运行的工作流 ID(W11.6:用于 cancel) */
+  currentRunId: string | null;
 }
 
 /** 工作台操作 */
@@ -90,9 +93,24 @@ export interface WorkspaceActions {
    * @param to 目标索引(0-based,移动后该节点的新位置)
    */
   moveNode(from: number, to: number): void;
+  /**
+   * 在指定位置插入节点(W11.1)。
+   * @param index 目标位置(0-based;越界时自动 clamp 到 [0, length])
+   * @param capability 能力名
+   */
+  insertNodeAt(index: number, capability: string): void;
 
   /** 执行工作流 */
   run(): Promise<Asset[]>;
+  /** 取消当前运行(W11.6) */
+  cancelRun(): Promise<void>;
+  /**
+   * 应用工作流模板(W11.4):替换当前 nodes 为模板节点序列。
+   * @param templateNodes 模板节点(capability + 默认 params)
+   */
+  loadWorkflowTemplate(
+    templateNodes: Array<{ capability: string; params: Record<string, unknown> }>
+  ): void;
   /** 设置状态消息 */
   setStatus(message: string): void;
   /** 设置错误 */
