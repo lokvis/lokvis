@@ -11,6 +11,7 @@ import type {
   AssetSource,
   Capability,
   EngineSelectionStrategy,
+  ExifData,
   HistoryEntry,
   McpManifest,
 } from '@lokvis/schema';
@@ -159,6 +160,17 @@ export interface LokvisRuntime {
   getAsset(id: AssetId): Promise<Asset>;
   /** 导出资产为 Blob */
   exportAsset(id: AssetId, format?: string): Promise<Blob>;
+  /**
+   * 读取 image 资产的 EXIF 元数据(W7.3/7.4)。
+   *
+   * 内部通过 assetStore.getBlob 取出 Blob,再调用 @lokvis/engine-image 的
+   * readExif(变量驱动动态 import,避免 runtime 静态依赖 Engine)。
+   * UI 通过此方法访问 EXIF,不直接依赖 Engine 包(五层架构单向依赖)。
+   *
+   * @param id 资产 ID(须为 image 类型)
+   * @returns ExifData;非 image / 无 EXIF / 解析失败返回 null
+   */
+  readAssetExif(id: AssetId): Promise<ExifData | null>;
   /** 删除资产 */
   removeAsset(id: AssetId): Promise<void>;
   /** 列出所有资产 */

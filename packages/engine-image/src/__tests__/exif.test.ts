@@ -2,13 +2,17 @@
  * EXIF 读取(W7.3 / W7.9)单元测试
  *
  * 覆盖:
- * - readExif:正常解析 / 无 EXIF / 损坏数据 / 部分字段
- * - formatExifRows:字段格式化、空字段过滤、GPS 合并
+ * - readExif:正常解析 / 无 EXIF / 损坏数据 / 部分字段(engine-image 层)
+ * - formatExifRows:字段格式化、空字段过滤、GPS 合并(schema 层纯函数)
+ *
+ * 架构:ExifData/ExifRow 类型 + formatExifRows 纯函数定义在 @lokvis/schema,
+ * readExif 解析逻辑在 @lokvis/engine-image。测试 import 来源与此一致。
  *
  * 不依赖真实 JPEG:通过 vi.mock 替换 exifr,直接控制 parse 返回值,
  * 覆盖各分支(全字段 / 空对象 / 抛错 / Date 实例 vs 字符串)。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { formatExifRows } from '@lokvis/schema';
 
 // 桩 exifr:每用例通过 mockParse.mockResolvedValue 控制返回
 const mockParse = vi.fn();
@@ -18,7 +22,7 @@ vi.mock('exifr', () => ({
   },
 }));
 
-const { readExif, formatExifRows } = await import('../operations/exif.js');
+const { readExif } = await import('../operations/exif.js');
 
 const pngBlob = (): Blob =>
   new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' });

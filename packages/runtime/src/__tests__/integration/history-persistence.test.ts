@@ -247,8 +247,12 @@ describe('集成:历史持久化 + jumpTo(W7.2/W7.9)', () => {
 
     await runtime.disposeWorkflow(WF_ID);
     // disposeWorkflow 的 stack.reset() 触发 onChanged → persistHistory(async)删除记录
-    // 等待微任务+定时器让 fire-and-forget 的 persistHistory 完成
-    await new Promise((r) => setTimeout(r, 10));
+    // persistHistory 是 fire-and-forget,用轮询等其完成(替代固定 setTimeout,避免 flaky)
+    // 最多等 1s(50ms × 20 次),足够覆盖 IDB 写入延迟
+    for (let i = 0; i < 20; i++) {
+      if ((await historyStore.load(WF_ID)) === undefined) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
     expect(await historyStore.load(WF_ID)).toBeUndefined();
   });
 

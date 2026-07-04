@@ -11,6 +11,7 @@ import type {
   Capability,
   CapabilityParam,
   CapabilityParamType,
+  ExifData,
   HistoryEntry,
   LokvisEvent,
   McpManifest,
@@ -218,6 +219,19 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
    * 避免把刚读出的数据又重复写入(冗余 IO + 潜在覆盖竞态)。
    */
   private isLoadingHistory = false;
+  /**
+   * 加载期间被 onChanged 标记为"dirty"的工作流 ID 集合(W7.2 review 修复)。
+   *
+   * 原实现:isLoadingHistory 期间所有 persistHistory 调用直接 return,
+   * 若加载期间有其他来源(run / undo / 外部事件)触发 onChanged,
+   * 这些变更会被永久丢弃(加载结束后不会重发 persist)。
+   *
+   * 现策略:加载期间被跳过的 persistHistory 把 workflowId 加入此 Set,
+   * loadPersistedHistory 结束后逐个补 persist,确保不丢变更。
+   * (restore() 自身触发的 onChanged 也加入,但其内容与刚读出的相同,
+   *  补 persist 仅多一次等价写回,幂等无害。)
+   */
+  private dirtyDuringLoad = new Set<string>();
 
   constructor(config: RuntimeConfig = {}) {
     this.config = {
@@ -508,6 +522,29 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     return blob;
   }
 
+  /**
+   * 读取 image 资产的 EXIF 元数据(W7.3/7.4)。
+   *
+   * 架构合规:Runtime 层不直接依赖 Engine 包(AGENTS.md 五层单向依赖),
+   * 此处用变量驱动的动态 import 按需加载 @lokvis/engine-image 的 readExif,
+   * 让 TypeScript 不解析该模块(否则需把 engine-image 加入 dependencies,
+   * 违反五层架构)。运行时由消费方(playground / ui-react)通过 plugin-image
+   * 间接安装 engine-image,模块可正常解析。
+   *
+   * 非 image 资产 / 无 EXIF / 解析失败均返回 null,不抛错。
+   */
+  async readAssetExif(id: AssetId): Promise<ExifData | null> {
+    const asset = await this.getAsset(id);
+    if (asset.type !== 'image') return null;
+    const blob = await this.assetStore.getBlob(asset.blob);
+    // 变量驱动的动态 import:绕过 TS 模块解析,保持 runtime 不静态依赖 engine
+    const moduleName = '@lokvis/engine-image';
+    const mod = (await import(/* @vite-ignore */ moduleName)) as {
+      readExif: (blob: Blob) => Promise<ExifData | null>;
+    };
+    return mod.readExif(blob);
+  }
+
   async removeAsset(id: AssetId): Promise<void> {
     await this.assetStore.remove(id);
     this.eventBus.emit({ type: 'asset:removed', assetId: id });
@@ -737,11 +774,15 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
    * 引擎按发起顺序串行化(同 object store 不重叠),无需应用层加链。
    *
    * - entries 为空时改为 delete,避免残留空记录(reset/clear 后自然清理)
-   * - 加载期间(isLoadingHistory=true)跳过,避免 restore() 触发的 onChanged
-   *   把刚读出的数据又重复写回
+   * - 加载期间(isLoadingHistory=true)跳过写回,但把 workflowId 加入
+   *   dirtyDuringLoad,loadPersistedHistory 结束后补 persist(避免丢变更)
    */
   private async persistHistory(workflowId: string): Promise<void> {
-    if (!this.historyStore || this.isLoadingHistory) return;
+    if (!this.historyStore) return;
+    if (this.isLoadingHistory) {
+      this.dirtyDuringLoad.add(workflowId);
+      return;
+    }
     const stack = this.historyStacks.get(workflowId);
     // 栈已从内存移除(disposeWorkflow / enforceHistoryStacksLimit 的 reset+delete
     // 后异步到达此处)→ 删除持久化记录,避免孤儿数据跨会话残留
@@ -774,7 +815,9 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
    * 从 historyStore 预加载所有持久化的历史快照,恢复到内存。
    *
    * 由 createRuntime 工厂在构造完 impl 后调用一次。加载期间置 isLoadingHistory
-   * 守卫,使 restore() 触发的 onChanged → persistHistory 跳过冗余写回。
+   * 守卫,使 restore() 触发的 onChanged → persistHistory 跳过冗余写回;
+   * 但被跳过的 workflowId 记入 dirtyDuringLoad,加载结束后补 persist,
+   * 避免加载期间其他来源(run / undo / 外部事件)的变更被永久丢弃。
    *
    * 注意:restore 会 emit history:changed 事件,但此时 UI 尚未订阅
    * (runtime-slice.init 在 createRuntime resolve 后才订阅),故无副作用。
@@ -797,6 +840,13 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       }
     } finally {
       this.isLoadingHistory = false;
+      // 加载期间被跳过的 persist 补发:逐个 await 保证顺序
+      // 复制一份避免补 persist 过程中新触发 onChanged → dirtyDuringLoad 死循环
+      const pending = [...this.dirtyDuringLoad];
+      this.dirtyDuringLoad.clear();
+      for (const wfId of pending) {
+        await this.persistHistory(wfId);
+      }
     }
   }
 }

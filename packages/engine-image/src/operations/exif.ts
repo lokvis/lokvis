@@ -9,50 +9,13 @@
  * - readExif(blob):一次解析,返回结构化 ExifData(空字段省略)
  * - 解析失败 / 无 EXIF 时返回 null(调用方按需展示空态)
  * - 不抛错:损坏的 EXIF 段不应阻塞图像处理主流程
+ *
+ * 类型契约:ExifData / ExifRow / formatExifRows 在 @lokvis/schema 声明,
+ * Runtime 通过 readAssetExif(assetId) 桥接,UI 不直接依赖 Engine 包。
  */
 
 import exifr from 'exifr';
-
-/**
- * 结构化 EXIF 数据。
- *
- * 仅保留常见摄影字段;原始 raw 对象也一并返回,供高级用户/调试查看。
- * 字段全部 optional —— 不同相机/手机写入的子集差异极大。
- */
-export interface ExifData {
-  /** 相机厂商 */
-  make?: string;
-  /** 相机型号 */
-  model?: string;
-  /** 镜头型号 */
-  lensModel?: string;
-  /** 拍摄时间(ISO 字符串,原始 EXIF DateTimeOriginal) */
-  dateTimeOriginal?: string;
-  /** ISO 感光度 */
-  iso?: number;
-  /** 光圈 f 值 */
-  fNumber?: number;
-  /** 快门速度(秒,如 1/125 → 0.008) */
-  exposureTime?: number;
-  /** 焦距(mm) */
-  focalLength?: number;
-  /** 曝光补偿(EV) */
-  exposureCompensation?: number;
-  /** 白平衡模式 */
-  whiteBalance?: string;
-  /** GPS 纬度(度) */
-  gpsLatitude?: number;
-  /** GPS 经度(度) */
-  gpsLongitude?: number;
-  /** GPS 海拔(米) */
-  gpsAltitude?: number;
-  /** 方向(度,0-360,表示拍摄时相机朝向) */
-  orientation?: number;
-  /** 软件 / 后期工具(如 "Adobe Photoshop CC") */
-  software?: string;
-  /** 原始 EXIF 解析对象(全字段,未结构化) */
-  raw?: Record<string, unknown>;
-}
+import type { ExifData } from '@lokvis/schema';
 
 /**
  * 从图像 Blob 读取 EXIF 元数据。
@@ -91,8 +54,10 @@ export async function readExif(blob: Blob): Promise<ExifData | null> {
       data.exposureCompensation = parsed.ExposureCompensation;
     }
     if (typeof parsed.WhiteBalance === 'number') {
-      // EXIF WhiteBalance: 0 = Auto, 1 = Manual
-      data.whiteBalance = parsed.WhiteBalance === 0 ? 'Auto' : 'Manual';
+      // EXIF WhiteBalance: 0 = Auto, 1 = Manual;其他值保留为 unknown
+      if (parsed.WhiteBalance === 0) data.whiteBalance = 'Auto';
+      else if (parsed.WhiteBalance === 1) data.whiteBalance = 'Manual';
+      else data.whiteBalance = `Unknown (${parsed.WhiteBalance})`;
     }
     if (typeof parsed.latitude === 'number') data.gpsLatitude = parsed.latitude;
     if (typeof parsed.longitude === 'number') data.gpsLongitude = parsed.longitude;
@@ -110,50 +75,4 @@ export async function readExif(blob: Blob): Promise<ExifData | null> {
     // 损坏的 EXIF 段或不受支持的格式:静默返回 null,不阻塞主流程
     return null;
   }
-}
-
-/**
- * 将 ExifData 格式化为人类可读的键值对数组,供 UI 渲染。
- *
- * 过滤掉 undefined 字段,值为字符串(数字按需格式化)。
- * raw 字段不展示(体积大、噪音多)。
- *
- * @example
- * ```ts
- * const rows = formatExifRows(exif);
- * // [{ label: 'Camera', value: 'Canon EOS R5' }, ...]
- * ```
- */
-export function formatExifRows(exif: ExifData): { label: string; value: string }[] {
-  const rows: { label: string; value: string }[] = [];
-  const push = (label: string, value: string | undefined): void => {
-    if (value !== undefined && value !== '') rows.push({ label, value });
-  };
-
-  push('Camera', exif.make && exif.model ? `${exif.make} ${exif.model}` : exif.make ?? exif.model);
-  push('Lens', exif.lensModel);
-  push('Date', exif.dateTimeOriginal);
-  push('ISO', exif.iso !== undefined ? `ISO ${exif.iso}` : undefined);
-  push('Aperture', exif.fNumber !== undefined ? `f/${exif.fNumber}` : undefined);
-  push('Shutter', exif.exposureTime !== undefined ? formatShutterSpeed(exif.exposureTime) : undefined);
-  push('Focal Length', exif.focalLength !== undefined ? `${exif.focalLength}mm` : undefined);
-  push('Exposure Comp.', exif.exposureCompensation !== undefined ? `${exif.exposureCompensation} EV` : undefined);
-  push('White Balance', exif.whiteBalance);
-  push('Software', exif.software);
-  if (exif.gpsLatitude !== undefined && exif.gpsLongitude !== undefined) {
-    push('GPS', `${exif.gpsLatitude.toFixed(6)}, ${exif.gpsLongitude.toFixed(6)}`);
-    if (exif.gpsAltitude !== undefined) {
-      push('GPS Altitude', `${exif.gpsAltitude.toFixed(1)} m`);
-    }
-  }
-  push('Orientation', exif.orientation !== undefined ? `${exif.orientation}` : undefined);
-  return rows;
-}
-
-/** 将秒级快门速度格式化为常见分数表示(1/125) */
-function formatShutterSpeed(seconds: number): string {
-  if (seconds >= 1) return `${seconds}s`;
-  // 1/125 等:取最接近的标准档位
-  const denominator = Math.round(1 / seconds);
-  return `1/${denominator}s`;
 }

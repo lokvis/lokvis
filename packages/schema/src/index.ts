@@ -11,6 +11,7 @@ export * from './capability.js';
 export * from './workflow.js';
 export * from './event.js';
 export * from './plugin.js';
+export * from './exif.js';
 // MCP manifest 类型(见 docs/AI生态冲击调整方案.md §6.1)
 export * from './mcp.js';
 
