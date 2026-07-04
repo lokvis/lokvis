@@ -19,7 +19,6 @@ export { useWorkspaceStore, type WorkspaceState, type WorkspaceActions } from '.
 
 export { Workspace, type WorkspaceProps } from './components/Workspace.js';
 export { AssetPanel } from './components/AssetPanel.js';
-export { HistoryPanel, type HistoryPanelProps } from './components/HistoryPanel.js';
 export { Canvas } from './components/Canvas.js';
 export { Inspector } from './components/Inspector.js';
 export { ExifPanel, type ExifPanelProps } from './components/ExifPanel.js';

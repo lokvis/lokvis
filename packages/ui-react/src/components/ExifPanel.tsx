@@ -2,18 +2,21 @@
  * ExifPanel - EXIF 元数据查看面板(W7.4)
  *
  * 监听当前选中的 image asset,通过 runtime.readAssetExif 桥接调用
- * @lokvis/engine-image 的 readExif 解析后展示结构化字段。
+ * plugin-image 注册的 MetadataReader,展示结构化 EXIF 字段。
+ *
+ * 架构合规(长期方案):
+ * - UI 只依赖 @lokvis/schema(ExifData 类型 + formatExifRows)和 @lokvis/runtime
+ * - 不直接依赖 plugin-image / engine-image(五层单向依赖)
+ * - ExifData 类型不含 raw 字段(schema 层类型分层),UI 缓存无需手动剔除
  *
  * 设计要点:
- * - 独立可折叠面板(与 Inspector 同列,渲染在其上方)
+ * - 独立可折叠面板(渲染在 Inspector 顶部)
  * - 仅 image 类型 asset 显示;非 image 隐藏整个面板
- * - 缓存:按 assetId 缓存(剔除 raw 字段以控内存),LRU 上限 16 防长会话堆积
+ * - 缓存:按 assetId 缓存(LRU 上限 16),切换 asset 不重复解析
+ * - effect 依赖 selectedAssetId(而非 asset 对象引用),避免 assets 数组
+ *   重渲染时触发重复 effect
  * - 取消:effect 重跑/卸载时不更新 state(避免 stale update)
  * - 加载/空态/错误三态明确
- *
- * "编辑"功能说明:EXIF 是图像二进制内嵌的元数据,运行时编辑需要重写
- * EXIF 段(超出 MVP 范围)。当前面板仅做查看;预留 onEdit 钩子,后续可
- * 接入 exiftool-vendored / piexifjs 实现原地编辑。
  */
 
 import * as React from 'react';
@@ -79,21 +82,17 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
 
     (async () => {
       try {
-        // 通过 runtime.readAssetExif 桥接,UI 不直接依赖 Engine 包
+        // 通过 runtime.readAssetExif 桥接(MetadataReader 依赖反转),
+        // UI 不直接依赖 plugin-image / engine-image
         const data = await runtime.readAssetExif(assetId);
         if (cancelled) return;
-        // 缓存前剔除 raw 字段:UI 不展示该字段,且体积大(可能数十 KB),
-        // 缓存原始对象会让长会话内存占用显著膨胀
-        const stripped: ExifData | null = data
-          ? { ...data, raw: undefined }
-          : null;
         // LRU 上限:超出时删除最旧 entry(Map 第一个,即最近最少命中)
         if (cache.size >= EXIF_CACHE_LIMIT) {
           const oldestKey = cache.keys().next().value;
           if (oldestKey !== undefined) cache.delete(oldestKey);
         }
-        cache.set(assetId, stripped);
-        setExif(stripped);
+        cache.set(assetId, data);
+        setExif(data);
         setError(null);
       } catch (err) {
         if (cancelled) return;

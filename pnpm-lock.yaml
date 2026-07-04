@@ -274,9 +274,6 @@ importers:
       '@lokvis/schema':
         specifier: workspace:*
         version: link:../schema
-      exifr:
-        specifier: ^7.1.3
-        version: 7.1.3
     devDependencies:
       typescript:
         specifier: ^5.6.0
@@ -348,6 +345,9 @@ importers:
       '@lokvis/schema':
         specifier: workspace:*
         version: link:../schema
+      exifr:
+        specifier: ^7.1.3
+        version: 7.1.3
     devDependencies:
       typescript:
         specifier: ^5.6.0

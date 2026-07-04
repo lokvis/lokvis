@@ -1,17 +1,26 @@
 /**
  * Image Tools Plugin 定义
  *
- * 通过 definePlugin 注册 8 个图像能力声明，
+ * 通过 definePlugin 注册 9 个图像变换能力声明,
  * installer 阶段把每个能力映射到 engine-image 的实现。
+ *
+ * 此外注册 1 个元数据读取器(image.read-exif),走 MetadataReader 机制
+ * 而非 Capability execute —— EXIF 读取是 Blob→ExifData 查询,不符合
+ * Asset→Asset 变换契约(见 schema/src/plugin.ts MetadataReader 注释)。
  */
 
 import { definePlugin } from '@lokvis/plugin-sdk';
 import { IMAGE_CAPABILITIES } from '@lokvis/capability';
+import type { ExifData } from '@lokvis/schema';
 import { buildImageCapabilityImplementations } from './operations.js';
+import { readExifFromBlob } from './exif-reader.js';
 
 export const PLUGIN_NAME = 'lokvis-image-tools';
 export const PLUGIN_VERSION = '0.1.0';
 export const PLUGIN_ENGINE = 'canvas';
+
+/** 元数据读取器名称(约定与能力名对齐,但不进 Capability 声明) */
+export const EXIF_READER_NAME = 'image.read-exif';
 
 /**
  * 创建图像工具插件
@@ -32,17 +41,29 @@ export function imageToolsPlugin() {
       name: PLUGIN_NAME,
       version: PLUGIN_VERSION,
       description:
-        'Official image tools: resize / compress / convert / crop / rotate / flip / watermark / background',
+        'Official image tools: resize / compress / convert / crop / rotate / flip / watermark / background / filter + EXIF reader',
       capabilities: IMAGE_CAPABILITIES,
       engine: PLUGIN_ENGINE,
       permissions: ['asset:read', 'asset:write', 'network:none'],
     },
     (ctx) => {
+      // 变换能力(Asset→Asset,经 CapabilityRegistry / WorkflowExecutor)
       const impls = buildImageCapabilityImplementations(ctx);
       for (const impl of impls) {
         ctx.registerCapability(impl);
       }
-      ctx.log('info', `Registered ${impls.length} image capabilities`);
+
+      // 元数据读取(Asset→ExifData,经 MetadataReader,不经 WorkflowExecutor)
+      // Runtime.readAssetExif 通过此 reader 调用,UI 不直接依赖 plugin / engine
+      ctx.registerMetadataReader<ExifData>(EXIF_READER_NAME, async (asset) => {
+        const blob = await ctx.runtime.getAssetBlob(asset);
+        return readExifFromBlob(blob);
+      });
+
+      ctx.log(
+        'info',
+        `Registered ${impls.length} image capabilities + EXIF reader`
+      );
     }
   );
 }

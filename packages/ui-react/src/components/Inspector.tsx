@@ -50,7 +50,7 @@ export function Inspector({ className = '' }: InspectorProps) {
     <aside
       className={`flex w-72 shrink-0 flex-col border-l border-zinc-200 dark:border-zinc-800 ${className}`}
     >
-      {/* EXIF 面板(W7.4):仅 image asset 显示,非 image 时 ExifPanel 自身返回 null */}
+      {/* EXIF panel (selected image asset only, hides automatically for non-image) */}
       <ExifPanel />
 
       {/* Configure section (when a node is selected) */}

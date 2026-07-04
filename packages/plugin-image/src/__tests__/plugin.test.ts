@@ -35,9 +35,11 @@ const { buildImageCapabilityImplementations, IMAGE_CAPABILITY_ENTRIES } =
 function createMockContext(): {
   ctx: PluginContext;
   registered: CapabilityImplementation[];
+  readers: Map<string, (asset: Asset) => Promise<unknown>>;
   logs: Array<{ level: string; message: string }>;
 } {
   const registered: CapabilityImplementation[] = [];
+  const readers = new Map<string, (asset: Asset) => Promise<unknown>>();
   const logs: Array<{ level: string; message: string }> = [];
   const ctx: PluginContext = {
     runtime: {
@@ -58,10 +60,13 @@ function createMockContext(): {
     },
     eventBus: { on: vi.fn(), onAny: vi.fn(), emit: vi.fn(), clear: vi.fn() },
     registerCapability: vi.fn((impl) => registered.push(impl)),
+    registerMetadataReader: vi.fn(<T>(name: string, reader: (asset: Asset) => Promise<T | null>) => {
+      readers.set(name, reader as (asset: Asset) => Promise<unknown>);
+    }),
     registerPanel: vi.fn(),
     log: vi.fn((level, message) => logs.push({ level, message })),
   };
-  return { ctx, registered, logs };
+  return { ctx, registered, readers, logs };
 }
 
 /** 构造一个输入 Asset */
@@ -138,7 +143,14 @@ describe('imageToolsPlugin install', () => {
     await plugin.install(mock.ctx);
     expect(mock.logs).toHaveLength(1);
     expect(mock.logs[0]!.level).toBe('info');
-    expect(mock.logs[0]!.message).toMatch(/Registered 9 image capabilities/);
+    expect(mock.logs[0]!.message).toMatch(/9 image capabilities \+ EXIF reader/);
+  });
+
+  it('install 应注册 EXIF metadata reader', async () => {
+    const plugin = imageToolsPlugin();
+    await plugin.install(mock.ctx);
+    expect(mock.readers.has('image.read-exif')).toBe(true);
+    expect(typeof mock.readers.get('image.read-exif')).toBe('function');
   });
 
   it('注册的实现 capability 名应与声明一一对应', async () => {

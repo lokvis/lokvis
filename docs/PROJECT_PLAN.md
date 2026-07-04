@@ -207,13 +207,13 @@
 |---|---|---|---|---|---|
 | 7.1 | History Panel UI:列表、跳转、undo/redo 按钮 | P0 | 6h | ✅ | `ui-react/src/components/HistoryPanel.tsx` + `store/history-slice.ts` |
 | 7.2 | 历史持久化到 IndexedDB,跨会话保留 | P0 | 4h | ✅ | `runtime/src/history-store.ts` + `runtime.loadPersistedHistory()` |
-| 7.3 | EXIF 读取(exifr) | P1 | 4h | ✅ | `engine-image/src/operations/exif.ts`(`readExif` + `formatExifRows`) |
-| 7.4 | EXIF 查看/编辑面板 | P1 | 4h | ✅ | `ui-react/src/components/ExifPanel.tsx`(查看;编辑预留 onEdit 钩子) |
+| 7.3 | EXIF 读取(exifr) | P1 | 4h | ✅ | `plugin-image/src/exif-reader.ts`(MetadataReader 机制,不进 engine-image) |
+| 7.4 | EXIF 查看/编辑面板 | P1 | 4h | ✅ | `ui-react/src/components/ExifPanel.tsx`(接入 Inspector 顶部;非 image 自动隐藏) |
 | 7.5 | 水印图片支持:PNG 叠加,9 宫格位置 | P0 | 4h | ✅ | operations/watermark.ts |
 | 7.6 | 水印批量应用到队列所有图 | P0 | 2h | ✅ | `apps/playground/.../WatermarkBatchTool.tsx` |
 | 7.7 | 旋转/翻转(P1):任意角度、flip H/V/both | P1 | 4h | ✅ | operations/transform.ts |
 | 7.8 | 简单滤镜(P1):黑白/棕褐/模糊 | P1 | 4h | ✅ | operations/filters.ts |
-| 7.9 | 单测:EXIF、水印位置、旋转、滤镜 | P0 | 6h | ✅ | `engine-image/__tests__/exif.test.ts`(16 测试)+ 历史持久化 + jumpTo |
+| 7.9 | 单测:EXIF、水印位置、旋转、滤镜 | P0 | 6h | ✅ | schema/exif.test.ts(11)+ plugin-image/exif-reader.test.ts(9)+ runtime/read-asset-exif.test.ts(6)+ 历史持久化 + jumpTo |
 | 7.10 | 缓冲 | P0 | 2h | — | 未使用 |
 
 ### W8 · 预设库 + 工具页打磨(40h)
@@ -567,6 +567,7 @@
 
 | 日期 | 版本 | 变更 |
 |---|---|---|
+| 2026-07-04 | v2.2 | **W7.3/7.4 EXIF 短期方案 → 长期方案重构**(MetadataReader 依赖反转,替换 v2.1 的短期 patch):v2.1 的 EXIF 实现是短期方案——`readExif` 放 engine-image(违反 Blob↔Blob 纯函数约束)、runtime 用 `@vite-ignore` + 变量驱动动态 import 桥接(字符串硬编码包名,绕过 TS 模块解析)、ExifPanel 用 `{...data, raw: undefined}` patch 剔除 raw。本次重构根治:① schema 加 `ExifData`(无 raw)/`RawExifData`(Plugin 内部)类型分层 + `formatExifRows()` 纯函数 + `PluginContext.registerMetadataReader<T>(name, fn)` 依赖反转接口;② plugin-image 新增 `exif-reader.ts`(exifr ^7.1.3),installer 中通过 `ctx.registerMetadataReader('image.read-exif', ...)` 注册,返回前 RawExifData→ExifData 收窄;③ runtime 持有 `metadataReaders` Map + `_registerMetadataReader()`,`readAssetExif` 改为按名调用 reader,Plugin 未安装优雅降级;④ sdk `installPlugin`/`createPluginContext` 接收 runtime 实例转发注册;⑤ ui-react `ExifPanel.tsx` 重写(LRU cache 16,effect 依赖 selectedAssetId 非 asset 引用);⑥ **删除** `engine-image/src/operations/exif.ts` + `engine-image/__tests__/exif.test.ts`(EXIF 不属于 Engine 层)+ 移除 engine-image 的 exifr 依赖(移到 plugin-image)。保留 v2.1 的非 EXIF 修复:WatermarkBatchTool 资产清理、runtime-slice 闭包隔离、history-persistence 轮询、persistHistory dirtyDuringLoad 补 persist。新增 26 测试(schema 11 + plugin-image 9 + runtime 6),全部 568/568 通过 |
 | 2026-07-04 | v2.1 | **W7 Review 修复**:PR #11(`feat/w6-batch-asset-opfs`)在 W7 完成基础上做架构 review 修复。Blocker 2 项:(1) ui-react 跨层依赖 engine-image → 把 `ExifData`/`ExifRow` 类型 + `formatExifRows` 纯函数下沉到 schema 层,runtime 通过 `readAssetExif(assetId)` + 变量驱动动态 import 桥接(绕过 TS 模块解析,保持五层单向依赖);(2) `WatermarkBatchTool` 资产不清理 → processItem 成功 / 失败 / 取消 / clear 各路径补 `removeAsset` + `disposeWorkflow`,避免 OPFS/IDB 累积泄漏。Major 7 项:ExifPanel cache LRU 上限 16 + 剔除 raw 字段 + effect 依赖改 id;runtime-slice 模块级 `offHistoryChanged` 迁到 store 闭包(多 store 实例隔离);history-persistence.test `setTimeout` 改 50ms 轮询(最多 1s);WatermarkBatchTool 加取消按钮 + processing 中禁用清空(防竞态);persistHistory 加载期间丢变更修复(`dirtyDuringLoad` Set 补 persist)。exif.test.ts 16 测试 import 路径更新(formatExifRows 从 schema 取)。验证:lint 0 错误、typecheck 5/5 包通过、test 458/458 通过 |
 | 2026-07-04 | v2.0 | **W7 完成**:PR #11(`feat/w6-batch-asset-opfs`)落地 W6 + W7 全部任务。W6 批量与 OPFS:BatchProcessor(并发池 + 进度 + 重试 + MemoryGuard 联动)+ Pro 模式门控 + 存储配额查询 + 缩略图缓存 + OPFS 元数据持久化。W7 历史与 EXIF:HistoryPanel UI + 跳转/undo/redo + IndexedDB 持久化(`HistoryStore` + `loadPersistedHistory`)+ exifr 集成(`readExif`)+ ExifPanel + 水印图片支持(tile 网格)+ 批量水印工具 + 旋转/翻转 + 简单滤镜(黑白/棕褐/模糊)+ 16 EXIF 测试 + 历史持久化集成测试。CI 修复:lint `completedCount` 死代码 + actions v4→v5(Node 24 runtime,消除 deprecation warning) |
 | 2026-07-03 | v1.8 | **W3 状态同步**：PR #7(commit 0b1f7ef「Feat/w3 runtime hardening」)合入 dev,PROJECT_PLAN 状态与代码实现对齐。W3 全部 8 项(3.1-3.8)标 ✅,3.9 缓冲保留 ⬜。附带提前完成的 W7 三项:7.5 水印图片支持(✅)、7.7 旋转/翻转(✅)、7.8 简单滤镜(✅)——随 W3 PR 一并落地,7.9 单测整体仍 ⬜(EXIF 部分待 7.3)。验证:build 20/20、test 471/471 通过,覆盖率 lines 90.63% / branches 88.43% |

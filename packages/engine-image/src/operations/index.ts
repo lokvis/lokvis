@@ -9,10 +9,15 @@
  * - encode.ts:          编码与格式(compress / convert / setBackground)
  * - watermark.ts:       水印(文字 / 图片)
  * - compress-target.ts: 目标体积压缩(二分查找)
- * - filters.ts:         简单滤镜(黑白/棕褐/模糊)
- * - exif.ts:            EXIF 元数据读取(W7.3,依赖 exifr)
  * - utils.ts:           共享工具(inferFormat / computeTargetSize / throwIfAborted)
  * - tiles.ts:           大图分片(splitIntoTiles / mergeChunks / isDownscale)(W3.2)
+ *
+ * 预留位(W7 实现时填入):
+ * - filters.ts:         简单滤镜(黑白/棕褐/模糊)
+ *
+ * 注:EXIF 元数据读取未放本层 —— readExif 是 Blob→ExifData 查询,不符合
+ * AGENTS.md 规定的 Engine 层 Blob↔Blob 纯函数约束。实现位于 Capability 层
+ * (plugin-image/src/exif-reader.ts),通过 MetadataReader 机制注册给 Runtime。
  */
 import type { DecodedImage } from '../types.js';
 import { canvasEngine } from '../canvas-engine.js';
@@ -23,7 +28,6 @@ export * from './encode.js';
 export * from './watermark.js';
 export * from './filters.js';
 export * from './compress-target.js';
-export * from './exif.js';
 export * from './tiles.js';
 
 /** 解码图像元数据（不保留 bitmap） */

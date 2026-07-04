@@ -61,6 +61,30 @@ export interface PanelDefinition {
 }
 
 /**
+ * 元数据读取函数(依赖反转)。
+ *
+ * 某些 Plugin 能力本质是"元数据查询"而非"资产变换"(如 EXIF 读取:
+ * Blob → ExifData),既不符合 Engine 层 Blob↔Blob 约束,也不符合
+ * CapabilityImplementation 的 Asset[]→Asset[] 契约。这类能力通过
+ * MetadataReader 注册:Plugin 提供读取函数,Runtime 持有引用并按名调用。
+ *
+ * 与 registerCapability 的区别:
+ * - registerCapability:注册变换能力(Asset→Asset),走 WorkflowExecutor
+ * - registerMetadataReader:注册查询函数(Asset→T),走 Runtime 直接调用
+ *
+ * 优点(相对 Capability execute + data Asset 序列化方案):
+ * - 无需创建临时 data Asset(避免手动 removeAsset 清理 / 泄漏)
+ * - 无 JSON marshal/unmarshal 开销
+ * - 类型直接透传(ExifData),无需序列化
+ *
+ * @param asset 输入资产
+ * @returns 读取结果;无数据 / 解析失败返回 null
+ */
+export type MetadataReader<T = unknown> = (
+  asset: import('./asset.js').Asset
+) => Promise<T | null>;
+
+/**
  * Plugin 上下文（Plugin 能访问的全部 API）
  *
  * Plugin 只能看到受限的 Runtime API，看不到 React/Redux/Cloud。
@@ -90,8 +114,19 @@ export interface PluginContext {
   };
   /** 事件总线 */
   eventBus: import('./event.js').EventBus;
-  /** 注册能力实现 */
+  /** 注册能力实现(变换:Asset→Asset) */
   registerCapability(impl: CapabilityImplementation): void;
+  /**
+   * 注册元数据读取函数(查询:Asset→T)。
+   *
+   * 用于非变换类能力(如 EXIF 读取)。Runtime 持有 reader 引用,
+   * UI 通过 runtime.readAssetExif(id) 间接调用,不直接依赖 Plugin / Engine。
+   * 同名 reader 重复注册时覆盖前者(支持热更新)。
+   *
+   * @param name 读取器名称,约定与能力名对齐(如 'image.read-exif')
+   * @param reader 读取函数
+   */
+  registerMetadataReader<T>(name: string, reader: MetadataReader<T>): void;
   /** 注册 UI Panel */
   registerPanel(panel: PanelDefinition): void;
   /** 日志 */
