@@ -1,7 +1,7 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import ToolLayout from '../../layouts/ToolLayout.astro';
 import ConvertTool from '../../components/tools/ConvertTool.tsx';
 ---
-<BaseLayout title="Lokvis Playground · Convert" active="tools/convert">
+<ToolLayout slug="convert">
   <ConvertTool client:only="react" />
-</BaseLayout>
+</ToolLayout>

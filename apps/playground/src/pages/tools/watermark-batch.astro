@@ -1,7 +1,7 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import ToolLayout from '../../layouts/ToolLayout.astro';
 import WatermarkBatchTool from '../../components/tools/WatermarkBatchTool.tsx';
 ---
-<BaseLayout title="Lokvis Playground · Watermark Batch" active="tools/watermark-batch">
+<ToolLayout slug="watermark-batch">
   <WatermarkBatchTool client:only="react" />
-</BaseLayout>
+</ToolLayout>

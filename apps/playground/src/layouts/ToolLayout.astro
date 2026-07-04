@@ -1,0 +1,59 @@
+---
+/**
+ * ToolLayout — 工具页 SEO + 隐私声明 包装层(W8.7 / W8.8)。
+ *
+ * 用法:工具页 .astro 用 ToolLayout 替代 BaseLayout,只需传 slug:
+ *
+ *   ---
+ *   import ToolLayout from '../../layouts/ToolLayout.astro';
+ *   import CompressTool from '../../components/tools/CompressTool.tsx';
+ *   ---
+ *   <ToolLayout slug="compress">
+ *     <CompressTool client:only="react" />
+ *   </ToolLayout>
+ *
+ * ToolLayout 根据 slug 从 TOOL_SEO 查表得到 title/description/keywords,
+ * 调 generateOgImage 生成 OG 图像(SVG data URI),透传给 BaseLayout。
+ *
+ * W8.8:工具页顶部注入 PrivacyBadge(隐私声明 + 断网验证入口),
+ *      让用户在每次使用工具时都能看到"文件未上传"承诺。
+ */
+import BaseLayout from './BaseLayout.astro';
+import { PrivacyBadge } from '../components/toolkit/PrivacyBadge';
+import { TOOL_SEO, generateOgImage } from '../components/tools/seo';
+
+interface Props {
+  /** 工具 slug,对应 TOOL_SEO 的 key,如 'compress' */
+  slug: string;
+  /** 当前激活的 sidebar 项 ID(默认 `tools/${slug}`) */
+  active?: string;
+}
+
+const { slug, active = `tools/${slug}` } = Astro.props;
+const seo = TOOL_SEO[slug];
+
+if (!seo) {
+  throw new Error(
+    `ToolLayout: slug "${slug}" 不在 TOOL_SEO 中。请在 components/tools/seo.ts 注册该工具的 SEO 元数据。`
+  );
+}
+
+const fullTitle = `${seo.title} · Lokvis Playground`;
+const ogImage = generateOgImage(seo.title);
+const keywords = seo.keywords?.join(', ');
+---
+<BaseLayout
+  title={fullTitle}
+  active={active}
+  description={seo.description}
+  keywords={keywords}
+  ogTitle={seo.title}
+  ogDescription={seo.description}
+  ogImage={ogImage}
+  ogType="website"
+>
+  <div class="relative flex flex-col gap-2 px-4 py-2">
+    <PrivacyBadge client:load />
+  </div>
+  <slot />
+</BaseLayout>

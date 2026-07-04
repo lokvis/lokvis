@@ -1,17 +1,27 @@
 /**
- * W5.2 · Resize 工具页
+ * W5.2 / W8.2 / W8.4 · Resize 工具页
  *
- * 导入图片 → 宽度/高度输入 + fit 选择(cover/contain/fill/inside/outside)+ 保持比例 toggle → resize → before/after 对比 + 下载
+ * 导入图片 → 平台预设选择器 + 宽度/高度输入 + fit 选择 + DPI 输入 + 保持比例 toggle → resize → before/after 对比 + 下载
  * 调用 image.resize capability。高度留空(0)表示按比例自动。
+ *
+ * W8.2:平台预设选择器,选预设后自动填充 width/height/fit(format 在 convert/compress 页用)
+ * W8.4:DPI 输入(72/150/300/自定义),仅作为元数据提示(canvas 引擎不修改像素尺寸,仅记录到
+ *       Asset.metadata.dpi,供下游下载/打印使用)。预设切换时按目标平台推荐 DPI 自动设置。
  */
 import { useCallback, useState } from 'react';
 import type { Workflow } from '@lokvis/sdk';
 import { UploadBox } from '../toolkit/UploadBox';
 import { PreviewBox } from '../toolkit/PreviewBox';
 import { useImageTool } from '../toolkit/useImageTool';
+import { PlatformPresetSelector } from '../toolkit/PlatformPresetSelector';
 import { downloadBlob, formatBytes, imageInfoToMeta } from '../toolkit/download';
+import type { PlatformSizePreset } from '@lokvis/capability';
 
 type Fit = 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
+
+/** 常用 DPI 预设 */
+const DPI_PRESETS = [72, 150, 300] as const;
+type DpiPreset = (typeof DPI_PRESETS)[number] | 'custom';
 
 export default function ResizeTool() {
   const tool = useImageTool();
@@ -20,6 +30,15 @@ export default function ResizeTool() {
   const [fit, setFit] = useState<Fit>('inside');
   const [maintainAspectRatio, setMaintainAspectRatio] = useState(true);
   const [skipped, setSkipped] = useState(0);
+  /** 当前选中的平台预设 id(null 表示未选) */
+  const [presetId, setPresetId] = useState<string | null>(null);
+  /** DPI 输入模式:预设(72/150/300)或自定义 */
+  const [dpiMode, setDpiMode] = useState<DpiPreset>(72);
+  /** 自定义 DPI 数值(dpiMode='custom' 时生效) */
+  const [dpiCustom, setDpiCustom] = useState(300);
+
+  /** 当前 DPI 数值(供 workflow 参数与 UI 显示) */
+  const dpi = dpiMode === 'custom' ? dpiCustom : dpiMode;
 
   // 不用 useCallback:`tool` 是 useImageTool() 每次返回的新对象字面量,
   // 放进依赖数组会让 callback 每次重建——等于没 memo。函数本身轻量,直接用普通函数。
@@ -28,9 +47,28 @@ export default function ResizeTool() {
     setSkipped(res.skipped);
   };
 
+  /** 应用平台预设到表单(用户可继续微调) */
+  const handlePresetSelect = useCallback((preset: PlatformSizePreset | null) => {
+    if (!preset) {
+      setPresetId(null);
+      return;
+    }
+    setPresetId(preset.id);
+    setWidth(preset.width);
+    setHeight(preset.height);
+    if (preset.recommendedFit) setFit(preset.recommendedFit as Fit);
+    // 打印类预设默认 300 DPI,其余默认 72(屏幕)
+    if (preset.category === 'print') {
+      setDpiMode(300);
+    } else if (dpiMode === 300) {
+      // 从打印预设切到非打印预设时,把 DPI 也降回 72(避免误用 300 DPI 给 Web 图)
+      setDpiMode(72);
+    }
+  }, [dpiMode]);
+
   const handleResize = useCallback(async () => {
     // 高度为 0 时省略,由 engine 按比例自动计算
-    const params: Record<string, unknown> = { width, fit, maintainAspectRatio };
+    const params: Record<string, unknown> = { width, fit, maintainAspectRatio, dpi };
     if (height > 0) params.height = height;
     const wf: Workflow = {
       id: `resize-${Date.now()}`,
@@ -48,20 +86,28 @@ export default function ResizeTool() {
       outputs: { type: 'image' },
     };
     await tool.runWorkflow(wf);
-  }, [tool, width, height, fit, maintainAspectRatio]);
+  }, [tool, width, height, fit, maintainAspectRatio, dpi]);
 
-  const { inputInfo, outputInfo } = tool;
+  const { inputInfo, outputInfo, runtime } = tool;
 
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
         <h1 className="text-sm font-semibold text-zinc-100">Resize</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">image.resize · 尺寸调整 + 比例控制</p>
+        <p className="mt-0.5 text-xs text-zinc-500">image.resize · 尺寸调整 + 比例控制 + 平台预设</p>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
+        {/* 平台预设选择器(W8.2) */}
+        <PlatformPresetSelector
+          value={presetId}
+          onSelect={handlePresetSelect}
+          isPro={runtime?.isPro}
+          currentForm={{ width, height, fit }}
+        />
+
         {/* 参数面板 */}
-        <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-6">
           <label className="flex flex-col gap-1">
             <span className="text-[10px] font-medium text-zinc-500">宽度(px)</span>
             <input
@@ -96,6 +142,36 @@ export default function ResizeTool() {
               <option value="outside">outside</option>
             </select>
           </label>
+          {/* DPI 输入(W8.4)*/}
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-medium text-zinc-500">DPI</span>
+            <select
+              value={dpiMode}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === 'custom') setDpiMode('custom');
+                else setDpiMode(Number(v) as DpiPreset);
+              }}
+              className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
+            >
+              <option value={72}>72(屏幕)</option>
+              <option value={150}>150(草稿)</option>
+              <option value={300}>300(印刷)</option>
+              <option value="custom">自定义</option>
+            </select>
+          </label>
+          {dpiMode === 'custom' && (
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] font-medium text-zinc-500">自定义 DPI</span>
+              <input
+                type="number"
+                min={1}
+                value={dpiCustom}
+                onChange={(e) => setDpiCustom(Math.max(1, Number(e.target.value)))}
+                className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
+              />
+            </label>
+          )}
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-medium text-zinc-500">保持比例</span>
             <div className="flex h-[26px] items-center gap-2">
@@ -111,7 +187,7 @@ export default function ResizeTool() {
               </label>
             </div>
           </div>
-          <div className="flex items-end">
+          <div className="flex items-end sm:col-span-6">
             <button
               onClick={handleResize}
               disabled={!tool.ready || !tool.inputId || tool.busy || width <= 0}
@@ -121,6 +197,12 @@ export default function ResizeTool() {
             </button>
           </div>
         </div>
+
+        {/* DPI 提示 */}
+        <p className="text-[10px] text-zinc-600">
+          DPI 仅作为元数据写入输出 Asset(供打印软件读取),不改变像素尺寸。
+          当前 {dpi} DPI · 印刷尺寸约 {((width || 0) / dpi * 25.4).toFixed(1)}×{((height || (width || 0)) / dpi * 25.4).toFixed(1)} mm
+        </p>
 
         {tool.initError && <p className="text-xs text-red-400">初始化失败:{tool.initError}</p>}
         {tool.error && <p className="text-xs text-red-400">{tool.error}</p>}
