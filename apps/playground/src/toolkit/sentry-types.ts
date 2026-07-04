@@ -1,9 +1,7 @@
 /**
  * Sentry 类型定义(W12.3)
  *
- * 仅声明我们用到的辅助类型,实际 SDK 类型直接来自 @sentry/browser。
- * SeverityLevel 与 @sentry/browser 的 SeverityLevel 兼容。
+ * 直接 re-export @sentry/browser 的 SeverityLevel 类型,避免本地定义与 SDK 偏离。
+ * (PR #14 Review 修复:原本地定义若 SDK 升级增删级别会静默偏离)
  */
-
-/** Sentry 严重级别(与 @sentry/browser 的 SeverityLevel 兼容) */
-export type SeverityLevel = 'fatal' | 'error' | 'warning' | 'info' | 'debug' | 'log';
+export type SeverityLevel = import('@sentry/browser').SeverityLevel;

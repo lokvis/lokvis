@@ -1,13 +1,16 @@
 /**
- * Sentry 监控接入(W12.3)
+ * Sentry 监控接入(W12.3,PR #14 Review 修复)
  *
  * 设计原则(local-first 与隐私优先):
- * 1. **DSN 通过环境变量注入**:`PUBLIC_SENTRY_DSN` 在构建期由 Astro `import.meta.env` 读取,
- *    未配置时整个模块退化为 no-op,本地开发与自托管用户不会上报。
+ * 1. **DSN 通过环境变量注入**:`PUBLIC_SENTRY_DSN` 在 `initSentry()` 调用时读取
+ *    (而非模块顶部 const 捕获,使测试可注入 DSN),未配置时退化为 no-op。
  * 2. **只上报错误与性能指标,绝不上报文件内容**:Lokvis 是 local-first 工具,用户文件
- *    永远不上传。Sentry 的 `beforeSend` 钩子主动剔除任何可能含文件名的 breadcrumb。
- * 3. **遵循浏览器扩展 / Do-Not-Track**:`navigator.doNotTrack` 检测,用户拒绝跟踪时不上报。
+ *    永远不上传。Sentry 的 `beforeBreadcrumb` 钩子对 `ui.click`/`ui.input`/`ui.key`
+ *    /`fetch`/`xhr`/`console` 等可能含文件名的类别同时 redact `message` 与 `data`。
+ * 3. **遵循浏览器扩展 / Do-Not-Track / GPC**:检测 `navigator.doNotTrack` 与
+ *    `navigator.globalPrivacyControl`,用户拒绝跟踪时不上报。
  * 4. **采样率可配**:Alpha 阶段 tracesSampleRate=0.1(10%),避免额度耗尽。
+ * 5. **URL 脱敏**:`beforeSend` 剥离 `?workflow=<base64>` 等查询参数,只保留 origin+pathname。
  *
  * 集成位置:
  * - 在 BaseLayout.astro 的 <head> 末尾通过 <script> 调用 initSentry()(在 React 之前)
@@ -18,8 +21,6 @@
 import type { SeverityLevel } from './sentry-types.js';
 import type * as SentryBrowser from '@sentry/browser';
 
-/** Sentry DSN,未配置则为空字符串,模块退化为 no-op */
-const SENTRY_DSN = import.meta.env.PUBLIC_SENTRY_DSN ?? '';
 /** Sentry release 版本号,与 package.json 对齐 */
 const SENTRY_RELEASE = import.meta.env.PUBLIC_SENTRY_RELEASE ?? 'playground@0.1.0';
 /** 性能采样率,Alpha 阶段 10% */
@@ -31,15 +32,31 @@ let initialized = false;
 let sentrySdk: typeof SentryBrowser | null = null;
 
 /**
+ * 读取 Sentry DSN(延迟读取,使测试可通过 vi.stubEnv 注入)。
+ *
+ * 实现注意:原 W12.3 实现在模块顶部 `const SENTRY_DSN = import.meta.env.PUBLIC_SENTRY_DSN ?? ''`
+ * 捕获,导致测试无法注入 DSN(模块 import 时已固定为 ''),核心逻辑零覆盖。
+ * 改为函数延迟读取后,测试可用 `vi.stubEnv('PUBLIC_SENTRY_DSN', 'https://...')` 注入。
+ */
+function getSentryDsn(): string {
+  return import.meta.env.PUBLIC_SENTRY_DSN ?? '';
+}
+
+/**
  * 检查是否应启用 Sentry
  *
- * 用户拒绝跟踪(DNT=1)或未配置 DSN 时返回 false。
+ * 用户拒绝跟踪(DNT=1 或 GPC=true)或未配置 DSN 时返回 false。
  */
 export function shouldEnableSentry(): boolean {
-  if (!SENTRY_DSN) return false;
-  if (typeof navigator !== 'undefined' && navigator.doNotTrack === '1') return false;
-  if (typeof window !== 'undefined' && (window as unknown as { doNotTrack?: string }).doNotTrack === '1') {
-    return false;
+  const dsn = getSentryDsn();
+  if (!dsn) return false;
+  if (typeof navigator !== 'undefined') {
+    // DNT(老标准,IE/Firefox/Safari)
+    if (navigator.doNotTrack === '1') return false;
+    // GPC(新标准,Firefox/Safari/Edge 已支持,Chrome 待跟进)
+    if ((navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl) {
+      return false;
+    }
   }
   return true;
 }
@@ -68,30 +85,46 @@ export async function initSentry(): Promise<void> {
     const Sentry = await import('@sentry/browser');
     sentrySdk = Sentry;
     Sentry.init({
-      dsn: SENTRY_DSN,
+      dsn: getSentryDsn(),
       release: SENTRY_RELEASE,
       environment: import.meta.env.PROD ? 'production' : 'development',
       tracesSampleRate: TRACES_SAMPLE_RATE,
-      // 隐私保护:主动剔除可能含文件名的 breadcrumb
+      // 隐私保护:对可能含文件名的 breadcrumb 类别同时 redact message + data
+      // (W12.3 原实现仅 redact message,data 字段仍可能泄露 UI 点击目标)
       beforeBreadcrumb(breadcrumb) {
-        if (breadcrumb.category === 'ui.click' || breadcrumb.category === 'ui.input') {
-          // 用户输入可能含文件名,只保留 category,移除 message/data
-          return { ...breadcrumb, message: '[redacted]' };
+        const sensitiveCategories = new Set([
+          'ui.click',
+          'ui.input',
+          'ui.key',
+          'fetch',
+          'xhr',
+          'console',
+        ]);
+        if (sensitiveCategories.has(breadcrumb.category ?? '')) {
+          return { ...breadcrumb, message: '[redacted]', data: undefined };
         }
         return breadcrumb;
       },
-      // 默认不上报 request body(GET URL 可能含 ?workflow=<base64> 分享链接,允许但截断超长)
+      // 默认不上报 request body;剥离 URL 查询参数防止 ?workflow=<base64> 泄露
+      // (W12.3 原实现仅截断到 200 字符,前 200 字符仍泄露 workflow 开头)
       beforeSend(event) {
-        const url = event.request?.url;
-        if (url && url.length > 200) {
-          event.request = { ...event.request, url: url.slice(0, 200) + '...' };
+        if (event.request?.url) {
+          try {
+            const u = new URL(event.request.url);
+            // 仅保留 origin + pathname,丢弃 hash 与 query(可能含 base64 workflow)
+            const safeUrl = `${u.origin}${u.pathname}`;
+            event.request = { ...event.request, url: safeUrl };
+          } catch {
+            // URL 解析失败(非标准 URL),整段 redact
+            event.request = { ...event.request, url: '[redacted-url]' };
+          }
         }
         return event;
       },
     });
     initialized = true;
   } catch (err) {
-    // Sentry 加载失败不应阻塞 playground,只 warn
+    // Sentry 加载失败不应阻塞 playground,只 warn(不上报到 Sentry 以免循环)
     console.warn('[sentry] init failed, playground will continue without monitoring:', err);
   }
 }

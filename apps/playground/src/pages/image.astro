@@ -1,7 +1,10 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ImageWorkflowDemo from '../components/demos/ImageWorkflowDemo.tsx';
+import { ErrorBoundary } from '../components/ErrorBoundary.tsx';
 ---
 <BaseLayout title="Lokvis Playground · Image Workflow" active="image">
-  <ImageWorkflowDemo client:only="react" />
+  <ErrorBoundary client:only="react">
+    <ImageWorkflowDemo />
+  </ErrorBoundary>
 </BaseLayout>
