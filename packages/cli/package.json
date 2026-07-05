@@ -4,7 +4,10 @@
   "description": "Lokvis CLI - Run workflows, list capabilities, scaffold plugins from the terminal",
   "license": "MIT",
   "type": "module",
+  "sideEffects": false,
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "bin": {
     "lokvis": "./bin/lokvis.js"
   },

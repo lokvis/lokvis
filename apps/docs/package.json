@@ -2,8 +2,10 @@
   "name": "@lokvis/docs",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Lokvis Documentation - Architecture, API reference, guides",
   "type": "module",
+  "sideEffects": false,
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",

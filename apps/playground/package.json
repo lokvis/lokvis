@@ -2,8 +2,10 @@
   "name": "@lokvis/playground",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Lokvis Playground - Try the SDK in your browser",
   "type": "module",
+  "sideEffects": false,
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
