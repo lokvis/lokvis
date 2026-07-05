@@ -1,0 +1,78 @@
+name: Deploy Playground
+
+# 将 apps/playground 部署到 Cloudflare Pages → playground.lokvis.dev(W14.7)
+#
+# 触发条件:
+# - push 到 dev/main 分支且 apps/playground 或其依赖包有变更
+# - 手动触发(workflow_dispatch)
+#
+# 前置条件(在 GitHub Secrets 中配置):
+# - CLOUDFLARE_API_TOKEN:Cloudflare API Token(需 Cloudflare Pages:Edit 权限)
+# - CLOUDFLARE_ACCOUNT_ID:Cloudflare Account ID
+#
+# Cloudflare Pages 项目配置:
+# - 项目名:lokvis-playground
+# - 生产分支:main(预览分支:dev)
+# - 构建输出目录:apps/playground/dist
+# - 环境变量:NODE_VERSION=22, PNPM_VERSION=9.12.0
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'apps/playground/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-playground-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9.12.0'
+
+jobs:
+  deploy:
+    name: Build & Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    if: github.repository == 'lokvis/lokvis'
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages (dependencies of playground)
+        run: pnpm build
+
+      - name: Build playground
+        run: pnpm build --filter @lokvis/playground
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: lokvis-playground
+          directory: apps/playground/dist
+          # dev 分支 → 预览部署;main 分支 → 生产部署
+          branch: ${{ github.ref_name }}
+          # COOP/COEP 头通过 apps/playground/public/_headers 文件配置
+          # Cloudflare Pages 自动识别 _headers 文件
