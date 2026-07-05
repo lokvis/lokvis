@@ -58,6 +58,10 @@ const finalOgDescription = ogDescription ?? description;
 const rawBase = import.meta.env.BASE_URL;
 const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
 
+// PWA UI 组件（W15.4 / W15.5 / W15.8）
+// client:only="react" —— 仅客户端渲染，避免 SSR 时 window/localStorage 未定义
+import InstallPrompt from '../components/pwa/InstallPrompt.tsx';
+
 // 导航分三组：
 //   - Demos: 5 个核心 demo + Code Editor（W14.1 主推）
 //   - Tools (W5): 8 个单工具页（直达单一 capability，次要位置）
@@ -224,6 +228,10 @@ const NAV_GROUPS: NavGroup[] = [
         </main>
       </div>
     </div>
+
+    {/* PWA InstallPrompt（W15.4）—— 捕获 beforeinstallprompt + 底部安装 banner
+        client:only="react"：避免 SSR 时 window 事件 / localStorage 不可用 */}
+    <InstallPrompt client:only="react" />
 
     {/* Service Worker 注册（W15.1）+ 消息监听（W15.7）
         - 仅 production 注册，dev 模式跳过避免缓存干扰 HMR
