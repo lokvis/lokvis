@@ -29,6 +29,16 @@ export default defineConfig({
         { label: 'Plugins', slug: 'plugins' },
         { label: 'MCP Integration', slug: 'mcp' },
         { label: 'Workflows', slug: 'workflows' },
+        {
+          label: 'Guides',
+          collapsed: true,
+          items: [
+            { label: 'Embed the SDK', slug: 'guides/embed-sdk' },
+            { label: 'Write Your First Plugin', slug: 'guides/write-first-plugin' },
+            { label: 'Build a Custom Workspace', slug: 'guides/custom-workspace' },
+            { label: 'CLI Automation', slug: 'guides/cli-automation' },
+          ],
+        },
         { label: 'SDK', slug: 'sdk' },
         { label: 'CLI', slug: 'cli' },
         { label: 'Roadmap', slug: 'roadmap' },
