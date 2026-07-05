@@ -9,6 +9,9 @@ build/
 .turbo/
 *.tsbuildinfo
 
+# TypeDoc generated API reference (W13.2)
+apps/docs/src/content/docs/api/
+
 # Environment
 .env
 .env.local

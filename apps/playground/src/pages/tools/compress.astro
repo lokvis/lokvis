@@ -1,7 +1,10 @@
 ---
 import ToolLayout from '../../layouts/ToolLayout.astro';
 import CompressTool from '../../components/tools/CompressTool.tsx';
+import { ErrorBoundary } from '../../components/ErrorBoundary.tsx';
 ---
 <ToolLayout slug="compress">
-  <CompressTool client:only="react" />
+  <ErrorBoundary client:only="react">
+    <CompressTool />
+  </ErrorBoundary>
 </ToolLayout>

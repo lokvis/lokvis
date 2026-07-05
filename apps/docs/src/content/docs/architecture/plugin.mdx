@@ -1,0 +1,376 @@
+---
+title: Plugin SDK
+description: Deep dive into @lokvis/plugin-sdk — definePlugin, PluginContext restricted Runtime view, createBlobCapabilityImpl factory, complete plugin-image example, MetadataReader query-only exception, Stub plugin mode, Alpha permissions advisory, Panels, and the Vitest testing pattern.
+draft: false
+head: []
+---
+
+import Mermaid from '../../../components/Mermaid.astro';
+import MermaidScript from '../../../components/MermaidScript.astro';
+
+<MermaidScript />
+
+`@lokvis/plugin-sdk` is the only supported way to add capabilities to Lokvis. A plugin is a `{ config, install }` pair: `config` declares what the plugin provides, `install(ctx)` runs at load time to register implementations with the runtime. The SDK is intentionally tiny — `definePlugin`, `createCapabilityImpl`, `createBlobCapabilityImpl`, `definePanel` — because most of the heavy lifting lives in the engine packages and the runtime hooks the SDK calls into.
+
+> **Alpha status.** Plugin SDK is `0.1.0-alpha`. Per ADR-O2, third-party plugins are not yet enabled. If your goal is letting AI clients (Claude / Cursor / ChatGPT) invoke local capabilities, use [`@lokvis/mcp-server`](../mcp) — that's the Phase 2 priority. The Plugin SDK is for embedding Lokvis into your own web app with custom capabilities.
+
+## Module map
+
+`@lokvis/plugin-sdk` is a single-file package (`src/index.ts`) that re-exports types from `@lokvis/schema` and provides four factory functions.
+
+| Export | Kind | Role |
+| --- | --- | --- |
+| `definePlugin` | factory | Build the `{ config, install }` plugin object |
+| `createCapabilityImpl` | factory | Low-level: build a raw `CapabilityImplementation` from an `execute` fn |
+| `createBlobCapabilityImpl` | factory | High-level: wrap a Blob→Blob operation as a `CapabilityImplementation` with 5-step boilerplate |
+| `definePanel` | factory | Build a `PanelDefinition` for UI extension |
+| `defaultDeriveOutputMetadata` | helper | Default `deriveMetadata` for `createBlobCapabilityImpl` |
+| `BlobCapabilityOptions` | interface | Options for `createBlobCapabilityImpl` |
+| Re-exports | types | `Asset`, `AssetMetadata`, `AssetType`, `Capability`, `CapabilityImplementation`, `ExecutionContext`, `PluginConfig`, `PluginContext`, `PluginInstaller`, `PluginPermission`, `PanelDefinition` from `@lokvis/schema` |
+
+## The `Plugin` object
+
+```typescript
+type Plugin = { config: PluginConfig; install: PluginInstaller };
+
+interface PluginConfig {
+  name: string;                  // 'lokvis-image-tools'
+  version: string;               // '0.1.0'
+  description?: string;
+  capabilities: Capability[];    // declarative shape (what the plugin provides)
+  engine?: string;               // 'canvas' | 'squoosh' | ...
+  permissions?: PluginPermission[];
+}
+
+type PluginInstaller = (ctx: PluginContext) => void | Promise<void>;
+```
+
+`definePlugin(config, installer?)` returns the plugin object. The `installer` is optional but in practice always present — without it the plugin declares capabilities but registers no implementations, leaving them all as "no implementation registered" at resolve time.
+
+`PluginPermission` is a string-union declaration: `'asset:read'` / `'asset:write'` / `'network:none'` / `'network:limited'` / `'network:full'` / `'filesystem:opfs'` / `'filesystem:local'`. See [Alpha permissions](#alpha-permissions-advisory) for the enforcement status.
+
+## Plugin lifecycle
+
+The SDK doesn't run the lifecycle — `@lokvis/sdk`'s `installPlugin` does. The flow below documents what happens when `createLokvis({ plugins: [imageToolsPlugin()] })` or `loadPlugin(plugin)` runs:
+
+<Mermaid source={`sequenceDiagram
+  participant U as User code
+  participant S as @lokvis/sdk
+  participant R as Runtime
+  participant CR as CapabilityRegistry
+  participant P as Plugin.install
+  U->>S: createLokvis({ plugins: [plugin] })
+  S->>R: createRuntime(config)
+  S->>R: _getAssetStore(), _getCapabilityRegistry()
+  loop for each plugin
+    S->>CR: registerCapability(cap) for each config.capabilities
+    S->>S: createPluginContext(config.name, assetStore, registry, eventBus, runtime)
+    S->>P: install(ctx)
+    P->>CR: ctx.registerCapability(impl)  (or ctx.registerMetadataReader)
+    P->>S: ctx.log('info', 'Registered N capabilities')
+    S->>R: eventBus.emit({ type: 'plugin:loaded', name, version })
+  end
+  S-->>U: lokvis (LokvisRuntime)
+`} />
+
+**Failure semantics.** If `install(ctx)` throws, `installPlugin` wraps the error in `PluginLoadError(pluginName, message, cause)` and aborts the loop. Plugins loaded before the failure remain registered; plugins after are never reached. `createLokvis` re-throws to the caller.
+
+**`PluginContext` is constructed once per plugin.** The runtime reference it captures is the live `LokvisRuntimeImpl`, so plugins always see the current state (registered capabilities, asset store contents). The `registerCapability` / `registerMetadataReader` calls go straight to the `CapabilityRegistry` and the runtime's internal `metadataReaders` map.
+
+## `PluginContext` — restricted Runtime view
+
+`PluginContext` (defined in `@lokvis/schema/plugin.ts`) is a deliberately narrow view of the runtime. Plugins cannot call `run()`, `cancel()`, `undo()`, `redo()`, `importAsset()`, `removeAsset()`, or any workflow-execution API. They can only read/write assets the executor hands them and register capabilities/readers/panels.
+
+```typescript
+interface PluginContext {
+  runtime: {
+    getAsset(id): Promise<Asset>;                              // metadata lookup
+    importAsset(file: File | Blob): Promise<string>;           // ad-hoc import (e.g. watermarks)
+    getAssetBlob(asset: Promise<Blob>;                         // the bytes for processing
+    createAsset(blob, metadata, type): Promise<Asset>;         // publish a transform output
+    listCapabilities(): Promise<Capability[]>;                 // introspect registry
+  };
+  eventBus: EventBus;                                          // subscribe/emit
+  registerCapability(impl: CapabilityImplementation): void;   // transform: Asset[] → Asset[]
+  registerMetadataReader<T>(name, reader: MetadataReader<T>): void;  // query: Asset → T
+  registerPanel(panel: PanelDefinition): void;                // UI extension
+  log(level: 'info' | 'warn' | 'error', message: string): void;
+}
+```
+
+| Member | Purpose |
+| --- | --- |
+| `runtime.getAsset(id)` | Read metadata for an asset by id (used to inspect inputs the executor passed) |
+| `runtime.importAsset(file)` | Pull in auxiliary files (e.g. a watermark image the user supplied out-of-band) |
+| `runtime.getAssetBlob(asset)` | **The** primary read path — fetches the bytes for processing |
+| `runtime.createAsset(blob, metadata, type)` | **The** primary write path — publish a transform output back to the AssetStore |
+| `runtime.listCapabilities()` | Introspect what's already registered (avoid duplicate registrations) |
+| `eventBus` | Subscribe to runtime events (`node:finished`, `history:changed`, …) or emit plugin-specific ones |
+| `registerCapability(impl)` | Register a transform implementation (Asset[]→Asset[]) — invoked via `WorkflowExecutor` |
+| `registerMetadataReader(name, reader)` | Register a query-only reader (Asset→T) — invoked via `Runtime.readAssetExif` etc. |
+| `registerPanel(panel)` | Declare a UI panel (sidebar / inspector / toolbar / modal) for the host app to render |
+| `log(level, message)` | Structured logging routed through the runtime's log channel |
+
+## `createBlobCapabilityImpl` factory
+
+Most capabilities are single-input→single-output Blob transforms. The factory (defined in `@lokvis/plugin-sdk`) encapsulates the 5-step boilerplate every such capability needs:
+
+```typescript
+function createBlobCapabilityImpl(
+  options: BlobCapabilityOptions,
+  ctx: PluginContext
+): CapabilityImplementation
+```
+
+The 5 steps the factory implements inside `execute`:
+
+1. **Validate inputs** — throw if `inputs.length === 0`
+2. **Loop per asset** — for each `inputs[i]`:
+   - Check `execCtx.signal.aborted` → throw `DOMException('Aborted', 'AbortError')`
+   - Call `execCtx.onProgress(i / inputs.length, 'Processing i/N')`
+   - `blob = await ctx.runtime.getAssetBlob(asset)`
+   - `outBlob = await operation(blob, params, execCtx.signal)` ← the plugin's Blob→Blob fn
+   - `metadata = deriveMetadata(asset, outBlob)` ← default: copy dimensions from source, mime/size/format from outBlob
+   - `outAsset = await ctx.runtime.createAsset(outBlob, metadata, outputType)`
+   - push to outputs
+3. **Final progress** — `execCtx.onProgress(1, 'Done')`
+4. **Return** `outputs: Asset[]`
+5. **Stub handling** — `options.isStub` propagates to `CapabilityImplementation.status = 'stub'`, so `CapabilityRegistry.resolve()` skips it
+
+`BlobCapabilityOptions`:
+
+```typescript
+interface BlobCapabilityOptions {
+  capability: string;        // 'image.resize'
+  engine: string;            // 'canvas'
+  outputType: AssetType;     // 'image'
+  operation: (blob, params: Record<string, unknown>, signal?) => Promise<Blob>;
+  isStub: boolean;           // typically engine.version.includes('stub')
+  deriveMetadata?: (source, outBlob) => AssetMetadata;  // optional override
+}
+```
+
+The `operation` signature matches the engine-layer convention (`Record<string, unknown>` params, optional `AbortSignal`) — so plugin authors pass the engine function straight through with no adapter. Per `AGENTS.md`, this is also why engine operations must use `Record<string, any>` rather than concrete interfaces: it lets the SDK forward params without `as unknown as` double assertion.
+
+The factory is the long-term home for eliminating per-plugin duplication. `plugin-image` / future `plugin-video` (single-kind) / future `plugin-pdf` (single-kind) all share it. N→1 (`pdf.merge`) and 1→N (`pdf.split`) shapes don't fit the 1→1 mold and are still implemented manually by those plugins.
+
+## Complete example: `@lokvis/plugin-image`
+
+The reference plugin is ~70 lines across `plugin.ts` + `operations.ts`. It registers 9 image capabilities backed by the Canvas engine and one EXIF reader via the MetadataReader mechanism.
+
+```typescript
+// packages/plugin-image/src/plugin.ts (abridged)
+import { definePlugin } from '@lokvis/plugin-sdk';
+import { IMAGE_CAPABILITIES } from '@lokvis/capability';
+import { buildImageCapabilityImplementations } from './operations.js';
+import { readExifFromBlob } from './exif-reader.js';
+
+export const PLUGIN_NAME = 'lokvis-image-tools';
+export const PLUGIN_VERSION = '0.1.0';
+export const PLUGIN_ENGINE = 'canvas';
+export const EXIF_READER_NAME = 'image.read-exif';
+
+export function imageToolsPlugin() {
+  return definePlugin(
+    {
+      name: PLUGIN_NAME,
+      version: PLUGIN_VERSION,
+      description: 'Official image tools: resize / compress / ... + EXIF reader',
+      capabilities: IMAGE_CAPABILITIES,           // 9 declarations from @lokvis/capability
+      engine: PLUGIN_ENGINE,
+      permissions: ['asset:read', 'asset:write', 'network:none'],
+    },
+    (ctx) => {
+      // 1. Transform capabilities (Asset→Asset, via CapabilityRegistry + WorkflowExecutor)
+      const impls = buildImageCapabilityImplementations(ctx);
+      for (const impl of impls) ctx.registerCapability(impl);
+
+      // 2. Metadata reader (Asset→ExifData, via Runtime.readAssetExif)
+      ctx.registerMetadataReader(EXIF_READER_NAME, async (asset) => {
+        const blob = await ctx.runtime.getAssetBlob(asset);
+        return readExifFromBlob(blob);
+      });
+
+      ctx.log('info', `Registered ${impls.length} image capabilities + EXIF reader`);
+    }
+  );
+}
+```
+
+```typescript
+// packages/plugin-image/src/operations.ts (abridged)
+import { createBlobCapabilityImpl } from '@lokvis/plugin-sdk';
+import { canvasEngine, resize as opResize, /* ... */ } from '@lokvis/engine-image';
+
+const isStub = canvasEngine.version.includes('stub');   // AGENTS.md convention
+
+export function buildImageCapabilityImplementations(ctx) {
+  return [
+    { capability: 'image.resize',     engine: 'canvas', operation: opResize },
+    { capability: 'image.compress',   engine: 'canvas', operation: opCompress },
+    // ... 7 more
+  ].map((entry) =>
+    createBlobCapabilityImpl(
+      { capability: entry.capability, engine: entry.engine,
+        outputType: 'image', operation: entry.operation, isStub },
+      ctx
+    )
+  );
+}
+```
+
+Notice how `operation: opResize` is the engine function passed straight through — no wrapper, no double assertion. The engine's `Record<string, any>` signature makes this possible.
+
+## MetadataReader — query-only exception
+
+Some plugin capabilities are queries, not transforms. EXIF reading (`Blob → ExifData`) violates both the Engine Blob↔Blob contract (it produces structured data, not a Blob) and the Capability `Asset[] → Asset[]` contract (it returns `ExifData`, not `Asset[]`). Forcing it through Capability `execute` would require:
+
+- Creating a temporary `data` Asset wrapping the serialized ExifData
+- Caller manually `removeAsset()`-ing it after reading (leak risk)
+- JSON marshal/unmarshal overhead
+- Loss of type fidelity (`ExifData` → `unknown` → cast back)
+
+`MetadataReader<T>` is the dependency-inversion escape hatch:
+
+```typescript
+type MetadataReader<T = unknown> = (asset: Asset) => Promise<T | null>;
+```
+
+The plugin calls `ctx.registerMetadataReader('image.read-exif', reader)`. The SDK forwards this to `runtime._registerMetadataReader(name, reader)`, which stores it in an internal `Map<string, MetadataReader>`. The runtime exposes `readAssetExif(id): Promise<ExifData | null>` which:
+
+1. Loads the asset, returns `null` if `asset.type !== 'image'`
+2. Looks up `'image.read-exif'` in the readers map
+3. Returns `null` if no reader registered (graceful degradation — plugin not installed)
+4. Otherwise calls `reader(asset)` and returns the result
+
+This pattern is the long-term home for any future query-only operations (e.g. `video.read-codecs`, `pdf.read-outline`). It keeps the engine layer pure (Blob↔Blob only) and the capability layer focused on transforms.
+
+## Stub plugin mode
+
+When a plugin's engine is a stub, `createBlobCapabilityImpl` propagates `isStub` into `CapabilityImplementation.status = 'stub'`. The stub-detection convention is `engine.version.includes('stub')` (per `AGENTS.md`).
+
+The three-layer effect:
+
+1. **Plugin layer** — `IMAGE_CAPABILITY_ENTRIES` map to operations whose `engine.version` contains `'stub'`. `createBlobCapabilityImpl` sets `status: 'stub'`.
+2. **Registry layer** — `CapabilityRegistry.resolve(name)` filters out `status === 'stub'` implementations before strategy selection. If only stubs exist, returns `undefined`.
+3. **Executor layer** — `WorkflowExecutor.execute` checks `isStubOnly(capability)` and throws a precise error: `"Capability 'X' is not yet available (only stub engine registered). Install a real engine plugin to use this capability."`
+
+This lets `runtime.capabilities()` advertise stub-backed capabilities (so users see what's coming in Phase 2) while preventing accidental invocation.
+
+## Alpha permissions advisory
+
+`PluginConfig.permissions` is declared but **not yet enforced** in the Alpha runtime. The string union covers:
+
+| Permission | Intended meaning |
+| --- | --- |
+| `asset:read` | Read assets from the AssetStore |
+| `asset:write` | Create / modify / delete assets |
+| `network:none` | No network access (default for offline plugins) |
+| `network:limited` | Fetch from a configured allowlist |
+| `network:full` | Unrestricted network |
+| `filesystem:opfs` | Direct OPFS access (bypass AssetStore abstraction) |
+| `filesystem:local` | Native filesystem access (File System Access API) |
+
+In Alpha:
+
+- `asset:read` / `asset:write` are **always granted** — `PluginContext.runtime` exposes the relevant methods unconditionally.
+- `network:*` is **not enforced** — plugins can `fetch()` freely. Host apps are expected to apply CSP rules at the embed layer.
+- `filesystem:*` is **not enforced** — plugins don't currently have a direct filesystem API, but the permission is reserved for future expansion.
+
+The advisory exists so plugin authors declare intent now and Lokvis can enforce it later without breaking the manifest contract. Phase 2 will wire actual enforcement once the plugin sandbox lands.
+
+## Panels
+
+`definePanel(panel: PanelDefinition): PanelDefinition` is a passthrough factory for UI extension:
+
+```typescript
+interface PanelDefinition {
+  id: string;
+  name: string;
+  location: 'sidebar' | 'inspector' | 'toolbar' | 'modal';
+  component: string;          // host-app-resolved component identifier
+  show?: (context: { selectedAssets: string[] }) => boolean;
+}
+```
+
+Panels are intentionally **declarative** — the plugin emits a `PanelDefinition` and the host app (`@lokvis/ui-react`) decides how to render the `component` identifier. This keeps React out of the plugin SDK and lets non-React hosts (future Vue/Svelte bindings) plug in their own renderers.
+
+In Phase 1 Alpha, `registerPanel` records the definition but the official UI doesn't yet resolve custom components. This is forward-looking API surface; the [embed SDK guide](../guides/embed-sdk) covers what's actually wired today.
+
+## Vitest testing pattern
+
+Per `AGENTS.md`, tests use Vitest with `globals: false` (explicit imports), Chinese descriptions, and fake browser APIs. The plugin-image test (`packages/plugin-image/src/__tests__/plugin.test.ts`) is the canonical reference. Pattern:
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Asset, CapabilityImplementation, PluginContext } from '@lokvis/schema';
+
+// 1. Mock the engine so tests don't need Canvas / createImageBitmap
+vi.mock('@lokvis/engine-image', () => ({
+  canvasEngine: { version: '0.1.0' },                    // not 'stub'
+  resize: vi.fn(async (blob: Blob) => blob),             // passthrough stub
+  compress: vi.fn(async (blob: Blob) => blob),
+  // ... 7 more operations
+}));
+
+// 2. Import after vi.mock (hoisted)
+const { imageToolsPlugin, PLUGIN_NAME } = await import('../plugin.js');
+const { buildImageCapabilityImplementations } = await import('../operations.js');
+
+// 3. Build a mock PluginContext that captures registrations
+function createMockContext() {
+  const registered: CapabilityImplementation[] = [];
+  const readers = new Map<string, (asset: Asset) => Promise<unknown>>();
+  const logs: Array<{ level: string; message: string }> = [];
+  const ctx: PluginContext = {
+    runtime: {
+      getAsset: vi.fn(async (id: string) => ({ id }) as Asset),
+      getAssetBlob: vi.fn(async (asset: Asset) =>
+        new Blob([new Uint8Array([0])], { type: asset.metadata.mimeType })),
+      createAsset: vi.fn(async (blob, metadata, type) => ({
+        id: `out-${Math.random().toString(36).slice(2)}`,
+        type, metadata,
+        blob: { path: 'memory://x', size: blob.size, mimeType: metadata.mimeType },
+        history: [], tags: [],
+        createdAt: Date.now(), updatedAt: Date.now(),
+      }) as Asset),
+      listCapabilities: vi.fn(async () => []),
+      importAsset: vi.fn(async () => 'asset-id'),
+    },
+    eventBus: { on: vi.fn(), onAny: vi.fn(), emit: vi.fn(), clear: vi.fn() },
+    registerCapability: vi.fn((impl) => registered.push(impl)),
+    registerMetadataReader: vi.fn((name, reader) => readers.set(name, reader)),
+    registerPanel: vi.fn(),
+    log: vi.fn((level, message) => logs.push({ level, message })),
+  };
+  return { ctx, registered, readers, logs };
+}
+
+describe('imageToolsPlugin 定义', () => {
+  it('应暴露正确的插件常量', () => {
+    expect(PLUGIN_NAME).toBe('lokvis-image-tools');
+    // ...
+  });
+
+  it('config.capabilities 应包含全部 9 个图像能力声明', () => {
+    const plugin = imageToolsPlugin();
+    expect(plugin.config.capabilities).toHaveLength(9);
+  });
+
+  it('installer 应注册 9 个实现 + 1 个 EXIF reader', () => {
+    const { ctx, registered, readers } = createMockContext();
+    imageToolsPlugin().install(ctx);
+    expect(registered).toHaveLength(9);
+    expect(readers.has('image.read-exif')).toBe(true);
+  });
+});
+```
+
+The pattern: mock the engine at the module boundary, import dynamically after `vi.mock`, and assert that `install(ctx)` produces the right registrations. The mock context captures every `registerCapability` / `registerMetadataReader` / `log` call so tests can assert side effects without spinning up a real runtime.
+
+## What's intentionally not here
+
+- **No React / Redux imports.** Plugins communicate via `PluginContext` and `eventBus` only.
+- **No Cloud / cloud-sdk imports.** The `lokvis-open` ↔ `lokvis-cloud` boundary is enforced at package level.
+- **No sandboxing yet.** Alpha plugins run in the same JS realm as the host. Phase 2 will introduce permission enforcement.
+- **No dynamic loading.** Plugins are passed to `createLokvis({ plugins })` or `loadPlugin()` as already-imported `{ config, install }` objects. Future plugin-marketplace work may add dynamic `import()` loading, but that's post-Alpha.

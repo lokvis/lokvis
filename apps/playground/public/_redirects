@@ -1,0 +1,7 @@
+# Astro 静态站，所有路由已预渲染为 .html
+# 此文件确保直接访问深层路径时正确 fallback
+/sdk/*    /sdk/index.html  200
+/runtime/*  /runtime/index.html  200
+/plugin/*   /plugin/index.html   200
+/workflow/* /workflow/index.html 200
+/mcp/*      /mcp/index.html      200

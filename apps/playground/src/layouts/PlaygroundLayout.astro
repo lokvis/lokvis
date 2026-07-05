@@ -1,0 +1,308 @@
+---
+import '../styles/global.css';
+
+/**
+ * Playground 极简壳（W14.1 升级）
+ *
+ * 设计目标：开发者试用 @lokvis/sdk 的最小容器。
+ * 不含商业化元素（Workspace 组件、付费墙、广告）—— 那些在 cloud/apps/web。
+ *
+ * Layout 结构：顶部品牌条 + 左侧 sidebar 导航 + 右侧内容区。
+ *
+ * W14.1 nav 极简化：
+ *   - Demos：5 个核心 demo（SDK/Runtime/Plugin/Workflow/McpManifest）+ Code Editor
+ *   - Tools (W5)：8 个单工具页（折叠到次要位置，保留直达入口）
+ *   - More：image/history/components 等历史 demo，默认折叠
+ *
+ * 每个页面通过 slot 注入内容（通常是一个 client:only React 组件）。
+ */
+
+interface Props {
+  title?: string;
+  /** 当前激活的 sidebar 项 ID(对应 NAV_GROUPS 中 item.id) */
+  active?: string;
+  /** SEO description(覆盖默认)。W8.7 工具页通过 ToolLayout 注入 */
+  description?: string;
+  /** SEO keywords(逗号分隔)。可选 */
+  keywords?: string;
+  /** OG 标题(覆盖 title)。可选 */
+  ogTitle?: string;
+  /** OG 描述(默认取 description)。可选 */
+  ogDescription?: string;
+  /** OG 图像 URL 或 data URI。可选 */
+  ogImage?: string;
+  /** OG 类型,默认 website */
+  ogType?: string;
+}
+
+const {
+  title = 'Lokvis Playground',
+  active = 'home',
+  description = 'Lokvis Playground — try @lokvis/sdk in your browser',
+  keywords,
+  ogTitle,
+  ogDescription,
+  ogImage,
+  ogType = 'website',
+} = Astro.props;
+
+const finalOgTitle = ogTitle ?? title;
+const finalOgDescription = ogDescription ?? description;
+
+// Base 路径处理：astro.config.mjs 配置 `base: '/'`（W14.7 起 playground 部署到根域），
+// 导航 href 通过 import.meta.env.BASE_URL 拼接，确保 base 变更时路径自动跟随。
+// Review fix：原注释称 base 为 '/playground'，与实际配置不符，已更正。
+const rawBase = import.meta.env.BASE_URL;
+const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+
+// PWA UI 组件（W15.4 / W15.5 / W15.8）
+// client:only="react" —— 仅客户端渲染，避免 SSR 时 window/localStorage 未定义
+import InstallPrompt from '../components/pwa/InstallPrompt.tsx';
+import OfflineIndicator, { OfflineStatusDot } from '../components/pwa/OfflineIndicator.tsx';
+import EngineLoader from '../components/pwa/EngineLoader.tsx';
+
+// 导航分三组：
+//   - Demos: 5 个核心 demo + Code Editor（W14.1 主推）
+//   - Tools (W5): 8 个单工具页（直达单一 capability，次要位置）
+//   - More: 历史 demo（image/history/components），默认折叠
+interface NavItem {
+  id: string;
+  label: string;
+  href: string;
+  desc: string;
+}
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+  /** 是否默认折叠（More 组用 <details> 实现） */
+  collapsible?: boolean;
+}
+const NAV_GROUPS: NavGroup[] = [
+  {
+    title: 'Demos',
+    items: [
+      { id: 'home', label: 'Code Editor', href: base, desc: 'Run arbitrary SDK code' },
+      { id: 'sdk', label: 'SDK Basics', href: `${base}sdk`, desc: 'createLokvis() · capabilities · run' },
+      { id: 'runtime', label: 'Runtime Basics', href: `${base}runtime`, desc: 'Import asset + list capabilities' },
+      { id: 'plugin', label: 'Plugin Loader', href: `${base}plugin`, desc: 'loadPlugin() dynamic capability' },
+      { id: 'workflow', label: '5-Step Workflow', href: `${base}workflow`, desc: 'resize → compress → watermark → rotate → convert' },
+      { id: 'mcp', label: 'MCP Manifest', href: `${base}mcp`, desc: 'Expose capabilities as MCP tools' },
+    ],
+  },
+  {
+    title: 'Tools (W5)',
+    items: [
+      { id: 'tools/compress', label: 'Compress', href: `${base}tools/compress`, desc: 'image.compress · 格式+质量' },
+      { id: 'tools/resize', label: 'Resize', href: `${base}tools/resize`, desc: 'image.resize · 尺寸+比例' },
+      { id: 'tools/convert', label: 'Convert', href: `${base}tools/convert`, desc: 'image.convert · 格式互转' },
+      { id: 'tools/crop', label: 'Crop', href: `${base}tools/crop`, desc: 'image.crop · 区域裁剪' },
+      { id: 'tools/watermark', label: 'Watermark', href: `${base}tools/watermark`, desc: 'image.watermark · 文字水印' },
+      { id: 'tools/watermark-batch', label: 'Watermark Batch', href: `${base}tools/watermark-batch`, desc: '批量加水印(并发 4)' },
+      { id: 'tools/batch', label: 'Batch Queue', href: `${base}tools/batch`, desc: '批量并发处理(并发 4)' },
+      { id: 'tools/download', label: 'Download Manager', href: `${base}tools/download`, desc: '单/批量下载管理' },
+    ],
+  },
+  {
+    title: 'More',
+    collapsible: true,
+    items: [
+      { id: 'image', label: 'Image Workflow (legacy)', href: `${base}image`, desc: 'Old 2-step workflow demo' },
+      { id: 'history', label: 'Undo / Redo', href: `${base}history`, desc: 'History stack & time travel' },
+      { id: 'components', label: 'UI Components', href: `${base}components`, desc: 'Design system showcase' },
+    ],
+  },
+];
+---
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    {/* PWA 基础设施（W15.1 + review fix）：manifest + theme-color + 图标 + iOS Safari 兼容
+        icon-192.png / icon-512.png / icon-maskable-512.png 由 scripts/generate-pwa-icons.mjs 生成 */}
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#6366f1" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Lokvis" />
+
+    <meta name="description" content={description} />
+    {keywords && <meta name="keywords" content={keywords} />}
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{title}</title>
+
+    {/* Open Graph(W8.7)—— 分享到 Twitter/微信/Slack 时显示卡片预览 */}
+    <meta property="og:title" content={finalOgTitle} />
+    <meta property="og:description" content={finalOgDescription} />
+    <meta property="og:type" content={ogType} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta property="og:site_name" content="Lokvis Playground" />
+
+    {/* Twitter Card(W8.7)*/}
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={finalOgTitle} />
+    <meta name="twitter:description" content={finalOgDescription} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+    {/* Sentry 监控接入(W12.3)
+        - DSN 通过 PUBLIC_SENTRY_DSN 注入,未配置时为 no-op
+        - SDK 走 ES dynamic import 懒加载,不进首屏 bundle
+        - 遵循 DNT,用户拒绝跟踪时不上报
+        - 隐私保护:beforeBreadcrumb 剔除可能含文件名的输入,只保留 category */}
+    <script>
+      import { initSentry } from '../toolkit/sentry.js';
+      initSentry();
+    </script>
+  </head>
+  <body class="h-screen overflow-hidden bg-zinc-950 text-zinc-100">
+    {/* PWA OfflineIndicator banner（W15.5）—— 顶部固定，离线时滑入 */}
+    <OfflineIndicator client:only="react" />
+
+    <div class="flex h-full flex-col">
+      {/* 顶部品牌条 */}
+      <header class="flex items-center justify-between border-b border-zinc-800 bg-zinc-950 px-5 py-3">
+        <div class="flex items-center gap-3">
+          <span class="text-lg font-bold" style="background: linear-gradient(135deg, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">◆</span>
+          <span class="text-sm font-semibold tracking-tight">Lokvis Playground</span>
+          <span class="hidden rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline">open source · dev demo</span>
+        </div>
+        <div class="flex items-center gap-3">
+          {/* PWA 在线状态点（W15.5）—— 绿色在线 / 红色离线 */}
+          <OfflineStatusDot client:only="react" />
+          <a href="https://lokvis.com" class="text-xs text-zinc-500 transition-colors hover:text-indigo-400">→ Cloud</a>
+        </div>
+      </header>
+
+      <div class="flex flex-1 overflow-hidden">
+        {/* Sidebar 导航(分组:Demos + Tools W5 + More 折叠)*/}
+        <aside class="hidden w-60 flex-shrink-0 overflow-y-auto border-r border-zinc-800 bg-zinc-950/50 md:flex md:flex-col">
+          <nav class="flex flex-1 flex-col gap-3 p-3">
+            {NAV_GROUPS.map((group) => (
+              group.collapsible ? (
+                <details class="group flex flex-col gap-1">
+                  <summary class="flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600 transition-colors hover:bg-zinc-900 hover:text-zinc-400">
+                    <span>{group.title}</span>
+                    <span class="text-zinc-600 transition-transform group-open:rotate-90">›</span>
+                  </summary>
+                  <div class="flex flex-col gap-1">
+                    {group.items.map((item) => (
+                      <a
+                        href={item.href}
+                        class={`group rounded-md px-3 py-2 text-xs transition-colors ${
+                          active === item.id
+                            ? 'bg-indigo-600/10 text-indigo-400 ring-1 ring-inset ring-indigo-500/20'
+                            : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                        }`}
+                      >
+                        <div class="font-semibold">{item.label}</div>
+                        <div class={`mt-0.5 text-[10px] ${active === item.id ? 'text-indigo-400/70' : 'text-zinc-600 group-hover:text-zinc-500'}`}>{item.desc}</div>
+                      </a>
+                    ))}
+                  </div>
+                </details>
+              ) : (
+                <div class="flex flex-col gap-1">
+                  <div class="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">{group.title}</div>
+                  {group.items.map((item) => (
+                    <a
+                      href={item.href}
+                      class={`group rounded-md px-3 py-2 text-xs transition-colors ${
+                        active === item.id
+                          ? 'bg-indigo-600/10 text-indigo-400 ring-1 ring-inset ring-indigo-500/20'
+                          : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                      }`}
+                    >
+                      <div class="font-semibold">{item.label}</div>
+                      <div class={`mt-0.5 text-[10px] ${active === item.id ? 'text-indigo-400/70' : 'text-zinc-600 group-hover:text-zinc-500'}`}>{item.desc}</div>
+                    </a>
+                  ))}
+                </div>
+              )
+            ))}
+          </nav>
+          <div class="border-t border-zinc-800 p-3 text-[10px] text-zinc-600">
+            <div>sdk <span class="text-zinc-400">@0.1.0</span></div>
+            <div class="mt-0.5">runs locally · no upload</div>
+          </div>
+        </aside>
+
+        {/* 内容区 */}
+        <main class="flex flex-1 flex-col overflow-hidden">
+          <slot />
+        </main>
+      </div>
+    </div>
+
+    {/* PWA InstallPrompt（W15.4）—— 捕获 beforeinstallprompt + 底部安装 banner
+        client:only="react"：避免 SSR 时 window 事件 / localStorage 不可用 */}
+    <InstallPrompt client:only="react" />
+
+    {/* PWA EngineLoader（W15.8）—— 首次加载 engine 进度条 + 预估时间 + 重试
+        client:only="react"：依赖 sessionStorage / engine-image lazy 接口 */}
+    <EngineLoader client:only="react" />
+
+    {/* Service Worker 注册（W15.1）+ 消息监听（W15.7 + review fix）
+        - 仅 production 注册，dev 模式跳过避免缓存干扰 HMR
+        - scope: '/' 根域（base 已配置为 '/'）
+        - sw.js 在 public/ 下，Astro 原样输出到 dist 根
+        - W15.7：监听 SW_ACTIVATED → 调 preloadTop5Operations() 后台预加载 top 5 engine chunk
+          （dynamic import 触发 chunk fetch，SW 的 immutable/SWR 缓存自然生效）
+        - Review fix（Major-2）：import 从 @lokvis/engine-image/lazy.js 改为
+          @lokvis/plugin-image（Capability 层），避免 UI → Engine 跨层引用
+        - Review fix（Minor-5）：message 监听器添加 pagehide 清理，避免 bfcache 恢复时重复绑定
+        - Review fix（Minor-6）：SW_INSTALLED 区分首次安装（无需 reload）与更新（需 reload） */}
+    {import.meta.env.PROD && (
+      <script>
+        if ('serviceWorker' in navigator) {
+          // 监听 SW 消息（必须在 register 前注册，避免错过早期 activate 通知）
+          const handleSWMessage = (event: MessageEvent) => {
+            try {
+              const data = event.data || {};
+              if (data.type === 'SW_ACTIVATED') {
+                // SW 已激活 → 后台预加载 top 5 operation（通过 Capability 层 import，
+                // ESM dynamic import 触发浏览器 fetch 对应 chunk，SW 缓存自然接管）。
+                // 失败静默，不影响主流程。
+                import('@lokvis/plugin-image')
+                  .then((m) => m.preloadTop5Operations())
+                  .then((loaded) => console.log('[SW] top5 preloaded:', loaded))
+                  .catch((err) => console.warn('[SW] top5 preload failed:', err));
+              } else if (data.type === 'SW_INSTALLED') {
+                // Review fix（Minor-6）：区分首次安装与更新
+                // skipWaiting() 使新 SW 立即接管；首次安装时页面无旧 SW 控制，无需 reload；
+                // 仅更新场景下新 SW 接管后需 reload 才能用新资源。
+                navigator.serviceWorker.getRegistration().then((reg) => {
+                  if (!reg) {
+                    console.log('[SW] first install, version:', data.version);
+                  } else {
+                    console.log('[SW] update installed, reload to activate:', data.version);
+                  }
+                });
+              }
+            } catch (err) {
+              console.warn('[SW] message handler error:', err);
+            }
+          };
+          navigator.serviceWorker.addEventListener('message', handleSWMessage);
+
+          // Review fix（Minor-5）：页面卸载时移除监听器，避免 bfcache 恢复时重复绑定
+          window.addEventListener('pagehide', () => {
+            navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+          }, { once: true });
+
+          window.addEventListener('load', () => {
+            // Review fix（Minor）：SW 路径与 scope 从 BASE_URL 派生，
+            // 避免 playground 部署到子路径时 SW 注册到错误 scope。
+            // （base='/' 时退化为原行为 '/sw.js' + scope '/'）
+            const swBase = import.meta.env.BASE_URL;
+            navigator.serviceWorker.register(`${swBase}sw.js`, { scope: swBase })
+              .then((reg) => console.log('[SW] registered', reg.scope))
+              .catch((err) => console.warn('[SW] registration failed', err));
+          });
+        }
+      </script>
+    )}
+  </body>
+</html>

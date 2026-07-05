@@ -3,7 +3,7 @@
  *
  * 为每个工具页生成 1200×630 PNG:用 sharp 把 `buildOgSvg` 产出的 SVG 栅格化。
  * Astro 静态构建 + getStaticPaths → 构建期生成 `og/<slug>.png` 静态文件,
- * 部署后通过绝对 URL `https://lokvis.com/playground/og/<slug>.png` 引用。
+ * 部署后通过绝对 URL `https://playground.lokvis.dev/og/<slug>.png` 引用（W14.7 根域部署）。
  *
  * 为什么不用 SVG data URI:Twitter / Facebook / LinkedIn 等平台均不支持 SVG
  * (data URI 或 .svg URL)作为 og:image,且 og:image 规范要求绝对 HTTPS URL。

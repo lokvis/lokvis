@@ -2,3 +2,16 @@
 /*
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Resource-Policy: same-origin
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# 静态资产不可变缓存（Astro 构建产物带 hash）
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML 文件短缓存 + 必须 revalidate
+/*
+  Cache-Control: public, max-age=0, must-revalidate

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>You're offline · Lokvis Playground</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <style>
+      /* 自包含离线 fallback 页（W15.6）—— 无外部 CSS/JS 依赖，确保离线可显示。
+         暗色主题与 playground 一致（background #09090b / color #fafafa）。 */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+      }
+      body {
+        background: #09090b;
+        color: #fafafa;
+        font-family:
+          system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1.25rem;
+        min-height: 100vh;
+      }
+      main {
+        width: 100%;
+        max-width: 480px;
+        text-align: center;
+      }
+      .logo {
+        display: inline-block;
+        width: 56px;
+        height: 56px;
+        margin-bottom: 1.25rem;
+      }
+      h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.5rem;
+      }
+      .subtitle {
+        color: #a1a1aa;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin: 0 auto 1.75rem;
+        max-width: 36ch;
+      }
+      .tips {
+        list-style: none;
+        margin: 0 0 1.75rem;
+        padding: 0;
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .tips li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.625rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: #d4d4d8;
+        padding: 0.625rem 0.875rem;
+        border-radius: 0.5rem;
+        background: #18181b;
+        border: 1px solid #27272a;
+      }
+      .tips .mark {
+        flex-shrink: 0;
+        font-weight: 700;
+        width: 1.1rem;
+        text-align: center;
+      }
+      .tips .ok {
+        color: #34d399;
+      }
+      .tips .no {
+        color: #f87171;
+      }
+      button {
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        color: #ffffff;
+        border: none;
+        border-radius: 0.5rem;
+        padding: 0.625rem 1.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.1s ease, opacity 0.15s ease;
+      }
+      button:hover {
+        opacity: 0.92;
+      }
+      button:active {
+        transform: translateY(1px);
+      }
+      .footer {
+        margin-top: 2rem;
+        font-size: 0.7rem;
+        color: #52525b;
+        letter-spacing: 0.02em;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg
+        class="logo"
+        viewBox="0 0 56 56"
+        xmlns="http://www.w3.org/2000/svg"
+        role="img"
+        aria-label="Lokvis"
+      >
+        <defs>
+          <linearGradient id="lokvisGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#6366f1" />
+            <stop offset="100%" stop-color="#a855f7" />
+          </linearGradient>
+        </defs>
+        <rect width="56" height="56" rx="12" fill="url(#lokvisGrad)" />
+        <text
+          x="50%"
+          y="54%"
+          dominant-baseline="middle"
+          text-anchor="middle"
+          font-size="30"
+          fill="#ffffff"
+        >◆</text>
+      </svg>
+      <h1>You're offline</h1>
+      <p class="subtitle">
+        Lokvis Playground needs a connection to load some features
+      </p>
+      <ul class="tips">
+        <li>
+          <span class="mark ok">✓</span>
+          <span>Cached pages (SDK / Runtime / Plugin / Workflow / MCP demos) still work</span>
+        </li>
+        <li>
+          <span class="mark no">✗</span>
+          <span>Network-dependent features (asset upload, plugin marketplace) need connection</span>
+        </li>
+        <li>
+          <span class="mark ok">✓</span>
+          <span>Once reconnected, this page will auto-reload</span>
+        </li>
+      </ul>
+      <button onclick="window.location.reload()">Try again</button>
+      <p class="footer">Lokvis Playground · v0.2.0-beta · local-first image workspace</p>
+    </main>
+    <script>
+      // 网络恢复后自动 reload：
+      // 1. navigator.onLine + window 'online' 事件（浏览器原生）
+      // 2. SW 检测到网络恢复时通过 postMessage 通知本页（type: 'NETWORK_RECOVERED'）
+      // 任一信号触发即 reload，确保用户回到在线态后立即恢复。
+      (function () {
+        if (typeof window === 'undefined') return;
+        function reloadIfOnline() {
+          // 双重校验：仅在线时才 reload，避免误触发
+          if (navigator.onLine) {
+            window.location.reload();
+          }
+        }
+        window.addEventListener('online', reloadIfOnline);
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.addEventListener('message', function (event) {
+            var data = event.data || {};
+            if (data.type === 'NETWORK_RECOVERED') {
+              reloadIfOnline();
+            }
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

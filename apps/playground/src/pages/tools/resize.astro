@@ -1,7 +1,10 @@
 ---
 import ToolLayout from '../../layouts/ToolLayout.astro';
 import ResizeTool from '../../components/tools/ResizeTool.tsx';
+import { ErrorBoundary } from '../../components/ErrorBoundary.tsx';
 ---
 <ToolLayout slug="resize">
-  <ResizeTool client:only="react" />
+  <ErrorBoundary client:only="react">
+    <ResizeTool />
+  </ErrorBoundary>
 </ToolLayout>

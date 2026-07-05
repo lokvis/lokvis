@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightTypeDoc from 'starlight-typedoc';
 
 // https://astro.build/config
 export default defineConfig({
@@ -23,14 +24,41 @@ export default defineConfig({
       sidebar: [
         { label: 'Overview', slug: 'index' },
         { label: 'Getting Started', slug: 'getting-started' },
-        { label: 'Architecture', slug: 'architecture' },
+        {
+          label: 'Architecture',
+          collapsed: true,
+          items: [
+            { label: 'Overview', slug: 'architecture' },
+            { label: 'Runtime', slug: 'architecture/runtime' },
+            { label: 'Engine', slug: 'architecture/engine' },
+            { label: 'Capability', slug: 'architecture/capability' },
+            { label: 'Plugin SDK', slug: 'architecture/plugin' },
+          ],
+        },
         { label: 'Capabilities', slug: 'capabilities' },
         { label: 'Plugins', slug: 'plugins' },
         { label: 'MCP Integration', slug: 'mcp' },
         { label: 'Workflows', slug: 'workflows' },
+        {
+          label: 'Guides',
+          collapsed: true,
+          items: [
+            { label: 'Embed the SDK', slug: 'guides/embed-sdk' },
+            { label: 'Write Your First Plugin', slug: 'guides/write-first-plugin' },
+            { label: 'Build a Custom Workspace', slug: 'guides/custom-workspace' },
+            { label: 'CLI Automation', slug: 'guides/cli-automation' },
+          ],
+        },
         { label: 'SDK', slug: 'sdk' },
         { label: 'CLI', slug: 'cli' },
         { label: 'Roadmap', slug: 'roadmap' },
+      ],
+
+      // Starlight 插件(W13.2: TypeDoc 自动生成 API Reference)
+      plugins: [
+        starlightTypeDoc({
+          sidebar: { collapsed: true, label: 'API Reference' },
+        }),
       ],
 
       // 全局搜索(Pagefind 客户端搜索,构建时索引,无需服务端)

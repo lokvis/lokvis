@@ -1,7 +1,10 @@
 ---
 import ToolLayout from '../../layouts/ToolLayout.astro';
 import DownloadManager from '../../components/tools/DownloadManager.tsx';
+import { ErrorBoundary } from '../../components/ErrorBoundary.tsx';
 ---
 <ToolLayout slug="download">
-  <DownloadManager client:only="react" />
+  <ErrorBoundary client:only="react">
+    <DownloadManager />
+  </ErrorBoundary>
 </ToolLayout>

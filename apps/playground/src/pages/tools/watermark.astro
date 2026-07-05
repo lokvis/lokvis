@@ -1,7 +1,10 @@
 ---
 import ToolLayout from '../../layouts/ToolLayout.astro';
 import WatermarkTool from '../../components/tools/WatermarkTool.tsx';
+import { ErrorBoundary } from '../../components/ErrorBoundary.tsx';
 ---
 <ToolLayout slug="watermark">
-  <WatermarkTool client:only="react" />
+  <ErrorBoundary client:only="react">
+    <WatermarkTool />
+  </ErrorBoundary>
 </ToolLayout>

@@ -20,3 +20,13 @@ export {
   type ImageCapabilityEntry,
 } from './operations.js';
 export { readExifFromBlob } from './exif-reader.js';
+// Engine 预加载桥接（review fix：UI 通过 Capability 层访问 Engine 懒加载工具，避免跨层引用）
+export {
+  lazyLoadOperation,
+  prefetchOperation,
+  preloadTop5Operations,
+  clearOperationCache,
+  isOperationLoaded,
+  TOP_5_OPERATIONS,
+  type BlobOperation,
+} from './engine-prefetch.js';

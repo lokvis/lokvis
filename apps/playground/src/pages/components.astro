@@ -1,7 +1,10 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import PlaygroundLayout from '../layouts/PlaygroundLayout.astro';
 import ComponentsDemo from '../components/demos/ComponentsDemo.tsx';
+import { ErrorBoundary } from '../components/ErrorBoundary.tsx';
 ---
-<BaseLayout title="Lokvis Playground · UI Components" active="components">
-  <ComponentsDemo client:only="react" />
-</BaseLayout>
+<PlaygroundLayout title="Lokvis Playground · UI Components" active="components">
+  <ErrorBoundary client:only="react">
+    <ComponentsDemo />
+  </ErrorBoundary>
+</PlaygroundLayout>

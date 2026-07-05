@@ -218,6 +218,35 @@
 
 ## Review 记录
 
+### Review #3 — 2026-07-04 W12 Alpha 里程碑技术债复核
+
+- **范围**:W12 里程碑(W12.1-W12.6 共 6 项任务)完成后的技术债状态复核
+- **方法**:全量 typecheck + test + build 验证 + 文档与代码一致性检查
+- **验证结果**:
+  - typecheck 0 errors(9 包抽样:`@lokvis/playground` / `runtime` / `schema` / `sdk` / `ui-react` / `engine-image` / `plugin-image` / `cli` / `mcp-server`;非全量 36 包,详见 PR #14 Review #4 补充说明)
+  - test 777/777 通过(42 测试文件,19.16s;PR #14 Review #4 修复后 sentry 测试从 12 重写为 26,总量 763→777)
+  - build 20/20 任务通过(W12.2 基线)
+- **新债务登记**:**0 项**——W12.1-W12.6 期间未引入新技术债
+  - W12.1 Alpha 验收(报告):非代码任务,无债务引入
+  - W12.2 性能基线(报告):非代码任务,识别 CodeMirror 444KB chunk 为 W21.3 优化候选(已记入 W12.2 报告,非新债务)
+  - W12.3 Sentry 接入:新增 `sentry.ts` + `ErrorBoundary.tsx`,DSN 未配置时 no-op。**PR #14 Review #4 补充**:初版 `sentry.ts` 含 `as unknown as` 双断言(访问 `window.doNotTrack`),已在 PR #14 review 修复中改为 `navigator.doNotTrack` + `navigator.globalPrivacyControl` 直接访问,无需登记为 TD-4.5(已清偿)
+  - W12.4 文档三页定稿:非代码任务,无债务引入
+  - W12.5 README 重写:非代码任务,无债务引入
+  - W12.6 LICENSE 审计:非代码任务,无债务引入
+- **既有债务状态**:7 类 16 项技术债**全部维持原状**,无新增 / 无恶化
+  - Phase 2 路线 2 项(TD-1.1 / TD-1.2):按 Phase 2 路线推进,不阻塞 Alpha
+  - 测试时序 2 项(TD-2.1 / TD-2.2):CI 上未出现 flaky,触发条件未达
+  - 静默吞错 4 处(TD-3.1 ~ TD-3.4):intentional cleanup,需 assetStore 错误类型分层才能根治
+  - 类型 workaround 4 处(TD-4.1 ~ TD-4.4):局部小问题,收益低;TD-4.3 CLI 触发条件为 Phase 4 正式发布前
+  - UI ObjectURL 2 处(TD-5.1):有防护无泄漏,重构影响面大
+  - 事件订阅 cleanup 3 处(TD-6.1 / TD-6.2):仅一处用三连订阅,抽象收益不足
+  - 测试环境 hack 3 处(TD-7.1 ~ TD-7.3):合理写法,非债务
+- **决定不修**:本次 review 未清偿任何既有债务。理由:所有债务均评估为"有防护的局部 workaround"或"抽象收益不足"或"Phase 2 路线性取舍",无阻塞性问题。W12.7 缓冲期主要用于吸收 W12.1-W12.6 的进度偏差与文档同步,非激进重构窗口
+- **Phase 2 候选**:以下债务建议在 Phase 2 启动时优先评估清偿:
+  - TD-3.x(静默吞错):接入 Sentry 后,真实错误应上报而非静默吞掉
+  - TD-5.1(ObjectURL):若重构 assets-slice,顺势抽象 `useObjectUrl` hook
+  - TD-1.1(MCP Node 文件):Phase 2 MCP server v1 开发时落地
+
 ### Review #2 — 2026-07-04 PR #11 review 修复
 
 - **范围**:PR #11 review 发现的 6 个问题(1 Blocker + 2 Major + 3 Minor)

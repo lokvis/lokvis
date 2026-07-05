@@ -58,7 +58,7 @@ Metadata in IndexedDB (via Dexie in future), large files in OPFS (Origin Private
 
 ## Worker 隔离(Worker Isolation)
 
-所有重计算(图像编解码、未来 WASM 引擎)运行在独立 Web Worker 内,与主线程 UI 解耦,避免长任务阻塞渲染(对应白皮书 T1「浏览器内存/性能 ★★★★★」)。跨域隔离(COOP/COEP)在 `apps/web/public/_headers` 配置,启用 `SharedArrayBuffer` 供多线程 WASM 使用。
+所有重计算(图像编解码、未来 WASM 引擎)运行在独立 Web Worker 内,与主线程 UI 解耦,避免长任务阻塞渲染(对应白皮书 T1「浏览器内存/性能 ★★★★★」)。跨域隔离(COOP/COEP)在 `apps/playground/public/_headers` 配置,启用 `SharedArrayBuffer` 供多线程 WASM 使用。
 
 ### 通信协议(`@lokvis/runtime` worker-protocol)
 
@@ -128,6 +128,8 @@ Runtime 只操作 `AssetId`,不直接持有 Blob。资产存储由 `createAssetS
 
 浏览器单 tab 内存有限(桌面典型 2-4GB,移动端更少),大图批量处理极易触发 OOM 崩溃(整个 tab 被杀,丢失所有中间结果)。W3 通过四层机制把"要么全量要么崩溃"的单点决策,细化为可观测、可降级的内存安全管线。
 
+> Alpha 阶段(W12)已落地的能力目录:9 个 image 域能力(resize / compress / convert / crop / rotate / flip / watermark / setBackground / filter)+ 1 个 EXIF MetadataReader。视频/PDF/Audio 引擎为 stub,Phase 2 接入。详见 `docs/capabilities.md`。
+
 ### 流式类型契约(W3.1)
 
 `engine-image/src/types.ts` 定义了面向未来 WASM 引擎(逐行/分块编解码)的流式接口:
@@ -183,3 +185,28 @@ L4 触发条件:输入 blob 本身超预算且不可溢出,或解码后位图按
 5. **worker-adapter**:`startImageWorker` 维护 `Map<id, AbortController>` 在途表;收到 `cancel` 消息时 `controller.abort()` 中止对应操作;`dispatchImageMethod` 与 `createImageWorkerHandler` 把 signal 下传给操作。
 
 `throwIfAborted(signal)` 抛 `DOMException('AbortError')`,与 Web 平台约定一致,上层 executor 已将 cancelled 状态映射到 `WorkflowResult.cancelled`。
+
+## Workflow 编排(W10-W11)
+
+Year 1 仅支持线性工作流(最多 5 步)。`WorkflowBuilder` 提供链式 API:`add(capability, params)` / `remove(nodeId)` / `move(from, to)` / `swap(a, b)` / `updateParams(nodeId, params)`,内部校验 5 步上限(`MAX_WORKFLOW_STEPS = 5`)。`build()` 输出 `Workflow` 对象,经 `validateWorkflow()` 校验空节点 / 输入输出连接 / 相邻节点 capability 兼容性(三层:输入节点 inputTypes 与 workflow.inputs.type / 相邻节点 outputTypes∩inputTypes / 输出节点 outputTypes)。
+
+UI 端 `@lokvis/ui-react` 提供:
+- `WorkflowEditor.tsx`:HTML5 Drag and Drop API 拖拽重排 + 键盘 ← → 移动 + Delete 删除 + InsertConnector hover 插入
+- `useWorkflows.ts`:5 槽位免费 / Pro 无限 + localStorage 持久化 + JSON 导入导出
+- `useShareLink.ts`:`?workflow=<base64url>` 分享链接(UTF-8 安全,处理中文水印)
+- `data/workflow-templates.ts`:5 个内置模板(web-optimize / social-batch / ecommerce-main / print-prep / screenshot-compress)
+
+## 版本与兼容性(Alpha)
+
+- **Runtime version**:`0.1.0`(`RUNTIME_VERSION` 常量)
+- **Workflow schema**:`v1`(分享链接 `?workflow=<base64url>` 内 `{v:1, nodes:[...]}`)
+- **MCP manifest version**:`2025-06-18`(MCP spec draft)
+- **Worker protocol**:握手时 Worker 发送 `ready` 携带协议版本,Host 校验后才开始通信
+- **Engine version**:`canvasEngine.version = '0.1.0'`;stub 引擎 `version` 包含 `'stub'` 标识,Plugin 层 `wrapAsImplementation()` 检测后设置 `CapabilityImplementation.status = 'stub'`,`CapabilityRegistry.resolve()` 自动跳过
+
+**Phase 1 Alpha 已知限制**(不阻塞 Alpha,详见 `docs/reports/W12.1-alpha-acceptance.md` §5):
+- L1:视频/PDF/Audio 引擎为 stub(Phase 2 接入 ffmpeg.wasm / pdf-lib)
+- L2:Plugin SDK 仅 Alpha(ADR-O2,第三方插件暂不可用,Phase 2 优先 MCP server)
+- L3:真实浏览器 Lighthouse 未跑(待 playground 部署后 W16.5 任务)
+- L4:内部 Alpha 测试 5 人 1 天未执行(W11.7 非代码任务,W12.7 缓冲期执行)
+- L5:Sentry 监控已接入但未配置 DSN(W12.3 已落地,部署时注入 `PUBLIC_SENTRY_DSN`)
