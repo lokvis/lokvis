@@ -37,7 +37,7 @@
  */
 
 // SW 版本号 —— 更新此值会触发新 SW 接管 + 旧 cache 清理
-const SW_VERSION = 'v3-w15.7';
+const SW_VERSION = 'v3.1-w15.3-fix';
 
 // Cache 命名（修改版本时同步改后缀，activate 阶段会清理旧版本 cache）
 const PRECACHE = 'lokvis-precache-v1';
@@ -183,13 +183,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // /assets/*：immutable 缓存（带 hash）+ 失败重试 + 备用 CDN（W15.3）
-  if (url.pathname.startsWith('/assets/')) {
+  // 构建产物目录：immutable 缓存（带 hash）+ 失败重试 + 备用 CDN（W15.3）
+  // 同时覆盖 /assets/* 与 Astro 默认的 /_astro/*（W15.3 fix：原仅 /assets/ 导致
+  // Astro 真实输出的 /_astro/*.js chunk 不触发 immutable/retry，走通用 SWR 分支）
+  if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/_astro/')) {
     if (isImmutableAsset(url)) {
       // 带 hash 的构建产物：cache-first + 永不 revalidate
       event.respondWith(handleImmutableAsset(request));
     } else {
-      // /assets/* 下无 hash 的资源：stale-while-revalidate + 重试 + 备用 CDN
+      // 无 hash 的资源：stale-while-revalidate + 重试 + 备用 CDN
       event.respondWith(handleAssetWithRetry(request));
     }
     return;
@@ -321,7 +323,7 @@ const HASH_RE = /[-_.][0-9a-f]{8,}\.(?:js|css|mjs|wasm|woff2?)$/i;
  * @returns {boolean}
  */
 function isImmutableAsset(url) {
-  if (!url.pathname.startsWith('/assets/')) return false;
+  if (!url.pathname.startsWith('/assets/') && !url.pathname.startsWith('/_astro/')) return false;
   return HASH_RE.test(url.pathname);
 }
 
