@@ -9,6 +9,9 @@ build/
 .turbo/
 *.tsbuildinfo
 
+# TypeDoc generated API reference (auto-generated at build time by starlight-typedoc)
+apps/docs/src/content/docs/api/
+
 # Environment
 .env
 .env.local

@@ -11,7 +11,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check && tsc --noEmit",
-    "clean": "rm -rf dist .astro"
+    "clean": "rm -rf dist .astro src/content/docs/api"
   },
   "dependencies": {
     "@astrojs/mdx": "^7.0.0",
