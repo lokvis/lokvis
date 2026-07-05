@@ -1,0 +1,51 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@lokvis/schema": ["packages/schema/src/index.ts"],
+      "@lokvis/schema/*": ["packages/schema/src/*"],
+      "@lokvis/runtime": ["packages/runtime/src/index.ts"],
+      "@lokvis/runtime/*": ["packages/runtime/src/*"],
+      "@lokvis/sdk": ["packages/sdk/src/index.ts"],
+      "@lokvis/sdk/*": ["packages/sdk/src/*"],
+      "@lokvis/capability": ["packages/capability/src/index.ts"],
+      "@lokvis/capability/*": ["packages/capability/src/*"],
+      "@lokvis/plugin-sdk": ["packages/plugin-sdk/src/index.ts"],
+      "@lokvis/plugin-sdk/*": ["packages/plugin-sdk/src/*"],
+      "@lokvis/plugin-image": ["packages/plugin-image/src/index.ts"],
+      "@lokvis/plugin-image/*": ["packages/plugin-image/src/*"],
+      "@lokvis/engine-image": ["packages/engine-image/src/index.ts"],
+      "@lokvis/engine-image/*": ["packages/engine-image/src/*"],
+      "@lokvis/ui-react": ["packages/ui-react/src/index.ts"],
+      "@lokvis/ui-react/*": ["packages/ui-react/src/*"],
+      "@lokvis/ui-core": ["packages/ui-core/src/index.ts"],
+      "@lokvis/ui-core/*": ["packages/ui-core/src/*"]
+    },
+    "jsx": "react-jsx",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noEmit": true
+  },
+  "include": [
+    "packages/schema/src/**/*",
+    "packages/runtime/src/**/*",
+    "packages/sdk/src/**/*",
+    "packages/capability/src/**/*",
+    "packages/plugin-sdk/src/**/*",
+    "packages/plugin-image/src/**/*",
+    "packages/engine-image/src/**/*",
+    "packages/ui-react/src/**/*",
+    "packages/ui-core/src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ]
+}

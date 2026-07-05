@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightTypeDoc from 'starlight-typedoc';
 
 // https://astro.build/config
 export default defineConfig({
@@ -31,6 +32,13 @@ export default defineConfig({
         { label: 'SDK', slug: 'sdk' },
         { label: 'CLI', slug: 'cli' },
         { label: 'Roadmap', slug: 'roadmap' },
+      ],
+
+      // Starlight 插件(W13.2: TypeDoc 自动生成 API Reference)
+      plugins: [
+        starlightTypeDoc({
+          sidebar: { collapsed: true, label: 'API Reference' },
+        }),
       ],
 
       // 全局搜索(Pagefind 客户端搜索,构建时索引,无需服务端)
