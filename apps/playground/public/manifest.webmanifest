@@ -1,0 +1,26 @@
+{
+  "name": "Lokvis Playground",
+  "short_name": "Lokvis",
+  "description": "Local-first image workspace — try @lokvis/sdk in your browser",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#09090b",
+  "theme_color": "#6366f1",
+  "lang": "en",
+  "categories": ["productivity", "graphics", "developer"],
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "SDK Basics", "url": "/sdk", "description": "createLokvis() hello world" },
+    { "name": "5-Step Workflow", "url": "/workflow", "description": "resize → watermark → rotate → filter → convert" },
+    { "name": "MCP Manifest", "url": "/mcp", "description": "Expose capabilities as AI tools" }
+  ]
+}

@@ -115,6 +115,16 @@ const NAV_GROUPS: NavGroup[] = [
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    {/* PWA 基础设施（W15.1）：manifest + theme-color + 图标 + iOS Safari 兼容 */}
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#6366f1" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Lokvis" />
+
     <meta name="description" content={description} />
     {keywords && <meta name="keywords" content={keywords} />}
     <meta name="robots" content="noindex, nofollow" />
@@ -214,5 +224,21 @@ const NAV_GROUPS: NavGroup[] = [
         </main>
       </div>
     </div>
+
+    {/* Service Worker 注册（W15.1）
+        - 仅 production 注册，dev 模式跳过避免缓存干扰 HMR
+        - scope: '/' 根域（base 已配置为 '/'）
+        - sw.js 在 public/ 下，Astro 原样输出到 dist 根 */}
+    {import.meta.env.PROD && (
+      <script>
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+              .then((reg) => console.log('[SW] registered', reg.scope))
+              .catch((err) => console.warn('[SW] registration failed', err));
+          });
+        }
+      </script>
+    )}
   </body>
 </html>

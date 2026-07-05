@@ -169,6 +169,70 @@ image engine 需要 `SharedArrayBuffer`，要求页面有 `Cross-Origin-Opener-P
 | `apps/playground/astro.config.mjs` | Astro 配置：site=`playground.lokvis.dev`，base=`/`，COOP/COEP dev headers |
 | `apps/playground/public/_headers` | Cloudflare Pages 安全头 + 缓存策略（COOP/COEP + immutable assets） |
 | `apps/playground/public/_redirects` | Cloudflare Pages SPA fallback（深层路径 → 对应 index.html） |
+| `apps/playground/public/manifest.webmanifest` | PWA Web App Manifest（W15.1）—— 应用名、图标、shortcuts、display 模式 |
+| `apps/playground/public/icon.svg` | PWA 矢量图标（W15.1）—— indigo→purple 渐变 ◆ 品牌 mark，512×512 |
+| `apps/playground/public/sw.js` | Service Worker（W15.1）—— 预缓存 shell + 运行时策略（network-first 导航 / SWR 静态资产） |
 | `apps/playground/DEPLOY.md` | 本文件 |
 | `.github/workflows/deploy-playground.yml` | GitHub Actions 部署 workflow（dev 分支自动 + workflow_dispatch 手动） |
 | `apps/playground/.env.example` | 环境变量示例（PUBLIC_SENTRY_DSN / PUBLIC_SENTRY_RELEASE） |
+
+---
+
+## §8 PWA 图标生成（部署前必做）
+
+`manifest.webmanifest` 引用了 4 个图标，其中 PNG 图标暂未提交到仓库（`public/` 目录只有 `icon.svg`）。
+**首次部署前必须手动生成 3 个 PNG 文件**，否则 Chrome 会报 console warning（不阻塞 SW 注册和核心 PWA 功能，但安装到桌面时图标缺失）。
+
+### 8.1 需要生成的文件
+
+| 文件名 | 尺寸 | purpose | 说明 |
+|---|---|---|---|
+| `icon-192.png` | 192×192 | any | 标准 PWA 图标（home screen） |
+| `icon-512.png` | 512×512 | any | 高分辨率 PWA 图标（splash screen） |
+| `icon-maskable-512.png` | 512×512 | maskable | Android 自适应图标（需 safe zone padding） |
+
+文件名必须严格匹配上表，放到 `apps/playground/public/` 目录。
+
+### 8.2 生成方法（任选其一）
+
+**方法 A：Figma / Sketch 导出**
+1. 打开 `apps/playground/public/icon.svg`（◆ 品牌色 indigo→purple 渐变）
+2. 分别导出 192×192、512×512 PNG（背景不透明，用 `#09090b`）
+3. maskable 版本：在 512×512 画布外加 10% padding（safe zone），即把图标内容缩到中心 80% 区域，外围填充 `#09090b`
+4. 文件名按上表命名，放到 `apps/playground/public/`
+
+**方法 B：`npx @squoosh/cli` 命令行**
+```bash
+cd apps/playground/public
+# 192×192
+npx @squoosh/cli --resize '{width:192,height:192}' --png '{}' icon.svg -o icon-192.png
+# 512×512
+npx @squoosh/cli --resize '{width:512,height:512}' --png '{}' icon.svg -o icon-512.png
+# maskable 需手动加 padding，建议用方法 A 或 sharp 脚本
+```
+
+**方法 C：临时 sharp 脚本**
+仓库 `package.json` 已包含 `sharp` 依赖，可写一次性脚本：
+```js
+// scripts/gen-icons.mjs（用完即删，不入库）
+import sharp from 'sharp';
+import { readFile } from 'node:fs/promises';
+
+const svg = await readFile('public/icon.svg');
+await sharp(svg).resize(192, 192).png().toFile('public/icon-192.png');
+await sharp(svg).resize(512, 512).png().toFile('public/icon-512.png');
+// maskable: 画 512×512 黑底，中心贴 410×410 图标（≈80% safe zone）
+const inner = await sharp(svg).resize(410, 410).png().toBuffer();
+await sharp({ create: { width: 512, height: 512, channels: 4, background: '#09090b' } })
+  .composite([{ input: inner, gravity: 'center' }])
+  .png().toFile('public/icon-maskable-512.png');
+```
+
+### 8.3 验证
+
+生成后访问 `https://playground.lokvis.dev/manifest.webmanifest` 确认 JSON 有效；
+Chrome DevTools → Application → Manifest 应显示所有图标无 warning。
+Lighthouse PWA 审计应通过 "Installable" 检查。
+
+> maskable 图标的 safe zone：Android 自适应图标会按设备主题裁剪外层 10%，
+> 因此图标核心内容必须位于中心 80% 区域（即 512×512 中 410×410 内）。
