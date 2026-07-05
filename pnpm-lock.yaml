@@ -102,6 +102,9 @@ importers:
       '@lokvis/capability':
         specifier: workspace:*
         version: link:../../packages/capability
+      '@lokvis/engine-image':
+        specifier: workspace:*
+        version: link:../../packages/engine-image
       '@lokvis/plugin-dev':
         specifier: workspace:*
         version: link:../../packages/plugin-dev

@@ -93,10 +93,8 @@ export function InstallPrompt({ force = false }: InstallPromptProps) {
     const handler = () => {
       setState('installed');
       setDeferred(null);
-      // 通知 SW 触发 top 5 engine 预加载(W15.7)
-      navigator.serviceWorker?.controller?.postMessage({
-        type: 'PRELOAD_TOP5_ENGINES',
-      });
+      // engine 预加载由 setupEnginePreloadOnInstalled()(W15.7)独立处理,
+      // 本组件只负责 UI 状态切换
       // 2 秒后隐藏成功 toast
       setTimeout(() => setState('dismissed'), 2000);
     };

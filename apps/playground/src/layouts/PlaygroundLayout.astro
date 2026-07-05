@@ -152,9 +152,13 @@ const NAV_GROUPS: NavGroup[] = [
         - 检测到新版本时通过 controllerchange 自动刷新 */}
     <script>
       import { registerSW } from '../toolkit/register-sw.js';
+      import { setupEnginePreloadOnInstalled } from '../toolkit/engine-preload.js';
       registerSW({
         onUpdate: () => console.info('[sw] new version available, will apply on next reload'),
       });
+      // W15.7:PWA 安装后静默预加载 top 5 engine 模块
+      // (appinstalled 事件触发,主线程 + SW 双通道预加载)
+      setupEnginePreloadOnInstalled();
     </script>
   </head>
   <body class="h-screen overflow-hidden bg-zinc-950 text-zinc-100">
