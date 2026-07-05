@@ -14,7 +14,7 @@
  * 运行：node apps/playground/scripts/generate-pwa-icons.mjs
  * 依赖：sharp（playground devDependency）
  */
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import sharp from 'sharp';

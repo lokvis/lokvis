@@ -255,7 +255,7 @@ async function handleNavigate(request) {
       if (offlineCached) return offlineCached;
     }
     return resp;
-  } catch (err) {
+  } catch {
     // 网络失败，尝试缓存中的同一 URL
     const cached = await caches.match(request);
     if (cached) {
@@ -297,7 +297,7 @@ async function cacheFirst(request) {
       cache.put(request, resp.clone());
     }
     return resp;
-  } catch (err) {
+  } catch {
     // 网络失败且无缓存：返回 504
     return new Response('Gateway timeout', { status: 504 });
   }
@@ -321,7 +321,7 @@ async function staleWhileRevalidate(request) {
         cache.put(request, resp.clone());
       }
       return resp;
-    } catch (err) {
+    } catch {
       // 后台更新失败静默处理（缓存仍可用）
       return null;
     }
@@ -428,7 +428,7 @@ async function fetchFromBackupCdns(pathname) {
       if (resp.ok) {
         return resp;
       }
-    } catch (err) {
+    } catch {
       // 当前 CDN 失败，尝试下一个
     }
   }
@@ -450,7 +450,7 @@ async function fetchAssetWithFallbacks(request) {
     const resp = await fetchWithRetry(request, 2);
     // 4xx 响应不缓存，返回 null 让调用方走 fallback
     return resp.ok ? resp : null;
-  } catch (_err) {
+  } catch {
     // 主源 3 次尝试全失败（5xx/网络错误）→ 尝试备用 CDN（仅 @lokvis/* 资源）
     const url = new URL(request.url);
     const backup = await fetchFromBackupCdns(url.pathname);
