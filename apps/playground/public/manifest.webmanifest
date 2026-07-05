@@ -6,7 +6,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": ["standalone", "minimal-ui", "window-controls-overlay"],
   "orientation": "any",
   "background_color": "#09090b",
   "theme_color": "#6366f1",
@@ -19,8 +19,26 @@
     { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "SDK Basics", "url": "/sdk", "description": "createLokvis() hello world" },
-    { "name": "5-Step Workflow", "url": "/workflow", "description": "resize → watermark → rotate → filter → convert" },
-    { "name": "MCP Manifest", "url": "/mcp", "description": "Expose capabilities as AI tools" }
+    {
+      "name": "SDK Basics",
+      "short_name": "SDK",
+      "url": "/sdk",
+      "description": "createLokvis() hello world",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "5-Step Workflow",
+      "short_name": "Workflow",
+      "url": "/workflow",
+      "description": "resize → watermark → rotate → filter → convert",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "MCP Manifest",
+      "short_name": "MCP",
+      "url": "/mcp",
+      "description": "Expose capabilities as AI tools",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }

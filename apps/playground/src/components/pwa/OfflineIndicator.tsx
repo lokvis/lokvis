@@ -23,7 +23,12 @@ const BANNER_HEIGHT_PX = 32;
 
 /** 顶部离线 banner —— 默认导出 */
 export default function OfflineIndicator() {
-  const [online, setOnline] = useState(true);
+  // Review fix（Minor-9）：用 lazy initializer 读取 navigator.onLine，
+  // 避免首帧 flash（原 useState(true) 在离线首帧误显示在线）。
+  // client:only="react" 保证仅在客户端渲染，navigator 一定存在。
+  const [online, setOnline] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
   // 用户手动收起 banner（仅本次会话；状态点仍显示真实在线状态）
   const [dismissed, setDismissed] = useState(false);
 
@@ -86,7 +91,10 @@ export default function OfflineIndicator() {
 
 /** header 右侧状态点 —— 命名导出，轻量指示当前在线状态 */
 export function OfflineStatusDot() {
-  const [online, setOnline] = useState(true);
+  // Review fix（Minor-9）：lazy initializer 读取 navigator.onLine，避免首帧 flash
+  const [online, setOnline] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);

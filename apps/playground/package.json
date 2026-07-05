@@ -12,6 +12,7 @@
     "preview": "astro preview",
     "typecheck": "astro check && tsc --noEmit",
     "test": "vitest run",
+    "generate-pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "clean": "rm -rf dist .astro"
   },
   "dependencies": {

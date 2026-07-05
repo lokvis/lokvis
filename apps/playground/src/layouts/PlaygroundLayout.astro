@@ -49,12 +49,9 @@ const {
 const finalOgTitle = ogTitle ?? title;
 const finalOgDescription = ogDescription ?? description;
 
-// 修复 review 报告：astro.config.mjs 配置了 `base: '/playground'`，
-// 但导航 href 用绝对路径 `/image`/`/runtime` 未拼接 base 前缀，
-// 导致点击跳转到 /image 实际访问根域 /image → 404。
-// 用 import.meta.env.BASE_URL 拼接正确路径。
-// 注意：BASE_URL 取决于 trailingSlash 配置，可能为 '/playground' 或 '/playground/'，
-// 故统一去掉尾部斜杠再手动加，保证路径分隔符正确。
+// Base 路径处理：astro.config.mjs 配置 `base: '/'`（W14.7 起 playground 部署到根域），
+// 导航 href 通过 import.meta.env.BASE_URL 拼接，确保 base 变更时路径自动跟随。
+// Review fix：原注释称 base 为 '/playground'，与实际配置不符，已更正。
 const rawBase = import.meta.env.BASE_URL;
 const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
 
@@ -122,7 +119,8 @@ const NAV_GROUPS: NavGroup[] = [
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    {/* PWA 基础设施（W15.1）：manifest + theme-color + 图标 + iOS Safari 兼容 */}
+    {/* PWA 基础设施（W15.1 + review fix）：manifest + theme-color + 图标 + iOS Safari 兼容
+        icon-192.png / icon-512.png / icon-maskable-512.png 由 scripts/generate-pwa-icons.mjs 生成 */}
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#6366f1" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
@@ -246,34 +244,53 @@ const NAV_GROUPS: NavGroup[] = [
         client:only="react"：依赖 sessionStorage / engine-image lazy 接口 */}
     <EngineLoader client:only="react" />
 
-    {/* Service Worker 注册（W15.1）+ 消息监听（W15.7）
+    {/* Service Worker 注册（W15.1）+ 消息监听（W15.7 + review fix）
         - 仅 production 注册，dev 模式跳过避免缓存干扰 HMR
         - scope: '/' 根域（base 已配置为 '/'）
         - sw.js 在 public/ 下，Astro 原样输出到 dist 根
         - W15.7：监听 SW_ACTIVATED → 调 preloadTop5Operations() 后台预加载 top 5 engine chunk
           （dynamic import 触发 chunk fetch，SW 的 immutable/SWR 缓存自然生效）
-        - W15.7：监听 SW_INSTALLED → console 提示新版本就绪（UI 由 W15.4 处理） */}
+        - Review fix（Major-2）：import 从 @lokvis/engine-image/lazy.js 改为
+          @lokvis/plugin-image（Capability 层），避免 UI → Engine 跨层引用
+        - Review fix（Minor-5）：message 监听器添加 pagehide 清理，避免 bfcache 恢复时重复绑定
+        - Review fix（Minor-6）：SW_INSTALLED 区分首次安装（无需 reload）与更新（需 reload） */}
     {import.meta.env.PROD && (
       <script>
         if ('serviceWorker' in navigator) {
           // 监听 SW 消息（必须在 register 前注册，避免错过早期 activate 通知）
-          navigator.serviceWorker.addEventListener('message', (event) => {
+          const handleSWMessage = (event: MessageEvent) => {
             try {
               const data = event.data || {};
               if (data.type === 'SW_ACTIVATED') {
-                // SW 已激活 → 后台预加载 top 5 operation（ESM dynamic import 触发
-                // 浏览器 fetch 对应 chunk，SW 缓存自然接管）。失败静默，不影响主流程。
-                import('@lokvis/engine-image/lazy.js')
+                // SW 已激活 → 后台预加载 top 5 operation（通过 Capability 层 import，
+                // ESM dynamic import 触发浏览器 fetch 对应 chunk，SW 缓存自然接管）。
+                // 失败静默，不影响主流程。
+                import('@lokvis/plugin-image')
                   .then((m) => m.preloadTop5Operations())
                   .then((loaded) => console.log('[SW] top5 preloaded:', loaded))
                   .catch((err) => console.warn('[SW] top5 preload failed:', err));
               } else if (data.type === 'SW_INSTALLED') {
-                console.log('[SW] new version installed, reload to activate:', data.version);
+                // Review fix（Minor-6）：区分首次安装与更新
+                // skipWaiting() 使新 SW 立即接管；首次安装时页面无旧 SW 控制，无需 reload；
+                // 仅更新场景下新 SW 接管后需 reload 才能用新资源。
+                navigator.serviceWorker.getRegistration().then((reg) => {
+                  if (!reg) {
+                    console.log('[SW] first install, version:', data.version);
+                  } else {
+                    console.log('[SW] update installed, reload to activate:', data.version);
+                  }
+                });
               }
             } catch (err) {
               console.warn('[SW] message handler error:', err);
             }
-          });
+          };
+          navigator.serviceWorker.addEventListener('message', handleSWMessage);
+
+          // Review fix（Minor-5）：页面卸载时移除监听器，避免 bfcache 恢复时重复绑定
+          window.addEventListener('pagehide', () => {
+            navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+          }, { once: true });
 
           window.addEventListener('load', () => {
             navigator.serviceWorker.register('/sw.js', { scope: '/' })

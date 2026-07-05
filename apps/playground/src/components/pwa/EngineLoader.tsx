@@ -11,8 +11,8 @@
  *   - 完成后 1s 渐隐消失（fade out → display none）
  *   - 全部失败显示重试按钮 → clearOperationCache() + 重新预加载
  *
- * 数据源：@lokvis/engine-image/lazy.js（纯工具模块，UI 层引用允许 —— 不涉及
- * Asset/Capability 抽象，符合五层架构单向依赖）。
+ * 数据源（review fix）：通过 Capability 层（@lokvis/plugin-image）访问
+ * Engine 懒加载工具，避免 UI → Engine 跨层引用（AGENTS.md 单向依赖）。
  */
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -20,7 +20,7 @@ import {
   isOperationLoaded,
   clearOperationCache,
   TOP_5_OPERATIONS,
-} from '@lokvis/engine-image/lazy.js';
+} from '@lokvis/plugin-image';
 
 /** sessionStorage key：标记本会话已展示过 EngineLoader */
 const SHOWN_KEY = 'lokvis.engineloader.shown';
@@ -43,17 +43,20 @@ const OP_LABEL: Record<string, string> = {
   crop: 'Crop',
 };
 
-/** 读取 sessionStorage，决定是否展示（首次且未全部预加载时展示） */
-function shouldShowLoader(): boolean {
+/**
+ * 读取 sessionStorage，决定是否展示（首次且未全部预加载时展示）。
+ *
+ * Review fix（Minor-9）：原在 useState 初始化器中调用本函数并写 sessionStorage，
+ * 属于 render 中的副作用（React anti-pattern，StrictMode 下会双调用导致状态不一致）。
+ * 现仅在函数中"读" sessionStorage（纯查询），"写" 操作移到 useEffect 中。
+ */
+function readShouldShowLoader(): boolean {
   try {
     if (sessionStorage.getItem(SHOWN_KEY)) return false;
     // 若 5 个 operation 已全部加载（如 SW 提前预加载完成），无需再弹
     if (TOP_5_OPERATIONS.every((op) => isOperationLoaded(op))) {
-      sessionStorage.setItem(SHOWN_KEY, '1');
       return false;
     }
-    // 标记已展示，避免并发挂载或刷新重复弹
-    sessionStorage.setItem(SHOWN_KEY, '1');
     return true;
   } catch {
     // sessionStorage 不可用（隐私模式）→ 不弹（graceful，engine 仍由 W15.7 后台加载）
@@ -62,13 +65,23 @@ function shouldShowLoader(): boolean {
 }
 
 export default function EngineLoader() {
-  const [show] = useState(shouldShowLoader);
+  const [show] = useState(readShouldShowLoader);
   const [phase, setPhase] = useState<Phase>('loading');
   // 已加载完成的 operation 集合（轮询更新）
   const [loaded, setLoaded] = useState<Set<string>>(() => new Set());
   // 已耗时（ms），用于展示实际进度
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef<number>(0);
+
+  // Review fix（Minor-9）：sessionStorage 写入移到 useEffect，避免 render 副作用
+  useEffect(() => {
+    if (!show) return;
+    try {
+      sessionStorage.setItem(SHOWN_KEY, '1');
+    } catch {
+      // 隐私模式 sessionStorage 不可用，静默
+    }
+  }, [show]);
 
   // 触发预加载（首次挂载或重试时调用）
   const startLoad = () => {
