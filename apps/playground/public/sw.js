@@ -2,28 +2,47 @@
 /**
  * Lokvis Playground Service Worker
  *
- * 版本：SW_VERSION = 'v1-w15.1'
- * 功能（W15.1）：
+ * 版本：SW_VERSION = 'v2-w15.3'
+ * 功能：
+ *   W15.1：
  *   1. 预缓存 playground shell（index + 5 个核心 demo 页 HTML + manifest + icon + offline.html）
  *   2. 运行时缓存策略：
  *      - 导航请求：network-first，失败 fallback 到 index.html → /offline.html
- *      - 同源静态资产（/assets/*, *.js, *.css）：stale-while-revalidate
  *      - manifest / icon：cache-first
  *      - 跨域请求：network-only，不缓存
  *   3. skipWaiting + clients.claim 实现 SW 即时更新
  *
+ *   W15.3（本次新增）：
+ *   4. immutable 缓存：/assets/* 下带 8+ 位 hash 的构建产物（chunk-abc12345.js）
+ *      用 cache-first + 永不 revalidate（命中即返回，hash 不变即内容不变）。
+ *   5. 失败重试：/assets/* 请求 fetch 失败（网络错误或 !response.ok）时重试 2 次
+ *      （共 3 次尝试，间隔 200ms），全部失败后 fallback 到缓存 → 备用 CDN → 503 错误页。
+ *      导航请求不重试（network-first 保持原逻辑）。
+ *   6. 备用 CDN：主源 /assets/* 失败后，对 pathname 含 `@lokvis/` 的资源尝试
+ *      jsdelivr / unpkg 备用源（当前无此类资源，为未来 Squoosh WASM 引擎铺路）。
+ *
  * 注意：Astro 构建产物带 hash 的 JS chunk 不写死 URL（hash 每次构建变化），
- *      通过 runtime stale-while-revalidate 策略自动缓存。
+ *      通过 immutable / stale-while-revalidate 策略自动缓存。
  *
  * 约定（AGENTS.md）：所有 fetch 必须检查 response.ok。
  */
 
 // SW 版本号 —— 更新此值会触发新 SW 接管 + 旧 cache 清理
-const SW_VERSION = 'v1-w15.1';
+const SW_VERSION = 'v2-w15.3';
 
 // Cache 命名（修改版本时同步改后缀，activate 阶段会清理旧版本 cache）
 const PRECACHE = 'lokvis-precache-v1';
 const RUNTIME = 'lokvis-runtime-v1';
+
+/**
+ * 备用 CDN 列表（W15.3）
+ * 仅对 pathname 含 `@lokvis/` 的资源生效（未来 Squoosh WASM 引擎的跨源资源）。
+ * 当前 playground 构建产物都在同源 /assets/ 下，不触发备用 CDN。
+ */
+const BACKUP_CDNS = [
+  'https://cdn.jsdelivr.net/npm/@lokvis/',
+  'https://unpkg.com/@lokvis/',
+];
 
 /**
  * 预缓存 URL 列表
@@ -134,12 +153,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 同源静态资产（/assets/*、*.js、*.css）：stale-while-revalidate
-  if (
-    url.pathname.startsWith('/assets/') ||
-    url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.css')
-  ) {
+  // /assets/*：immutable 缓存（带 hash）+ 失败重试 + 备用 CDN（W15.3）
+  if (url.pathname.startsWith('/assets/')) {
+    if (isImmutableAsset(url)) {
+      // 带 hash 的构建产物：cache-first + 永不 revalidate
+      event.respondWith(handleImmutableAsset(request));
+    } else {
+      // /assets/* 下无 hash 的资源：stale-while-revalidate + 重试 + 备用 CDN
+      event.respondWith(handleAssetWithRetry(request));
+    }
+    return;
+  }
+
+  // 同源其他静态资产（*.js / *.css，非 /assets/）：stale-while-revalidate（无重试）
+  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
     event.respondWith(staleWhileRevalidate(request));
     return;
   }
@@ -244,6 +271,181 @@ async function staleWhileRevalidate(request) {
   }
   // 网络失败且无缓存
   return new Response('Gateway timeout', { status: 504 });
+}
+
+// ============================================================================
+// W15.3：immutable 缓存 + 失败重试 + 备用 CDN 辅助函数
+// ============================================================================
+
+/**
+ * hash 正则：文件名中 8 位以上十六进制 hash（如 chunk-abc12345.js、_chunk.abc123de.css）。
+ * 要求 hash 前有 - _ . 分隔符，避免误判普通长名文件。
+ */
+const HASH_RE = /[-_.][0-9a-f]{8,}\.(?:js|css|mjs|wasm|woff2?)$/i;
+
+/**
+ * 判断 URL 是否为不可变资产（带 hash 的构建产物）。
+ * 命中后用 cache-first + 永不 revalidate（hash 不变即内容不变）。
+ *
+ * @param {URL} url
+ * @returns {boolean}
+ */
+function isImmutableAsset(url) {
+  if (!url.pathname.startsWith('/assets/')) return false;
+  return HASH_RE.test(url.pathname);
+}
+
+/**
+ * 带重试的 fetch（W15.3）。
+ * fetch 失败（网络错误 throw，或 !response.ok）时重试，共 retries+1 次尝试，
+ * 每次间隔 200ms。成功返回 response.ok 的响应，全部失败抛出最后一个错误。
+ *
+ * @param {Request} request
+ * @param {number} retries 额外重试次数（默认 2，共 3 次尝试）
+ * @returns {Promise<Response>}
+ */
+async function fetchWithRetry(request, retries = 2) {
+  let lastErr;
+  const totalAttempts = retries + 1;
+  for (let attempt = 0; attempt < totalAttempts; attempt++) {
+    try {
+      const resp = await fetch(request);
+      if (resp.ok) {
+        return resp;
+      }
+      // !response.ok 视为可重试失败（5xx 等），记录后继续重试
+      lastErr = new Error(
+        `Fetch failed: ${resp.status} ${resp.statusText} (${request.url})`,
+      );
+    } catch (err) {
+      lastErr = err;
+    }
+    // 非最后一次尝试 → 等待 200ms 后重试
+    if (attempt < retries) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * 从备用 CDN 拉取资源（W15.3）。
+ * 仅当 pathname 含 `@lokvis/` 时尝试，依次请求 jsdelivr → unpkg。
+ * 返回 response.ok 的响应，或 null（无匹配 / 全部失败）。
+ *
+ * @param {string} pathname
+ * @returns {Promise<Response|null>}
+ */
+async function fetchFromBackupCdns(pathname) {
+  const idx = pathname.indexOf('@lokvis/');
+  if (idx === -1) {
+    return null;
+  }
+  // 截取 @lokvis/... 部分（包名 + 子路径）拼到 CDN 基址后
+  const suffix = pathname.slice(idx);
+  for (const cdnBase of BACKUP_CDNS) {
+    try {
+      const resp = await fetch(cdnBase + suffix);
+      if (resp.ok) {
+        return resp;
+      }
+    } catch (err) {
+      // 当前 CDN 失败，尝试下一个
+    }
+  }
+  return null;
+}
+
+/**
+ * 资产 fetch 完整 fallback 链（W15.3）：主源重试 → 备用 CDN。
+ * 成功返回 response.ok 的响应（已脱离原 cache key，调用方负责 cache.put）；
+ * 全部失败返回 null。
+ *
+ * @param {Request} request
+ * @returns {Promise<Response|null>}
+ */
+async function fetchAssetWithFallbacks(request) {
+  try {
+    return await fetchWithRetry(request, 2);
+  } catch (_err) {
+    // 主源 3 次尝试全失败 → 尝试备用 CDN（仅 @lokvis/* 资源）
+    const url = new URL(request.url);
+    const backup = await fetchFromBackupCdns(url.pathname);
+    return backup;
+  }
+}
+
+/**
+ * 资产加载失败的 503 错误页（简短，离线可读）。
+ */
+function assetErrorResponse() {
+  return (
+    '<!doctype html><meta charset="utf-8"><title>Asset load failed</title>' +
+    '<body style="font-family:system-ui;background:#09090b;color:#e4e4e7;padding:2rem">' +
+    '<h1>Asset load failed</h1>' +
+    '<p>Lokvis Playground could not load a required asset after multiple retries.</p>' +
+    '<p>Check your connection and <a href="#" onclick="location.reload()">reload</a>.</p></body>'
+  );
+}
+
+/**
+ * immutable 资产处理（带 hash 的 /assets/*）：cache-first + 永不 revalidate。
+ * - 命中缓存：直接返回（不后台更新，hash 不变即内容不变）
+ * - 未命中：fetchAssetWithFallbacks（重试 + 备用 CDN），成功写入缓存
+ * - 全部失败：返回缓存（若有旧值）→ 否则 503 错误页
+ */
+async function handleImmutableAsset(request) {
+  const cache = await caches.open(RUNTIME);
+  const cached = await cache.match(request);
+  if (cached) {
+    // immutable：永不 revalidate，直接返回
+    return cached;
+  }
+  const resp = await fetchAssetWithFallbacks(request);
+  if (resp) {
+    await cache.put(request, resp.clone());
+    return resp;
+  }
+  // 无缓存且全源失败 → 503
+  return new Response(assetErrorResponse(), {
+    status: 503,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
+}
+
+/**
+ * /assets/* 非 hash 资产处理：stale-while-revalidate + 重试 + 备用 CDN。
+ * - 命中缓存：立即返回 + 后台用 fetchAssetWithFallbacks 更新
+ * - 未命中：等待 fetchAssetWithFallbacks，成功写入缓存并返回
+ * - 全部失败：返回缓存（若有）→ 否则 503 错误页
+ */
+async function handleAssetWithRetry(request) {
+  const cache = await caches.open(RUNTIME);
+  const cached = await cache.match(request);
+
+  // 后台更新（重试 + 备用 CDN），不阻塞响应
+  const networkUpdate = (async () => {
+    const resp = await fetchAssetWithFallbacks(request);
+    if (resp) {
+      await cache.put(request, resp.clone());
+    }
+    return resp;
+  })().catch(() => null);
+
+  if (cached) {
+    // 触发后台更新（不 await）
+    networkUpdate.catch(() => {});
+    return cached;
+  }
+  const resp = await networkUpdate;
+  if (resp) {
+    return resp;
+  }
+  // 网络失败且无缓存 → 503
+  return new Response(assetErrorResponse(), {
+    status: 503,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
 }
 
 // ============================================================================
