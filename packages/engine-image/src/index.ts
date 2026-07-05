@@ -19,3 +19,4 @@ export * from './canvas-engine.js';
 export * from './operations/index.js';
 export * from './adapter.js';
 export * from './worker-adapter.js';
+export * from './lazy.js';
