@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import { InstallPrompt } from '../components/InstallPrompt';
 import { StatusBar } from '../components/StatusBar';
+import { EngineLoader } from '../components/EngineLoader';
 
 /**
  * Playground 极简壳（W14.1 升级）
@@ -162,6 +163,8 @@ const NAV_GROUPS: NavGroup[] = [
     </script>
   </head>
   <body class="h-screen overflow-hidden bg-zinc-950 text-zinc-100">
+    {/* W15.8:首次访问的 Engine 加载引导(全屏) */}
+    <EngineLoader client:only="react" />
     <div class="flex h-full flex-col">
       {/* 顶部品牌条 */}
       <header class="flex items-center justify-between border-b border-zinc-800 bg-zinc-950 px-5 py-3">
