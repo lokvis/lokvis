@@ -1,0 +1,22 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPointStrategy": "resolve",
+  "entryPoints": [
+    "../../packages/schema/src/index.ts",
+    "../../packages/runtime/src/index.ts",
+    "../../packages/sdk/src/index.ts",
+    "../../packages/capability/src/index.ts",
+    "../../packages/plugin-sdk/src/index.ts",
+    "../../packages/plugin-image/src/index.ts",
+    "../../packages/engine-image/src/index.ts",
+    "../../packages/ui-react/src/index.ts",
+    "../../packages/ui-core/src/index.ts"
+  ],
+  "tsconfig": "../../tsconfig.typedoc.json",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "categorizeByGroup": true,
+  "sort": ["source-order"]
+}

@@ -1,0 +1,57 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@lokvis/schema": ["./packages/schema/src/index.ts"],
+      "@lokvis/runtime": ["./packages/runtime/src/index.ts"],
+      "@lokvis/sdk": ["./packages/sdk/src/index.ts"],
+      "@lokvis/capability": ["./packages/capability/src/index.ts"],
+      "@lokvis/plugin-sdk": ["./packages/plugin-sdk/src/index.ts"],
+      "@lokvis/plugin-image": ["./packages/plugin-image/src/index.ts"],
+      "@lokvis/engine-image": ["./packages/engine-image/src/index.ts"],
+      "@lokvis/ui-react": ["./packages/ui-react/src/index.ts"],
+      "@lokvis/ui-core": ["./packages/ui-core/src/index.ts"],
+      "@lokvis/schema/*": ["./packages/schema/src/*"],
+      "@lokvis/runtime/*": ["./packages/runtime/src/*"],
+      "@lokvis/sdk/*": ["./packages/sdk/src/*"],
+      "@lokvis/capability/*": ["./packages/capability/src/*"],
+      "@lokvis/plugin-sdk/*": ["./packages/plugin-sdk/src/*"],
+      "@lokvis/plugin-image/*": ["./packages/plugin-image/src/*"],
+      "@lokvis/engine-image/*": ["./packages/engine-image/src/*"],
+      "@lokvis/ui-react/*": ["./packages/ui-react/src/*"],
+      "@lokvis/ui-core/*": ["./packages/ui-core/src/*"]
+    }
+  },
+  "include": [
+    "packages/schema/src/**/*.ts",
+    "packages/runtime/src/**/*.ts",
+    "packages/sdk/src/**/*.ts",
+    "packages/capability/src/**/*.ts",
+    "packages/plugin-sdk/src/**/*.ts",
+    "packages/plugin-image/src/**/*.ts",
+    "packages/engine-image/src/**/*.ts",
+    "packages/ui-react/src/**/*.ts",
+    "packages/ui-react/src/**/*.tsx",
+    "packages/ui-core/src/**/*.ts",
+    "packages/ui-core/src/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    ".astro",
+    "coverage",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ]
+}

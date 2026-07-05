@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightTypeDoc from 'starlight-typedoc';
 
 // https://astro.build/config
 export default defineConfig({
@@ -20,6 +21,7 @@ export default defineConfig({
       },
 
       // 侧边栏导航(手动配置以控制顺序)
+      // API Reference 组由 starlight-typedoc 自动注入,放在末尾
       sidebar: [
         { label: 'Overview', slug: 'index' },
         { label: 'Getting Started', slug: 'getting-started' },
@@ -54,6 +56,17 @@ export default defineConfig({
 
       // 自定义 CSS(品牌色微调)
       customCss: ['./src/styles/custom.css'],
+
+      // Starlight 插件:TypeDoc 自动生成 API Reference
+      // 入口点/过滤/排序配置在 ./typedoc.json
+      plugins: [
+        starlightTypeDoc({
+          sidebar: {
+            collapsed: true,
+            label: 'API Reference',
+          },
+        }),
+      ],
     }),
   ],
 
