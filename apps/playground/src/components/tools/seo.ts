@@ -2,7 +2,7 @@
  * 工具页 SEO 元数据配置(W8.7)。
  *
  * 每个工具页对应一条 ToolSeo 记录,ToolLayout.astro 据此自动生成:
- *   - <title>(覆盖 BaseLayout 默认值)
+ *   - <title>(覆盖 PlaygroundLayout 默认值)
  *   - <meta name="description">
  *   - <meta name="keywords">(可选)
  *   - Open Graph:title / description / image / type

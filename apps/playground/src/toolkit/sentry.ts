@@ -13,7 +13,7 @@
  * 5. **URL 脱敏**:`beforeSend` 剥离 `?workflow=<base64>` 等查询参数,只保留 origin+pathname。
  *
  * 集成位置:
- * - 在 BaseLayout.astro 的 <head> 末尾通过 <script> 调用 initSentry()(在 React 之前)
+ * - 在 PlaygroundLayout.astro 的 <head> 末尾通过 <script> 调用 initSentry()(在 React 之前)
  * - React 组件内的运行时错误由 ErrorBoundary 捕获后调用 captureException()
  *
  * 注:Sentry SDK 走 ES dynamic import 懒加载,避免 ~80KB 进首屏。

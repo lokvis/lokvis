@@ -1,10 +1,10 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import PlaygroundLayout from '../layouts/PlaygroundLayout.astro';
 import ImageWorkflowDemo from '../components/demos/ImageWorkflowDemo.tsx';
 import { ErrorBoundary } from '../components/ErrorBoundary.tsx';
 ---
-<BaseLayout title="Lokvis Playground · Image Workflow" active="image">
+<PlaygroundLayout title="Lokvis Playground · Image Workflow" active="image">
   <ErrorBoundary client:only="react">
     <ImageWorkflowDemo />
   </ErrorBoundary>
-</BaseLayout>
+</PlaygroundLayout>
