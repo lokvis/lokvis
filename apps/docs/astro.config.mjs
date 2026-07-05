@@ -25,7 +25,17 @@ export default defineConfig({
       sidebar: [
         { label: 'Overview', slug: 'index' },
         { label: 'Getting Started', slug: 'getting-started' },
-        { label: 'Architecture', slug: 'architecture' },
+        {
+          label: 'Architecture',
+          collapsed: true,
+          items: [
+            { label: 'Overview', slug: 'architecture' },
+            { label: 'Runtime', slug: 'architecture/runtime' },
+            { label: 'Engine', slug: 'architecture/engine' },
+            { label: 'Capability', slug: 'architecture/capability' },
+            { label: 'Plugin', slug: 'architecture/plugin' },
+          ],
+        },
         { label: 'Capabilities', slug: 'capabilities' },
         { label: 'Plugins', slug: 'plugins' },
         { label: 'MCP Integration', slug: 'mcp' },
