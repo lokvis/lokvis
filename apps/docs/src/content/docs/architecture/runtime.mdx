@@ -1,0 +1,266 @@
+---
+title: Runtime
+description: Deep dive into @lokvis/runtime — the browser-local workflow execution engine. AssetStore three-tier fallback, CapabilityRegistry resolve flow, WorkflowExecutor linear DAG, HistoryStack cursor, MemoryGuard pressure, Worker isolation, and the four extension hooks.
+draft: false
+head: []
+---
+
+import Mermaid from '../../../components/Mermaid.astro';
+import MermaidScript from '../../../components/MermaidScript.astro';
+
+<MermaidScript />
+
+`@lokvis/runtime` is the "browser operating system" inside Lokvis. Its single responsibility is `Input → Run → Output`: it owns assets, dispatches capabilities, tracks history, isolates heavy compute in Workers, and exposes a surface that neither knows nor cares about React, Redux, or Cloudflare. This document maps every module, contract, and extension point of the package.
+
+> **Version:** `RUNTIME_VERSION = '0.1.0'` · **Schema version:** `v1` · See the [Architecture Overview](../architecture) for the five-layer dependency rule this package enforces.
+
+## Module map
+
+| File | Export | Role |
+| --- | --- | --- |
+| `types.ts` | `LokvisRuntime`, `RuntimeConfig`, `RuntimeStatus`, `RunOptions`, `ToMcpManifestOptions` | Public interface contract |
+| `runtime.ts` | `LokvisRuntimeImpl`, `createRuntime`, `RUNTIME_VERSION`, `QuotaExceededError` | Implementation + async factory |
+| `asset-store.ts` | `AssetStore`, `createAssetStore`, `createMemoryAssetStore`, `prepareImport`, `buildAsset` | Storage interface + 3-tier factory |
+| `opfs-asset-store.ts` | `createOpfsAssetStore`, `isOpfsSupported` | OPFS backend |
+| `idb-asset-store.ts` | `createIdbAssetStore`, `isIdbSupported` | IndexedDB backend (Dexie-free) |
+| `capability-registry.ts` | `CapabilityRegistry` | Capability + implementation registry, `resolve()` selection |
+| `executor.ts` | `WorkflowExecutor`, `topologicalSort` | Linear DAG executor |
+| `workflow-builder.ts` | `WorkflowBuilder`, `MAX_WORKFLOW_STEPS`, `workflowToBuilder` | Chain API for linear workflows |
+| `history.ts` | `HistoryStack`, `createHistoryStack`, `HistoryStackSnapshot` | Per-workflow undo/redo cursor |
+| `history-store.ts` | `HistoryStore`, `createHistoryStore` | IndexedDB snapshot persistence |
+| `memory-guard.ts` | `MemoryGuard`, `MemoryAllocation`, `estimateDecodedBytes`, `DEFAULT_MEMORY_BUDGET` | Tracked-bytes pressure model |
+| `degradation.ts` | `pickDegradation`, `DegradationRejectedError`, `applyDegradationToResizeParams` | L1–L4 policy ladder |
+| `worker-protocol.ts` | `WorkerRequest`, `WorkerResponse`, `WorkerReady`, `WorkerCancel`, `isWorkerMessageToHost` | Pure protocol types + guards |
+| `worker-host.ts` | `WorkerHost`, `WorkerTransport`, `WorkerCrashedError`, `WorkerDeadError`, `WorkerRequestAbortedError` | Main-thread Worker manager |
+| `batch-processor.ts` | `BatchProcessor`, `BatchLimitExceededError` | Concurrency + progress + retry |
+| `event-bus.ts` | `EventBus`, `createEventBus` | Typed pub/sub |
+| `index.ts` | re-exports everything above | Package entry |
+
+## The `LokvisRuntime` contract
+
+`types.ts` defines the public surface. It is split into five domains so consumers can grep for what they need without scanning the whole interface.
+
+```typescript
+interface LokvisRuntime {
+  // ─── Workflow execution ─────────────────────────────────
+  run(workflow, inputs, options?): Promise<WorkflowResult>;
+  cancel(workflowId): Promise<void>;
+  pause(workflowId): Promise<void>;
+  resume(workflowId): Promise<void>;
+  getCurrentOutputs(workflowId): Promise<AssetId[]>;
+  disposeWorkflow(workflowId): Promise<void>;
+
+  // ─── History & undo/redo ────────────────────────────────
+  history(workflowId): Promise<HistoryEntry[]>;
+  getHistoryState(workflowId): Promise<{ entries: HistoryEntry[]; cursor: number }>;
+  undo(workflowId): Promise<void>;
+  redo(workflowId): Promise<void>;
+  jumpTo(workflowId, index): Promise<void>;
+
+  // ─── Asset management ───────────────────────────────────
+  importAsset(source): Promise<AssetId>;
+  getAsset(id): Promise<Asset>;
+  exportAsset(id, format?): Promise<Blob>;
+  readAssetExif(id): Promise<ExifData | null>;
+  removeAsset(id): Promise<void>;
+  listAssets(): Promise<Asset[]>;
+  getStorageUsage(): Promise<{ usage: number; quota: number }>;
+
+  // ─── Capability queries ─────────────────────────────────
+  capabilities(): Promise<Capability[]>;
+  hasCapability(name): Promise<boolean>;
+
+  // ─── MCP exposure ───────────────────────────────────────
+  toMcpManifest(options?): McpManifest;
+
+  // ─── Top-level state ────────────────────────────────────
+  readonly version: string;
+  readonly status: 'idle' | 'running' | 'paused' | 'error';
+  readonly eventBus: EventBus;
+  readonly isPro: boolean;
+  readonly batch: BatchProcessor;
+}
+```
+
+`run()` accepts `AssetId[] | Asset[]`. `RunOptions.appendHistory` keeps the existing history stack so consecutive `run()` calls chain into one undo/redo timeline (the playground `HistoryDemo` uses this for stacked filters). The default is `false` — each `run()` resets the stack, matching "re-execute" semantics.
+
+## `createRuntime()` construction flow
+
+`createRuntime(config?)` is `async` because environment detection (OPFS / IDB) cannot be done synchronously. The factory wires six subsystems in order, then preload-restores any persisted history snapshots before handing the instance back.
+
+<Mermaid source={`flowchart TD
+  A["createRuntime(config)"] --> B["createAssetStore()\nOPFS → IDB → Memory"]
+  B --> C["createHistoryStore()\nIDB or undefined"]
+  C --> D["new LokvisRuntimeImpl({...config, assetStore, historyStore})"]
+  D --> E["wrapAssetStoreWithQuota()\nimport/create/remove serialized"]
+  E --> F["new CapabilityRegistry(engineStrategy)"]
+  F --> G["new WorkflowExecutor({assetStore, registry, eventBus})"]
+  G --> H["new MemoryGuard({budget, assetStore})"]
+  H --> I["new BatchProcessor({runtime, eventBus, isPro, memoryGuard})"]
+  I --> J["eventBus.on('node:finished', recordHistoryFromNodeEvent)"]
+  J --> K["impl.loadPersistedHistory()\nrestore undo/redo from IDB"]
+  K --> L["return impl as LokvisRuntime"]
+`} />
+
+`LokvisRuntimeImpl` constructed directly (without the factory) falls back to a `MemoryAssetStore` and logs a warning — the async OPFS/IDB probe can only happen inside the async factory. Production code should always go through `createRuntime()` (or `createLokvis()` in the SDK).
+
+## Five subsystems
+
+### 1. AssetStore — three-tier fallback + quota wrap
+
+`createAssetStore({ preferOpfs: true })` probes backends in order and degrades on any failure. The final fallback (`createMemoryAssetStore`) is always available and never persists.
+
+| Tier | Backend | `BlobHandle.path` prefix | When chosen |
+| --- | --- | --- | --- |
+| 1 | OPFS (`FileSystemSyncAccessHandle`) | `opfs://` | `preferOpfs && isOpfsSupported()` |
+| 2 | IndexedDB (raw IDB, no Dexie) | `idb://` | `isIdbSupported()` |
+| 3 | Memory (`Map<AssetId, Blob>`) | `memory://` | Always available, not persistent |
+
+`prepareImport(source)` is shared by all three backends: it extracts the Blob, generates an `AssetId`, infers the `AssetType` from MIME, and asynchronously pulls **rich metadata** (image `dimensions` via `createImageBitmap`, video/audio `duration` via `HTMLMediaElement.loadedmetadata`, pdf `pages` deferred to Phase 2). Failures are silently downgraded to `undefined` so a bad EXIF chunk never blocks import.
+
+`wrapAssetStoreWithQuota(inner, quota)` is unconditionally applied (even to injected stores). It maintains a running `usage` counter and serializes `import`/`create`/`remove` through a promise chain (`runExclusive`) so the check-and-update window cannot TOCTOU under concurrency. Oversize imports throw `QuotaExceededError(usage, delta, quota)`. The wrapper also exposes `_getQuotaUsage(): number` (returns `-1` before `ensureInit` completes) so `runtime.getStorageUsage()` can read usage in O(1) instead of O(n) `listAssets()`.
+
+### 2. CapabilityRegistry — resolve flow
+
+`CapabilityRegistry` holds `Map<CapabilityName, { capability, implementations[] }>`. Two-phase registration matches the Plugin lifecycle: `registerCapability(capability)` declares the shape, then `registerImplementation(impl)` attaches engine-backed `execute` functions.
+
+`resolve(name, preferredEngine?)` is the hot path called by the executor for every node. It runs a three-stage pipeline:
+
+<Mermaid source={`flowchart LR
+  A["resolve(name, preferredEngine?)"] --> B{"implementations empty?"}
+  B -- yes --> X["return undefined"]
+  B -- no --> C["filter(i => i.status !== 'stub')"]
+  C --> D{"available empty?"}
+  D -- yes --> X
+  D -- no --> E{"preferredEngine specified?"}
+  E -- yes --> F["find(i => i.engine === preferredEngine)"]
+  F -- found --> G["return impl"]
+  F -- not found --> H["selectByStrategy(available)"]
+  E -- no --> H
+  H --> I{"defaultStrategy"}
+  I -- first --> J["return available[0]"]
+  I -- fastest --> K["rank by PERFORMANCE_RANK\nfast=0 medium=1 slow=2\nstable: ties keep registration order"]
+  I -- balanced --> L["filter by capability.performance\nfallback to fastest if no match"]
+  K --> G
+  L --> G
+`} />
+
+`hasImplementation(name)` and `isStubOnly(name)` let the executor produce actionable error messages: a stub-only capability throws `"Install a real engine plugin to use this capability"` instead of a generic `"No implementation registered"`.
+
+### 3. WorkflowExecutor — linear DAG + node:finished → history
+
+Year 1 only supports linear workflows (no branches, loops, conditions, or parallelism). The executor still runs a full `topologicalSort(nodes, edges)` so future DAG support is a relaxation, not a rewrite. The sort is defensive: it rejects duplicate node ids, edges referencing unknown nodes (including the `__input__` sentinel), self-loops, and real cycles with precise error messages.
+
+Per-node execution:
+
+<Mermaid source={`sequenceDiagram
+  participant R as Runtime.run()
+  participant E as WorkflowExecutor
+  participant CR as CapabilityRegistry
+  participant EB as EventBus
+  participant H as HistoryStack
+  R->>E: execute(workflow, inputs)
+  E->>EB: emit workflow:started
+  loop transform nodes (topological order)
+    E->>E: waitForResume() if paused
+    E->>EB: emit node:started
+    E->>CR: resolve(capability)
+    CR-->>E: CapabilityImplementation
+    E->>E: impl.execute(currentAssets, params, ctx)
+    E->>EB: emit node:finished (outputs)
+    EB-->>H: recordHistoryFromNodeEvent appends entry
+  end
+  E->>EB: emit workflow:completed
+  E-->>R: WorkflowResult
+`} />
+
+`pause()` parks the loop via a Promise resolver (`waitForResume`) — no polling, no CPU cost. `cancel()` flips `state.status = 'cancelled'`, calls `abortController.abort()` (which propagates through `ExecutionContext.signal` to every engine operation), and resolves the parked resolver so the loop wakes up and breaks.
+
+`disposeWorkflow(workflowId)` is the cleanup entry UIs must call on unmount: it cancels any running execution, calls `stack.reset()` (which fires `onEvict` to remove history outputs from the AssetStore), and deletes the workflow from `historyStacks` / `initialInputsMap` / `currentOutputsMap`. Without it, long sessions leak both Map entries and OPFS blobs.
+
+### 4. HistoryStack — cursor + LRU 32 + IDB persistence
+
+Each workflow gets its own `HistoryStack`. The model is a cursor over an array:
+
+- `cursor = -1` — initial state, no entry applied
+- `cursor = i` — entry `i` is the current applied state
+- `append(entry)` — truncates the redo branch (`cursor + 1..end`), pushes, advances cursor, evicts LRU if over `maxEntries` (default 10)
+- `undo()` — cursor--, returns the new current entry (or `null` when back to initial)
+- `redo()` — cursor++, returns the new current entry
+- `jumpTo(index)` — direct cursor move for HistoryPanel click-to-jump
+
+`onEvict(entry)` is the asset-reclamation hook: Runtime registers a callback that calls `assetStore.remove(assetId)` for every output of the evicted entry, preventing OPFS leaks. `onChanged(workflowId, entries, cursor)` fires `history:changed` on the EventBus and triggers `persistHistory` (W7.2).
+
+**LRU 32.** Runtime caps `historyStacks` at `MAX_CONCURRENT_WORKFLOW_STACKS = 32`. Above the cap, the oldest stack (Map insertion order = ES2015 spec) is `reset()` and deleted. The current workflow is never a victim because `enforceHistoryStacksLimit()` runs before `getOrCreateHistoryStack` inserts the new entry.
+
+**IDB persistence.** When `enableIndexedDB` is true, `createHistoryStore()` returns an IDB-backed store. `persistHistory(workflowId)` snapshots `{ entries, cursor, initialInputs, currentOutputs, updatedAt }`. `currentOutputs` is derived from the snapshot (cursor `-1` → `initialInputs`, else `entries[cursor].outputs`) — not from `currentOutputsMap` — because `onChanged` fires synchronously inside `append`/`undo`/`redo`/`jumpTo` before the map is updated.
+
+**`dirtyDuringLoad` guard.** During `loadPersistedHistory()`, `restore()` re-fires `onChanged` → `persistHistory`. A naive guard that drops all writes during load would lose legitimate changes from concurrent `run()`/`undo()` calls. The fix: skipped workflow ids are added to `dirtyDuringLoad: Set<string>`, and after load completes each is re-persisted.
+
+### 5. MemoryGuard + Degradation ladder
+
+`MemoryGuard` rejects `performance.memory` (Chrome-only, deprecated, MB-granular) in favor of **explicit tracking**: callers call `track(bytes)` when allocating decode/canvas buffers and `release()` when discarding them. The handle is idempotent — duplicate `release()` is a no-op.
+
+| Pressure | Trigger | `shouldSpill()` | Typical ladder level |
+| --- | --- | --- | --- |
+| `low` | ratio < 0.6 | false | L1-full |
+| `elevated` | 0.6 ≤ ratio < 0.8 | false | L1-full |
+| `high` | 0.8 ≤ ratio < 0.95 | true (if `assetStore` set) | L2-tiled or L3-degraded |
+| `critical` | 0.95 ≤ ratio | true | L3-degraded or L4-reject |
+
+`estimateDecodedBytes(w, h)` returns `w * h * 4` (RGBA) — a 4000×3000 JPEG may be 2MB on disk but ~46MB after decode. Tracking `blob.size` instead of this would massively understate pressure.
+
+`pickDegradation(ctx)` is a **pure function** implementing the four-level policy:
+
+| Level | Trigger | Strategy |
+| --- | --- | --- |
+| **L1-full** | `pressure ∈ {low, elevated}` | Full quality, normal processing |
+| **L2-tiled** | `pressure = high` + `canTile = true` | Tile-based processing + OPFS spill |
+| **L3-degraded** | `pressure = high` + not tileable, OR `critical` (and scaled estimate < 0.95×budget) | Cap output to `DEGRADED_MAX_EDGE = 4096` + `DEGRADED_QUALITY = 70` |
+| **L4-reject** | `critical` + input > budget + no spill, OR decoded estimate after maxEdge cap still ≥ 0.95×budget | Throw `DegradationRejectedError` with `guide[]` |
+
+`DegradationRejectedError.guide` is a user-readable string array (smaller source image, close other tabs, use desktop app). UI renders it directly. `applyDegradationToResizeParams(params, decision)` injects `maxEdge` into resize params when L3 is active.
+
+## Worker isolation protocol
+
+Heavy compute (image encode/decode, future WASM engines) runs in a dedicated Web Worker so the main thread never blocks on canvas work. Cross-origin isolation (COOP/COEP) is configured in `apps/playground/public/_headers` to enable `SharedArrayBuffer` for future multi-threaded WASM.
+
+`worker-protocol.ts` is a pure type + guard module (no runtime coupling to `Worker`):
+
+- **Host → Worker:** `request` (id-keyed method call), `ping` (heartbeat), `cancel` (abort in-flight work, W3.5)
+- **Worker → Host:** `response` (success/failure, id-correlated), `pong`, `event` (progress, no ack), `ready` (handshake with `protocolVersion`), `error` (fatal, worker alive but stuck)
+
+`WorkerHost` (main thread) handles the lifecycle: ready handshake with version check, per-request timeout (default 60s), periodic ping (5s) with pong timeout (15s), crash detection (transport error or heartbeat timeout), restart up to `DEFAULT_MAX_RESTARTS = 3`, then `dead`. The `WorkerTransport` interface abstracts browser Worker / Node `worker_threads` / test Fake so the protocol and restart logic are unit-testable in Node.
+
+`WorkerHost.request(method, params, signal?)` accepts an `AbortSignal`. On abort it sends `WorkerCancel { type: 'cancel', id }` and immediately rejects with `WorkerRequestAbortedError` — it does **not** wait for the Worker's response. Pre-flight: an already-aborted signal throws before sending.
+
+## Four extension hooks
+
+Runtime exposes four underscore-prefixed hooks for the SDK and integration tests. They are not part of the `LokvisRuntime` interface — they exist on `LokvisRuntimeImpl` only.
+
+| Hook | Caller | Purpose |
+| --- | --- | --- |
+| `_getAssetStore()` | `@lokvis/sdk` `installPlugin` | Lets plugins share the runtime's AssetStore for blob reads/writes |
+| `_getCapabilityRegistry()` | `@lokvis/sdk` `installPlugin` | Lets plugins call `registerCapability` / `registerImplementation` |
+| `_getMemoryGuard()` | Integration tests | Drive synthetic pressure to verify `BatchProcessor` concurrency shrink |
+| `_registerMetadataReader(name, reader)` | `@lokvis/sdk` (forwards from `ctx.registerMetadataReader`) | Registers query-only readers like `image.read-exif` |
+
+The MetadataReader hook is the long-term home for query-only operations that don't fit either the Engine Blob↔Blob contract or the Capability `Asset[]→Asset[]` contract. `runtime.readAssetExif(id)` looks up `'image.read-exif'` in the readers map and returns `null` if the plugin isn't installed — no throw, graceful degradation.
+
+## Testing notes
+
+Runtime has the deepest test coverage in the monorepo (per `AGENTS.md`, runtime is a "core package" requiring tests). Tests live in `src/__tests__/` and follow Vitest with `globals: false` (explicit `import { describe, it, expect, vi } from 'vitest'`), Chinese test descriptions, and fake implementations of `Canvas` / `OPFS` / `IndexedDB`. Key suites:
+
+- `runtime-factory.test.ts` — `createRuntime` wiring + LRU 32
+- `worker-host.test.ts` — heartbeat, restart, cancel via injected Fake transport
+- `history.test.ts` + `history-persistence.test.ts` — cursor math + `dirtyDuringLoad` guard
+- `memory-guard.test.ts` + `degradation.test.ts` — pressure thresholds + L1–L4 matrix
+- `executor.test.ts` — topological sort edge cases (sentinel ids, self-loops, real cycles)
+- `capability-registry.test.ts` — `resolve` strategy matrix (first/fastest/balanced, stub skip)
+
+## What's intentionally not here
+
+- **No React / Redux awareness.** `eventBus.emit({ type: 'history:changed', ... })` is the only side-channel; UI subscribes via `eventBus.on`.
+- **No Cloudflare / Cloud SDK imports.** The `lokvis-open` ↔ `lokvis-cloud` boundary is enforced by package dependency, not just convention.
+- **No `performance.memory`.** Memory pressure is driven by explicit `track()` calls so the same logic runs in Node tests.
+- **No branches / loops / parallelism.** Year 1 executor is linear-by-design. The DAG-shaped `topologicalSort` is forward-compatible, not premature.

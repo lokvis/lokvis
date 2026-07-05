@@ -1,0 +1,270 @@
+---
+title: Capability
+description: Deep dive into @lokvis/capability and the CapabilityRegistry — capability shape, the 8 CapabilityParam types, Phase 1 catalog (image/asset/developer real, video/pdf stub), 11 helper functions, 63 platform presets, resolve flow, 3-layer workflow validation, and MCP manifest generation.
+draft: false
+head: []
+---
+
+import Mermaid from '../../../components/Mermaid.astro';
+import MermaidScript from '../../../components/MermaidScript.astro';
+
+<MermaidScript />
+
+`@lokvis/capability` is the bridge between the Runtime and the Engine layers. It defines **what operations exist** (declarative `Capability` objects) without knowing **how they run** (that's the Engine's job). Runtime never imports FFmpeg or Squoosh — it only ever touches `Capability` shapes. This document maps the package, the registry that lives one layer up in `@lokvis/runtime`, and the validation + MCP-manifest machinery in `@lokvis/schema` that ties them together.
+
+> **Phase 1 status:** 9 image capabilities ✅ stable · 2 asset capabilities ✅ stable · 4 developer capabilities ✅ stable (declaration only) · 7 video capabilities stub · 7 PDF capabilities stub. See the [Capabilities reference](../capabilities) for the user-facing list.
+
+## Module map
+
+| File | Export | Role |
+| --- | --- | --- |
+| `names.ts` | `CAPABILITY_DOMAINS`, `CapabilityDomain`, `CAPABILITY_NAMES`, `CapabilityNameKey`, `domainOf`, `actionOf`, `sameDomain` | Naming convention + name constants |
+| `helpers.ts` | `filterByDomain`, `filterByInputType`, `filterByPerformance`, `groupByDomain`, `findCapability`, `isBatchable`, `requiredParams`, `optionalParams`, `defaultParams`, `mergeParams`, `validateParams` | 11 query/filter utilities |
+| `presets/image.ts` | `IMAGE_RESIZE` … `IMAGE_FILTER`, `IMAGE_CAPABILITIES` | 9 image capability presets |
+| `presets/asset.ts` | `ASSET_RENAME`, `ASSET_ARCHIVE`, `ASSET_CAPABILITIES` | 2 cross-type asset capabilities |
+| `presets/developer.ts` | `DEV_INSPECT_CAPABILITIES`, `DEV_INSPECT_ASSET`, `DEV_VALIDATE_WORKFLOW`, `DEV_PROFILE`, `DEVELOPER_CAPABILITIES` | 4 developer-tool capabilities |
+| `presets/video.ts` | `VIDEO_COMPRESS` … `VIDEO_TO_GIF`, `VIDEO_CAPABILITIES` | 7 video capability presets (stub-only in Phase 1) |
+| `presets/pdf.ts` | `PDF_MERGE` … `PDF_SIGN`, `PDF_CAPABILITIES` | 7 PDF capability presets (stub-only in Phase 1) |
+| `presets/platform.ts` | `PLATFORM_PRESETS`, `PlatformSizePreset`, `PlatformPresetCategory`, `findPlatformPreset`, `listPlatforms`, `groupPlatformPresetsByCategory`, `groupPlatformPresetsByPlatform`, `PLATFORM_PRESET_CATEGORY_LABELS` | 63 platform size presets + grouping helpers |
+| `presets/builtin.ts` | `BUILTIN_CAPABILITIES` | Aggregated array of all domain presets |
+| `presets/index.ts` | re-exports | Preset aggregator entry |
+| `index.ts` | re-exports everything | Package entry |
+
+The `CapabilityRegistry` class itself lives in `@lokvis/runtime` (`runtime/src/capability-registry.ts`) — see [Runtime → CapabilityRegistry](./runtime#2-capabilityregistry--resolve-flow). This package only ships the **declarations**; the registry that holds implementations is a Runtime concern because it must coordinate with the executor and the stub-skipping policy.
+
+## The `Capability` shape
+
+```typescript
+interface Capability {
+  name: CapabilityName;          // '<domain>.<action>', e.g. 'image.resize'
+  description: string;
+  inputTypes: AssetType[];       // accepts these asset types
+  outputTypes: AssetType[];      // produces these asset types
+  params: CapabilityParam[];     // parameter schema
+  performance: PerformanceLevel; // 'fast' | 'medium' | 'slow'
+  batchable?: boolean;           // can process N inputs in one call
+  mcpExposure?: 'public' | 'private' | 'batch-only';
+  mcpToolName?: string;          // override default lokvis_<name> tool name
+}
+```
+
+`name` follows the `<domain>.<action>` convention enforced by `names.ts`:
+
+- `domain` aligns with `AssetType` (`image` / `video` / `audio` / `pdf` / `text` / `data`) or is a cross-cutting domain (`asset` for type-agnostic ops, `ai` for AI-driven ops, `developer` for diagnostics).
+- `action` is a verb or verb-phrase (`resize`, `extract-audio`, `inspect.capabilities`).
+- `domainOf('image.resize') === 'image'`, `actionOf('image.resize') === 'resize'`, `sameDomain('image.resize', 'image.crop') === true`.
+
+`inputTypes` / `outputTypes` drive the [workflow compatibility check](#3-layer-workflow-validation) and the UI's "which capabilities apply to my selected asset" filter (`filterByInputType`). `asset.rename` accepts all asset types and outputs the same type — it's the canonical type-preserving capability.
+
+`performance` is a **declaration**, not a measurement. It feeds the `EngineSelectionStrategy = 'balanced'` mode in `CapabilityRegistry.resolve()` and surfaces as a UI hint (⚡ fast / 🐢 slow). Engine implementations can override it per-implementation via `CapabilityImplementation.performance`.
+
+`batchable: true` means a single `execute(inputs: Asset[], ...)` call processes the whole array. The `BatchProcessor` in Runtime uses this to decide whether to enqueue a job as one unit or split per-asset.
+
+### MCP exposure
+
+`mcpExposure` controls visibility in `runtime.toMcpManifest(options)`:
+
+| Value | Default? | In `toMcpManifest()` | In `toMcpManifest({ batchMode: true })` |
+| --- | --- | --- | --- |
+| `'public'` | yes | ✅ | ✅ |
+| `'batch-only'` | — | ❌ | ✅ |
+| `'private'` | — | ❌ | ❌ |
+
+`'batch-only'` exists for capabilities like `asset.archive` (zip packing) that don't make sense on a single file — exposing them in single-file MCP mode would invite misuse. The `mcpToolName` override lets capability authors pick friendlier tool names (e.g. `lokvis_compress_image` instead of `lokvis_image_compress`).
+
+## `CapabilityParam` — 8 types
+
+```typescript
+type CapabilityParamType =
+  | 'number'   | 'string' | 'boolean'
+  | 'enum'     | 'color'  | 'file'
+  | 'array'    | 'object';
+
+interface CapabilityParam {
+  name: string;
+  type: CapabilityParamType;
+  description?: string;
+  required?: boolean;
+  default?: unknown;
+  min?: number;          // number type only
+  max?: number;          // number type only
+  values?: string[];     // enum type only
+  items?: CapabilityParamType;  // array type only (element type)
+}
+```
+
+| Type | JSON Schema mapping | UI rendering |
+| --- | --- | --- |
+| `number` | `{ type: 'number', minimum, maximum }` | `<Slider>` or `<input type="number">` |
+| `string` | `{ type: 'string' }` | `<input type="text">` |
+| `boolean` | `{ type: 'boolean' }` | `<Toggle>` |
+| `enum` | `{ type: 'string', enum: values }` | `<Select>` |
+| `color` | `{ type: 'string', format: 'color' }` | `<input type="color">` |
+| `file` | `{ type: 'string' }` (described as file path) | `<input type="file">` |
+| `array` | `{ type: 'array', items: { ...items } }` | List editor |
+| `object` | `{ type: 'object' }` | JSON editor |
+
+`color` and `file` are Lokvis-specific extensions to JSON Schema. The MCP manifest generator (in `@lokvis/runtime/runtime.ts`) maps them to standard JSON Schema types so external MCP clients don't choke. `validateParams(cap, params)` returns the names of any missing required params — used by the workflow editor's preflight check.
+
+## Phase 1 capability catalog
+
+| Domain | Count | Status | Capabilities |
+| --- | --- | --- | --- |
+| `image.*` | 9 | ✅ stable (Canvas engine) | `resize`, `compress`, `convert`, `crop`, `rotate`, `flip`, `watermark`, `background`, `filter` |
+| `asset.*` | 2 | ✅ stable | `rename` (pattern-based), `archive` (zip packing) |
+| `developer.*` | 4 | ✅ declared (Phase 4 workspace) | `inspect.capabilities`, `inspect.asset`, `validate.workflow`, `profile` |
+| `video.*` | 7 | 🚧 stub (Phase 2 ffmpeg.wasm) | `compress`, `transcode`, `trim`, `merge`, `extract-audio`, `to-gif`, `screenshot` |
+| `pdf.*` | 7 | 🚧 stub (Phase 2 pdf-lib) | `merge`, `split`, `compress`, `rotate`, `watermark`, `ocr`, `sign` |
+
+Image capabilities all declare `performance: 'fast'` and `batchable: true` — Canvas operations are sub-second on typical inputs and trivially parallelizable across assets. Video capabilities declare `performance: 'slow'` (transcoding is minutes-scale) and most are `batchable: true` except `merge` (N→1, not a per-asset operation).
+
+`BUILTIN_CAPABILITIES` aggregates all five domain arrays in a fixed order (image → pdf → video → asset → developer). This is the array `@lokvis/sdk` registers by default when no plugins are specified.
+
+## 11 helper functions
+
+`helpers.ts` provides pure utilities for UI / workflow-editor / AI-generator consumers. None of them mutate the input.
+
+| Function | Returns | Use case |
+| --- | --- | --- |
+| `filterByDomain(caps, domain)` | `Capability[]` | Show only image capabilities in the image tool page |
+| `filterByInputType(caps, type)` | `Capability[]` | Show only capabilities applicable to selected asset |
+| `filterByPerformance(caps, level)` | `Capability[]` | Filter to fast-only for instant-preview mode |
+| `groupByDomain(caps)` | `Map<string, Capability[]>` | Render the capability picker grouped by domain |
+| `findCapability(caps, name)` | `Capability \| undefined` | Lookup by name |
+| `isBatchable(cap)` | `boolean` | Decide whether to enqueue as one batch or per-asset |
+| `requiredParams(cap)` | `CapabilityParam[]` | Render required param form fields |
+| `optionalParams(cap)` | `CapabilityParam[]` | Render optional param form fields |
+| `defaultParams(cap)` | `Record<string, unknown>` | Pre-fill form with defaults |
+| `mergeParams(cap, userParams)` | `Record<string, unknown>` | Apply defaults under user-supplied values |
+| `validateParams(cap, params)` | `string[]` (missing names) | Preflight check before workflow execution |
+
+## 63 platform presets
+
+`presets/platform.ts` ships 63 size presets across 5 categories, sourced from platform creator docs (2026 public data). Each preset is decoupled from any specific capability — the same `youtube.thumbnail` preset can drive either `image.resize` (fit) or `image.crop` (center crop).
+
+```typescript
+interface PlatformSizePreset {
+  id: string;                  // 'youtube.thumbnail' (globally unique)
+  platform: string;            // 'YouTube'
+  name: string;                // 'Thumbnail (1280×720)'
+  width: number;
+  height: number;
+  category: 'social' | 'ecommerce' | 'video' | 'print' | 'other';
+  description?: string;
+  recommendedFormat?: 'png' | 'jpeg' | 'webp';
+  recommendedFit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
+}
+```
+
+| Category | Coverage |
+| --- | --- |
+| `social` | YouTube, Instagram, TikTok, Twitter/X, LinkedIn, Facebook, Pinterest, … |
+| `ecommerce` | Shopify, Etsy, Amazon, eBay, … |
+| `video` | Video-platform thumbnails and channel art dimensions |
+| `print` | DPI-aware sizes (A4, A3, business card, photo prints) |
+| `other` | Generic web banner, favicon, app icon |
+
+Grouping helpers:
+
+- `groupPlatformPresetsByCategory(presets)` → `Map<PlatformPresetCategory, PlatformSizePreset[]>`
+- `groupPlatformPresetsByPlatform(presets)` → `Map<string /* platform */, PlatformSizePreset[]>`
+- `findPlatformPreset(presets, id)` → `PlatformSizePreset | undefined`
+- `listPlatforms(presets)` → `string[]` (unique platform names in insertion order)
+- `PLATFORM_PRESET_CATEGORY_LABELS` → human-readable labels per category for UI dropdowns
+
+Platform recommended sizes drift over time; centralizing them in one file means updates touch a single source of truth.
+
+## CapabilityRegistry resolve flow
+
+The registry lives in `@lokvis/runtime` but is documented here because it's the runtime counterpart of this package's declarations. Two-phase registration matches the plugin lifecycle:
+
+```typescript
+registry.registerCapability(capability);   // declare shape (idempotent: throws on duplicate)
+registry.registerImplementation(impl);     // attach engine-backed execute fn
+```
+
+`resolve(name, preferredEngine?)` runs the three-stage pipeline described in [Runtime → CapabilityRegistry](./runtime#2-capabilityregistry--resolve-flow): filter stubs → try `preferredEngine` → fall back to `defaultStrategy` (`'first'` / `'fastest'` / `'balanced'`).
+
+The `EngineSelectionStrategy` modes:
+
+| Strategy | Behavior |
+| --- | --- |
+| `'first'` (default) | Return `available[0]` — registration order, deterministic, preserves existing behavior |
+| `'fastest'` | Rank by `PERFORMANCE_RANK` (`fast=0, medium=1, slow=2`); ties keep registration order (stable sort) |
+| `'balanced'` | Prefer implementations whose `performance` matches the capability declaration; fall back to `'fastest'` if no match |
+
+`CapabilityImplementation.performance` (optional) overrides the capability-declared `performance` for that specific engine. This lets a WASM engine declare `'medium'` for `image.compress` while a Canvas engine declares `'fast'` for the same capability — the balanced strategy picks Canvas for fast-tier needs and WASM for quality-tier needs.
+
+## 3-layer workflow validation
+
+`@lokvis/schema/validators.ts` exports `validateWorkflow(data, options?)` which returns a `SafeParseReturnType`-shaped result (`{ success: true, data } | { success: false, error: { issues } }`). The validator runs five checks in order; the first failing check short-circuits:
+
+<Mermaid source={`flowchart TD
+  A["validateWorkflow(data, options)"] --> B["1. Zod shape\nworkflowSchema.safeParse"]
+  B -->|fail| X["return { success: false, error: zodError }"]
+  B -->|pass| C["2. Reserved-id guard\n__input__ / __output__ / __start__ / __end__"]
+  C --> D["3. Node id uniqueness"]
+  D --> E["4. Edge references + self-loop"]
+  E --> F["5. DAG: topological sort covers all nodes?"]
+  F -->|cycle| Y["push error: only N/M nodes reachable"]
+  F -->|acyclic| G{"options.maxSteps set?"}
+  G -- yes --> H["check nodes.length <= maxSteps"]
+  G -- no --> I
+  H --> I{"options.resolveCapability provided?"}
+  I -- yes --> J["5a. input node inputTypes ⊇ workflow.inputs.type\n5b. edge from.outputTypes ∩ to.inputTypes ≠ ∅\n5c. output node outputTypes ⊇ workflow.outputs.type\n(unless output is 'archive')\n5d. unknown capability → push error"]
+  I -- no --> K
+  J --> K{"errors.length > 0?"}
+  K -- yes --> Y2["return { success: false, error: { issues: errors } }"]
+  K -- no --> Z["return { success: true, data: wf }"]
+`} />
+
+The fifth check is **capability compatibility** — only run when the caller supplies a `resolveCapability(name)` callback (Runtime does this to inject its `CapabilityRegistry.get(name)`). It validates three boundary conditions:
+
+- **Input node (in-degree 0):** `cap.inputTypes` must include `workflow.inputs.type`
+- **Adjacent edges:** `from.capability.outputTypes` ∩ `to.capability.inputTypes` must be non-empty
+- **Output node (out-degree 0):** `cap.outputTypes` must include `workflow.outputs.type` (skipped when output type is `'archive'`, which accepts anything for zip-packing scenarios)
+
+The schema package cannot import `@lokvis/capability` or `@lokvis/runtime` (that would violate the five-layer rule), so the callback-injection pattern keeps the dependency direction clean.
+
+Runtime calls `validateWorkflow` at the top of `run()` with `maxSteps: MAX_WORKFLOW_STEPS = 5` and `resolveCapability` bound to its registry. Structural problems surface as precise errors ("Edge from `__input__` references a reserved sentinel id") instead of being misdiagnosed as cycles by the executor's topological sort.
+
+## MCP manifest generation
+
+`runtime.toMcpManifest(options?)` walks `capabilityRegistry.list()`, filters by `mcpExposure`, and emits an `McpManifest`:
+
+```typescript
+interface McpManifest {
+  serverName: 'lokvis';
+  version: RUNTIME_VERSION;
+  tools: McpToolManifest[];
+  resources: [
+    { uri: 'lokvis://capabilities', name: 'Capabilities', mimeType: 'application/json' },
+    { uri: 'lokvis://workflows',    name: 'Workflows',    mimeType: 'application/json' },
+  ];
+}
+
+interface McpToolManifest {
+  name: string;            // cap.mcpToolName ?? `lokvis_${name.replace(/\./g, '_')}`
+  description: string;
+  inputSchema: object;     // JSON Schema generated from CapabilityParam[]
+  capabilities: string[];  // backing capability names
+}
+```
+
+`capabilityParamsToJsonSchema(params)` (private helper in `runtime.ts`) maps each `CapabilityParam` to a JSON Schema property:
+
+- `color` → `{ type: 'string', format: 'color' }`
+- `file` / `enum` → `{ type: 'string' }` (enum's `values[]` becomes `prop.enum`)
+- `array` → `{ type: 'array', items: { ...items mapped } }` (recursive, so `array<color>` works)
+- `number` → `{ type: 'number', minimum, maximum }` (only number-typed params get `min`/`max`)
+- `string` / `boolean` / `object` → same-named JSON Schema type
+- Unknown types → degrade to `{ type: 'string' }` (never produces invalid JSON Schema)
+
+`required: string[]` is built from params with `required: true`. The manifest is **synchronous** to compute (it's a pure projection of the in-memory registry) — `toMcpManifest` is the only non-async method on `LokvisRuntime` for this reason. MCP servers and documentation sites both consume it.
+
+## What's intentionally not here
+
+- **No engine imports.** This package never touches Canvas, FFmpeg, or any concrete engine.
+- **No `execute` implementations.** Capabilities are declarative; `CapabilityImplementation.execute` lives in Plugin packages (`@lokvis/plugin-image`, etc.).
+- **No workflow execution.** This package shapes capabilities; the executor lives in `@lokvis/runtime`.
+- **No persistence.** Capabilities are in-memory declarations registered at plugin load time.

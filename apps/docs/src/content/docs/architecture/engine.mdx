@@ -1,0 +1,193 @@
+---
+title: Engine
+description: Deep dive into @lokvis/engine-image — the pluggable image engine adapter. Canvas engine implementation, ImageEngineAdapter contract, operation function signature, Streaming types, Worker integration, PNG pHYs DPI metadata, and Stub engine mode.
+draft: false
+head: []
+---
+
+import Mermaid from '../../../components/Mermaid.astro';
+import MermaidScript from '../../../components/MermaidScript.astro';
+
+<MermaidScript />
+
+`@lokvis/engine-image` is the bottom of the Lokvis five-layer stack. It exposes pure Blob↔Blob operations and an `ImageEngineAdapter` contract. The package knows nothing about `Asset`, `Workflow`, `Capability`, or `Runtime` — those are the concerns of the layers above. This document maps the modules, the contract, the Canvas implementation, the Worker integration, and the metadata edge cases.
+
+> **Canvas engine version:** `CANVAS_ENGINE_VERSION = '0.1.0'` · **Worker protocol:** `IMAGE_WORKER_PROTOCOL_VERSION = '0.1.0'` (matches `WORKER_PROTOCOL_VERSION` in `@lokvis/runtime`).
+
+## Module map
+
+| File | Export | Role |
+| --- | --- | --- |
+| `types.ts` | `ImageEngineAdapter`, `ImageEngineName`, `ImageOutputFormat`, `FitStrategy`, `ResizeParams`…, `ImageTile`, `ImageChunk`, `StreamingImageOperation`, `StreamingImageEngineAdapter` | Engine contract + Streaming types |
+| `canvas-engine.ts` | `canvasEngine`, `CANVAS_ENGINE_VERSION`, `decodeResized`, `createCanvas`, `get2DContext`, `detectFormatSupport`, `reencode` | Canvas-backed reference adapter |
+| `adapter.ts` | `registerImageEngine`, `getEngine`, `listEngines`, `selectBestEngine` | Engine registry + selection |
+| `worker-adapter.ts` | `startImageWorker`, `dispatchImageMethod`, `createImageWorkerHandler`, `listImageWorkerMethods`, `IMAGE_WORKER_PROTOCOL_VERSION` | Worker-side protocol handler |
+| `operations/index.ts` | re-exports | Operation aggregator |
+| `operations/transform.ts` | `resize`, `crop`, `rotate`, `flip` | Geometric operations |
+| `operations/encode.ts` | `compress`, `convert`, `setBackground` | Format/encoding operations |
+| `operations/watermark.ts` | `watermark`, `computeWatermarkPosition` | Text/image watermarking |
+| `operations/filters.ts` | `filter` | `grayscale` / `invert` / `sepia` / `blur` presets |
+| `operations/compress-target.ts` | `compressToTargetSize` | Binary-search quality for target byte budget |
+| `operations/tiles.ts` | `splitIntoTiles`, `mergeChunks`, `isDownscale`, `DEFAULT_TILE_SIZE` | Tiling primitives (W3.2) |
+| `operations/png-metadata.ts` | `embedPngDpi`, `readPngDpi` | PNG pHYs chunk DPI (W8.4) |
+| `operations/utils.ts` | `throwIfAborted`, `inferFormat`, `computeTargetSize` | Shared helpers |
+| `index.ts` | re-exports everything | Package entry |
+
+## `ImageEngineAdapter` contract
+
+`types.ts` defines the engine contract. Every engine (Canvas today; Squoosh WASM, WebCodecs, ImageMagick later) implements the same minimal surface:
+
+```typescript
+interface ImageEngineAdapter {
+  name: ImageEngineName;        // 'canvas' | 'squoosh' | 'webcodecs' | 'imagemagick'
+  version: string;              // '0.1.0'; stub engines include 'stub'
+  supportedCapabilities: string[];  // e.g. ['image.resize', 'image.compress', ...]
+  isSupported(): Promise<boolean>;
+  initialize?(): Promise<void>;
+  dispose?(): Promise<void>;
+
+  // ─── Primitives ─────────────────────────────────────────
+  decode(blob: Blob): Promise<DecodedImage>;
+  encode(
+    canvas: HTMLCanvasElement | OffscreenCanvas,
+    format: ImageOutputFormat,
+    quality?: number
+  ): Promise<Blob>;
+}
+```
+
+`decode` returns `DecodedImage = { bitmap: ImageBitmap; width: number; height: number }`. Operations call `bitmap.close()` in a `finally` block to release the bitmap deterministically — the browser's GC is not aggressive enough for short-lived decode bursts.
+
+`encode` works on either `HTMLCanvasElement` or `OffscreenCanvas`. The Canvas adapter dispatches to `canvas.toBlob` (DOM) or `canvas.convertToBlob` (OffscreenCanvas) so the same code path runs on the main thread and inside a Worker.
+
+## Operation function signature
+
+Per `AGENTS.md`, every engine operation function follows the same signature:
+
+```typescript
+export async function resize(
+  blob: Blob,
+  params: Record<string, any>,
+  signal?: AbortSignal
+): Promise<Blob>
+```
+
+The `params` argument is **always** `Record<string, any>`, never a specific interface like `ResizeParams`. This rule exists because the Capability layer (plugin-image / plugin-pdf / plugin-video) receives `Record<string, unknown>` from the executor and TypeScript does not permit a direct cast between `Record<string, unknown>` and a concrete interface. Using `Record<string, any>` at the Engine boundary means the Plugin layer can pass `params` straight through with a single `as` assertion — never `as unknown as` double assertion.
+
+The concrete `ResizeParams` / `CompressParams` / etc. interfaces in `types.ts` are documentation, not enforcement. Inside each operation the implementation reads fields with `params.width` / `params.quality` and validates them.
+
+`signal?: AbortSignal` is checked at every decode / draw / encode boundary via `throwIfAborted(signal)` (throws `DOMException('AbortError')` matching Web platform convention). The binary-search loop in `compressToTargetSize` checks before each encoding round; `watermark` passes `signal` to its `fetch(imageUrl)` so network-level cancel works too.
+
+## Canvas engine implementation
+
+`canvasEngine` is the MVP reference adapter. It has zero WASM dependency and the fastest first paint — `createImageBitmap` + `OffscreenCanvas` cover ~80% of image processing needs. The trade-off is encode quality (Squoosh WASM produces better AVIF/WebP) and AVIF support gaps across browsers.
+
+| Method | Implementation |
+| --- | --- |
+| `decode(blob)` | `createImageBitmap(blob)` → `{ bitmap, width, height }`. Throws if `createImageBitmap` is missing. |
+| `encode(canvas, format, quality=90)` | `OffscreenCanvas.convertToBlob({ type, quality })` or `HTMLCanvasElement.toBlob(cb, type, quality)`. Quality normalized to `0..1`. |
+| `isSupported()` | `true` if `OffscreenCanvas` or `document` exists — i.e. any modern browser or Worker. |
+
+`decodeResized(blob, targetW, targetH)` is the single biggest memory optimization in the Canvas engine. Instead of `decode → drawImage scaled`, it uses `createImageBitmap(blob, { resizeWidth, resizeHeight, resizeQuality: 'high' })` to scale **during** decode, never materializing the full-resolution bitmap. Browsers without the resize option (older Safari) fall back to plain `decode`. This matters for big images: a 8000×6000 JPEG decoded to a 1920×1080 thumbnail via plain decode briefly holds ~190MB of bitmap; `decodeResized` holds ~8MB.
+
+`detectFormatSupport()` empirically encodes a 1×1 canvas as `webp` and `avif`, checking the produced MIME. PNG/JPEG/GIF are assumed supported. The result drives the format selector in the compress UI.
+
+`reencode(blob, params)` is the pure format-conversion shortcut: `decode → drawImage → encode`.
+
+## Streaming types
+
+Canvas cannot truly stream — `createImageBitmap` decodes the whole image at once. But the **type contract** for future WASM/WebCodecs engines is defined now so adapter swaps don't require API changes:
+
+```typescript
+interface ImageTile { x: number; y: number; width: number; height: number; }
+
+interface ImageChunk { tile: ImageTile; blob: Blob; }
+
+interface StreamingImageOperation {
+  (input: ReadableStream<Blob>, params: Record<string, unknown>, signal?: AbortSignal):
+    AsyncIterable<ImageChunk>;
+}
+
+interface StreamingImageEngineAdapter extends ImageEngineAdapter {
+  decodeRegion?(blob: Blob, tile: ImageTile): Promise<DecodedImage>;
+  mergeChunks?(chunks: ImageChunk[], totalW: number, totalH: number,
+               format: ImageOutputFormat, quality?: number): Promise<Blob>;
+}
+```
+
+The Canvas adapter approximates streaming via the tiling primitives in `operations/tiles.ts`:
+
+- `splitIntoTiles(width, height, tileSize = 512)` — row-major grid, edge tiles clamped to image bounds. Pure function, deterministic.
+- `mergeChunks(chunks, totalW, totalH, format, quality, signal?)` — `decode each chunk → drawImage into output canvas at tile position → encode`. Memory peak during merge is one chunk's bitmap plus the full output canvas.
+- `isDownscale(srcW, srcH, targetW, targetH)` — used to decide whether `decodeResized` is worthwhile.
+
+`DEFAULT_TILE_SIZE = 512` keeps a single tile's RGBA footprint near 1MB.
+
+## Worker integration
+
+`worker-adapter.ts` runs **inside** the Worker thread. It receives protocol messages from the main-thread `WorkerHost` (in `@lokvis/runtime`), dispatches them to engine operations, and posts responses back. The module only depends on `@lokvis/schema` (types only) — never on `@lokvis/runtime` — to preserve the five-layer dependency rule.
+
+The Worker entry flow:
+
+<Mermaid source={`flowchart TD
+  A["Worker boots"] --> B["startImageWorker(scope?)"]
+  B --> C["postMessage({ type: 'ready', protocolVersion: '0.1.0' })"]
+  C --> D["addEventListener('message', handler)"]
+  D --> E{"dispatch by message.type"}
+  E -->|ping| F["postMessage({ type: 'pong', id, ts })"]
+  E -->|cancel| G["inflight.get(id)?.abort()\ndelete from inflight Map"]
+  E -->|request| H["new AbortController()\ninflight.set(req.id, controller)"]
+  E -->|other| Z["ignore"]
+  H --> I["createImageWorkerHandler()(req, controller.signal)"]
+  I --> J["dispatchImageMethod(method, params, signal)"]
+  J --> K{"method"}
+  K -->|image.resize| L1["operations.resize(input, options, signal)"]
+  K -->|image.compress| L2["operations.compress(...)"]
+  K -->|image.detectFormats| L3["detectFormatSupport()"]
+  K -->|image.probe| L4["probeImage(params)"]
+  K -->|unknown| L5["throw Unknown image method"]
+  L1 --> M["postMessage(response ok=true result)"]
+  L2 --> M
+  L3 --> M
+  L4 --> M
+  L5 --> N["postMessage(response ok=false error)"]
+  M --> O["inflight.delete(req.id)"]
+  N --> O
+`} />
+
+**In-flight cancel tracking.** `startImageWorker` keeps `inflight = new Map<string, AbortController>()`. Each `request` creates a fresh controller, registers it under `req.id`, and passes `controller.signal` into `dispatchImageMethod`. When a `cancel` message arrives, the controller is `abort()`-ed and removed — the operation's next `throwIfAborted` check throws `AbortError`, which the handler catches and turns into a `response ok=false`. The `finally` block guarantees `inflight.delete(req.id)` even on unexpected throws.
+
+**Method name → capability name alignment.** The Worker exposes methods named exactly like capabilities (`image.resize`, `image.compress`, …). The Capability layer (plugin-image) calls engine operations directly on the main thread; in a future Worker-isolated deployment, the same capability names route through `WorkerHost.request(method, params)` to reach this handler. The naming alignment is what makes the routing transparent.
+
+**Self-contained protocol types.** `worker-adapter.ts` declares its own `WorkerRequest` / `WorkerResponse` / `WorkerCancel` types instead of importing from `@lokvis/runtime/worker-protocol`. This avoids an Engine → Runtime dependency that would violate the layering rule. A comment in the file flags that the two definitions must stay structurally compatible; the long-term plan is to extract a shared `@lokvis/worker-protocol` package.
+
+## PNG pHYs chunk DPI metadata
+
+Canvas `toBlob` / `convertToBlob` produce PNGs without physical-resolution metadata, so print software cannot read DPI. `operations/png-metadata.ts` is a pure Blob→Blob utility (W8.4) that embeds/reads the standard PNG `pHYs` chunk:
+
+- **pHYs structure** (9 data bytes + 4 type + 4 length + 4 CRC = 21 bytes total): big-endian `pixelsPerUnitX` (4B), `pixelsPerUnitY` (4B), `unit` (1B, `1 = meter`). CRC32 covers type + data.
+- **DPI → pixels-per-meter:** `Math.round(dpi * 1000 / 25.4)` (1 inch = 25.4 mm).
+- **Chunk order:** pHYs must precede IDAT; recommended position is right after IHDR.
+- **Replacement policy:** if the input already contains one or more pHYs chunks (technically illegal per spec but seen in the wild from third-party tools), `embedPngDpi` removes them all and inserts a single new one after IHDR.
+- **Non-PNG inputs:** returned unchanged. Non-positive DPI: returned unchanged.
+
+`readPngDpi(png)` returns `number | null` — `null` for non-PNG, missing pHYs, `unit !== 1`, or `ppmX !== ppmY` (non-square pixels, no single DPI). CRC is not re-validated on read (the spec doesn't require readers to).
+
+The implementation hand-rolls CRC32 (IEEE 802.3 polynomial `0xedb88320`) and big-endian int32 read/write — no external dependency, deterministic, and unit-testable in Node.
+
+## Stub engine mode
+
+When a new engine package lands but its real implementation is deferred (Phase 2 ffmpeg.wasm, pdf-lib, etc.), the stub adapter follows a contract enforced across three layers:
+
+1. **Engine layer.** The stub adapter's `version` field includes the literal `'stub'` token (e.g. `'0.1.0-stub'`). Every operation method throws `new Error('xxx not implemented in stub')`. `supportedCapabilities` lists the future capability names so the registry can present them in UIs.
+2. **Capability layer.** Plugin wrappers call `wrapAsImplementation()` (or `createBlobCapabilityImpl`) which checks `engine.version.includes('stub')` and sets `CapabilityImplementation.status = 'stub'`.
+3. **Runtime layer.** `CapabilityRegistry.resolve(name)` filters out `status === 'stub'` implementations before applying selection strategy. If only stubs exist, `resolve` returns `undefined` and the executor throws `CapabilityStubOnlyError` with the actionable message `"Install a real engine plugin to use this capability"`.
+
+This three-layer contract means stubs are visible in capability listings (so users see what's coming) but cannot be accidentally invoked — calling code gets a clear error pointing to the missing engine, not a runtime `not implemented` exception buried in Worker logs.
+
+## What's intentionally not here
+
+- **No `Asset` / `Workflow` / `Capability` imports.** Engine operates on `Blob` only.
+- **No React / DOM coupling beyond `Canvas`.** `OffscreenCanvas` is preferred so the same code runs in a Worker.
+- **No EXIF reading.** `readExif` is `Blob → ExifData`, a query that violates the Blob↔Blob contract. It lives in `@lokvis/plugin-image` and is registered via the MetadataReader hook (see [Runtime](./runtime#four-extension-hooks)).
+- **No real streaming yet.** The `StreamingImageOperation` and `StreamingImageEngineAdapter` types are reserved for future WASM/WebCodecs engines; Canvas approximates via tiling.
