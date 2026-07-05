@@ -19,3 +19,16 @@ export * from './canvas-engine.js';
 export * from './operations/index.js';
 export * from './adapter.js';
 export * from './worker-adapter.js';
+
+// ─── 懒加载接口（W15.2）──────────────────────────────────────────
+// 用户触发工具时才 dynamic import 对应 operation（减少首屏 JS 体积），
+// prefetchOnHover 在 hover 工具按钮时预加载。同一接口未来承载 WASM 引擎。
+export {
+  lazyLoadOperation,
+  prefetchOperation,
+  preloadTop5Operations,
+  clearOperationCache,
+  isOperationLoaded,
+  TOP_5_OPERATIONS,
+} from './lazy.js';
+export type { BlobOperation } from './lazy.js';
