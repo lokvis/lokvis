@@ -1,10 +1,10 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import PlaygroundLayout from '../layouts/PlaygroundLayout.astro';
 import McpManifestDemo from '../components/demos/McpManifestDemo.tsx';
 import { ErrorBoundary } from '../components/ErrorBoundary.tsx';
 ---
-<BaseLayout title="Lokvis Playground · MCP Manifest" active="mcp">
+<PlaygroundLayout title="Lokvis Playground · MCP Manifest" active="mcp">
   <ErrorBoundary client:only="react">
     <McpManifestDemo />
   </ErrorBoundary>
-</BaseLayout>
+</PlaygroundLayout>
