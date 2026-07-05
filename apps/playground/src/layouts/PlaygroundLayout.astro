@@ -61,6 +61,7 @@ const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
 // PWA UI 组件（W15.4 / W15.5 / W15.8）
 // client:only="react" —— 仅客户端渲染，避免 SSR 时 window/localStorage 未定义
 import InstallPrompt from '../components/pwa/InstallPrompt.tsx';
+import OfflineIndicator, { OfflineStatusDot } from '../components/pwa/OfflineIndicator.tsx';
 
 // 导航分三组：
 //   - Demos: 5 个核心 demo + Code Editor（W14.1 主推）
@@ -158,6 +159,9 @@ const NAV_GROUPS: NavGroup[] = [
     </script>
   </head>
   <body class="h-screen overflow-hidden bg-zinc-950 text-zinc-100">
+    {/* PWA OfflineIndicator banner（W15.5）—— 顶部固定，离线时滑入 */}
+    <OfflineIndicator client:only="react" />
+
     <div class="flex h-full flex-col">
       {/* 顶部品牌条 */}
       <header class="flex items-center justify-between border-b border-zinc-800 bg-zinc-950 px-5 py-3">
@@ -166,7 +170,11 @@ const NAV_GROUPS: NavGroup[] = [
           <span class="text-sm font-semibold tracking-tight">Lokvis Playground</span>
           <span class="hidden rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline">open source · dev demo</span>
         </div>
-        <a href="https://lokvis.com" class="text-xs text-zinc-500 transition-colors hover:text-indigo-400">→ Cloud</a>
+        <div class="flex items-center gap-3">
+          {/* PWA 在线状态点（W15.5）—— 绿色在线 / 红色离线 */}
+          <OfflineStatusDot client:only="react" />
+          <a href="https://lokvis.com" class="text-xs text-zinc-500 transition-colors hover:text-indigo-400">→ Cloud</a>
+        </div>
       </header>
 
       <div class="flex flex-1 overflow-hidden">
