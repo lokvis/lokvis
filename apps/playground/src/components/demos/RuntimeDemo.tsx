@@ -12,7 +12,7 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { createLokvis } from '@lokvis/sdk';
-import type { LokvisRuntime, Capability, Asset } from '@lokvis/sdk';
+import type { LokvisRuntime, Capability, Asset, Workflow, WorkflowResult } from '@lokvis/sdk';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
 import { devToolsPlugin } from '@lokvis/plugin-dev';
 
@@ -29,6 +29,10 @@ export default function RuntimeDemo() {
   const [caps, setCaps] = useState<Capability[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [runResult, setRunResult] = useState<WorkflowResult | null>(null);
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logBoxRef = useRef<HTMLDivElement>(null);
 
@@ -89,11 +93,57 @@ export default function RuntimeDemo() {
     }
   }
 
+  async function handleRun() {
+    if (!runtime || assets.length === 0 || running) return;
+    const firstAsset = assets[0];
+    setRunning(true);
+    setRunError(null);
+    setRunResult(null);
+    if (outputUrl) {
+      URL.revokeObjectURL(outputUrl);
+      setOutputUrl(null);
+    }
+
+    const workflow: Workflow = {
+      id: `demo-exec-${Date.now()}`,
+      version: '1.0',
+      name: 'Runtime Executor Resize',
+      description: 'single-node resize (width=400)',
+      author: { id: 'playground', name: 'Playground' },
+      category: 'image',
+      tags: ['demo'],
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'image.resize', params: { width: 400, height: 0, fit: 'inside' } },
+      ],
+      edges: [],
+      inputs: { type: 'image', multiple: false },
+      outputs: { type: 'image' },
+    };
+
+    try {
+      const res = await runtime.run(workflow, [firstAsset.id]);
+      setRunResult(res);
+      addLog(`run() → ${res.status} · ${res.duration}ms`, res.status === 'failed' ? 'error' : 'log');
+      if (res.status === 'failed') {
+        setRunError(res.error ?? 'Workflow failed');
+      } else if (res.status === 'completed' && res.outputs.length > 0) {
+        const blob = await runtime.exportAsset(res.outputs[0]);
+        setOutputUrl(URL.createObjectURL(blob));
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setRunError(msg);
+      addLog(`run() failed: ${msg}`, 'error');
+    } finally {
+      setRunning(false);
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
         <h1 className="text-sm font-semibold text-zinc-100">Runtime Basics</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">createLokvis · importAsset · capabilities · eventBus</p>
+        <p className="mt-0.5 text-xs text-zinc-500">createLokvis · importAsset · capabilities · eventBus · run()</p>
       </div>
 
       <div className="grid flex-1 grid-cols-1 gap-px overflow-hidden bg-zinc-800 lg:grid-cols-3">
@@ -198,6 +248,51 @@ export default function RuntimeDemo() {
           </div>
         </section>
       </div>
+
+      {/* Executor · runtime.run() */}
+      <section className="flex flex-shrink-0 items-center gap-4 border-t border-zinc-800 bg-zinc-950 px-4 py-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-zinc-400">Executor · runtime.run()</span>
+            <button
+              onClick={handleRun}
+              disabled={!runtime || assets.length === 0 || running}
+              className="rounded bg-indigo-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {running ? 'Running…' : 'Run resize (width=400)'}
+            </button>
+            {runResult && (
+              <span
+                className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                  runResult.status === 'completed'
+                    ? 'bg-emerald-950 text-emerald-400'
+                    : runResult.status === 'failed'
+                    ? 'bg-red-950 text-red-400'
+                    : 'bg-zinc-800 text-zinc-400'
+                }`}
+              >
+                {runResult.status} · {runResult.duration}ms
+              </span>
+            )}
+          </div>
+          {assets.length === 0 && (
+            <p className="text-[10px] text-zinc-600">Upload an asset first to enable run().</p>
+          )}
+          {runResult && runResult.outputs.length > 0 && (
+            <div className="truncate text-[10px] text-zinc-500">
+              outputs[0] = <span className="font-mono text-emerald-400">{runResult.outputs[0]}</span>
+            </div>
+          )}
+          {runError && <div className="text-[10px] text-red-400">{runError}</div>}
+        </div>
+        <div className="flex h-32 w-32 flex-shrink-0 items-center justify-center rounded border border-zinc-800 bg-zinc-900/50">
+          {outputUrl ? (
+            <img src={outputUrl} alt="Output" className="max-h-32 max-w-full object-contain" />
+          ) : (
+            <span className="text-[10px] text-zinc-600">No output</span>
+          )}
+        </div>
+      </section>
 
       {!runtime && (
         <div className="border-t border-zinc-800 bg-zinc-950 px-4 py-2 text-[10px] text-zinc-500">
