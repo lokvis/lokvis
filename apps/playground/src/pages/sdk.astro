@@ -1,0 +1,10 @@
+---
+import PlaygroundLayout from '../layouts/PlaygroundLayout.astro';
+import SdkDemo from '../components/demos/SdkDemo.tsx';
+import { ErrorBoundary } from '../components/ErrorBoundary.tsx';
+---
+<PlaygroundLayout title="Lokvis Playground · SDK Basics" active="sdk">
+  <ErrorBoundary client:only="react">
+    <SdkDemo />
+  </ErrorBoundary>
+</PlaygroundLayout>
