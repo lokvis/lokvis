@@ -293,7 +293,11 @@ const NAV_GROUPS: NavGroup[] = [
           }, { once: true });
 
           window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            // Review fix（Minor）：SW 路径与 scope 从 BASE_URL 派生，
+            // 避免 playground 部署到子路径时 SW 注册到错误 scope。
+            // （base='/' 时退化为原行为 '/sw.js' + scope '/'）
+            const swBase = import.meta.env.BASE_URL;
+            navigator.serviceWorker.register(`${swBase}sw.js`, { scope: swBase })
               .then((reg) => console.log('[SW] registered', reg.scope))
               .catch((err) => console.warn('[SW] registration failed', err));
           });

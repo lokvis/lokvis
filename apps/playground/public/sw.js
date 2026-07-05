@@ -158,7 +158,7 @@ self.addEventListener('activate', (event) => {
  * 向所有同源 client 广播消息（W15.7）。
  * includeUncontrolled: true 确保尚未被当前 SW 控制的页面也能收到（如首次安装场景）。
  *
- * @param {any} message
+ * @param {{ type: string, version?: string }} message 广播消息体（与客户端 message 监听器契约一致）
  */
 async function notifyClients(message) {
   const clients = await self.clients.matchAll({
@@ -438,18 +438,21 @@ async function fetchFromBackupCdns(pathname) {
 /**
  * 资产 fetch 完整 fallback 链（W15.3，review fix）：主源重试 → 备用 CDN。
  *
- * Review fix：fetchWithRetry 现在对 4xx 返回原响应而非 throw，
- * 故本函数需额外检查 resp.ok —— 4xx 视为失败（返回 null，不缓存错误响应），
- * 仅 ok 响应返回给调用方写入缓存。
+ * Review fix（Major）：4xx（404/401/403）为永久错误，直接返回原响应让调用方
+ * 传递给浏览器 —— 不应 fallback 到 stale cache，否则会无限期 serving 已删除资源。
+ * 仅 5xx/网络错误返回 null，让调用方走 cache fallback（临时故障可容忍旧版本）。
  *
  * @param {Request} request
- * @returns {Promise<Response|null>} response.ok 的响应；全部失败返回 null
+ * @returns {Promise<Response|null>} ok 或 4xx 响应；5xx/网络失败返回 null
  */
 async function fetchAssetWithFallbacks(request) {
   try {
     const resp = await fetchWithRetry(request, 2);
-    // 4xx 响应不缓存，返回 null 让调用方走 fallback
-    return resp.ok ? resp : null;
+    if (resp.ok) return resp;
+    // 4xx 为永久错误（404 资源已删除等），直接返回原响应让调用方传递给浏览器
+    if (resp.status >= 400 && resp.status < 500) return resp;
+    // 5xx → 返回 null 让调用方走 cache fallback
+    return null;
   } catch {
     // 主源 3 次尝试全失败（5xx/网络错误）→ 尝试备用 CDN（仅 @lokvis/* 资源）
     const url = new URL(request.url);
@@ -474,8 +477,9 @@ function assetErrorResponse() {
 /**
  * immutable 资产处理（带 hash 的 /assets/*）：cache-first + 永不 revalidate。
  * - 命中缓存：直接返回（不后台更新，hash 不变即内容不变）
- * - 未命中：fetchAssetWithFallbacks（重试 + 备用 CDN），成功写入缓存
- * - 全部失败：返回缓存（若有旧值）→ 否则 503 错误页
+ * - 未命中：fetchAssetWithFallbacks（重试 + 备用 CDN），ok 响应写入缓存
+ * - 4xx：直接返回错误响应（不缓存，不 fallback 到 cache）
+ * - 5xx/网络失败且无缓存：503 错误页
  */
 async function handleImmutableAsset(request) {
   const cache = await caches.open(RUNTIME);
@@ -486,10 +490,13 @@ async function handleImmutableAsset(request) {
   }
   const resp = await fetchAssetWithFallbacks(request);
   if (resp) {
-    await cache.put(request, resp.clone());
+    // 仅缓存 ok 响应；4xx 直接返回给浏览器（不污染 cache，不 fallback）
+    if (resp.ok) {
+      await cache.put(request, resp.clone());
+    }
     return resp;
   }
-  // 无缓存且全源失败 → 503
+  // 5xx/网络失败且无缓存 → 503
   return new Response(assetErrorResponse(), {
     status: 503,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
@@ -499,8 +506,9 @@ async function handleImmutableAsset(request) {
 /**
  * /assets/* 非 hash 资产处理：stale-while-revalidate + 重试 + 备用 CDN。
  * - 命中缓存：立即返回 + 后台用 fetchAssetWithFallbacks 更新
- * - 未命中：等待 fetchAssetWithFallbacks，成功写入缓存并返回
- * - 全部失败：返回缓存（若有）→ 否则 503 错误页
+ *   （后台若得 4xx，删除 stale cache 避免无限期 serving 已删除资源）
+ * - 未命中：等待 fetchAssetWithFallbacks；ok 写入缓存；4xx 直接返回（不 fallback）
+ * - 5xx/网络失败：返回缓存（若有）→ 否则 503 错误页
  */
 async function handleAssetWithRetry(request) {
   const cache = await caches.open(RUNTIME);
@@ -510,9 +518,15 @@ async function handleAssetWithRetry(request) {
   const networkUpdate = (async () => {
     const resp = await fetchAssetWithFallbacks(request);
     if (resp) {
-      await cache.put(request, resp.clone());
+      if (resp.ok) {
+        await cache.put(request, resp.clone());
+      } else if (resp.status >= 400 && resp.status < 500) {
+        // 4xx：资源已删除/移动，清除 stale cache 避免无限期 serving 旧版本
+        await cache.delete(request);
+      }
+      return resp;
     }
-    return resp;
+    return null;
   })().catch(() => null);
 
   if (cached) {
@@ -522,9 +536,10 @@ async function handleAssetWithRetry(request) {
   }
   const resp = await networkUpdate;
   if (resp) {
+    // ok 或 4xx 都直接返回（4xx 让浏览器看到真实 404，而非 503）
     return resp;
   }
-  // 网络失败且无缓存 → 503
+  // 5xx/网络失败且无缓存 → 503
   return new Response(assetErrorResponse(), {
     status: 503,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },

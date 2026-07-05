@@ -115,6 +115,12 @@ export function lazyLoadOperation(
  * 浏览器后台下载对应 chunk，用户实际点击时几乎零延迟。
  *
  * 失败静默（prefetch 是优化，不是必需），错误只 console.warn。
+ *
+ * Review fix：委托给 lazyLoadOperation 以复用 loadingPromises 去重。
+ * 原实现直接调 loader() 绕过去重表，若用户 hover 后立即点击，
+ * lazyLoadOperation 与 prefetchOperation 会各自发起独立 dynamic import
+ * （即使 ESM 模块层可能去重，代码层 dedup 保证被破坏）。现统一走
+ * lazyLoadOperation，hover→click 同 tick 内共享同一 in-flight promise。
  */
 export function prefetchOperation(capability: string): void {
   // 已加载则跳过
@@ -122,21 +128,17 @@ export function prefetchOperation(capability: string): void {
   // 已在加载中也跳过
   if (loadingPromises.has(capability)) return;
 
-  const loader = OPERATION_LOADERS[capability];
-  if (!loader) {
+  if (!OPERATION_LOADERS[capability]) {
     console.warn(
       `[engine-image/lazy] Cannot prefetch unknown operation: ${capability}`
     );
     return;
   }
 
-  loader()
-    .then((op) => {
-      loadedOperations.set(capability, op);
-    })
-    .catch((err) => {
-      console.warn(`[engine-image/lazy] Prefetch failed for ${capability}:`, err);
-    });
+  // 委托给 lazyLoadOperation 复用 loadingPromises 去重（fire-and-forget）
+  lazyLoadOperation(capability).catch((err) => {
+    console.warn(`[engine-image/lazy] Prefetch failed for ${capability}:`, err);
+  });
 }
 
 /**

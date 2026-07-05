@@ -9,7 +9,8 @@
  *    /`fetch`/`xhr`/`console` 等可能含文件名的类别同时 redact `message` 与 `data`。
  * 3. **遵循浏览器扩展 / Do-Not-Track / GPC**:检测 `navigator.doNotTrack` 与
  *    `navigator.globalPrivacyControl`,用户拒绝跟踪时不上报。
- * 4. **采样率可配**:Alpha 阶段 tracesSampleRate=0.1(10%),避免额度耗尽。
+ * 4. **性能监控待启用**:Alpha 阶段仅上报错误,未接入 BrowserTracing 集成,
+ *    tracesSampleRate 待集成时配置(见 initSentry 中的 TODO)。
  * 5. **URL 脱敏**:`beforeSend` 剥离 `?workflow=<base64>` 等查询参数,只保留 origin+pathname。
  *
  * 集成位置:
@@ -23,8 +24,20 @@ import type * as SentryBrowser from '@sentry/browser';
 
 /** Sentry release 版本号,与 package.json 对齐 */
 const SENTRY_RELEASE = import.meta.env.PUBLIC_SENTRY_RELEASE ?? 'playground@0.1.0';
-/** 性能采样率,Alpha 阶段 10% */
-const TRACES_SAMPLE_RATE = 0.1;
+
+/**
+ * 需脱敏的 breadcrumb 类别(module-level 避免每次 breadcrumb 重新分配 Set)。
+ * Sentry 每次点击/fetch/console 都会触发 beforeBreadcrumb,
+ * 原实现每次 new Set() 造成不必要的 GC 压力。
+ */
+const SENSITIVE_CATEGORIES = new Set([
+  'ui.click',
+  'ui.input',
+  'ui.key',
+  'fetch',
+  'xhr',
+  'console',
+]);
 
 /** 是否已初始化(避免重复 init) */
 let initialized = false;
@@ -88,19 +101,13 @@ export async function initSentry(): Promise<void> {
       dsn: getSentryDsn(),
       release: SENTRY_RELEASE,
       environment: import.meta.env.PROD ? 'production' : 'development',
-      tracesSampleRate: TRACES_SAMPLE_RATE,
+      // TODO: 启用性能监控时,添加 BrowserTracing 集成并恢复 tracesSampleRate。
+      // 当前未传入任何 performance 集成,tracesSampleRate 无效(死配置),
+      // 故移除以避免误导未来读者认为性能监控已激活。
       // 隐私保护:对可能含文件名的 breadcrumb 类别同时 redact message + data
       // (W12.3 原实现仅 redact message,data 字段仍可能泄露 UI 点击目标)
       beforeBreadcrumb(breadcrumb) {
-        const sensitiveCategories = new Set([
-          'ui.click',
-          'ui.input',
-          'ui.key',
-          'fetch',
-          'xhr',
-          'console',
-        ]);
-        if (sensitiveCategories.has(breadcrumb.category ?? '')) {
+        if (SENSITIVE_CATEGORIES.has(breadcrumb.category ?? '')) {
           return { ...breadcrumb, message: '[redacted]', data: undefined };
         }
         return breadcrumb;
