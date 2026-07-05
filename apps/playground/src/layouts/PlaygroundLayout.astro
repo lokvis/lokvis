@@ -1,5 +1,7 @@
 ---
 import '../styles/global.css';
+import { InstallPrompt } from '../components/InstallPrompt';
+import { StatusBar } from '../components/StatusBar';
 
 /**
  * Playground 极简壳（W14.1 升级）
@@ -164,8 +166,15 @@ const NAV_GROUPS: NavGroup[] = [
           <span class="text-sm font-semibold tracking-tight">Lokvis Playground</span>
           <span class="hidden rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline">open source · dev demo</span>
         </div>
-        <a href="https://lokvis.com" class="text-xs text-zinc-500 transition-colors hover:text-indigo-400">→ Cloud</a>
+        <div class="flex items-center gap-2">
+          {/* W15.5:在线状态指示(离线时显示红点 + Offline 文字) */}
+          <StatusBar client:only="react" />
+          <a href="https://lokvis.com" class="text-xs text-zinc-500 transition-colors hover:text-indigo-400">→ Cloud</a>
+        </div>
       </header>
+
+      {/* W15.4:PWA 自定义安装提示(右下角浮窗) */}
+      <InstallPrompt client:only="react" />
 
       <div class="flex flex-1 overflow-hidden">
         {/* Sidebar 导航(W14.1 极简化:Demos 展开 / Tools 折叠)*/}
