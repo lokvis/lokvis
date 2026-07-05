@@ -1,0 +1,29 @@
+{
+  "name": "Lokvis Playground",
+  "short_name": "Lokvis",
+  "description": "Lokvis Playground — try @lokvis/sdk in your browser. Local-first image processing demo.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#09090b",
+  "theme_color": "#6366f1",
+  "categories": ["developer", "productivity", "graphics"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

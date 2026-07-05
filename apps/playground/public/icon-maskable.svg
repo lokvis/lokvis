@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Lokvis">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#g)"/>
+  <g transform="translate(96 96) scale(0.625)">
+    <path d="M128 128 L256 96 L384 128 L352 256 L384 384 L256 416 L128 384 L160 256 Z"
+          fill="#09090b" opacity="0.95"/>
+    <circle cx="256" cy="256" r="48" fill="#09090b"/>
+    <circle cx="256" cy="256" r="32" fill="#fff"/>
+  </g>
+</svg>

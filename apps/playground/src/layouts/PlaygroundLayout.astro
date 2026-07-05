@@ -112,6 +112,15 @@ const NAV_GROUPS: NavGroup[] = [
     <meta name="robots" content="noindex, nofollow" />
     <title>{title}</title>
 
+    {/* PWA(W15.1)——manifest + theme-color + iOS meta */}
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#6366f1" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon-maskable.svg" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Lokvis" />
+
     {/* Open Graph(W8.7)—— 分享到 Twitter/微信/Slack 时显示卡片预览 */}
     <meta property="og:title" content={finalOgTitle} />
     <meta property="og:description" content={finalOgDescription} />
@@ -133,6 +142,17 @@ const NAV_GROUPS: NavGroup[] = [
     <script>
       import { initSentry } from '../toolkit/sentry.js';
       initSentry();
+    </script>
+
+    {/* Service Worker 注册(W15.1)
+        - dev 模式自动跳过(registerSW 内部判断)
+        - production 在 window load 后注册,不阻塞首屏
+        - 检测到新版本时通过 controllerchange 自动刷新 */}
+    <script>
+      import { registerSW } from '../toolkit/register-sw.js';
+      registerSW({
+        onUpdate: () => console.info('[sw] new version available, will apply on next reload'),
+      });
     </script>
   </head>
   <body class="h-screen overflow-hidden bg-zinc-950 text-zinc-100">
