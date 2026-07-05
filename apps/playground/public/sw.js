@@ -2,7 +2,7 @@
 /**
  * Lokvis Playground Service Worker
  *
- * 版本：SW_VERSION = 'v2-w15.3'
+ * 版本：SW_VERSION = 'v3-w15.7'
  * 功能：
  *   W15.1：
  *   1. 预缓存 playground shell（index + 5 个核心 demo 页 HTML + manifest + icon + offline.html）
@@ -12,7 +12,7 @@
  *      - 跨域请求：network-only，不缓存
  *   3. skipWaiting + clients.claim 实现 SW 即时更新
  *
- *   W15.3（本次新增）：
+ *   W15.3：
  *   4. immutable 缓存：/assets/* 下带 8+ 位 hash 的构建产物（chunk-abc12345.js）
  *      用 cache-first + 永不 revalidate（命中即返回，hash 不变即内容不变）。
  *   5. 失败重试：/assets/* 请求 fetch 失败（网络错误或 !response.ok）时重试 2 次
@@ -21,6 +21,15 @@
  *   6. 备用 CDN：主源 /assets/* 失败后，对 pathname 含 `@lokvis/` 的资源尝试
  *      jsdelivr / unpkg 备用源（当前无此类资源，为未来 Squoosh WASM 引擎铺路）。
  *
+ *   W15.7（本次新增）：
+ *   7. install 后向所有 client 发 `SW_INSTALLED`（客户端可显示"刷新以激活新版本"提示）。
+ *   8. activate + clients.claim 后向所有 client 发 `SW_ACTIVATED`，客户端收到后
+ *      调 `preloadTop5Operations()`（engine-image/lazy.js）触发 top 5 operation chunk
+ *      的 dynamic import —— 浏览器自动 fetch chunk，SW 的 immutable/SWR 缓存自然生效。
+ *      SW 不硬编码 chunk URL（hash 每次构建变化），预加载完全由客户端 ESM import 驱动。
+ *   9. message 事件扩展：SKIP_WAITING（现有）/ PRELOAD_TOP5（回执 TOP5_PRELOAD_TRIGGERED）
+ *      / GET_VERSION（回执 SW_VERSION + 版本号）。
+ *
  * 注意：Astro 构建产物带 hash 的 JS chunk 不写死 URL（hash 每次构建变化），
  *      通过 immutable / stale-while-revalidate 策略自动缓存。
  *
@@ -28,7 +37,7 @@
  */
 
 // SW 版本号 —— 更新此值会触发新 SW 接管 + 旧 cache 清理
-const SW_VERSION = 'v2-w15.3';
+const SW_VERSION = 'v3-w15.7';
 
 // Cache 命名（修改版本时同步改后缀，activate 阶段会清理旧版本 cache）
 const PRECACHE = 'lokvis-precache-v1';
@@ -66,7 +75,7 @@ const PRECACHE_URLS = [
 ];
 
 // ============================================================================
-// install：预缓存 + skipWaiting
+// install：预缓存 + skipWaiting + 通知客户端 SW_INSTALLED（W15.7）
 // ============================================================================
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -94,12 +103,14 @@ self.addEventListener('install', (event) => {
       }
       // 立即接管下一跳（配合 clients.claim 实现新 SW 即时生效）
       await self.skipWaiting();
+      // W15.7：通知所有 client 新 SW 已 install，客户端可显示"刷新以激活新版本"提示
+      await notifyClients({ type: 'SW_INSTALLED', version: SW_VERSION });
     })(),
   );
 });
 
 // ============================================================================
-// activate：清理旧 cache + clients.claim
+// activate：清理旧 cache + clients.claim + 通知客户端 SW_ACTIVATED（W15.7）
 // ============================================================================
 self.addEventListener('activate', (event) => {
   event.waitUntil(
@@ -114,9 +125,28 @@ self.addEventListener('activate', (event) => {
       );
       // 立即接管所有同源 client（无需 reload 即生效）
       await self.clients.claim();
+      // W15.7：通知所有 client SW 已激活，客户端收到后调 preloadTop5Operations()
+      // 触发 top 5 engine chunk 的 dynamic import（浏览器自动 fetch，SW 缓存自然生效）
+      await notifyClients({ type: 'SW_ACTIVATED', version: SW_VERSION });
     })(),
   );
 });
+
+/**
+ * 向所有同源 client 广播消息（W15.7）。
+ * includeUncontrolled: true 确保尚未被当前 SW 控制的页面也能收到（如首次安装场景）。
+ *
+ * @param {any} message
+ */
+async function notifyClients(message) {
+  const clients = await self.clients.matchAll({
+    type: 'window',
+    includeUncontrolled: true,
+  });
+  for (const client of clients) {
+    client.postMessage(message);
+  }
+}
 
 // ============================================================================
 // fetch：路由分发
@@ -449,10 +479,44 @@ async function handleAssetWithRetry(request) {
 }
 
 // ============================================================================
-// message：响应 SKIP_WAITING（用于 SW 更新提示）
+// message：响应客户端消息（W15.7 扩展）
+//   - 'SKIP_WAITING'（字符串，向后兼容）/ { type: 'SKIP_WAITING' }：立即 skipWaiting
+//   - { type: 'PRELOAD_TOP5' }：回执 TOP5_PRELOAD_TRIGGERED（实际预加载由客户端做，
+//     SW 不能 import engine 模块，仅负责触发与缓存）
+//   - { type: 'GET_VERSION' }：回执 SW_VERSION + 版本号（调试用）
 // ============================================================================
 self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') {
+  const data = event.data;
+
+  // 向后兼容：字符串 'SKIP_WAITING'
+  if (data === 'SKIP_WAITING') {
     self.skipWaiting();
+    return;
+  }
+
+  if (!data || typeof data !== 'object') {
+    return;
+  }
+
+  switch (data.type) {
+    case 'SKIP_WAITING':
+      self.skipWaiting();
+      break;
+    case 'PRELOAD_TOP5':
+      // 回执客户端：可触发 preloadTop5Operations()（实际 dynamic import 在客户端执行）
+      if (event.source) {
+        event.source.postMessage({
+          type: 'TOP5_PRELOAD_TRIGGERED',
+          version: SW_VERSION,
+        });
+      }
+      break;
+    case 'GET_VERSION':
+      if (event.source) {
+        event.source.postMessage({ type: 'SW_VERSION', version: SW_VERSION });
+      }
+      break;
+    default:
+      break;
   }
 });
