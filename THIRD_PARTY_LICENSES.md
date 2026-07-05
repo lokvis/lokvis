@@ -1,7 +1,8 @@
 # Third-Party Licenses
 
 > 本文件汇总 Lokvis monorepo 引用的所有第三方依赖及其许可证。
-> 自动生成于 W12.6 LICENSE 审计任务(2026-07-04),基于 `pnpm-lock.yaml` 与各 `package.json` 的依赖声明。
+> 自动生成于 W13.6 LICENSE 审计任务(2026-07-05),基于 `pnpm-lock.yaml` 与各 `package.json` 的依赖声明。
+> (W12.6 首次审计;W13.6 复审新增 TypeDoc / starlight-typedoc / typedoc-plugin-markdown 文档构建依赖)
 >
 > Lokvis 本体采用 [MIT License](./LICENSE) 发布。所有第三方依赖均使用与 MIT 兼容的宽松许可证(MIT / Apache-2.0 / BSD-2/3 / ISC),**不包含** GPL/AGPL/LGPL 等 copyleft 许可证。
 
@@ -25,8 +26,8 @@
 
 | SPDX | 名称 | 数量 | 备注 |
 |------|------|------|------|
-| **MIT** | MIT License | 39 | 主体依赖(运行时 20 + dev 16 + types 3),与 Lokvis 同许可证 |
-| **Apache-2.0** | Apache License 2.0 | 4 | `dexie` / `sharp` / `fake-indexeddb` / `typescript` |
+| **MIT** | MIT License | 41 | 主体依赖(运行时 20 + dev 18 + types 3),与 Lokvis 同许可证 |
+| **Apache-2.0** | Apache License 2.0 | 5 | `dexie` / `sharp` / `fake-indexeddb` / `typescript` / `typedoc` |
 | **BSD-3-Clause** | BSD 3-Clause | (传递依赖) | 见 `pnpm-license` 报告 |
 | **ISC** | ISC License | (传递依赖) | 见 `pnpm-license` 报告 |
 
@@ -89,6 +90,9 @@
 | [`tsx`](https://github.com/privatenumber/tsx) | `^4.19.0` | 4.22.4 | **MIT** | `@lokvis/example-cli-automation` | TS 脚本执行器 |
 | [`vite`](https://github.com/vitejs/vite) | `^5.4.0` | 5.4.21 | **MIT** | examples | 构建工具(被 Astro 内部使用) |
 | [`@vitejs/plugin-react`](https://github.com/vitejs/vite-plugin-react) | `^4.3.0` | 4.7.0 | **MIT** | `@lokvis/example-embedding` | Vite React 插件 |
+| [`typedoc`](https://github.com/TypeStrong/TypeDoc) | `^0.28.19` | 0.28.19 | **Apache-2.0** | `@lokvis/docs` | API 文档生成(TypeScript → Markdown) |
+| [`starlight-typedoc`](https://github.com/HiDeoo/starlight-typedoc) | `^0.23.0` | 0.23.0 | **MIT** | `@lokvis/docs` | Starlight TypeDoc 集成插件 |
+| [`typedoc-plugin-markdown`](https://github.com/tgreyuk/typedoc-plugin-markdown) | `^4.12.0` | 4.12.0 | **MIT** | `@lokvis/docs` | TypeDoc Markdown 输出格式插件 |
 
 ### Type Definitions
 
@@ -128,7 +132,7 @@
 
 ## License Texts
 
-### MIT License(本项目 + 39 个依赖)
+### MIT License(本项目 + 41 个依赖)
 
 ```
 MIT License
@@ -154,7 +158,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Apache License 2.0(4 个依赖:`dexie` / `sharp` / `fake-indexeddb` / `typescript`)
+### Apache License 2.0(5 个依赖:`dexie` / `sharp` / `fake-indexeddb` / `typescript` / `typedoc`)
 
 > 完整文本见 https://www.apache.org/licenses/LICENSE-2.0
 >
@@ -267,4 +271,4 @@ pnpm why <package-name>
 
 ---
 
-*本文件由 W12.6 LICENSE 审计任务生成(2026-07-04)。如有疑问请开 [GitHub Issue](https://github.com/lokvis/lokvis/issues)。*
+*本文件由 W12.6 LICENSE 审计任务首次生成(2026-07-04),W13.6 复审更新(2026-07-05)。如有疑问请开 [GitHub Issue](https://github.com/lokvis/lokvis/issues)。*
