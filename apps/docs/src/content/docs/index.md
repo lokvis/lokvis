@@ -37,4 +37,7 @@ pnpm dev --filter @lokvis/web
 - [Read the Architecture guide](/docs/architecture)
 - [Get started with the SDK](/docs/getting-started)
 - [Browse the Capability catalog](/docs/capabilities)
-- [Build your first plugin](/docs/plugins)
+- [Embed the SDK in a React app](/docs/guides/embed-sdk)
+- [Write your first plugin](/docs/guides/write-first-plugin)
+- [Build a custom workspace](/docs/guides/custom-workspace)
+- [Automate from the CLI](/docs/guides/cli-automation)
