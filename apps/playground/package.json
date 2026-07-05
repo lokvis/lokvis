@@ -26,6 +26,7 @@
     "@lokvis/capability": "workspace:*",
     "@lokvis/plugin-dev": "workspace:*",
     "@lokvis/plugin-image": "workspace:*",
+    "@lokvis/plugin-sdk": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/schema": "workspace:*",
     "@lokvis/sdk": "workspace:*",

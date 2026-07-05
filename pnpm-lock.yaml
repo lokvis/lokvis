@@ -108,6 +108,9 @@ importers:
       '@lokvis/plugin-image':
         specifier: workspace:*
         version: link:../../packages/plugin-image
+      '@lokvis/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
       '@lokvis/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
