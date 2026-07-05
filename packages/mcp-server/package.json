@@ -4,6 +4,7 @@
   "description": "Lokvis MCP Server - 把 Lokvis Runtime 的本地处理能力暴露给 AI 客户端(Claude/ChatGPT/Cursor)",
   "license": "MIT",
   "type": "module",
+  "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

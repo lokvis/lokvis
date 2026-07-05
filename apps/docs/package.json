@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Lokvis Documentation - Architecture, API reference, guides",
+  "license": "MIT",
   "type": "module",
+  "sideEffects": false,
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
