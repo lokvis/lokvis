@@ -36,11 +36,9 @@ let bodyOverflowPrev = '';
 // HMR 清理:开发时 Vite 重新执行本模块后,计数器归零但 body.overflow 可能仍是
 // 'hidden'(旧模块实例的 effect cleanup 未跑),导致 body 永久锁死无法滚动。
 // 在 HMR dispose 回调里重置全局状态,生产环境 import.meta.hot 不存在,回调不执行。
-// 类型用 cast 守卫,不依赖 vite/client 类型声明(本包是纯 TS 库,不引入 vite 类型)。
-type ViteHotContext = { dispose(cb: () => void): void };
-const hot = (import.meta as unknown as { hot?: ViteHotContext }).hot;
-if (hot) {
-  hot.dispose(() => {
+// 类型由 vite/client 提供(tsconfig.json types 已引入),无需手动 cast。
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
     bodyOverflowLockCount = 0;
     bodyOverflowPrev = '';
     if (typeof document !== 'undefined') {
