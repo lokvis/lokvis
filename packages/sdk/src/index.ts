@@ -17,11 +17,9 @@
 
 import type { LokvisRuntime } from '@lokvis/runtime';
 import type { RuntimeConfig } from '@lokvis/runtime';
-import type { AssetStore, CapabilityRegistry } from '@lokvis/runtime';
-import type { EventBus, MetadataReader } from '@lokvis/schema';
-import type { PluginConfig, PluginContext, PluginInstaller } from '@lokvis/plugin-sdk';
-import { createRuntime, LokvisRuntimeImpl } from '@lokvis/runtime';
-import { AssetNotFoundError, PluginLoadError } from './errors.js';
+import type { PluginConfig, PluginInstaller } from '@lokvis/plugin-sdk';
+import { createRuntime } from '@lokvis/runtime';
+import { PluginLoadError } from './errors.js';
 
 /** 插件加载项 */
 export interface PluginLoadEntry {
@@ -36,35 +34,31 @@ export interface CreateLokvisOptions extends RuntimeConfig {
 }
 
 /**
- * 安装单个插件到 Runtime 的依赖项上(共享逻辑)。
- * 步骤:注册能力声明 → 构造受限 PluginContext → 调用 plugin.install → 发射 plugin:loaded。
+ * 安装单个插件到 Runtime(共享逻辑)。
+ *
+ * 委托给 `runtime.installPlugin(plugin)` —— Runtime 公共接口承担:
+ * 注册能力声明 → 构造 PluginContext → 调用 plugin.install → 发射 plugin:loaded。
+ * SDK 只负责把 plugin.install 抛出的错误包成 PluginLoadError,
+ * 不再通过 `instanceof LokvisRuntimeImpl` + `_getAssetStore()` 反向访问内部依赖。
+ *
  * 由 createLokvis(批量预加载)与 loadPlugin(运行时单个加载)复用,避免重复实现。
  */
 async function installPlugin(
-  plugin: PluginLoadEntry,
-  assetStore: AssetStore,
-  capabilityRegistry: CapabilityRegistry,
-  eventBus: EventBus,
-  runtime: LokvisRuntimeImpl
+  runtime: LokvisRuntime,
+  plugin: PluginLoadEntry
 ): Promise<void> {
-  for (const capability of plugin.config.capabilities) {
-    capabilityRegistry.registerCapability(capability);
-  }
-  const ctx = createPluginContext(plugin.config.name, assetStore, capabilityRegistry, eventBus, runtime);
   try {
-    await plugin.install(ctx);
+    await runtime.installPlugin(plugin);
   } catch (err) {
+    // runtime.installPlugin 已发射 plugin:loaded 之前抛错时,SDK 包成 PluginLoadError
+    // (若错误本身就是 PluginLoadError 则原样上抛,避免双重包装)
+    if (err instanceof PluginLoadError) throw err;
     throw new PluginLoadError(
       plugin.config.name,
       `Plugin "${plugin.config.name}" install failed: ${err instanceof Error ? err.message : String(err)}`,
       err
     );
   }
-  eventBus.emit({
-    type: 'plugin:loaded',
-    name: plugin.config.name,
-    version: plugin.config.version,
-  });
 }
 
 /**
@@ -90,14 +84,9 @@ export async function createLokvis(
   const { plugins = [], ...runtimeConfig } = options;
   const runtime = await createRuntime(runtimeConfig);
 
-  // 预加载插件(复用 installPlugin,避免与 loadPlugin 重复实现)
-  if (plugins.length > 0 && runtime instanceof LokvisRuntimeImpl) {
-    const assetStore = runtime._getAssetStore();
-    const capabilityRegistry = runtime._getCapabilityRegistry();
-    const eventBus = runtime.eventBus;
-    for (const plugin of plugins) {
-      await installPlugin(plugin, assetStore, capabilityRegistry, eventBus, runtime);
-    }
+  // 预加载插件(委托 runtime.installPlugin,无需 instanceof 具体类)
+  for (const plugin of plugins) {
+    await installPlugin(runtime, plugin);
   }
 
   return runtime;
@@ -115,75 +104,7 @@ export async function loadPlugin(
   runtime: LokvisRuntime,
   plugin: PluginLoadEntry
 ): Promise<void> {
-  if (!(runtime instanceof LokvisRuntimeImpl)) {
-    throw new PluginLoadError(
-      plugin.config.name,
-      'Plugin loading requires a LokvisRuntimeImpl instance'
-    );
-  }
-
-  await installPlugin(
-    plugin,
-    runtime._getAssetStore(),
-    runtime._getCapabilityRegistry(),
-    runtime.eventBus,
-    runtime
-  );
-}
-
-/**
- * 构造 PluginContext
- *
- * Plugin 只看到受限的 Runtime API：
- * - getAsset / importAsset / getAssetBlob / createAsset / listCapabilities
- * - 看不到 React / Redux / Cloud
- *
- * registerMetadataReader 把读取函数转发给 runtime._registerMetadataReader
- * (依赖反转:Plugin 提供实现,Runtime 持有引用)。
- */
-function createPluginContext(
-  pluginName: string,
-  assetStore: AssetStore,
-  capabilityRegistry: CapabilityRegistry,
-  eventBus: EventBus,
-  runtime: LokvisRuntimeImpl
-): PluginContext {
-  return {
-    runtime: {
-      getAsset: async (id) => {
-        const asset = await assetStore.get(id);
-        if (!asset) throw new AssetNotFoundError(id);
-        return asset;
-      },
-      importAsset: async (file) => {
-        // PluginContext.importAsset 接受 File | Blob，统一转为 AssetSource
-        if (file instanceof File) {
-          const asset = await assetStore.import({ kind: 'file', file });
-          return asset.id;
-        }
-        const asset = await assetStore.import({ kind: 'blob', blob: file, name: `blob_${Date.now()}` });
-        return asset.id;
-      },
-      getAssetBlob: (asset) => assetStore.getBlob(asset.blob),
-      createAsset: (blob, metadata, type) => assetStore.create(blob, metadata, type),
-      listCapabilities: async () => capabilityRegistry.list(),
-    },
-    eventBus,
-    registerCapability: (impl) => capabilityRegistry.registerImplementation(impl),
-    registerMetadataReader: <T>(name: string, reader: MetadataReader<T>) => {
-      runtime._registerMetadataReader(name, reader as MetadataReader);
-    },
-    registerPanel: (panel) => {
-      // Panel 注册由 UI 层处理，这里仅记录日志
-      void panel;
-    },
-    log: (level, message) => {
-      const prefix = `[${pluginName}]`;
-      if (level === 'error') console.error(`${prefix} ${message}`);
-      else if (level === 'warn') console.warn(`${prefix} ${message}`);
-      else console.log(`${prefix} ${message}`);
-    },
-  };
+  await installPlugin(runtime, plugin);
 }
 
 // ─── 公共类型 re-export ──────────────────────────────────────────
