@@ -5,11 +5,10 @@
  * 调用 image.convert capability。
  */
 import { useCallback, useState } from 'react';
-import type { Workflow } from '@lokvis/sdk';
-import { UploadBox } from '@/components/toolkit/UploadBox';
-import { PreviewBox } from '@/components/toolkit/PreviewBox';
 import { useImageTool } from '@/components/toolkit/useImageTool';
-import { downloadBlob, formatBytes, imageInfoToMeta } from '@/components/toolkit/download';
+import { formatBytes } from '@/components/toolkit/download';
+import { buildSingleStepImageWorkflow } from '@/components/toolkit/workflow-builder';
+import { ToolResultPanel } from '@/components/toolkit/ToolResultPanel';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useLang } from '@/i18n/useLang';
 import { useTranslations } from '@/i18n/utils';
@@ -40,21 +39,12 @@ function ConvertToolContent() {
   };
 
   const handleConvert = useCallback(async () => {
-    const wf: Workflow = {
-      id: `convert-${Date.now()}`,
-      version: '1.0',
-      name: 'Convert',
-      description: 'Convert image to another format',
-      author: { id: 'playground', name: 'Playground' },
-      category: 'image',
-      tags: [],
-      nodes: [
-        { id: 'n1', type: 'transform', capability: 'image.convert', params: { format, quality } },
-      ],
-      edges: [],
-      inputs: { type: 'image', multiple: false },
-      outputs: { type: 'image' },
-    };
+    const wf = buildSingleStepImageWorkflow(
+      'image.convert',
+      { format, quality },
+      'Convert',
+      'Convert image to another format'
+    );
     await tool.runWorkflow(wf);
   }, [tool, format, quality]);
 
@@ -116,53 +106,24 @@ function ConvertToolContent() {
           </button>
         </div>
 
-        {tool.initError && <p className="text-xs text-red-400">{t('common.initFailedPrefix')}{tool.initError}</p>}
-        {tool.error && <p className="text-xs text-red-400">{tool.error}</p>}
-        {skipped > 0 && (
-          <p className="text-xs text-amber-400">
-            {t('common.skipPrefix')}{skipped}{t('common.skipSuffix')}
-          </p>
-        )}
-        {inputInfo && outputInfo && (
-          <p className="text-xs text-emerald-400">
-            {inputInfo.format} → {outputInfo.format} · {formatBytes(inputInfo.size)} → {formatBytes(outputInfo.size)}
-          </p>
-        )}
-
-        {/* Input / Output 对比 */}
-        <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
-          {!tool.inputId ? (
-            <UploadBox onFiles={handleFiles} hint={t('convert.uploadHint')} className="md:col-span-2" />
-          ) : (
-            <>
-              <PreviewBox title={t('common.input')} url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
-              <PreviewBox
-                title={t('common.output')}
-                url={tool.outputUrl}
-                meta={imageInfoToMeta(tool.outputInfo)}
-                action={
-                  tool.outputBlob && (
-                    <button
-                      onClick={() => downloadBlob(tool.outputBlob!, `converted.${format}`)}
-                      className="text-[10px] text-indigo-400 hover:text-indigo-300"
-                    >
-                      {t('common.download')}
-                    </button>
-                  )
-                }
-              />
-            </>
+        <ToolResultPanel
+          tool={tool}
+          onFiles={handleFiles}
+          uploadHint={t('convert.uploadHint')}
+          reselectLabel={t('convert.reselect')}
+          downloadName={() => `converted.${format}`}
+        >
+          {skipped > 0 && (
+            <p className="text-xs text-amber-400">
+              {t('common.skipPrefix')}{skipped}{t('common.skipSuffix')}
+            </p>
           )}
-        </div>
-
-        {tool.inputId && (
-          <button
-            onClick={tool.reset}
-            className="self-start text-[10px] text-zinc-500 hover:text-zinc-300"
-          >
-            {t('convert.reselect')}
-          </button>
-        )}
+          {inputInfo && outputInfo && (
+            <p className="text-xs text-emerald-400">
+              {inputInfo.format} → {outputInfo.format} · {formatBytes(inputInfo.size)} → {formatBytes(outputInfo.size)}
+            </p>
+          )}
+        </ToolResultPanel>
       </div>
     </div>
   );
