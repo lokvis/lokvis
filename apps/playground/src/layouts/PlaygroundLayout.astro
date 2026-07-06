@@ -1,20 +1,20 @@
 ---
 import '../styles/global.css';
+import { getLangFromUrl, t, switchLangPath, type Language } from '@/i18n/utils';
+import { langList } from '@/i18n/config';
 
 /**
- * Playground 极简壳（W14.1 升级）
+ * Playground 极简壳（W14.1 升级 + i18n）
  *
  * 设计目标：开发者试用 @lokvis/sdk 的最小容器。
  * 不含商业化元素（Workspace 组件、付费墙、广告）—— 那些在 cloud/apps/web。
  *
  * Layout 结构：顶部品牌条 + 左侧 sidebar 导航 + 右侧内容区。
  *
- * W14.1 nav 极简化：
- *   - Demos：5 个核心 demo（SDK/Runtime/Plugin/Workflow/McpManifest）+ Code Editor
- *   - Tools (W5)：8 个单工具页（折叠到次要位置，保留直达入口）
- *   - More：image/history/components 等历史 demo，默认折叠
+ * i18n：从 URL 路径自动提取 lang（/en/xxx 或 /zh/xxx），导航文案 + href 跟随语言。
+ * 语言切换器在顶部品牌条右侧，切换时保留当前页面路径。
  *
- * 每个页面通过 slot 注入内容（通常是一个 client:only React 组件）。
+ * 所有分组都支持展开/收起（<details>）；若分组内含当前 active 项，默认展开。
  */
 
 interface Props {
@@ -46,75 +46,78 @@ const {
   ogType = 'website',
 } = Astro.props;
 
+// 从 URL 自动提取语言（/en/sdk → 'en'，/zh/sdk → 'zh'）
+const lang: Language = getLangFromUrl(Astro.url);
+const tr = (key: string) => t(lang, key);
+
 const finalOgTitle = ogTitle ?? title;
 const finalOgDescription = ogDescription ?? description;
 
 // Base 路径处理：astro.config.mjs 配置 `base: '/'`（W14.7 起 playground 部署到根域），
 // 导航 href 通过 import.meta.env.BASE_URL 拼接，确保 base 变更时路径自动跟随。
-// Review fix：原注释称 base 为 '/playground'，与实际配置不符，已更正。
 const rawBase = import.meta.env.BASE_URL;
 const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
 
+// 语言前缀化的 base：/en/ 或 /zh/
+const langBase = `${base}${lang}/`;
+
 // PWA UI 组件（W15.4 / W15.5 / W15.8）
 // client:only="react" —— 仅客户端渲染，避免 SSR 时 window/localStorage 未定义
-import InstallPrompt from '../components/pwa/InstallPrompt.tsx';
-import OfflineIndicator, { OfflineStatusDot } from '../components/pwa/OfflineIndicator.tsx';
-import EngineLoader from '../components/pwa/EngineLoader.tsx';
+import InstallPrompt from '@/components/pwa/InstallPrompt.tsx';
+import OfflineIndicator, { OfflineStatusDot } from '@/components/pwa/OfflineIndicator.tsx';
+import EngineLoader from '@/components/pwa/EngineLoader.tsx';
 
-// 导航分三组：
-//   - Demos: 5 个核心 demo + Code Editor（W14.1 主推）
-//   - Tools (W5): 8 个单工具页（直达单一 capability，次要位置）
-//   - More: 历史 demo（image/history/components），默认折叠
+// 导航分三组（label/desc 改为翻译 key，href 加 lang 前缀）
 interface NavItem {
   id: string;
-  label: string;
+  labelKey: string;
   href: string;
-  desc: string;
+  descKey: string;
 }
 interface NavGroup {
-  title: string;
+  titleKey: string;
   items: NavItem[];
-  /** 是否默认折叠（More 组用 <details> 实现） */
-  collapsible?: boolean;
 }
 const NAV_GROUPS: NavGroup[] = [
   {
-    title: 'Demos',
+    titleKey: 'nav.demos.title',
     items: [
-      { id: 'home', label: 'Code Editor', href: base, desc: 'Run arbitrary SDK code' },
-      { id: 'sdk', label: 'SDK Basics', href: `${base}sdk`, desc: 'createLokvis() · capabilities · run' },
-      { id: 'runtime', label: 'Runtime Basics', href: `${base}runtime`, desc: 'Import asset + list capabilities' },
-      { id: 'plugin', label: 'Plugin Loader', href: `${base}plugin`, desc: 'loadPlugin() dynamic capability' },
-      { id: 'workflow', label: '5-Step Workflow', href: `${base}workflow`, desc: 'resize → compress → watermark → rotate → convert' },
-      { id: 'mcp', label: 'MCP Manifest', href: `${base}mcp`, desc: 'Expose capabilities as MCP tools' },
+      { id: 'home', labelKey: 'nav.home.label', href: langBase, descKey: 'nav.home.desc' },
+      { id: 'sdk', labelKey: 'nav.sdk.label', href: `${langBase}sdk`, descKey: 'nav.sdk.desc' },
+      { id: 'runtime', labelKey: 'nav.runtime.label', href: `${langBase}runtime`, descKey: 'nav.runtime.desc' },
+      { id: 'plugin', labelKey: 'nav.plugin.label', href: `${langBase}plugin`, descKey: 'nav.plugin.desc' },
+      { id: 'workflow', labelKey: 'nav.workflow.label', href: `${langBase}workflow`, descKey: 'nav.workflow.desc' },
+      { id: 'mcp', labelKey: 'nav.mcp.label', href: `${langBase}mcp`, descKey: 'nav.mcp.desc' },
     ],
   },
   {
-    title: 'Tools (W5)',
+    titleKey: 'nav.tools.title',
     items: [
-      { id: 'tools/compress', label: 'Compress', href: `${base}tools/compress`, desc: 'image.compress · 格式+质量' },
-      { id: 'tools/resize', label: 'Resize', href: `${base}tools/resize`, desc: 'image.resize · 尺寸+比例' },
-      { id: 'tools/convert', label: 'Convert', href: `${base}tools/convert`, desc: 'image.convert · 格式互转' },
-      { id: 'tools/crop', label: 'Crop', href: `${base}tools/crop`, desc: 'image.crop · 区域裁剪' },
-      { id: 'tools/watermark', label: 'Watermark', href: `${base}tools/watermark`, desc: 'image.watermark · 文字水印' },
-      { id: 'tools/watermark-batch', label: 'Watermark Batch', href: `${base}tools/watermark-batch`, desc: '批量加水印(并发 4)' },
-      { id: 'tools/batch', label: 'Batch Queue', href: `${base}tools/batch`, desc: '批量并发处理(并发 4)' },
-      { id: 'tools/download', label: 'Download Manager', href: `${base}tools/download`, desc: '单/批量下载管理' },
+      { id: 'tools/compress', labelKey: 'nav.tools.compress.label', href: `${langBase}tools/compress`, descKey: 'nav.tools.compress.desc' },
+      { id: 'tools/resize', labelKey: 'nav.tools.resize.label', href: `${langBase}tools/resize`, descKey: 'nav.tools.resize.desc' },
+      { id: 'tools/convert', labelKey: 'nav.tools.convert.label', href: `${langBase}tools/convert`, descKey: 'nav.tools.convert.desc' },
+      { id: 'tools/crop', labelKey: 'nav.tools.crop.label', href: `${langBase}tools/crop`, descKey: 'nav.tools.crop.desc' },
+      { id: 'tools/watermark', labelKey: 'nav.tools.watermark.label', href: `${langBase}tools/watermark`, descKey: 'nav.tools.watermark.desc' },
+      { id: 'tools/watermark-batch', labelKey: 'nav.tools.watermarkBatch.label', href: `${langBase}tools/watermark-batch`, descKey: 'nav.tools.watermarkBatch.desc' },
+      { id: 'tools/batch', labelKey: 'nav.tools.batch.label', href: `${langBase}tools/batch`, descKey: 'nav.tools.batch.desc' },
+      { id: 'tools/download', labelKey: 'nav.tools.download.label', href: `${langBase}tools/download`, descKey: 'nav.tools.download.desc' },
     ],
   },
   {
-    title: 'More',
-    collapsible: true,
+    titleKey: 'nav.more.title',
     items: [
-      { id: 'image', label: 'Image Workflow (legacy)', href: `${base}image`, desc: 'Old 2-step workflow demo' },
-      { id: 'history', label: 'Undo / Redo', href: `${base}history`, desc: 'History stack & time travel' },
-      { id: 'components', label: 'UI Components', href: `${base}components`, desc: 'Design system showcase' },
+      { id: 'image', labelKey: 'nav.image.label', href: `${langBase}image`, descKey: 'nav.image.desc' },
+      { id: 'history', labelKey: 'nav.history.label', href: `${langBase}history`, descKey: 'nav.history.desc' },
+      { id: 'components', labelKey: 'nav.components.label', href: `${langBase}components`, descKey: 'nav.components.desc' },
     ],
   },
 ];
+
+// 当前页面路径（用于语言切换器计算目标 URL）
+const currentPath = Astro.url.pathname;
 ---
 <!doctype html>
-<html lang="en" class="dark">
+<html lang={lang} class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -153,7 +156,7 @@ const NAV_GROUPS: NavGroup[] = [
         - 遵循 DNT,用户拒绝跟踪时不上报
         - 隐私保护:beforeBreadcrumb 剔除可能含文件名的输入,只保留 category */}
     <script>
-      import { initSentry } from '../toolkit/sentry.js';
+      import { initSentry } from '@/toolkit/sentry.js';
       initSentry();
     </script>
   </head>
@@ -166,66 +169,64 @@ const NAV_GROUPS: NavGroup[] = [
       <header class="flex items-center justify-between border-b border-zinc-800 bg-zinc-950 px-5 py-3">
         <div class="flex items-center gap-3">
           <span class="text-lg font-bold" style="background: linear-gradient(135deg, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">◆</span>
-          <span class="text-sm font-semibold tracking-tight">Lokvis Playground</span>
-          <span class="hidden rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline">open source · dev demo</span>
+          <span class="text-sm font-semibold tracking-tight">{tr('header.brand')}</span>
+          <span class="hidden rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline">{tr('header.tag')}</span>
         </div>
         <div class="flex items-center gap-3">
           {/* PWA 在线状态点（W15.5）—— 绿色在线 / 红色离线 */}
           <OfflineStatusDot client:only="react" />
-          <a href="https://lokvis.com" class="text-xs text-zinc-500 transition-colors hover:text-indigo-400">→ Cloud</a>
+          {/* 语言切换器：切换时保留当前页面路径 */}
+          <div class="flex items-center gap-1 rounded-md border border-zinc-800 bg-zinc-900 px-1 py-0.5 text-[10px]">
+            {langList.map((l) => (
+              <a
+                href={switchLangPath(currentPath, l)}
+                class={`rounded px-1.5 py-0.5 font-medium transition-colors ${
+                  l === lang ? 'bg-indigo-600 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+                aria-current={l === lang ? 'true' : undefined}
+              >{l.toUpperCase()}</a>
+            ))}
+          </div>
+          <a href="https://lokvis.com" class="text-xs text-zinc-500 transition-colors hover:text-indigo-400">{tr('header.cloud')}</a>
         </div>
       </header>
 
       <div class="flex flex-1 overflow-hidden">
-        {/* Sidebar 导航(分组:Demos + Tools W5 + More 折叠)*/}
+        {/* Sidebar 导航(分组:Demos + Tools W5 + More,全部可展开/收起)*/}
         <aside class="hidden w-60 flex-shrink-0 overflow-y-auto border-r border-zinc-800 bg-zinc-950/50 md:flex md:flex-col">
           <nav class="flex flex-1 flex-col gap-3 p-3">
-            {NAV_GROUPS.map((group) => (
-              group.collapsible ? (
-                <details class="group flex flex-col gap-1">
+            {NAV_GROUPS.map((group) => {
+              // 若分组内含当前 active 项,默认展开
+              const containsActive = group.items.some((item) => item.id === active);
+              return (
+                <details class="group flex flex-col gap-1" open={containsActive}>
                   <summary class="flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600 transition-colors hover:bg-zinc-900 hover:text-zinc-400">
-                    <span>{group.title}</span>
+                    <span>{tr(group.titleKey)}</span>
                     <span class="text-zinc-600 transition-transform group-open:rotate-90">›</span>
                   </summary>
                   <div class="flex flex-col gap-1">
                     {group.items.map((item) => (
                       <a
                         href={item.href}
+                        id={active === item.id ? 'active-nav-item' : undefined}
                         class={`group rounded-md px-3 py-2 text-xs transition-colors ${
                           active === item.id
                             ? 'bg-indigo-600/10 text-indigo-400 ring-1 ring-inset ring-indigo-500/20'
                             : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
                         }`}
                       >
-                        <div class="font-semibold">{item.label}</div>
-                        <div class={`mt-0.5 text-[10px] ${active === item.id ? 'text-indigo-400/70' : 'text-zinc-600 group-hover:text-zinc-500'}`}>{item.desc}</div>
+                        <div class="font-semibold">{tr(item.labelKey)}</div>
+                        <div class={`mt-0.5 text-[10px] ${active === item.id ? 'text-indigo-400/70' : 'text-zinc-600 group-hover:text-zinc-500'}`}>{tr(item.descKey)}</div>
                       </a>
                     ))}
                   </div>
                 </details>
-              ) : (
-                <div class="flex flex-col gap-1">
-                  <div class="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">{group.title}</div>
-                  {group.items.map((item) => (
-                    <a
-                      href={item.href}
-                      class={`group rounded-md px-3 py-2 text-xs transition-colors ${
-                        active === item.id
-                          ? 'bg-indigo-600/10 text-indigo-400 ring-1 ring-inset ring-indigo-500/20'
-                          : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
-                      }`}
-                    >
-                      <div class="font-semibold">{item.label}</div>
-                      <div class={`mt-0.5 text-[10px] ${active === item.id ? 'text-indigo-400/70' : 'text-zinc-600 group-hover:text-zinc-500'}`}>{item.desc}</div>
-                    </a>
-                  ))}
-                </div>
-              )
-            ))}
+              );
+            })}
           </nav>
           <div class="border-t border-zinc-800 p-3 text-[10px] text-zinc-600">
-            <div>sdk <span class="text-zinc-400">@0.1.0</span></div>
-            <div class="mt-0.5">runs locally · no upload</div>
+            <div>{tr('sidebar.sdkVersion')} <span class="text-zinc-400">@0.1.0</span></div>
+            <div class="mt-0.5">{tr('sidebar.runsLocally')}</div>
           </div>
         </aside>
 
@@ -234,6 +235,13 @@ const NAV_GROUPS: NavGroup[] = [
           <slot />
         </main>
       </div>
+
+      {/* 将激活的导航项滚动到视野内(页面刷新后定位) */}
+      <script>
+        // 使用 block:'nearest' 避免不必要的滚动;仅当激活项不在视野内时才滚动
+        const el = document.getElementById('active-nav-item');
+        if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      </script>
     </div>
 
     {/* PWA InstallPrompt（W15.4）—— 捕获 beforeinstallprompt + 底部安装 banner
@@ -301,6 +309,35 @@ const NAV_GROUPS: NavGroup[] = [
               .then((reg) => console.log('[SW] registered', reg.scope))
               .catch((err) => console.warn('[SW] registration failed', err));
           });
+        }
+      </script>
+    )}
+    {import.meta.env.DEV && (
+      <script>
+        // Dev 模式:注销残留的 Service Worker,避免 SW 的 stale-while-revalidate
+        // 缓存拦截 Vite 的 /@fs/ 模块请求,导致 workspace 包(如 @lokvis/runtime)
+        // 的更新不生效(浏览器拿到 SW 缓存的旧版代码)。
+        // 常见触发场景:之前跑过 production build / preview,或早期版本 dev 模式
+        // 也注册过 SW。残留 SW 在 dev 模式下持续拦截请求,HMR 失效。
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then((regs) => {
+            if (regs.length > 0) {
+              Promise.all(regs.map((r) => r.unregister())).then(() => {
+                console.log('[SW] unregistered stale service workers in dev mode');
+              });
+            }
+          });
+          // 同时清理 SW 缓存(caches API),避免 stale-while-revalidate
+          // 命中旧缓存仍返回旧版模块
+          if (window.caches && typeof caches.keys === 'function') {
+            caches.keys().then((keys) => {
+              Promise.all(keys.map((k) => caches.delete(k))).then(() => {
+                if (keys.length > 0) {
+                  console.log('[SW] cleared stale caches in dev mode:', keys.length);
+                }
+              });
+            });
+          }
         }
       </script>
     )}

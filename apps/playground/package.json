@@ -8,6 +8,7 @@
   "sideEffects": false,
   "scripts": {
     "dev": "astro dev",
+    "dev:stop": "astro dev stop",
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check && tsc --noEmit",

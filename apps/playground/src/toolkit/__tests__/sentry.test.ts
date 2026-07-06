@@ -49,7 +49,7 @@ import {
   captureMessage,
   setAnonymousUser,
   _resetSentryForTesting,
-} from '../sentry.js';
+} from '@/toolkit/sentry.js';
 
 describe('Sentry 监控接入(W12.3)', () => {
   beforeEach(() => {

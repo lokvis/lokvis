@@ -15,6 +15,9 @@ import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime, Workflow, AssetId } from '@lokvis/sdk';
 import type { HistoryEntry } from '@lokvis/schema';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 const WORKFLOW_ID = 'demo-history';
 
@@ -46,6 +49,16 @@ function describeHistoryEntry(h: HistoryEntry): string {
 }
 
 export default function HistoryDemo() {
+  return (
+    <ErrorBoundary>
+      <HistoryDemoContent />
+    </ErrorBoundary>
+  );
+}
+
+function HistoryDemoContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
   const [inputId, setInputId] = useState<AssetId | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
@@ -152,8 +165,8 @@ export default function HistoryDemo() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">Undo / Redo</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">history stack · time travel</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('history.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('history.subtitle')}</p>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -165,7 +178,7 @@ export default function HistoryDemo() {
               onClick={() => fileInputRef.current?.click()}
               className="rounded bg-zinc-800 px-2 py-1 text-[10px] font-medium text-zinc-300 hover:bg-zinc-700"
             >
-              + Upload
+              {t('common.upload')}
             </button>
             <input
               ref={fileInputRef}
@@ -191,14 +204,14 @@ export default function HistoryDemo() {
               disabled={historyCursor < 0 || busy}
               className="rounded px-2 py-1 text-[10px] font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-40"
             >
-              ← Undo
+              {t('history.undoArrow')}
             </button>
             <button
               onClick={handleRedo}
               disabled={historyCursor >= history.length - 1 || busy}
               className="rounded px-2 py-1 text-[10px] font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-40"
             >
-              Redo →
+              {t('history.redoArrow')}
             </button>
           </div>
 
@@ -207,7 +220,7 @@ export default function HistoryDemo() {
             {currentUrl ? (
               <img src={currentUrl} alt="Current state" className="max-h-full max-w-full object-contain" />
             ) : (
-              <p className="text-[11px] text-zinc-600">Upload an image to begin</p>
+              <p className="text-[11px] text-zinc-600">{t('history.uploadHint')}</p>
             )}
           </div>
 
@@ -221,17 +234,17 @@ export default function HistoryDemo() {
         {/* 历史栈侧栏 */}
         <aside className="hidden w-64 flex-shrink-0 flex-col border-l border-zinc-800 bg-zinc-950/50 md:flex">
           <header className="flex items-center justify-between border-b border-zinc-800/50 px-3 py-2 text-[11px] font-semibold text-zinc-400">
-            <span>History ({historyCursor + 1})</span>
+            <span>{t('history.headerPrefix')}{historyCursor + 1}{t('history.headerSuffix')}</span>
             {history.length > historyCursor + 1 && (
               <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] font-normal text-zinc-500">
-                +{history.length - historyCursor - 1} redo
+                {t('history.redoCountPrefix')}{history.length - historyCursor - 1}{t('history.redoCountSuffix')}
               </span>
             )}
           </header>
           <div className="flex-1 overflow-auto p-2">
             {history.length === 0 ? (
               <p className="p-3 text-center text-[10px] text-zinc-600">
-                Apply a filter to build history
+                {t('history.applyFilterHint')}
               </p>
             ) : (
               <ol className="space-y-1">
@@ -249,7 +262,7 @@ export default function HistoryDemo() {
                           #{i + 1}
                           {isRedo && (
                             <span className="ml-1 text-[8px] font-normal uppercase tracking-wider text-zinc-500">
-                              redo
+                              {t('history.redoLabel')}
                             </span>
                           )}
                         </span>

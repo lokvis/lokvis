@@ -17,12 +17,16 @@
  * 数据源：navigator.onLine + window online/offline 事件，无新依赖。
  */
 import { useEffect, useState } from 'react';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 /** banner 高度（px），用于给 body 加等量 padding-top 避免遮挡 header */
 const BANNER_HEIGHT_PX = 32;
 
 /** 顶部离线 banner —— 默认导出 */
 export default function OfflineIndicator() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   // Review fix（Minor-9）：用 lazy initializer 读取 navigator.onLine，
   // 避免首帧 flash（原 useState(true) 在离线首帧误显示在线）。
   // client:only="react" 保证仅在客户端渲染，navigator 一定存在。
@@ -75,13 +79,13 @@ export default function OfflineIndicator() {
     >
       <span className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" aria-hidden />
       <span className="text-[11px] font-medium">
-        You're offline — cached features still work
+        {t('pwa.offlineBanner')}
       </span>
       <button
         type="button"
         onClick={() => setDismissed(true)}
         className="ml-1 rounded px-1.5 py-0.5 text-[10px] text-amber-300/80 transition-colors hover:bg-amber-900/60 hover:text-amber-100"
-        aria-label="Dismiss offline banner"
+        aria-label={t('pwa.dismissBanner')}
       >
         ✕
       </button>
@@ -91,6 +95,8 @@ export default function OfflineIndicator() {
 
 /** header 右侧状态点 —— 命名导出，轻量指示当前在线状态 */
 export function OfflineStatusDot() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   // Review fix（Minor-9）：lazy initializer 读取 navigator.onLine，避免首帧 flash
   const [online, setOnline] = useState(() =>
     typeof navigator !== 'undefined' ? navigator.onLine : true
@@ -110,7 +116,7 @@ export function OfflineStatusDot() {
   return (
     <span
       className="flex items-center gap-1.5 text-[11px]"
-      title={online ? 'Online' : 'Offline — cached features still work'}
+      title={online ? t('pwa.onlineTitle') : t('pwa.offlineTitle')}
     >
       <span
         className={`inline-block h-2 w-2 rounded-full ${
@@ -119,7 +125,7 @@ export function OfflineStatusDot() {
         aria-hidden
       />
       <span className={online ? 'text-zinc-500' : 'text-red-400'}>
-        {online ? 'Online' : 'Offline'}
+        {online ? t('pwa.online') : t('pwa.offlineStatus')}
       </span>
     </span>
   );

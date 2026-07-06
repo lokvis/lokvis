@@ -13,6 +13,9 @@ import { useEffect, useState, useRef, Fragment } from 'react';
 import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime, Workflow, WorkflowResult, AssetId } from '@lokvis/sdk';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 type Stage = 'idle' | 'running' | 'done' | 'failed';
 type FilterPreset = 'grayscale' | 'invert' | 'sepia' | 'blur';
@@ -28,6 +31,16 @@ const NODES: { id: string; capability: string; label: string }[] = [
 ];
 
 export default function WorkflowDemo() {
+  return (
+    <ErrorBoundary>
+      <WorkflowDemoContent />
+    </ErrorBoundary>
+  );
+}
+
+function WorkflowDemoContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
   const [inputId, setInputId] = useState<AssetId | null>(null);
   const [inputUrl, setInputUrl] = useState<string | null>(null);
@@ -151,15 +164,15 @@ export default function WorkflowDemo() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">5-Step Workflow</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">resize → watermark → rotate → filter → convert</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('workflow.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('workflow.subtitle')}</p>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
         {/* 参数面板 */}
         <div className="grid grid-cols-2 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-3 lg:grid-cols-5">
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">Target width (px)</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('workflow.targetWidth')}</span>
             <input
               type="number"
               min={16}
@@ -170,7 +183,7 @@ export default function WorkflowDemo() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">Watermark text</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('workflow.watermarkText')}</span>
             <input
               type="text"
               value={watermarkText}
@@ -179,7 +192,7 @@ export default function WorkflowDemo() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">Rotate angle (°)</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('workflow.rotateAngle')}</span>
             <input
               type="number"
               min={0}
@@ -190,7 +203,7 @@ export default function WorkflowDemo() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">Filter preset</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('workflow.filterPreset')}</span>
             <select
               value={filterPreset}
               onChange={(e) => setFilterPreset(e.target.value as FilterPreset)}
@@ -203,7 +216,7 @@ export default function WorkflowDemo() {
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">Output format</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('workflow.outputFormat')}</span>
             <select
               value={outputFormat}
               onChange={(e) => setOutputFormat(e.target.value as OutputFormat)}
@@ -225,7 +238,7 @@ export default function WorkflowDemo() {
             disabled={!runtime || !inputId || stage === 'running'}
             className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {stage === 'running' ? 'Running…' : 'Run Workflow'}
+            {stage === 'running' ? t('common.running') : t('common.runWorkflow')}
           </button>
           {result && (
             <span
@@ -244,7 +257,7 @@ export default function WorkflowDemo() {
         {/* 节点执行时间线 */}
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
           <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-            Node Timeline
+            {t('workflow.nodeTimeline')}
           </div>
           <div className="flex items-start">
             {NODES.map((node, i) => {
@@ -282,13 +295,13 @@ export default function WorkflowDemo() {
           <div className="flex flex-col overflow-hidden rounded-lg border border-zinc-800">
             <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/50 px-3 py-2">
               <span className="text-[11px] font-semibold text-zinc-400">
-                Input {inputSize > 0 && `· ${(inputSize / 1024).toFixed(1)} KB`}
+                {t('common.input')} {inputSize > 0 && `· ${(inputSize / 1024).toFixed(1)} KB`}
               </span>
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="text-[10px] text-indigo-400 hover:text-indigo-300"
               >
-                + Upload
+                {t('common.upload')}
               </button>
               <input
                 ref={fileInputRef}
@@ -302,7 +315,7 @@ export default function WorkflowDemo() {
               {inputUrl ? (
                 <img src={inputUrl} alt="Input" className="max-h-64 max-w-full object-contain" />
               ) : (
-                <p className="text-[11px] text-zinc-600">Select an image to start</p>
+                <p className="text-[11px] text-zinc-600">{t('common.selectImageHint')}</p>
               )}
             </div>
           </div>
@@ -311,7 +324,7 @@ export default function WorkflowDemo() {
           <div className="flex flex-col overflow-hidden rounded-lg border border-zinc-800">
             <header className="border-b border-zinc-800 bg-zinc-900/50 px-3 py-2">
               <span className="text-[11px] font-semibold text-zinc-400">
-                Output {result && `· ${result.status}`}
+                {t('common.output')} {result && `· ${result.status}`}
                 {outputSize > 0 && ` · ${(outputSize / 1024).toFixed(1)} KB`}
               </span>
             </header>
@@ -319,7 +332,7 @@ export default function WorkflowDemo() {
               {stage === 'running' && (
                 <div className="flex items-center gap-2 text-[11px] text-zinc-500">
                   <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-zinc-600 border-t-indigo-400" />
-                  Processing…
+                  {t('common.processingHint')}
                 </div>
               )}
               {stage === 'failed' && (
@@ -329,7 +342,7 @@ export default function WorkflowDemo() {
                 <img src={outputUrl} alt="Output" className="max-h-64 max-w-full object-contain" />
               )}
               {stage === 'idle' && !outputUrl && (
-                <p className="text-[11px] text-zinc-600">Output will appear here</p>
+                <p className="text-[11px] text-zinc-600">{t('common.outputWillAppear')}</p>
               )}
             </div>
           </div>
@@ -339,7 +352,7 @@ export default function WorkflowDemo() {
         {result && (
           <details className="rounded-lg border border-zinc-800 bg-zinc-900/30">
             <summary className="cursor-pointer px-3 py-2 text-[11px] font-medium text-zinc-400">
-              Workflow Result JSON
+              {t('common.workflowResultJson')}
             </summary>
             <pre className="overflow-auto p-3 font-mono text-[10px] text-zinc-300">
               {JSON.stringify(result, null, 2)}

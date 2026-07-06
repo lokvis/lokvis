@@ -7,7 +7,10 @@
  * demo 数据:用 canvas 生成 2 张示例 PNG Blob,供无真实输入时演示。
  */
 import { useCallback, useState } from 'react';
-import { downloadBlob, formatBytes } from '../toolkit/download';
+import { downloadBlob, formatBytes } from '@/components/toolkit/download';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 interface DownloadItem {
   id: string;
@@ -47,6 +50,16 @@ let idSeq = 0;
 const nextId = () => `dl-${Date.now()}-${(idSeq++).toString(36)}`;
 
 export default function DownloadManager() {
+  return (
+    <ErrorBoundary>
+      <DownloadManagerContent />
+    </ErrorBoundary>
+  );
+}
+
+function DownloadManagerContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const [items, setItems] = useState<DownloadItem[]>([]);
   const [batchDownloading, setBatchDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,8 +121,8 @@ export default function DownloadManager() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">Download Manager</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">单/批量下载管理</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('download.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('download.subtitle')}</p>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
@@ -119,7 +132,7 @@ export default function DownloadManager() {
             onClick={addDemoFiles}
             className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
           >
-            添加测试文件
+            {t('download.addDemoFiles')}
           </button>
         </div>
 
@@ -129,7 +142,7 @@ export default function DownloadManager() {
         <div className="flex flex-col gap-2">
           {items.length === 0 ? (
             <p className="py-8 text-center text-xs text-zinc-600">
-              无下载项,点击「添加测试文件」生成示例
+              {t('download.empty')}
             </p>
           ) : (
             items.map((item) => (
@@ -148,13 +161,13 @@ export default function DownloadManager() {
                       : 'bg-zinc-800 text-zinc-400'
                   }`}
                 >
-                  {item.downloaded ? '已下载' : '待下载'}
+                  {item.downloaded ? t('download.downloaded') : t('download.pending')}
                 </span>
                 <button
                   onClick={() => downloadOne(item)}
                   className="w-12 text-right text-[10px] text-indigo-400 hover:text-indigo-300"
                 >
-                  下载
+                  {t('download.btn')}
                 </button>
               </div>
             ))
@@ -166,9 +179,9 @@ export default function DownloadManager() {
           <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
             <div className="flex flex-col gap-0.5">
               <span className="text-[10px] text-zinc-500">
-                共 {items.length} 项 · 已下载 {downloadedCount}
+                {t('download.totalPrefix')}{items.length}{t('download.totalMiddle')}{downloadedCount}
               </span>
-              <span className="text-[10px] text-zinc-500">总大小 {formatBytes(totalSize)}</span>
+              <span className="text-[10px] text-zinc-500">{t('download.totalSizePrefix')}{formatBytes(totalSize)}</span>
             </div>
             <div className="flex gap-2">
               <button
@@ -176,13 +189,13 @@ export default function DownloadManager() {
                 disabled={batchDownloading || allDownloaded}
                 className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {batchDownloading ? '下载中…' : '全部下载'}
+                {batchDownloading ? t('download.downloading') : t('download.downloadAll')}
               </button>
               <button
                 onClick={clearAll}
                 className="rounded-lg border border-zinc-700 px-4 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
               >
-                清空
+                {t('download.clear')}
               </button>
             </div>
           </div>

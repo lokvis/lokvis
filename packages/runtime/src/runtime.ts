@@ -557,13 +557,24 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   async exportAsset(id: AssetId, format?: string): Promise<Blob> {
     const asset = await this.getAsset(id);
     const blob = await this.assetStore.getBlob(asset.blob);
+    // OPFS 存储后端用 .bin 扩展名存储,读取时 fileHandle.getFile() 返回的
+    // File.type 可能为空字符串或 'application/octet-stream'(浏览器对未知扩展名
+    // 的默认兜底 MIME)。这两种情况都会导致 Object URL 的 Content-Type 退化,
+    // 下载时文件扩展名变成 .octet-stream。
+    // 用 asset metadata 的 mimeType 补全 Blob type(IDB/Memory 后端不受影响)。
+    const OPFS_FALLBACK_MIME = 'application/octet-stream';
+    const needsTypeRepair =
+      !blob.type || blob.type === OPFS_FALLBACK_MIME;
+    const blobWithType = needsTypeRepair
+      ? new Blob([blob], { type: asset.metadata.mimeType })
+      : blob;
     this.eventBus.emit({
       type: 'export:completed',
       assetId: id,
       format: format ?? asset.metadata.format,
       size: blob.size,
     });
-    return blob;
+    return blobWithType;
   }
 
   /**

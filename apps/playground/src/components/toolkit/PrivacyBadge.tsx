@@ -12,8 +12,20 @@
  *   - 隐私声明始终可见(默认浅色),离线时变绿色高亮"已验证"
  */
 import { useEffect, useState } from 'react';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
+import type { Language } from '@/i18n/config';
 
-export function PrivacyBadge() {
+export interface PrivacyBadgeProps {
+  /** 由 Astro SSR 注入的语言（避免 client:load 组件 SSR/客户端 lang 不一致导致闪烁） */
+  lang?: Language;
+}
+
+export function PrivacyBadge({ lang: langProp }: PrivacyBadgeProps = {}) {
+  // 优先使用 SSR 注入的 lang；否则回退到 useLang（client:only 场景）
+  const hookLang = useLang();
+  const lang = langProp ?? hookLang;
+  const t = useTranslations(lang);
   const [online, setOnline] = useState<boolean>(true);
   const [showGuide, setShowGuide] = useState(false);
 
@@ -45,9 +57,9 @@ export function PrivacyBadge() {
       <span aria-hidden>{online ? '🔒' : '✓'}</span>
       <span>
         {online ? (
-          <>文件始终在浏览器本地处理 · 不上传到任何服务器</>
+          <>{t('privacy.onlineMsg')}</>
         ) : (
-          <strong>断网模式 · 仍在工作 · 已验证本地处理</strong>
+          <strong>{t('privacy.offlineMsg')}</strong>
         )}
       </span>
       <span className="mx-1 text-zinc-700">·</span>
@@ -58,7 +70,7 @@ export function PrivacyBadge() {
           }`}
           aria-hidden
         />
-        {online ? '在线' : '离线'}
+        {online ? t('privacy.online') : t('privacy.offline')}
       </span>
       {online && (
         <button
@@ -66,26 +78,26 @@ export function PrivacyBadge() {
           onClick={() => setShowGuide((s) => !s)}
           className="ml-auto rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
         >
-          断网验证
+          {t('privacy.verify')}
         </button>
       )}
       {showGuide && online && (
         <div className="absolute right-4 top-12 z-50 w-72 rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-[11px] text-zinc-300 shadow-xl">
-          <div className="mb-1.5 font-semibold text-zinc-100">如何断网验证?</div>
+          <div className="mb-1.5 font-semibold text-zinc-100">{t('privacy.guideTitle')}</div>
           <ol className="list-decimal space-y-1 pl-4">
-            <li>关闭 Wi-Fi 或拔掉网线</li>
-            <li>或:DevTools → Application → Service Workers → 勾选 Offline</li>
-            <li>或:DevTools → Network → 顶部勾选 "Offline"</li>
+            <li>{t('privacy.guide1')}</li>
+            <li>{t('privacy.guide2')}</li>
+            <li>{t('privacy.guide3')}</li>
           </ol>
           <p className="mt-2 text-[10px] text-zinc-500">
-            断网后回到此页面,继续上传/处理图片。如果一切正常,说明文件确实在本地处理。
+            {t('privacy.guideHint')}
           </p>
           <button
             type="button"
             onClick={() => setShowGuide(false)}
             className="mt-2 text-[10px] text-indigo-400 hover:text-indigo-300"
           >
-            关闭
+            {t('privacy.close')}
           </button>
         </div>
       )}

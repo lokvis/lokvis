@@ -18,9 +18,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Workflow } from '@lokvis/sdk';
-import { UploadBox } from '../toolkit/UploadBox';
-import { useLokvisRuntime } from '../toolkit/useLokvisRuntime';
-import { downloadBlob, formatBytes } from '../toolkit/download';
+import { UploadBox } from '@/components/toolkit/UploadBox';
+import { useLokvisRuntime } from '@/components/toolkit/useLokvisRuntime';
+import { downloadBlob, formatBytes } from '@/components/toolkit/download';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 type Position = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center' | 'tile';
 type ItemStatus = 'pending' | 'processing' | 'done' | 'error';
@@ -46,28 +49,45 @@ interface QueueItem {
 
 const CONCURRENCY = 4;
 
-const POSITIONS: { value: Position; label: string }[] = [
-  { value: 'top-left', label: '左上' },
-  { value: 'top-right', label: '右上' },
-  { value: 'center', label: '居中' },
-  { value: 'bottom-left', label: '左下' },
-  { value: 'bottom-right', label: '右下' },
-  { value: 'tile', label: '平铺' },
+const POSITION_KEYS: Record<Position, string> = {
+  'top-left': 'watermark.positionTopLeft',
+  'top-right': 'watermark.positionTopRight',
+  'center': 'watermark.positionCenter',
+  'bottom-left': 'watermark.positionBottomLeft',
+  'bottom-right': 'watermark.positionBottomRight',
+  'tile': 'watermark.positionTile',
+};
+
+const POSITIONS: Position[] = [
+  'top-left',
+  'top-right',
+  'center',
+  'bottom-left',
+  'bottom-right',
+  'tile',
 ];
+
+const STATUS_KEYS: Record<ItemStatus, string> = {
+  pending: 'batch.statusPending',
+  processing: 'batch.statusProcessing',
+  done: 'batch.statusDone',
+  error: 'batch.statusError',
+};
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 function StatusBadge({ status }: { status: ItemStatus }) {
-  const map: Record<ItemStatus, { label: string; cls: string }> = {
-    pending: { label: '待处理', cls: 'bg-zinc-800 text-zinc-400' },
-    processing: { label: '处理中', cls: 'bg-indigo-600/20 text-indigo-300' },
-    done: { label: '已完成', cls: 'bg-emerald-600/20 text-emerald-300' },
-    error: { label: '失败', cls: 'bg-red-600/20 text-red-300' },
+  const lang = useLang();
+  const t = useTranslations(lang);
+  const clsMap: Record<ItemStatus, string> = {
+    pending: 'bg-zinc-800 text-zinc-400',
+    processing: 'bg-indigo-600/20 text-indigo-300',
+    done: 'bg-emerald-600/20 text-emerald-300',
+    error: 'bg-red-600/20 text-red-300',
   };
-  const s = map[status];
   return (
-    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${s.cls}`}>
-      {s.label}
+    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${clsMap[status]}`}>
+      {t(STATUS_KEYS[status])}
     </span>
   );
 }
@@ -82,6 +102,16 @@ function extOf(file: File): string {
 }
 
 export default function WatermarkBatchTool() {
+  return (
+    <ErrorBoundary>
+      <WatermarkBatchToolContent />
+    </ErrorBoundary>
+  );
+}
+
+function WatermarkBatchToolContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const { runtime, ready, error: initError } = useLokvisRuntime();
   const runtimeRef = useRef(runtime);
   useEffect(() => {
@@ -211,7 +241,7 @@ export default function WatermarkBatchTool() {
           await rt.removeAsset(result.outputs[0]).catch(() => {});
           await rt.disposeWorkflow(workflow.id).catch(() => {});
         } else {
-          patchItem(item.id, { status: 'error', error: result.error ?? '处理失败' });
+          patchItem(item.id, { status: 'error', error: result.error ?? t('watermark.batch.processFailed') });
           // 失败也清理 input + history
           await rt.removeAsset(inputAssetId).catch(() => {});
           await rt.disposeWorkflow(workflow.id).catch(() => {});
@@ -228,7 +258,7 @@ export default function WatermarkBatchTool() {
         scheduleRef.current();
       }
     },
-    [buildWorkflow, patchItem]
+    [buildWorkflow, patchItem, t]
   );
 
   // 并发池调度:单次 schedule 合并 patch + scheduleLock 防重入(同 BatchQueue)
@@ -280,18 +310,18 @@ export default function WatermarkBatchTool() {
 
   const handleProcessAll = useCallback(() => {
     if (!ready) {
-      setError('Runtime 未就绪');
+      setError(t('watermark.batch.runtimeNotReady'));
       return;
     }
     if (!text) {
-      setError('请输入水印文字');
+      setError(t('watermark.batch.textRequiredShort'));
       return;
     }
     setError(null);
     // 重置取消标志(新一轮处理)
     cancelledRef.current = false;
     schedule();
-  }, [ready, text, schedule]);
+  }, [ready, text, schedule, t]);
 
   /**
    * 取消:对所有 processing 的 item 调 runtime.cancel(workflowId),
@@ -362,15 +392,15 @@ export default function WatermarkBatchTool() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">Watermark Batch</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">image.watermark · 批量加水印(并发 4)</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('watermark.batch.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('watermark.batch.subtitle')}</p>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
         {/* 参数面板 */}
         <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-3">
           <label className="flex flex-col gap-1 sm:col-span-2">
-            <span className="text-[10px] font-medium text-zinc-500">水印文字</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('watermark.textLabel')}</span>
             <input
               type="text"
               value={text}
@@ -379,19 +409,19 @@ export default function WatermarkBatchTool() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">位置</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('watermark.positionLabel')}</span>
             <select
               value={position}
               onChange={(e) => setPosition(e.target.value as Position)}
               className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
             >
               {POSITIONS.map((p) => (
-                <option key={p.value} value={p.value}>{p.label}</option>
+                <option key={p} value={p}>{t(POSITION_KEYS[p])}</option>
               ))}
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">透明度:{opacity.toFixed(2)}</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('watermark.opacityLabel')}:{opacity.toFixed(2)}</span>
             <input
               type="range"
               min={0}
@@ -403,7 +433,7 @@ export default function WatermarkBatchTool() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">字号(px)</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('watermark.fontSizeLabel')}</span>
             <input
               type="number"
               min={1}
@@ -413,7 +443,7 @@ export default function WatermarkBatchTool() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">颜色</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('watermark.colorLabel')}</span>
             <input
               type="color"
               value={color}
@@ -430,39 +460,39 @@ export default function WatermarkBatchTool() {
             disabled={!ready || !hasPending || processing || textEmpty}
             className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {processing ? '处理中…' : hasPending ? '全部加水印' : '已完成'}
+            {processing ? t('watermark.batch.processing') : hasPending ? t('watermark.batch.processAll') : t('watermark.batch.completed')}
           </button>
           {processing && (
             <button
               onClick={handleCancel}
               className="rounded-lg border border-amber-700 px-4 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-950/40"
             >
-              取消
+              {t('common.cancel')}
             </button>
           )}
           <button
             onClick={handleClear}
             disabled={total === 0 || processing}
-            title={processing ? '请先取消正在处理的任务' : undefined}
+            title={processing ? t('watermark.batch.cancelFirst') : undefined}
             className="rounded-lg border border-zinc-700 px-4 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            清空
+            {t('common.clear')}
           </button>
         </div>
 
         {/* 上传区 */}
-        <UploadBox multiple onFiles={handleFiles} hint="选择或拖入多张图片(批量入队)" />
+        <UploadBox multiple onFiles={handleFiles} hint={t('watermark.batch.uploadHint')} />
 
-        {initError && <p className="text-xs text-red-400">初始化失败:{initError}</p>}
+        {initError && <p className="text-xs text-red-400">{t('common.initFailedPrefix')}{initError}</p>}
         {error && <p className="text-xs text-red-400">{error}</p>}
         {textEmpty && total > 0 && (
-          <p className="text-xs text-amber-400">请输入水印文字后再处理</p>
+          <p className="text-xs text-amber-400">{t('watermark.batch.textRequiredAfter')}</p>
         )}
 
         {/* 队列列表 */}
         <div className="flex flex-col gap-2">
           {total === 0 ? (
-            <p className="py-8 text-center text-xs text-zinc-600">队列为空,请上传文件</p>
+            <p className="py-8 text-center text-xs text-zinc-600">{t('watermark.batch.queueEmpty')}</p>
           ) : (
             queue.map((item) => {
               const isExpanded = expandedErrorId === item.id;
@@ -490,14 +520,14 @@ export default function WatermarkBatchTool() {
                           onClick={() => handleDownloadOne(item)}
                           className="text-[10px] text-indigo-400 hover:text-indigo-300"
                         >
-                          下载
+                          {t('common.download')}
                         </button>
                       ) : item.status === 'error' ? (
                         <button
                           onClick={() => setExpandedErrorId(isExpanded ? null : item.id)}
                           className="text-[10px] text-red-400 hover:text-red-300"
                         >
-                          {isExpanded ? '收起' : '错误'}
+                          {isExpanded ? t('watermark.batch.collapse') : t('watermark.batch.error')}
                         </button>
                       ) : null}
                     </div>
@@ -518,14 +548,14 @@ export default function WatermarkBatchTool() {
           <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-zinc-500">
-                已完成 {finished} / {total}({doneCount} 成功)
+                {t('watermark.batch.progressPrefix')}{finished}{t('watermark.batch.progressMiddle')}{total}{t('watermark.batch.progressSuffix')}{doneCount}{t('watermark.batch.progressEnd')}
               </span>
               <button
                 onClick={handleDownloadAll}
                 disabled={doneCount === 0 || batchDownloading}
                 className="rounded-lg border border-zinc-700 px-4 py-1 text-xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {batchDownloading ? '下载中…' : '全部下载'}
+                {batchDownloading ? t('watermark.batch.downloading') : t('watermark.batch.downloadAll')}
               </button>
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">

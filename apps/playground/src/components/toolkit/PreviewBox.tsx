@@ -5,6 +5,8 @@
  * url 的生命周期(createObjectURL / revokeObjectURL)由调用方管理,
  * 便于 Input/Output 复用同一 url 或在切换图片时统一 revoke。
  */
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 export interface PreviewBoxProps {
   /** Blob URL(由 URL.createObjectURL 生成),null 时显示占位 */
@@ -18,6 +20,8 @@ export interface PreviewBoxProps {
 }
 
 export function PreviewBox({ url, title, meta, action, className = '' }: PreviewBoxProps) {
+  const lang = useLang();
+  const t = useTranslations(lang);
   return (
     <div className={`flex flex-col overflow-hidden rounded-lg border border-zinc-800 ${className}`}>
       {title && (
@@ -28,9 +32,9 @@ export function PreviewBox({ url, title, meta, action, className = '' }: Preview
       )}
       <div className="flex flex-1 items-center justify-center bg-zinc-950 p-2">
         {url ? (
-          <img src={url} alt={title ?? 'preview'} className="max-h-full max-w-full object-contain" />
+          <img src={url} alt={title ?? t('preview.alt')} className="max-h-full max-w-full object-contain" />
         ) : (
-          <p className="text-[11px] text-zinc-600">无内容</p>
+          <p className="text-[11px] text-zinc-600">{t('preview.empty')}</p>
         )}
       </div>
       {meta && (

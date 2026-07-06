@@ -15,6 +15,8 @@
  * 事件回调里用单次 `as` 断言（非 `as unknown as` 双断言），符合 AGENTS.md 约定。
  */
 import { useEffect, useRef, useState } from 'react';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 /** 浏览器原生未在 TS lib 中暴露的 beforeinstallprompt 事件类型 */
 interface BeforeInstallPromptEvent extends Event {
@@ -43,6 +45,8 @@ function isRecentlyDismissed(): boolean {
 }
 
 export default function InstallPrompt() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   // 是否显示 banner
   const [visible, setVisible] = useState(false);
   // 安装结果反馈（用户做出选择后短期展示）
@@ -122,14 +126,14 @@ export default function InstallPrompt() {
           <span className="text-lg" aria-hidden>◆</span>
           <div className="min-w-0 flex-1">
             <div className="text-xs font-semibold text-zinc-100">
-              Install Lokvis Playground for offline use
+              {t('pwa.installTitle')}
             </div>
             <div className="mt-0.5 text-[10px] text-zinc-500">
               {outcome === 'accepted'
-                ? 'Installing… check your home screen shortly.'
+                ? t('pwa.installAccepted')
                 : outcome === 'dismissed'
-                ? 'Maybe later — you can install from the browser menu anytime.'
-                : 'Add to home screen for fast, offline access.'}
+                ? t('pwa.installDismissed')
+                : t('pwa.installHint')}
             </div>
           </div>
           {outcome === null ? (
@@ -139,14 +143,14 @@ export default function InstallPrompt() {
                 onClick={handleInstall}
                 className="rounded-md bg-indigo-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-indigo-500"
               >
-                Install
+                {t('pwa.install')}
               </button>
               <button
                 type="button"
                 onClick={handleNotNow}
                 className="rounded-md border border-zinc-700 px-2.5 py-1.5 text-[11px] text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
               >
-                Not now
+                {t('pwa.notNow')}
               </button>
             </div>
           ) : (
@@ -155,7 +159,7 @@ export default function InstallPrompt() {
                 outcome === 'accepted' ? 'text-emerald-400' : 'text-zinc-500'
               }`}
             >
-              {outcome === 'accepted' ? '✓ Accepted' : 'Dismissed'}
+              {outcome === 'accepted' ? t('pwa.accepted') : t('pwa.dismissed')}
             </span>
           )}
         </div>

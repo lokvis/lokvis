@@ -10,7 +10,8 @@
  * - fallback 文案"已自动上报"误导(DSN 未配置时未上报)→ 改为"错误已记录"
  */
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { captureException } from '../toolkit/sentry.js';
+import { captureException } from '@/toolkit/sentry.js';
+import { getLangFromUrl, t } from '@/i18n/utils';
 
 interface Props {
   children: ReactNode;
@@ -55,13 +56,17 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) {
         return this.props.fallback(this.state.error, this.reset);
       }
+      // ErrorBoundary 是 class 组件，无法用 hook；在 render 内从 URL 提取 lang
+      const lang = getLangFromUrl(typeof window !== 'undefined' ? window.location.href : '/');
       const canRetry = this.state.retryCount < MAX_RETRY;
       return (
         <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
           <div className="text-4xl">⚠️</div>
-          <div className="text-base font-semibold text-zinc-200">页面出错了</div>
+          <div className="text-base font-semibold text-zinc-200">
+            {t(lang, 'error.title')}
+          </div>
           <div className="max-w-md text-xs text-zinc-500">
-            错误已记录{canRetry ? '。刷新页面或点击下方按钮重试。' : '。请刷新页面后重试。'}
+            {t(lang, 'error.logged')}{canRetry ? t(lang, 'error.retryHint') : t(lang, 'error.retryExceeded')}
           </div>
           <pre className="max-w-md overflow-auto rounded bg-zinc-900 p-3 text-left text-[11px] text-zinc-400">
             {this.state.error.message}
@@ -72,7 +77,7 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={this.reset}
               className="rounded-md bg-indigo-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-500"
             >
-              重试
+              {t(lang, 'common.retry')}
             </button>
           )}
         </div>

@@ -9,9 +9,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Workflow } from '@lokvis/sdk';
-import { UploadBox } from '../toolkit/UploadBox';
-import { useLokvisRuntime } from '../toolkit/useLokvisRuntime';
-import { downloadBlob, formatBytes } from '../toolkit/download';
+import { UploadBox } from '@/components/toolkit/UploadBox';
+import { useLokvisRuntime } from '@/components/toolkit/useLokvisRuntime';
+import { downloadBlob, formatBytes } from '@/components/toolkit/download';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 type Format = 'webp' | 'jpeg' | 'png';
 type ItemStatus = 'pending' | 'processing' | 'done' | 'error';
@@ -28,21 +31,29 @@ interface QueueItem {
 
 const CONCURRENCY = 4;
 
+const STATUS_KEYS: Record<ItemStatus, string> = {
+  pending: 'batch.statusPending',
+  processing: 'batch.statusProcessing',
+  done: 'batch.statusDone',
+  error: 'batch.statusError',
+};
+
 // 延迟工具,避免浏览器拦截多下载
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 // 状态徽章
 function StatusBadge({ status }: { status: ItemStatus }) {
-  const map: Record<ItemStatus, { label: string; cls: string }> = {
-    pending: { label: '待处理', cls: 'bg-zinc-800 text-zinc-400' },
-    processing: { label: '处理中', cls: 'bg-indigo-600/20 text-indigo-300' },
-    done: { label: '已完成', cls: 'bg-emerald-600/20 text-emerald-300' },
-    error: { label: '失败', cls: 'bg-red-600/20 text-red-300' },
+  const lang = useLang();
+  const t = useTranslations(lang);
+  const clsMap: Record<ItemStatus, string> = {
+    pending: 'bg-zinc-800 text-zinc-400',
+    processing: 'bg-indigo-600/20 text-indigo-300',
+    done: 'bg-emerald-600/20 text-emerald-300',
+    error: 'bg-red-600/20 text-red-300',
   };
-  const s = map[status];
   return (
-    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${s.cls}`}>
-      {s.label}
+    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${clsMap[status]}`}>
+      {t(STATUS_KEYS[status])}
     </span>
   );
 }
@@ -51,6 +62,16 @@ let idSeq = 0;
 const nextId = () => `q-${Date.now()}-${(idSeq++).toString(36)}`;
 
 export default function BatchQueue() {
+  return (
+    <ErrorBoundary>
+      <BatchQueueContent />
+    </ErrorBoundary>
+  );
+}
+
+function BatchQueueContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const { runtime, ready, error: initError } = useLokvisRuntime();
   const runtimeRef = useRef(runtime);
   useEffect(() => {
@@ -114,7 +135,7 @@ export default function BatchQueue() {
           const blob = await rt.exportAsset(result.outputs[0]);
           patchItem(item.id, { status: 'done', outputBlob: blob, outputSize: blob.size });
         } else {
-          patchItem(item.id, { status: 'error', error: result.error ?? '处理失败' });
+          patchItem(item.id, { status: 'error', error: result.error ?? t('batch.processFailed') });
         }
       } catch (err) {
         patchItem(item.id, {
@@ -125,7 +146,7 @@ export default function BatchQueue() {
         scheduleRef.current();
       }
     },
-    [buildWorkflow, patchItem]
+    [buildWorkflow, patchItem, t]
   );
 
   // 并发池调度:补满到 CONCURRENCY,用原子化补满避免竞态。
@@ -183,12 +204,12 @@ export default function BatchQueue() {
 
   const handleProcessAll = useCallback(() => {
     if (!ready) {
-      setError('Runtime 未就绪');
+      setError(t('batch.runtimeNotReady'));
       return;
     }
     setError(null);
     schedule();
-  }, [ready, schedule]);
+  }, [ready, schedule, t]);
 
   const handleClear = useCallback(() => {
     commit([]);
@@ -231,27 +252,27 @@ export default function BatchQueue() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">Batch Queue</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">image.compress · 批量并发处理(并发 4)</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('batch.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('batch.subtitle')}</p>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
         {/* 参数面板 */}
         <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-4">
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">输出格式</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('batch.format')}</span>
             <select
               value={format}
               onChange={(e) => setFormat(e.target.value as Format)}
               className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
             >
-              <option value="webp">WebP(推荐)</option>
-              <option value="jpeg">JPEG</option>
-              <option value="png">PNG(无损)</option>
+              <option value="webp">{t('batch.formatWebp')}</option>
+              <option value="jpeg">{t('batch.formatJpeg')}</option>
+              <option value="png">{t('batch.formatPng')}</option>
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">质量:{quality}</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('batch.qualityPrefix')}{quality}</span>
             <input
               type="range"
               min={1}
@@ -267,7 +288,7 @@ export default function BatchQueue() {
               disabled={!ready || !hasPending || processing}
               className="w-full rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {processing ? '处理中…' : hasPending ? '全部处理' : '已完成'}
+              {processing ? t('batch.processing') : hasPending ? t('batch.processAll') : t('batch.completed')}
             </button>
           </div>
           <div className="flex items-end">
@@ -276,21 +297,21 @@ export default function BatchQueue() {
               disabled={total === 0}
               className="w-full rounded-lg border border-zinc-700 px-4 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              清空
+              {t('batch.clear')}
             </button>
           </div>
         </div>
 
         {/* 上传区 */}
-        <UploadBox multiple onFiles={handleFiles} hint="选择或拖入多张图片(批量入队)" />
+        <UploadBox multiple onFiles={handleFiles} hint={t('batch.uploadHint')} />
 
-        {initError && <p className="text-xs text-red-400">初始化失败:{initError}</p>}
+        {initError && <p className="text-xs text-red-400">{t('common.initFailedPrefix')}{initError}</p>}
         {error && <p className="text-xs text-red-400">{error}</p>}
 
         {/* 队列列表 */}
         <div className="flex flex-col gap-2">
           {total === 0 ? (
-            <p className="py-8 text-center text-xs text-zinc-600">队列为空,请上传文件</p>
+            <p className="py-8 text-center text-xs text-zinc-600">{t('batch.queueEmpty')}</p>
           ) : (
             queue.map((item) => {
               const isExpanded = expandedErrorId === item.id;
@@ -318,14 +339,14 @@ export default function BatchQueue() {
                           onClick={() => handleDownloadOne(item)}
                           className="text-[10px] text-indigo-400 hover:text-indigo-300"
                         >
-                          下载
+                          {t('common.download')}
                         </button>
                       ) : item.status === 'error' ? (
                         <button
                           onClick={() => setExpandedErrorId(isExpanded ? null : item.id)}
                           className="text-[10px] text-red-400 hover:text-red-300"
                         >
-                          {isExpanded ? '收起' : '错误'}
+                          {isExpanded ? t('batch.collapse') : t('batch.error')}
                         </button>
                       ) : null}
                     </div>
@@ -347,14 +368,14 @@ export default function BatchQueue() {
           <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-zinc-500">
-                已完成 {finished} / {total}({doneCount} 成功)
+                {t('batch.progressPrefix')}{finished}{t('batch.progressMiddle')}{total}{t('batch.progressSuffix')}{doneCount}{t('batch.progressEnd')}
               </span>
               <button
                 onClick={handleDownloadAll}
                 disabled={doneCount === 0 || batchDownloading}
                 className="rounded-lg border border-zinc-700 px-4 py-1 text-xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {batchDownloading ? '下载中…' : '全部下载'}
+                {batchDownloading ? t('batch.downloading') : t('batch.downloadAll')}
               </button>
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">

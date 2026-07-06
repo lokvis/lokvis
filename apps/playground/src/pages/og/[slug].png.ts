@@ -14,7 +14,7 @@
  */
 import type { APIRoute, GetStaticPaths } from 'astro';
 import sharp from 'sharp';
-import { TOOL_SEO, buildOgSvg } from '../../components/tools/seo';
+import { TOOL_SEO, buildOgSvg } from '@/components/tools/seo';
 
 export const getStaticPaths = (async () => {
   return Object.keys(TOOL_SEO).map((slug) => ({ params: { slug } }));

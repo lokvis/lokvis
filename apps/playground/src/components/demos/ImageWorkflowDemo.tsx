@@ -14,10 +14,23 @@ import { useEffect, useState, useRef } from 'react';
 import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime, Workflow, WorkflowResult, AssetId } from '@lokvis/sdk';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 type Stage = 'idle' | 'running' | 'done' | 'failed';
 
 export default function ImageWorkflowDemo() {
+  return (
+    <ErrorBoundary>
+      <ImageWorkflowDemoContent />
+    </ErrorBoundary>
+  );
+}
+
+function ImageWorkflowDemoContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
   const [inputId, setInputId] = useState<AssetId | null>(null);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
@@ -98,15 +111,15 @@ export default function ImageWorkflowDemo() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">Image Workflow</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">resize → watermark → export</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('image.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('image.subtitle')}</p>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
         {/* 参数面板 */}
         <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-3">
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">Target width (px)</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('image.targetWidth')}</span>
             <input
               type="number"
               min={16}
@@ -117,7 +130,7 @@ export default function ImageWorkflowDemo() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">Watermark text</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('image.watermarkText')}</span>
             <input
               type="text"
               value={watermarkText}
@@ -131,7 +144,7 @@ export default function ImageWorkflowDemo() {
               disabled={!runtime || !inputId || stage === 'running'}
               className="w-full rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {stage === 'running' ? 'Running…' : 'Run Workflow'}
+              {stage === 'running' ? t('common.running') : t('common.runWorkflow')}
             </button>
           </div>
         </div>
@@ -141,12 +154,12 @@ export default function ImageWorkflowDemo() {
           {/* 输入 */}
           <div className="flex flex-col overflow-hidden rounded-lg border border-zinc-800">
             <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/50 px-3 py-2">
-              <span className="text-[11px] font-semibold text-zinc-400">Input</span>
+              <span className="text-[11px] font-semibold text-zinc-400">{t('common.input')}</span>
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="text-[10px] text-indigo-400 hover:text-indigo-300"
               >
-                + Upload
+                {t('common.upload')}
               </button>
               <input
                 ref={fileInputRef}
@@ -160,7 +173,7 @@ export default function ImageWorkflowDemo() {
               {inputId ? (
                 <InputPreview runtime={runtime} assetId={inputId} />
               ) : (
-                <p className="text-[11px] text-zinc-600">Select an image to start</p>
+                <p className="text-[11px] text-zinc-600">{t('common.selectImageHint')}</p>
               )}
             </div>
           </div>
@@ -169,12 +182,12 @@ export default function ImageWorkflowDemo() {
           <div className="flex flex-col overflow-hidden rounded-lg border border-zinc-800">
             <header className="border-b border-zinc-800 bg-zinc-900/50 px-3 py-2">
               <span className="text-[11px] font-semibold text-zinc-400">
-                Output {result && `· ${result.status}`}
+                {t('common.output')} {result && `· ${result.status}`}
               </span>
             </header>
             <div className="flex flex-1 items-center justify-center bg-zinc-950 p-2">
               {stage === 'running' && (
-                <div className="text-[11px] text-zinc-500">Processing…</div>
+                <div className="text-[11px] text-zinc-500">{t('common.processingHint')}</div>
               )}
               {stage === 'failed' && (
                 <div className="px-3 text-center text-[11px] text-red-400">{error}</div>
@@ -183,7 +196,7 @@ export default function ImageWorkflowDemo() {
                 <img src={outputUrl} alt="Output" className="max-h-full max-w-full object-contain" />
               )}
               {stage === 'idle' && !outputUrl && (
-                <p className="text-[11px] text-zinc-600">Output will appear here</p>
+                <p className="text-[11px] text-zinc-600">{t('common.outputWillAppear')}</p>
               )}
             </div>
           </div>
@@ -193,7 +206,7 @@ export default function ImageWorkflowDemo() {
         {result && (
           <details className="rounded-lg border border-zinc-800 bg-zinc-900/30">
             <summary className="cursor-pointer px-3 py-2 text-[11px] font-medium text-zinc-400">
-              Workflow Result JSON
+              {t('common.workflowResultJson')}
             </summary>
             <pre className="overflow-auto p-3 font-mono text-[10px] text-zinc-300">
               {JSON.stringify(result, null, 2)}
@@ -207,6 +220,8 @@ export default function ImageWorkflowDemo() {
 
 /** 加载输入资产并显示预览（用 objectURL 避免污染 runtime 状态） */
 function InputPreview({ runtime, assetId }: { runtime: LokvisRuntime | null; assetId: AssetId }) {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -226,6 +241,6 @@ function InputPreview({ runtime, assetId }: { runtime: LokvisRuntime | null; ass
     };
   }, [runtime, assetId]);
 
-  if (!url) return <span className="text-[10px] text-zinc-600">Loading…</span>;
+  if (!url) return <span className="text-[10px] text-zinc-600">{t('common.loading')}</span>;
   return <img src={url} alt="Input" className="max-h-full max-w-full object-contain" />;
 }

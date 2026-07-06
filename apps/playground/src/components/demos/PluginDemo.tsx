@@ -15,6 +15,9 @@ import { createLokvis, loadPlugin } from '@lokvis/sdk';
 import type { LokvisRuntime, Capability, PluginLoadEntry } from '@lokvis/sdk';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
 import { devToolsPlugin } from '@lokvis/plugin-dev';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 interface PluginInfo {
   id: string;
@@ -49,6 +52,16 @@ function groupByCategory(caps: Capability[]): Record<string, Capability[]> {
 }
 
 export default function PluginDemo() {
+  return (
+    <ErrorBoundary>
+      <PluginDemoContent />
+    </ErrorBoundary>
+  );
+}
+
+function PluginDemoContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
   const [caps, setCaps] = useState<Capability[]>([]);
   const [initialCapNames, setInitialCapNames] = useState<Set<string>>(new Set());
@@ -119,15 +132,15 @@ export default function PluginDemo() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">Plugin Loader</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">loadPlugin() · dynamic capability registration</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('plugin.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('plugin.subtitle')}</p>
       </div>
 
       <div className="grid flex-1 grid-cols-1 gap-px overflow-hidden bg-zinc-800 lg:grid-cols-2">
         {/* 左栏：Loaded + Available Plugins */}
         <section className="flex flex-col overflow-hidden bg-zinc-950">
           <header className="border-b border-zinc-800/50 px-4 py-2 text-xs font-semibold text-zinc-400">
-            Loaded Plugins ({loadedList.length})
+            {t('plugin.loadedHeaderPrefix')}{loadedList.length}{t('plugin.loadedHeaderSuffix')}
           </header>
           <div className="flex-1 overflow-auto p-2">
             <ul className="space-y-1">
@@ -138,19 +151,19 @@ export default function PluginDemo() {
                     <span className="font-mono text-[10px] text-zinc-500">v{p.version}</span>
                   </div>
                   <div className="mt-0.5 text-[10px] text-zinc-500">
-                    {pluginCapCounts[p.name] ?? 0} capabilities
+                    {pluginCapCounts[p.name] ?? 0}{t('plugin.capabilitiesUnit')}
                   </div>
                 </li>
               ))}
               {loadedList.length === 0 && (
-                <p className="p-3 text-center text-[10px] text-zinc-600">Loading…</p>
+                <p className="p-3 text-center text-[10px] text-zinc-600">{t('plugin.loading')}</p>
               )}
             </ul>
 
             {availableList.length > 0 && (
               <>
                 <div className="mb-1 mt-3 px-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
-                  Available Plugins
+                  {t('plugin.availablePlugins')}
                 </div>
                 <ul className="space-y-1">
                   {availableList.map((p) => (
@@ -164,7 +177,7 @@ export default function PluginDemo() {
                         disabled={loadingId !== null}
                         className="rounded bg-indigo-600 px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {loadingId === p.id ? 'Loading…' : 'Load'}
+                        {loadingId === p.id ? t('plugin.loadingBtn') : t('plugin.load')}
                       </button>
                     </li>
                   ))}
@@ -177,11 +190,11 @@ export default function PluginDemo() {
         {/* 右栏：Capabilities */}
         <section className="flex flex-col overflow-hidden bg-zinc-950">
           <header className="border-b border-zinc-800/50 px-4 py-2 text-xs font-semibold text-zinc-400">
-            Capabilities ({caps.length})
+            {t('plugin.capabilitiesHeaderPrefix')}{caps.length}{t('plugin.capabilitiesHeaderSuffix')}
           </header>
           <div className="flex-1 overflow-auto p-2">
             {Object.entries(groups).length === 0 ? (
-              <p className="p-4 text-center text-[10px] text-zinc-600">Loading…</p>
+              <p className="p-4 text-center text-[10px] text-zinc-600">{t('plugin.loading')}</p>
             ) : (
               <div className="flex flex-col gap-2">
                 {Object.entries(groups).map(([cat, list]) => (
@@ -198,7 +211,7 @@ export default function PluginDemo() {
                               <span className="font-mono text-[11px] text-indigo-400">{c.name}</span>
                               {isNew && (
                                 <span className="rounded bg-emerald-600 px-1 py-0.5 text-[8px] font-bold uppercase text-white">
-                                  New
+                                  {t('plugin.new')}
                                 </span>
                               )}
                             </div>
@@ -218,17 +231,17 @@ export default function PluginDemo() {
       {/* 底部：Event Log */}
       <section className="flex h-32 flex-shrink-0 flex-col border-t border-zinc-800 bg-zinc-950">
         <header className="flex items-center justify-between border-b border-zinc-800/50 px-4 py-1.5">
-          <span className="text-[11px] font-semibold text-zinc-400">Event Log</span>
+          <span className="text-[11px] font-semibold text-zinc-400">{t('plugin.events')}</span>
           <button
             onClick={() => setLogs([])}
             className="text-[10px] text-zinc-500 hover:text-zinc-300"
           >
-            Clear
+            {t('common.clear')}
           </button>
         </header>
         <div ref={logBoxRef} className="flex-1 overflow-auto px-3 py-1 font-mono text-[10px]">
           {logs.length === 0 ? (
-            <p className="py-2 text-zinc-600">plugin:loaded events will appear here…</p>
+            <p className="py-2 text-zinc-600">{t('plugin.eventsHint')}</p>
           ) : (
             logs.map((l) => (
               <div key={l.id} className="py-0.5 text-zinc-400">

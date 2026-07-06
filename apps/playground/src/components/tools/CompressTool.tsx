@@ -11,10 +11,13 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import type { Workflow } from '@lokvis/sdk';
-import { UploadBox } from '../toolkit/UploadBox';
-import { PreviewBox } from '../toolkit/PreviewBox';
-import { useImageTool } from '../toolkit/useImageTool';
-import { downloadBlob, detectTransparency, formatBytes, imageInfoToMeta } from '../toolkit/download';
+import { UploadBox } from '@/components/toolkit/UploadBox';
+import { PreviewBox } from '@/components/toolkit/PreviewBox';
+import { useImageTool } from '@/components/toolkit/useImageTool';
+import { downloadBlob, detectTransparency, formatBytes, imageInfoToMeta } from '@/components/toolkit/download';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 type Format = 'smart' | 'webp' | 'avif' | 'jpeg' | 'png';
 type CompressMode = 'quality' | 'target';
@@ -22,6 +25,16 @@ type CompressMode = 'quality' | 'target';
 type EngineFormat = 'webp' | 'avif' | 'jpeg' | 'png';
 
 export default function CompressTool() {
+  return (
+    <ErrorBoundary>
+      <CompressToolContent />
+    </ErrorBoundary>
+  );
+}
+
+function CompressToolContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const tool = useImageTool();
   const [mode, setMode] = useState<CompressMode>('quality');
   const [format, setFormat] = useState<Format>('smart');
@@ -112,9 +125,9 @@ export default function CompressTool() {
   if (inputInfo && outputInfo) {
     const ratio = (1 - outputInfo.size / inputInfo.size) * 100;
     if (ratio >= 0) {
-      ratioText = `节省 ${ratio.toFixed(1)}%(${formatBytes(inputInfo.size)} → ${formatBytes(outputInfo.size)})`;
+      ratioText = `${t('compress.savedPrefix')}${ratio.toFixed(1)}%(${formatBytes(inputInfo.size)} → ${formatBytes(outputInfo.size)})`;
     } else {
-      ratioText = `增大 ${(-ratio).toFixed(1)}%(${formatBytes(inputInfo.size)} → ${formatBytes(outputInfo.size)})`;
+      ratioText = `${t('compress.increasedPrefix')}${(-ratio).toFixed(1)}%(${formatBytes(inputInfo.size)} → ${formatBytes(outputInfo.size)})`;
     }
   }
 
@@ -123,14 +136,14 @@ export default function CompressTool() {
   const smartHint =
     format === 'smart'
       ? mode === 'target'
-        ? `目标体积模式下使用 WebP(支持有损 + 透明)`
+        ? t('compress.smartTargetWebp')
         : hasTransparency === null
-          ? '检测透明中…'
+          ? t('compress.detectingTransparency')
           : hasTransparency
-            ? '检测到透明 → PNG(保留透明)'
-            : '无透明 → WebP(更高压缩率)'
+            ? t('compress.detectedTransparent')
+            : t('compress.noTransparency')
       : mode === 'target' && format === 'png'
-        ? 'PNG 无损无法压到目标体积,已回退 WebP'
+        ? t('compress.pngFallbackWebp')
         : '';
 
   // PNG 无损,质量滑块在 PNG 下不生效
@@ -139,42 +152,45 @@ export default function CompressTool() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">Compress</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">image.compress · 质量压缩 / 目标体积压缩 + 智能格式</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('compress.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('compress.subtitle')}</p>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
         {/* 参数面板 */}
-        <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-4">
-          <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">压缩模式</span>
+        <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-12">
+          <label className="flex flex-col gap-1 sm:col-span-3">
+            <span className="text-[10px] font-medium text-zinc-500">{t('compress.mode')}</span>
             <select
               value={mode}
               onChange={(e) => setMode(e.target.value as CompressMode)}
               className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
             >
-              <option value="quality">质量模式</option>
-              <option value="target">目标体积模式</option>
+              <option value="quality">{t('compress.modeQualityOption')}</option>
+              <option value="target">{t('compress.modeTargetOption')}</option>
             </select>
           </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">输出格式</span>
+          <label className="flex flex-col gap-1 sm:col-span-3">
+            <span className="text-[10px] font-medium text-zinc-500">{t('compress.format')}</span>
             <select
               value={format}
               onChange={(e) => setFormat(e.target.value as Format)}
               className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
             >
-              <option value="smart">智能(推荐)</option>
+              <option value="smart">{t('compress.formatSmartOption')}</option>
               <option value="webp">WebP</option>
               <option value="avif">AVIF</option>
               <option value="jpeg">JPEG</option>
-              <option value="png">PNG(无损)</option>
+              <option value="png">{t('compress.formatPngLossless')}</option>
             </select>
           </label>
           {mode === 'quality' ? (
-            <label className={`flex flex-col gap-1 ${qualityDisabled ? 'opacity-50' : ''}`}>
-              <span className="text-[10px] font-medium text-zinc-500">
-                质量:{quality}{qualityDisabled ? '(PNG 无损无效)' : ''}
+            <label className={`flex flex-col gap-1 sm:col-span-3 ${qualityDisabled ? 'opacity-50' : ''}`}>
+              <span className="flex items-center justify-between text-[10px] font-medium text-zinc-500">
+                <span>{t('compress.quality')}</span>
+                <span className="font-mono text-zinc-300">
+                  {quality}{qualityDisabled ? t('compress.pngLossless') : ''}
+                </span>
               </span>
               <input
                 type="range"
@@ -187,8 +203,11 @@ export default function CompressTool() {
               />
             </label>
           ) : (
-            <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium text-zinc-500">目标体积(KB)</span>
+            <label className="flex flex-col gap-1 sm:col-span-3">
+              <span className="flex items-center justify-between text-[10px] font-medium text-zinc-500">
+                <span>{t('compress.targetSize')}</span>
+                <span className="font-mono text-zinc-300">{targetKB} KB</span>
+              </span>
               <input
                 type="number"
                 min={1}
@@ -198,33 +217,34 @@ export default function CompressTool() {
               />
             </label>
           )}
-          <div className="flex items-end">
-            <button
-              onClick={handleCompress}
-              disabled={!tool.ready || !tool.inputId || tool.busy}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {tool.busy ? '压缩中…' : '压缩'}
-            </button>
-          </div>
+        </div>
+
+        {/* 压缩按钮(独立于参数面板外,居中) */}
+        <div className="flex justify-center">
+          <button
+            onClick={handleCompress}
+            disabled={!tool.ready || !tool.inputId || tool.busy}
+            className="rounded-lg bg-indigo-600 px-24 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {tool.busy ? t('compress.busy') : t('compress.btn')}
+          </button>
         </div>
 
         {/* 智能格式提示 */}
         {smartHint && (
-          <p className="text-[10px] text-zinc-500">智能格式:{smartHint}</p>
+          <p className="text-[10px] text-zinc-500">{t('compress.smartFormatLabel')}{smartHint}</p>
         )}
         {mode === 'target' && (
           <p className="text-[10px] text-zinc-600">
-            目标体积模式下,engine 通过二分查找 [10, 95] 质量区间找到 ≤ {targetKB} KB 的最大质量(最多 6 次迭代)。
-            若最低质量仍超目标,返回最低质量结果。
+            {t('compress.targetModeHintPrefix')}{targetKB}{t('compress.targetModeHintMiddle')}
           </p>
         )}
 
-        {tool.initError && <p className="text-xs text-red-400">初始化失败:{tool.initError}</p>}
+        {tool.initError && <p className="text-xs text-red-400">{t('common.initFailedPrefix')}{tool.initError}</p>}
         {tool.error && <p className="text-xs text-red-400">{tool.error}</p>}
         {skipped > 0 && (
           <p className="text-xs text-amber-400">
-            仅处理首个文件,已忽略其余 {skipped} 个(批量处理请用 Batch Queue)
+            {t('common.skipPrefix')}{skipped}{t('common.skipSuffix')}
           </p>
         )}
         {ratioText && (
@@ -236,12 +256,12 @@ export default function CompressTool() {
         {/* Input / Output 对比 */}
         <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
           {!tool.inputId ? (
-            <UploadBox onFiles={handleFiles} hint="选择或拖入图片" className="md:col-span-2" />
+            <UploadBox onFiles={handleFiles} hint={t('compress.uploadHint')} className="md:col-span-2" />
           ) : (
             <>
-              <PreviewBox title="Input" url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
+              <PreviewBox title={t('common.input')} url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
               <PreviewBox
-                title="Output"
+                title={t('common.output')}
                 url={tool.outputUrl}
                 meta={imageInfoToMeta(tool.outputInfo)}
                 action={
@@ -250,7 +270,7 @@ export default function CompressTool() {
                       onClick={() => downloadBlob(tool.outputBlob!, `compressed.${resolvedFormat}`)}
                       className="text-[10px] text-indigo-400 hover:text-indigo-300"
                     >
-                      下载
+                      {t('common.download')}
                     </button>
                   )
                 }
@@ -264,7 +284,7 @@ export default function CompressTool() {
             onClick={handleReset}
             className="self-start text-[10px] text-zinc-500 hover:text-zinc-300"
           >
-            ← 重新选择图片
+            {t('compress.reselect')}
           </button>
         )}
       </div>

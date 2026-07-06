@@ -1,0 +1,12 @@
+---
+import { langList } from '@/i18n/config';
+import PlaygroundLayout from '@/layouts/PlaygroundLayout.astro';
+import WorkflowDemo from '@/components/demos/WorkflowDemo.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<PlaygroundLayout title="Lokvis Playground · 5-Step Workflow" active="workflow">
+  <WorkflowDemo client:only="react" />
+</PlaygroundLayout>

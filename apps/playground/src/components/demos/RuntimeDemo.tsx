@@ -15,6 +15,9 @@ import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime, Capability, Asset, Workflow, WorkflowResult } from '@lokvis/sdk';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
 import { devToolsPlugin } from '@lokvis/plugin-dev';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 interface LogEntry {
   id: number;
@@ -25,6 +28,16 @@ interface LogEntry {
 let counter = 0;
 
 export default function RuntimeDemo() {
+  return (
+    <ErrorBoundary>
+      <RuntimeDemoContent />
+    </ErrorBoundary>
+  );
+}
+
+function RuntimeDemoContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
   const [caps, setCaps] = useState<Capability[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -142,19 +155,19 @@ export default function RuntimeDemo() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">Runtime Basics</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">createLokvis · importAsset · capabilities · eventBus · run()</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('runtime.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('runtime.subtitle')}</p>
       </div>
 
       <div className="grid flex-1 grid-cols-1 gap-px overflow-hidden bg-zinc-800 lg:grid-cols-3">
         {/* Capabilities */}
         <section className="flex flex-col overflow-hidden bg-zinc-950">
           <header className="border-b border-zinc-800/50 px-4 py-2 text-xs font-semibold text-zinc-400">
-            Capabilities ({caps.length})
+            {t('runtime.capabilitiesCountPrefix')}{caps.length}{t('runtime.capabilitiesCountSuffix')}
           </header>
           <div className="flex-1 overflow-auto p-2">
             {caps.length === 0 ? (
-              <p className="p-4 text-center text-[11px] text-zinc-600">Loading…</p>
+              <p className="p-4 text-center text-[11px] text-zinc-600">{t('common.loading')}</p>
             ) : (
               <ul className="space-y-1">
                 {caps.map((c) => (
@@ -171,12 +184,12 @@ export default function RuntimeDemo() {
         {/* Assets */}
         <section className="flex flex-col overflow-hidden bg-zinc-950">
           <header className="flex items-center justify-between border-b border-zinc-800/50 px-4 py-2">
-            <span className="text-xs font-semibold text-zinc-400">Assets ({assets.length})</span>
+            <span className="text-xs font-semibold text-zinc-400">{t('runtime.assetsCountPrefix')}{assets.length}{t('runtime.assetsCountSuffix')}</span>
             <button
               onClick={() => fileInputRef.current?.click()}
               className="rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-indigo-500"
             >
-              + Upload
+              {t('common.upload')}
             </button>
             <input
               ref={fileInputRef}
@@ -188,7 +201,7 @@ export default function RuntimeDemo() {
           </header>
           <div className="flex-1 overflow-auto p-2">
             {assets.length === 0 ? (
-              <p className="p-4 text-center text-[11px] text-zinc-600">No assets. Click + Upload.</p>
+              <p className="p-4 text-center text-[11px] text-zinc-600">{t('runtime.noAssets')}</p>
             ) : (
               <ul className="space-y-1">
                 {assets.map((a) => {
@@ -218,17 +231,17 @@ export default function RuntimeDemo() {
         {/* Event Log */}
         <section className="flex flex-col overflow-hidden bg-zinc-950">
           <header className="flex items-center justify-between border-b border-zinc-800/50 px-4 py-2">
-            <span className="text-xs font-semibold text-zinc-400">Event Log</span>
+            <span className="text-xs font-semibold text-zinc-400">{t('runtime.eventLog')}</span>
             <button
               onClick={() => setLogs([])}
               className="text-[10px] text-zinc-500 hover:text-zinc-300"
             >
-              Clear
+              {t('common.clear')}
             </button>
           </header>
           <div ref={logBoxRef} className="flex-1 overflow-auto p-2 font-mono text-[10px]">
             {logs.length === 0 ? (
-              <p className="p-4 text-center text-zinc-600">Events will appear here…</p>
+              <p className="p-4 text-center text-zinc-600">{t('runtime.eventsWillAppear')}</p>
             ) : (
               logs.map((l) => (
                 <div
@@ -253,13 +266,13 @@ export default function RuntimeDemo() {
       <section className="flex flex-shrink-0 items-center gap-4 border-t border-zinc-800 bg-zinc-950 px-4 py-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-zinc-400">Executor · runtime.run()</span>
+            <span className="text-xs font-semibold text-zinc-400">{t('runtime.executor')}</span>
             <button
               onClick={handleRun}
               disabled={!runtime || assets.length === 0 || running}
               className="rounded bg-indigo-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {running ? 'Running…' : 'Run resize (width=400)'}
+              {running ? t('common.running') : t('runtime.runResize')}
             </button>
             {runResult && (
               <span
@@ -276,7 +289,7 @@ export default function RuntimeDemo() {
             )}
           </div>
           {assets.length === 0 && (
-            <p className="text-[10px] text-zinc-600">Upload an asset first to enable run().</p>
+            <p className="text-[10px] text-zinc-600">{t('runtime.uploadFirst')}</p>
           )}
           {runResult && runResult.outputs.length > 0 && (
             <div className="truncate text-[10px] text-zinc-500">
@@ -289,14 +302,14 @@ export default function RuntimeDemo() {
           {outputUrl ? (
             <img src={outputUrl} alt="Output" className="max-h-32 max-w-full object-contain" />
           ) : (
-            <span className="text-[10px] text-zinc-600">No output</span>
+            <span className="text-[10px] text-zinc-600">{t('runtime.noOutput')}</span>
           )}
         </div>
       </section>
 
       {!runtime && (
         <div className="border-t border-zinc-800 bg-zinc-950 px-4 py-2 text-[10px] text-zinc-500">
-          Initializing runtime…
+          {t('runtime.initializing')}
         </div>
       )}
     </div>

@@ -21,6 +21,8 @@ import {
   clearOperationCache,
   TOP_5_OPERATIONS,
 } from '@lokvis/plugin-image';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 /** sessionStorage key：标记本会话已展示过 EngineLoader */
 const SHOWN_KEY = 'lokvis.engineloader.shown';
@@ -34,13 +36,13 @@ const POLL_INTERVAL_MS = 100;
 type Phase = 'loading' | 'done' | 'fading' | 'error' | 'hidden';
 type OpStatus = 'loading' | 'done' | 'error';
 
-/** operation 短名 → 展示名 */
-const OP_LABEL: Record<string, string> = {
-  resize: 'Resize',
-  compress: 'Compress',
-  watermark: 'Watermark',
-  convert: 'Convert',
-  crop: 'Crop',
+/** operation 短名 → 翻译 key */
+const OP_LABEL_KEY: Record<string, string> = {
+  resize: 'resize.title',
+  compress: 'compress.title',
+  watermark: 'watermark.title',
+  convert: 'convert.title',
+  crop: 'crop.title',
 };
 
 /**
@@ -65,6 +67,8 @@ function readShouldShowLoader(): boolean {
 }
 
 export default function EngineLoader() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const [show] = useState(readShouldShowLoader);
   const [phase, setPhase] = useState<Phase>('loading');
   // 已加载完成的 operation 集合（轮询更新）
@@ -167,19 +171,19 @@ export default function EngineLoader() {
   // 底部状态文字
   const statusText =
     phase === 'error'
-      ? 'Failed to load engine'
+      ? t('pwa.engineFailed')
       : phase === 'done'
-      ? 'Ready'
+      ? t('pwa.ready')
       : loadedCount === 0
-      ? 'Loading…'
-      : `Loading ${loadedCount}/${TOP_5_OPERATIONS.length}`;
+      ? t('common.loading')
+      : `${t('pwa.loadingProgressPrefix')}${loadedCount}/${TOP_5_OPERATIONS.length}`;
   // 预估时间：首次约 2s，展示已耗时 / 预估
   const estimateText =
     phase === 'error'
       ? ''
       : phase === 'done'
-      ? `done in ${(elapsed / 1000).toFixed(1)}s`
-      : `~2s estimated · ${(elapsed / 1000).toFixed(1)}s elapsed`;
+      ? `${t('pwa.doneInPrefix')}${(elapsed / 1000).toFixed(1)}${t('pwa.doneInSuffix')}`
+      : `${t('pwa.estimatePrefix')}${(elapsed / 1000).toFixed(1)}${t('pwa.estimateMiddle')}`;
 
   return (
     <div
@@ -202,10 +206,10 @@ export default function EngineLoader() {
           >
             ◆
           </span>
-          <h2 className="text-sm font-semibold text-zinc-100">Loading engine</h2>
+          <h2 className="text-sm font-semibold text-zinc-100">{t('pwa.loadingEngine')}</h2>
         </div>
         <p className="mt-1 text-[11px] text-zinc-500">
-          Preparing image processing capabilities
+          {t('pwa.preparing')}
         </p>
 
         {/* 5 个 operation 状态点 */}
@@ -224,7 +228,7 @@ export default function EngineLoader() {
                   }`}
                   aria-hidden
                 />
-                <span className="font-mono text-zinc-300">{OP_LABEL[op] ?? op}</span>
+                <span className="font-mono text-zinc-300">{OP_LABEL_KEY[op] ? t(OP_LABEL_KEY[op]) : op}</span>
                 <span
                   className={`ml-auto text-[10px] ${
                     st === 'done'
@@ -234,7 +238,7 @@ export default function EngineLoader() {
                       : 'text-amber-400'
                   }`}
                 >
-                  {st === 'done' ? 'ready' : st === 'error' ? 'failed' : 'loading'}
+                  {st === 'done' ? t('pwa.opReady') : st === 'error' ? t('pwa.opFailed') : t('pwa.opLoading')}
                 </span>
               </li>
             );
@@ -244,7 +248,7 @@ export default function EngineLoader() {
         {/* 整体进度条 */}
         <div className="mt-4">
           <div className="flex items-center justify-between text-[10px] text-zinc-500">
-            <span>Progress</span>
+            <span>{t('pwa.progress')}</span>
             <span className="font-mono text-zinc-400">{progressPct}%</span>
           </div>
           <div className="mt-1 flex h-1.5 w-full gap-0.5 overflow-hidden rounded-full bg-zinc-800">
@@ -273,11 +277,11 @@ export default function EngineLoader() {
               onClick={handleRetry}
               className="rounded-md bg-indigo-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-indigo-500"
             >
-              Retry
+              {t('pwa.retry')}
             </button>
           )}
           {phase === 'done' && (
-            <span className="text-[11px] font-semibold text-emerald-400">✓ Ready</span>
+            <span className="text-[11px] font-semibold text-emerald-400">{t('pwa.readyCheck')}</span>
           )}
         </div>
       </div>

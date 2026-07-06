@@ -14,6 +14,9 @@ import { useEffect, useState, useRef } from 'react';
 import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime, Capability, AssetId, Workflow, WorkflowResult } from '@lokvis/sdk';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 const SAMPLE_CODE = `import { createLokvis } from '@lokvis/sdk';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
@@ -57,6 +60,16 @@ function groupByCategory(caps: Capability[]): Record<string, Capability[]> {
 }
 
 export default function SdkDemo() {
+  return (
+    <ErrorBoundary>
+      <SdkDemoContent />
+    </ErrorBoundary>
+  );
+}
+
+function SdkDemoContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
   const [caps, setCaps] = useState<Capability[]>([]);
   const [inputId, setInputId] = useState<AssetId | null>(null);
@@ -69,12 +82,26 @@ export default function SdkDemo() {
 
   useEffect(() => {
     let rt: LokvisRuntime | undefined;
+    let cancelled = false;
     (async () => {
-      rt = await createLokvis({ plugins: [imageToolsPlugin()] });
-      setRuntime(rt);
-      setCaps(await rt.capabilities());
+      try {
+        rt = await createLokvis({ plugins: [imageToolsPlugin()] });
+        if (cancelled) {
+          void rt.cancel('all');
+          return;
+        }
+        const caps = await rt.capabilities();
+        if (cancelled) return;
+        setRuntime(rt);
+        setCaps(caps);
+      } catch (err) {
+        console.error('[SdkDemo] init failed:', err);
+      }
     })();
-    return () => void rt?.cancel('all');
+    return () => {
+      cancelled = true;
+      void rt?.cancel('all');
+    };
   }, []);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -159,8 +186,8 @@ export default function SdkDemo() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">SDK Basics</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">createLokvis() · capabilities() · run() · exportAsset()</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('sdk.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('sdk.subtitle')}</p>
       </div>
 
       <div className="flex-1 overflow-auto p-4">
@@ -175,15 +202,15 @@ export default function SdkDemo() {
           >
             {ready ? (
               <span>
-                <span className="mr-1.5">●</span>Runtime ready · {caps.length} capabilities
+                <span className="mr-1.5">●</span>{t('sdk.runtimeReady')} · {caps.length}{t('sdk.capabilitiesUnit')}
               </span>
             ) : (
-              <span className="animate-pulse">Initializing runtime…</span>
+              <span className="animate-pulse">{t('sdk.initRuntime')}</span>
             )}
           </div>
 
           {/* 步骤 1: createLokvis */}
-          <StepRow index={1} title="createLokvis()" hint="工厂初始化，预加载 imageToolsPlugin">
+          <StepRow index={1} title="createLokvis()" hint={t('sdk.step1Hint')}>
             <div className="flex items-center gap-2 text-[11px]">
               <span className="rounded bg-zinc-900 px-2 py-1 font-mono text-indigo-400">lokvis-image-tools</span>
               <span className="text-zinc-600">@</span>
@@ -192,10 +219,12 @@ export default function SdkDemo() {
           </StepRow>
 
           {/* 步骤 2: capabilities */}
-          <StepRow index={2} title="capabilities()" hint={`已注册 ${caps.length} 个能力，按 namespace 分组`}>
+          <StepRow index={2} title="capabilities()" hint={`${t('sdk.step2HintPrefix')}${caps.length}${t('sdk.step2HintSuffix')}`}>
             <div className="flex flex-col gap-2">
               {Object.entries(groups).length === 0 ? (
-                <p className="text-[11px] text-zinc-600">Loading…</p>
+                <p className="text-[11px] text-zinc-600">
+                  {ready ? t('sdk.capabilitiesEmpty') : t('common.loading')}
+                </p>
               ) : (
                 Object.entries(groups).map(([cat, list]) => (
                   <div key={cat} className="rounded border border-zinc-800 bg-zinc-900/30">
@@ -217,14 +246,14 @@ export default function SdkDemo() {
           </StepRow>
 
           {/* 步骤 3: importAsset */}
-          <StepRow index={3} title="importAsset()" hint="上传图片资产，返回 AssetId">
+          <StepRow index={3} title="importAsset()" hint={t('sdk.step3Hint')}>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={!ready}
                 className="rounded bg-indigo-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
               >
-                Upload
+                {t('sdk.upload')}
               </button>
               <input
                 ref={fileInputRef}
@@ -239,13 +268,13 @@ export default function SdkDemo() {
                   <span className="ml-2 font-mono text-[10px] text-emerald-400">{inputId}</span>
                 </div>
               ) : (
-                <span className="text-[11px] text-zinc-600">No file selected</span>
+                <span className="text-[11px] text-zinc-600">{t('common.noFileSelected')}</span>
               )}
             </div>
           </StepRow>
 
           {/* 步骤 4: run */}
-          <StepRow index={4} title="run(workflow, [assetId])" hint="单节点 image.resize (width=400)">
+          <StepRow index={4} title="run(workflow, [assetId])" hint={t('sdk.step4Hint')}>
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <button
@@ -253,7 +282,7 @@ export default function SdkDemo() {
                   disabled={!canRun}
                   className="rounded bg-indigo-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {running ? 'Running…' : 'Run'}
+                  {running ? t('sdk.running') : t('sdk.run')}
                 </button>
                 {result && (
                   <span
@@ -279,20 +308,20 @@ export default function SdkDemo() {
           </StepRow>
 
           {/* 步骤 5: exportAsset */}
-          <StepRow index={5} title="exportAsset()" hint="导出 outputs[0] 为 Blob，触发浏览器下载">
+          <StepRow index={5} title="exportAsset()" hint={t('sdk.step5Hint')}>
             <button
               onClick={handleDownload}
               disabled={!canDownload}
               className="rounded bg-indigo-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              ↓ Download
+              {t('sdk.download')}
             </button>
           </StepRow>
 
           {/* 示例代码 */}
           <details className="mt-2 rounded-lg border border-zinc-800 bg-zinc-900/30">
             <summary className="flex cursor-pointer items-center justify-between px-3 py-2 text-[11px] font-medium text-zinc-400 hover:text-zinc-200">
-              <span>Sample SDK Code</span>
+              <span>{t('sdk.sampleSdkCode')}</span>
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -300,7 +329,7 @@ export default function SdkDemo() {
                 }}
                 className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-300 hover:bg-zinc-700"
               >
-                {copied ? 'Copied ✓' : 'Copy'}
+                {copied ? t('sdk.copiedCheck') : t('sdk.copyCode')}
               </button>
             </summary>
             <pre className="overflow-auto border-t border-zinc-800 p-3 font-mono text-[10px] leading-relaxed text-zinc-300">

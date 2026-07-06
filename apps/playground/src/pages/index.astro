@@ -1,10 +1,4 @@
 ---
-import PlaygroundLayout from '../layouts/PlaygroundLayout.astro';
-import { Playground } from '../components/Playground.tsx';
-import { ErrorBoundary } from '../components/ErrorBoundary.tsx';
+// 根路径重定向到默认语言 /en/
+return Astro.redirect('/en/');
 ---
-<PlaygroundLayout title="Lokvis Playground · Code Editor" active="home">
-  <ErrorBoundary client:only="react">
-    <Playground />
-  </ErrorBoundary>
-</PlaygroundLayout>

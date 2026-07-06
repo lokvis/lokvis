@@ -19,8 +19,21 @@ import {
   Dialog,
   Tooltip,
 } from '@lokvis/ui-core';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 export default function ComponentsDemo() {
+  return (
+    <ErrorBoundary>
+      <ComponentsDemoContent />
+    </ErrorBoundary>
+  );
+}
+
+function ComponentsDemoContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const [sliderVal, setSliderVal] = useState(50);
   const [toggleOn, setToggleOn] = useState(true);
   const [selectVal, setSelectVal] = useState('png');
@@ -41,47 +54,47 @@ export default function ComponentsDemo() {
       <div className="mx-auto max-w-3xl space-y-8 bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
         {/* 顶部:暗色模式切换 */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">UI Components</h1>
-          <Toggle checked={dark} onChange={toggleDark} label="Dark mode" />
+          <h1 className="text-xl font-bold">{t('components.title')}</h1>
+          <Toggle checked={dark} onChange={toggleDark} label={t('components.darkMode')} />
         </div>
 
         {/* Button */}
-        <Section title="Button">
+        <Section title={t('components.button')}>
           <div className="flex flex-wrap gap-3">
-            <Button variant="primary">Primary</Button>
-            <Button variant="secondary">Secondary</Button>
-            <Button variant="ghost">Ghost</Button>
-            <Button variant="danger">Danger</Button>
-            <Button loading>Loading</Button>
-            <Button disabled>Disabled</Button>
-            <Button size="sm">Small</Button>
-            <Button size="lg">Large</Button>
+            <Button variant="primary">{t('components.btnPrimary')}</Button>
+            <Button variant="secondary">{t('components.btnSecondary')}</Button>
+            <Button variant="ghost">{t('components.btnGhost')}</Button>
+            <Button variant="danger">{t('components.btnDanger')}</Button>
+            <Button loading>{t('components.btnLoading')}</Button>
+            <Button disabled>{t('components.btnDisabled')}</Button>
+            <Button size="sm">{t('components.btnSmall')}</Button>
+            <Button size="lg">{t('components.btnLarge')}</Button>
           </div>
         </Section>
 
         {/* Badge */}
-        <Section title="Badge">
+        <Section title={t('components.badge')}>
           <div className="flex flex-wrap gap-2">
-            <Badge>Default</Badge>
-            <Badge variant="success">Success</Badge>
-            <Badge variant="warning">Warning</Badge>
-            <Badge variant="danger">Danger</Badge>
-            <Badge variant="info">Info</Badge>
+            <Badge>{t('components.badgeDefault')}</Badge>
+            <Badge variant="success">{t('components.badgeSuccess')}</Badge>
+            <Badge variant="warning">{t('components.badgeWarning')}</Badge>
+            <Badge variant="danger">{t('components.badgeDanger')}</Badge>
+            <Badge variant="info">{t('components.badgeInfo')}</Badge>
           </div>
         </Section>
 
         {/* Card */}
-        <Section title="Card">
+        <Section title={t('components.card')}>
           <Card hoverable>
-            <h3 className="mb-1 font-semibold">Card Title</h3>
+            <h3 className="mb-1 font-semibold">{t('components.cardTitle')}</h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              A hoverable card with some content inside.
+              {t('components.cardContent')}
             </p>
           </Card>
         </Section>
 
         {/* Slider */}
-        <Section title="Slider">
+        <Section title={t('components.slider')}>
           <div className="max-w-sm space-y-3">
             <Slider value={sliderVal} onValueChange={setSliderVal} showValue />
             <Slider value={sliderVal} onValueChange={setSliderVal} showValue format={(v) => `${v}%`} />
@@ -89,17 +102,17 @@ export default function ComponentsDemo() {
         </Section>
 
         {/* Toggle */}
-        <Section title="Toggle">
+        <Section title={t('components.toggle')}>
           <div className="space-y-3">
-            <Toggle checked={toggleOn} onChange={setToggleOn} label="Feature flag" />
-            <Toggle defaultChecked label="Default on" />
-            <Toggle size="sm" label="Small size" />
-            <Toggle disabled label="Disabled" />
+            <Toggle checked={toggleOn} onChange={setToggleOn} label={t('components.featureFlag')} />
+            <Toggle defaultChecked label={t('components.defaultOn')} />
+            <Toggle size="sm" label={t('components.smallSize')} />
+            <Toggle disabled label={t('components.toggleDisabled')} />
           </div>
         </Section>
 
         {/* Select */}
-        <Section title="Select">
+        <Section title={t('components.select')}>
           <Select
             value={selectVal}
             onChange={setSelectVal}
@@ -113,61 +126,61 @@ export default function ComponentsDemo() {
         </Section>
 
         {/* Tabs */}
-        <Section title="Tabs">
+        <Section title={t('components.tabs')}>
           <Tabs
             items={[
-              { value: 'overview', label: 'Overview' },
-              { value: 'params', label: 'Parameters' },
-              { value: 'history', label: 'History' },
+              { value: 'overview', label: t('components.tabOverview') },
+              { value: 'params', label: t('components.tabParams') },
+              { value: 'history', label: t('components.tabHistory') },
             ]}
           >
             {(active) => (
               <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                {active === 'overview' && 'Overview tab content.'}
-                {active === 'params' && 'Parameters tab content.'}
-                {active === 'history' && 'History tab content.'}
+                {active === 'overview' && t('components.tabOverviewContent')}
+                {active === 'params' && t('components.tabParamsContent')}
+                {active === 'history' && t('components.tabHistoryContent')}
               </div>
             )}
           </Tabs>
         </Section>
 
         {/* Dialog */}
-        <Section title="Dialog">
-          <Button onClick={() => setDialogOpen(true)}>Open dialog</Button>
+        <Section title={t('components.dialog')}>
+          <Button onClick={() => setDialogOpen(true)}>{t('components.openDialog')}</Button>
           <Dialog
             open={dialogOpen}
             onClose={() => setDialogOpen(false)}
-            title="Confirm action"
+            title={t('components.confirmTitle')}
             footer={
               <>
-                <Button variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                <Button variant="primary" onClick={() => setDialogOpen(false)}>Confirm</Button>
+                <Button variant="ghost" onClick={() => setDialogOpen(false)}>{t('common.cancel')}</Button>
+                <Button variant="primary" onClick={() => setDialogOpen(false)}>{t('components.confirm')}</Button>
               </>
             }
           >
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Are you sure you want to proceed? This action cannot be undone.
+              {t('components.dialogBody')}
             </p>
           </Dialog>
         </Section>
 
         {/* Tooltip */}
-        <Section title="Tooltip">
+        <Section title={t('components.tooltip')}>
           <div className="flex gap-6">
-            <Tooltip content="Top tooltip" side="top">
-              <Button variant="secondary">Hover me (top)</Button>
+            <Tooltip content={t('components.topTooltip')} side="top">
+              <Button variant="secondary">{t('components.hoverTop')}</Button>
             </Tooltip>
-            <Tooltip content="Right tooltip" side="right">
-              <Button variant="secondary">Hover me (right)</Button>
+            <Tooltip content={t('components.rightTooltip')} side="right">
+              <Button variant="secondary">{t('components.hoverRight')}</Button>
             </Tooltip>
-            <Tooltip content="Bottom tooltip" side="bottom">
-              <Button variant="secondary">Hover me (bottom)</Button>
+            <Tooltip content={t('components.bottomTooltip')} side="bottom">
+              <Button variant="secondary">{t('components.hoverBottom')}</Button>
             </Tooltip>
           </div>
         </Section>
 
         {/* Icon / Spinner / EmptyState */}
-        <Section title="Icon / Spinner / EmptyState">
+        <Section title={t('components.iconSpinnerEmpty')}>
           <div className="flex items-start gap-8">
             <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
               <Icon size={20}>
@@ -175,13 +188,13 @@ export default function ComponentsDemo() {
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </Icon>
-              <span className="text-sm">Info icon</span>
+              <span className="text-sm">{t('components.infoIcon')}</span>
             </div>
             <Spinner size={24} />
             <EmptyState
-              title="No items"
-              description="Upload a file to get started."
-              action={<Button size="sm" variant="secondary">Upload</Button>}
+              title={t('components.emptyTitle')}
+              description={t('components.emptyDesc')}
+              action={<Button size="sm" variant="secondary">{t('common.upload')}</Button>}
             />
           </div>
         </Section>

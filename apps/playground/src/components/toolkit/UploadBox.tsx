@@ -5,6 +5,8 @@
  * onFiles 回调返回 File[]。拖拽高亮反馈。
  */
 import { useCallback, useRef, useState } from 'react';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 export interface UploadBoxProps {
   /** 接受的文件类型,如 'image/*'(同时用于 input accept 与拖拽校验) */
@@ -47,9 +49,11 @@ export function UploadBox({
   accept = 'image/*',
   multiple = false,
   onFiles,
-  hint = '点击或拖拽文件到此处',
+  hint,
   className = '',
 }: UploadBoxProps) {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [rejectMsg, setRejectMsg] = useState<string | null>(null);
@@ -62,14 +66,14 @@ export function UploadBox({
       const accepted = all.filter((f) => fileMatchesAccept(f, accept));
       const rejected = all.length - accepted.length;
       if (rejected > 0) {
-        setRejectMsg(`已忽略 ${rejected} 个不支持的文件(仅接受 ${accept})`);
+        setRejectMsg(`${t('upload.rejectPrefix')}${rejected}${t('upload.rejectMiddle')}${accept}${t('upload.rejectSuffix')}`);
       } else {
         setRejectMsg(null);
       }
       if (accepted.length === 0) return;
       onFiles(multiple ? accepted : [accepted[0]!]);
     },
-    [multiple, onFiles, accept]
+    [multiple, onFiles, accept, t]
   );
 
   return (
@@ -126,7 +130,7 @@ export function UploadBox({
         <polyline points="17 8 12 3 7 8" />
         <line x1="12" y1="3" x2="12" y2="15" />
       </svg>
-      <p className="text-xs text-zinc-400">{hint}</p>
+      <p className="text-xs text-zinc-400">{hint ?? t('upload.defaultHint')}</p>
       {rejectMsg && <p className="mt-1 text-[10px] text-amber-400">{rejectMsg}</p>}
     </div>
   );

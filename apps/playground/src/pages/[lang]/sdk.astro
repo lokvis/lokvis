@@ -1,0 +1,12 @@
+---
+import { langList } from '@/i18n/config';
+import PlaygroundLayout from '@/layouts/PlaygroundLayout.astro';
+import SdkDemo from '@/components/demos/SdkDemo.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<PlaygroundLayout title="Lokvis Playground · SDK Basics" active="sdk">
+  <SdkDemo client:only="react" />
+</PlaygroundLayout>

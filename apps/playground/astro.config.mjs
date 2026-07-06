@@ -5,6 +5,7 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
+import { fileURLToPath } from 'node:url';
 
 // https://astro.build/config
 export default defineConfig({
@@ -12,10 +13,24 @@ export default defineConfig({
   base: '/',
   server: { port: 5601 },
 
+  // i18n:中英双语,路径前缀 /en/ /zh/,英文为默认语言
+  i18n: {
+    defaultLocale: 'en',
+    locales: ['en', 'zh'],
+    routing: {
+      prefixDefaultLocale: true,
+    },
+  },
+
   integrations: [react()],
 
   vite: {
     plugins: [tailwindcss()],
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    },
     server: {
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin',

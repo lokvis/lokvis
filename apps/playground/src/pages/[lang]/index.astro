@@ -1,0 +1,12 @@
+---
+import { langList } from '@/i18n/config';
+import PlaygroundLayout from '@/layouts/PlaygroundLayout.astro';
+import { Playground } from '@/components/Playground.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<PlaygroundLayout title="Lokvis Playground · Code Editor" active="home">
+  <Playground client:only="react" />
+</PlaygroundLayout>

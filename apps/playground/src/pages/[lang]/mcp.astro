@@ -1,0 +1,12 @@
+---
+import { langList } from '@/i18n/config';
+import PlaygroundLayout from '@/layouts/PlaygroundLayout.astro';
+import McpManifestDemo from '@/components/demos/McpManifestDemo.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<PlaygroundLayout title="Lokvis Playground · MCP Manifest" active="mcp">
+  <McpManifestDemo client:only="react" />
+</PlaygroundLayout>

@@ -5,8 +5,8 @@
  * 用法:工具页 .astro 用 ToolLayout 替代 PlaygroundLayout,只需传 slug:
  *
  *   ---
- *   import ToolLayout from '../../layouts/ToolLayout.astro';
- *   import CompressTool from '../../components/tools/CompressTool.tsx';
+ *   import ToolLayout from '@/layouts/ToolLayout.astro';
+ *   import CompressTool from '@/components/tools/CompressTool.tsx';
  *   ---
  *   <ToolLayout slug="compress">
  *     <CompressTool client:only="react" />
@@ -20,8 +20,9 @@
  *      让用户在每次使用工具时都能看到"文件未上传"承诺。
  */
 import PlaygroundLayout from './PlaygroundLayout.astro';
-import { PrivacyBadge } from '../components/toolkit/PrivacyBadge';
-import { TOOL_SEO } from '../components/tools/seo';
+import { PrivacyBadge } from '@/components/toolkit/PrivacyBadge';
+import { TOOL_SEO } from '@/components/tools/seo';
+import { getLangFromUrl } from '@/i18n/utils';
 
 interface Props {
   /** 工具 slug,对应 TOOL_SEO 的 key,如 'compress' */
@@ -32,6 +33,7 @@ interface Props {
 
 const { slug, active = `tools/${slug}` } = Astro.props;
 const seo = TOOL_SEO[slug];
+const lang = getLangFromUrl(Astro.url);
 
 if (!seo) {
   throw new Error(
@@ -57,7 +59,7 @@ const keywords = seo.keywords?.join(', ');
   ogType="website"
 >
   <div class="relative flex flex-col gap-2 px-4 py-2">
-    <PrivacyBadge client:load />
+    <PrivacyBadge client:load lang={lang} />
   </div>
   <slot />
 </PlaygroundLayout>

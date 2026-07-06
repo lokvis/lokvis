@@ -6,10 +6,13 @@
  */
 import { useCallback, useState } from 'react';
 import type { Workflow } from '@lokvis/sdk';
-import { UploadBox } from '../toolkit/UploadBox';
-import { PreviewBox } from '../toolkit/PreviewBox';
-import { useImageTool } from '../toolkit/useImageTool';
-import { downloadBlob, formatBytes, imageInfoToMeta } from '../toolkit/download';
+import { UploadBox } from '@/components/toolkit/UploadBox';
+import { PreviewBox } from '@/components/toolkit/PreviewBox';
+import { useImageTool } from '@/components/toolkit/useImageTool';
+import { downloadBlob, formatBytes, imageInfoToMeta } from '@/components/toolkit/download';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 type Preset = '1:1' | '16:9' | '4:3' | '3:4' | 'free';
 
@@ -32,6 +35,16 @@ function computeCenteredCrop(w: number, h: number, rw: number, rh: number) {
 }
 
 export default function CropTool() {
+  return (
+    <ErrorBoundary>
+      <CropToolContent />
+    </ErrorBoundary>
+  );
+}
+
+function CropToolContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const tool = useImageTool();
   const [x, setX] = useState(0);
   const [y, setY] = useState(0);
@@ -98,15 +111,15 @@ export default function CropTool() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">Crop</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">image.crop · 区域裁剪 + 预设比例</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('crop.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('crop.subtitle')}</p>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
         {/* 参数面板 */}
         <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-5">
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">X(px)</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('crop.xLabel')}</span>
             <input
               type="number"
               min={0}
@@ -116,7 +129,7 @@ export default function CropTool() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">Y(px)</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('crop.yLabel')}</span>
             <input
               type="number"
               min={0}
@@ -126,7 +139,7 @@ export default function CropTool() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">宽度(px)</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('crop.widthLabel')}</span>
             <input
               type="number"
               min={1}
@@ -136,7 +149,7 @@ export default function CropTool() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">高度(px)</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('crop.heightLabel')}</span>
             <input
               type="number"
               min={1}
@@ -145,20 +158,22 @@ export default function CropTool() {
               className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
             />
           </label>
-          <div className="flex items-end">
-            <button
-              onClick={handleCrop}
-              disabled={!tool.ready || !tool.inputId || tool.busy || width < 1 || height < 1}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {tool.busy ? 'Crop 中…' : 'Crop'}
-            </button>
-          </div>
+        </div>
+
+        {/* 压缩按钮(独立于参数面板外,居中) */}
+        <div className="flex justify-center">
+          <button
+            onClick={handleCrop}
+            disabled={!tool.ready || !tool.inputId || tool.busy || width < 1 || height < 1}
+            className="rounded-lg bg-indigo-600 px-24 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {tool.busy ? t('crop.busyBtn') : t('crop.btn')}
+          </button>
         </div>
 
         {/* 预设比例 */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-medium text-zinc-500">预设比例</span>
+          <span className="text-[10px] font-medium text-zinc-500">{t('crop.presets')}</span>
           {presets.map((p) => (
             <button
               key={p}
@@ -170,16 +185,16 @@ export default function CropTool() {
                   : 'border-zinc-700 bg-zinc-950 text-zinc-300 hover:border-zinc-600'
               }`}
             >
-              {p === 'free' ? '自由' : p}
+              {p === 'free' ? t('crop.free') : p}
             </button>
           ))}
         </div>
 
-        {tool.initError && <p className="text-xs text-red-400">初始化失败:{tool.initError}</p>}
+        {tool.initError && <p className="text-xs text-red-400">{t('common.initFailedPrefix')}{tool.initError}</p>}
         {tool.error && <p className="text-xs text-red-400">{tool.error}</p>}
         {skipped > 0 && (
           <p className="text-xs text-amber-400">
-            仅处理首个文件,已忽略其余 {skipped} 个(批量处理请用 Batch Queue)
+            {t('common.skipPrefix')}{skipped}{t('common.skipSuffix')}
           </p>
         )}
         {inputInfo && outputInfo && (
@@ -191,12 +206,12 @@ export default function CropTool() {
         {/* Input / Output 对比 */}
         <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
           {!tool.inputId ? (
-            <UploadBox onFiles={handleFiles} hint="选择或拖入图片" className="md:col-span-2" />
+            <UploadBox onFiles={handleFiles} hint={t('crop.uploadHint')} className="md:col-span-2" />
           ) : (
             <>
-              <PreviewBox title="Input" url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
+              <PreviewBox title={t('common.input')} url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
               <PreviewBox
-                title="Output"
+                title={t('common.output')}
                 url={tool.outputUrl}
                 meta={imageInfoToMeta(tool.outputInfo)}
                 action={
@@ -210,7 +225,7 @@ export default function CropTool() {
                       }
                       className="text-[10px] text-indigo-400 hover:text-indigo-300"
                     >
-                      下载
+                      {t('common.download')}
                     </button>
                   )
                 }
@@ -224,7 +239,7 @@ export default function CropTool() {
             onClick={tool.reset}
             className="self-start text-[10px] text-zinc-500 hover:text-zinc-300"
           >
-            ← 重新选择图片
+            {t('crop.reselect')}
           </button>
         )}
       </div>

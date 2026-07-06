@@ -83,7 +83,7 @@ export function shouldEnableSentry(): boolean {
  * @example
  * ```astro
  * <script>
- *   import { initSentry } from '../toolkit/sentry';
+ *   import { initSentry } from '@/toolkit/sentry';
  *   initSentry();
  * </script>
  * ```

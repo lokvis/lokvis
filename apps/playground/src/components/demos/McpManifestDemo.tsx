@@ -16,6 +16,9 @@ import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime, McpManifest } from '@lokvis/sdk';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
 import { devToolsPlugin } from '@lokvis/plugin-dev';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 type PluginSet = 'image-only' | 'image+dev';
 
@@ -25,6 +28,16 @@ const PLUGIN_SETS: Record<PluginSet, string[]> = {
 };
 
 export default function McpManifestDemo() {
+  return (
+    <ErrorBoundary>
+      <McpManifestDemoContent />
+    </ErrorBoundary>
+  );
+}
+
+function McpManifestDemoContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
   const [manifest, setManifest] = useState<McpManifest | null>(null);
   const [pluginSet, setPluginSet] = useState<PluginSet>('image-only');
@@ -58,14 +71,14 @@ export default function McpManifestDemo() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">MCP Manifest</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">runtime.toMcpManifest() · expose capabilities as AI tools</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('mcp.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('mcp.subtitle')}</p>
       </div>
 
       {/* 控制面板 */}
       <div className="flex items-center gap-4 border-b border-zinc-800 bg-zinc-950/50 px-4 py-2">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-medium text-zinc-500">Plugins:</span>
+          <span className="text-[10px] font-medium text-zinc-500">{t('mcp.plugins')}</span>
           <select
             value={pluginSet}
             onChange={(e) => setPluginSet(e.target.value as PluginSet)}
@@ -85,10 +98,10 @@ export default function McpManifestDemo() {
             onChange={(e) => setBatchMode(e.target.checked)}
             className="h-3 w-3 rounded border-zinc-700 bg-zinc-950 text-indigo-500 focus:ring-indigo-500"
           />
-          <span className="text-[10px] text-zinc-400">batchMode</span>
+          <span className="text-[10px] text-zinc-400">{t('mcp.batchMode')}</span>
         </label>
         <span className="ml-auto text-[10px] text-zinc-600">
-          {manifest?.tools.length ?? 0} tools · {manifest?.resources.length ?? 0} resources
+          {manifest?.tools.length ?? 0}{t('mcp.toolsSuffix')} · {manifest?.resources.length ?? 0}{t('mcp.resourcesSuffix')}
         </span>
       </div>
 
@@ -96,27 +109,27 @@ export default function McpManifestDemo() {
         {/* 工具列表 */}
         <div className="flex w-72 flex-shrink-0 flex-col border-r border-zinc-800 bg-zinc-950">
           <header className="border-b border-zinc-800/50 px-3 py-2 text-[11px] font-semibold text-zinc-400">
-            MCP Tools
+            {t('mcp.mcpTools')}
           </header>
           <div className="flex-1 overflow-auto p-2">
             {manifest?.tools.length === 0 ? (
               <p className="p-3 text-center text-[10px] text-zinc-600">
-                No tools exposed with current options
+                {t('mcp.noTools')}
               </p>
             ) : (
               <ul className="space-y-1">
-                {manifest?.tools.map((t) => (
-                  <li key={t.name}>
+                {manifest?.tools.map((tool) => (
+                  <li key={tool.name}>
                     <button
-                      onClick={() => setSelectedTool(t.name)}
+                      onClick={() => setSelectedTool(tool.name)}
                       className={`w-full rounded px-2 py-1.5 text-left transition-colors ${
-                        selectedTool === t.name
+                        selectedTool === tool.name
                           ? 'bg-indigo-600/10 ring-1 ring-inset ring-indigo-500/20'
                           : 'hover:bg-zinc-900'
                       }`}
                     >
-                      <div className="font-mono text-[10px] text-indigo-400">{t.name}</div>
-                      <div className="mt-0.5 line-clamp-2 text-[9px] text-zinc-500">{t.description}</div>
+                      <div className="font-mono text-[10px] text-indigo-400">{tool.name}</div>
+                      <div className="mt-0.5 line-clamp-2 text-[9px] text-zinc-500">{tool.description}</div>
                     </button>
                   </li>
                 ))}
@@ -135,13 +148,13 @@ export default function McpManifestDemo() {
               </header>
               <div className="flex-1 overflow-auto p-4">
                 <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                  Input Schema
+                  {t('mcp.inputSchema')}
                 </h3>
                 <pre className="overflow-auto rounded border border-zinc-800 bg-zinc-900/50 p-3 font-mono text-[10px] text-zinc-300">
                   {JSON.stringify(selected.inputSchema, null, 2)}
                 </pre>
                 <h3 className="mb-2 mt-4 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                  Capabilities
+                  {t('mcp.capabilities')}
                 </h3>
                 <div className="flex flex-wrap gap-1">
                   {selected.capabilities.map((c) => (
@@ -158,9 +171,9 @@ export default function McpManifestDemo() {
           ) : (
             <div className="flex flex-1 items-center justify-center">
               <div className="text-center">
-                <p className="text-[11px] text-zinc-600">Select a tool to view its input schema</p>
+                <p className="text-[11px] text-zinc-600">{t('mcp.selectToolHint')}</p>
                 <p className="mt-1 text-[10px] text-zinc-700">
-                  Or copy the full manifest below for your MCP client config
+                  {t('mcp.copyManifestHint')}
                 </p>
               </div>
             </div>
@@ -170,7 +183,7 @@ export default function McpManifestDemo() {
           {manifest && (
             <details className="border-t border-zinc-800">
               <summary className="cursor-pointer px-4 py-2 text-[11px] font-medium text-zinc-400 hover:text-zinc-200">
-                Full Manifest JSON
+                {t('mcp.fullManifestJson')}
               </summary>
               <pre className="max-h-64 overflow-auto bg-zinc-900/30 p-3 font-mono text-[10px] text-zinc-300">
                 {JSON.stringify(manifest, null, 2)}

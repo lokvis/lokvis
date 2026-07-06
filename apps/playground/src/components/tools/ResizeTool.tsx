@@ -11,12 +11,15 @@
  */
 import { useCallback, useRef, useState } from 'react';
 import type { Workflow } from '@lokvis/sdk';
-import { UploadBox } from '../toolkit/UploadBox';
-import { PreviewBox } from '../toolkit/PreviewBox';
-import { useImageTool } from '../toolkit/useImageTool';
-import { PlatformPresetSelector } from '../toolkit/PlatformPresetSelector';
-import { downloadBlob, formatBytes, imageInfoToMeta } from '../toolkit/download';
+import { UploadBox } from '@/components/toolkit/UploadBox';
+import { PreviewBox } from '@/components/toolkit/PreviewBox';
+import { useImageTool } from '@/components/toolkit/useImageTool';
+import { PlatformPresetSelector } from '@/components/toolkit/PlatformPresetSelector';
+import { downloadBlob, formatBytes, imageInfoToMeta } from '@/components/toolkit/download';
 import type { PlatformSizePreset } from '@lokvis/capability';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 type Fit = 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
 
@@ -25,6 +28,16 @@ const DPI_PRESETS = [72, 150, 300] as const;
 type DpiPreset = (typeof DPI_PRESETS)[number] | 'custom';
 
 export default function ResizeTool() {
+  return (
+    <ErrorBoundary>
+      <ResizeToolContent />
+    </ErrorBoundary>
+  );
+}
+
+function ResizeToolContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const tool = useImageTool();
   const [width, setWidth] = useState(800);
   const [height, setHeight] = useState(0); // 0 表示按比例自动
@@ -99,8 +112,8 @@ export default function ResizeTool() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">Resize</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">image.resize · 尺寸调整 + 比例控制 + 平台预设</p>
+        <h1 className="text-sm font-semibold text-zinc-100">{t('resize.title')}</h1>
+        <p className="mt-0.5 text-xs text-zinc-500">{t('resize.subtitle')}</p>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
@@ -115,7 +128,7 @@ export default function ResizeTool() {
         {/* 参数面板 */}
         <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-6">
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">宽度(px)</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('resize.widthLabel')}</span>
             <input
               type="number"
               min={1}
@@ -125,7 +138,7 @@ export default function ResizeTool() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">高度(px,留空自动)</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('resize.heightLabel')}</span>
             <input
               type="number"
               min={1}
@@ -135,22 +148,22 @@ export default function ResizeTool() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">Fit 策略</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('resize.fit')}</span>
             <select
               value={fit}
               onChange={(e) => setFit(e.target.value as Fit)}
               className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
             >
-              <option value="inside">inside(包含)</option>
-              <option value="cover">cover(覆盖)</option>
-              <option value="contain">contain</option>
-              <option value="fill">fill(拉伸)</option>
-              <option value="outside">outside</option>
+              <option value="inside">{t('resize.fitInside')}</option>
+              <option value="cover">{t('resize.fitCover')}</option>
+              <option value="contain">{t('resize.fitContain')}</option>
+              <option value="fill">{t('resize.fitFill')}</option>
+              <option value="outside">{t('resize.fitOutside')}</option>
             </select>
           </label>
           {/* DPI 输入(W8.4)*/}
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">DPI</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('resize.dpi')}</span>
             <select
               value={dpiMode}
               onChange={(e) => {
@@ -160,15 +173,15 @@ export default function ResizeTool() {
               }}
               className="rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-200 focus:border-indigo-500 focus:outline-none"
             >
-              <option value={72}>72(屏幕)</option>
-              <option value={150}>150(草稿)</option>
-              <option value={300}>300(印刷)</option>
-              <option value="custom">自定义</option>
+              <option value={72}>{t('resize.dpiScreen')}</option>
+              <option value={150}>{t('resize.dpiDraft')}</option>
+              <option value={300}>{t('resize.dpiPrint')}</option>
+              <option value="custom">{t('resize.dpiCustom')}</option>
             </select>
           </label>
           {dpiMode === 'custom' && (
             <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium text-zinc-500">自定义 DPI(1–4800)</span>
+              <span className="text-[10px] font-medium text-zinc-500">{t('resize.dpiCustomLabel')}</span>
               <input
                 type="number"
                 min={1}
@@ -180,7 +193,7 @@ export default function ResizeTool() {
             </label>
           )}
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-medium text-zinc-500">保持比例</span>
+            <span className="text-[10px] font-medium text-zinc-500">{t('resize.keepRatio')}</span>
             <div className="flex h-[26px] items-center gap-2">
               <input
                 id="resize-ratio"
@@ -190,33 +203,34 @@ export default function ResizeTool() {
                 className="h-3.5 w-3.5 accent-indigo-500"
               />
               <label htmlFor="resize-ratio" className="text-xs text-zinc-400">
-                {maintainAspectRatio ? '是' : '否'}
+                {maintainAspectRatio ? t('resize.keepRatioYes') : t('resize.keepRatioNo')}
               </label>
             </div>
           </div>
-          <div className="flex items-end sm:col-span-6">
-            <button
-              onClick={handleResize}
-              disabled={!tool.ready || !tool.inputId || tool.busy || width <= 0}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {tool.busy ? 'Resize 中…' : 'Resize'}
-            </button>
-          </div>
+        </div>
+
+        {/* 压缩按钮(独立于参数面板外,居中) */}
+        <div className="flex justify-center">
+          <button
+            onClick={handleResize}
+            disabled={!tool.ready || !tool.inputId || tool.busy || width <= 0}
+            className="rounded-lg bg-indigo-600 px-24 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {tool.busy ? t('resize.busyBtn') : t('resize.btn')}
+          </button>
         </div>
 
         {/* DPI 提示 */}
         <p className="text-[10px] text-zinc-600">
-          DPI 写入 PNG 输出文件的 pHYs chunk(打印软件可读),不改变像素尺寸。
-          当前 {dpi} DPI · 印刷尺寸约 {((width || 0) / dpi * 25.4).toFixed(1)}×
-          {height > 0 ? `${((height / dpi) * 25.4).toFixed(1)} mm` : '--(高度自动)'}
+          {t('resize.dpiHintPrefix')}{dpi}{t('resize.dpiHintMiddle')}{((width || 0) / dpi * 25.4).toFixed(1)}×
+          {height > 0 ? `${((height / dpi) * 25.4).toFixed(1)}${t('resize.dpiHintSuffix')}` : t('resize.dpiHeightAuto')}
         </p>
 
-        {tool.initError && <p className="text-xs text-red-400">初始化失败:{tool.initError}</p>}
+        {tool.initError && <p className="text-xs text-red-400">{t('common.initFailedPrefix')}{tool.initError}</p>}
         {tool.error && <p className="text-xs text-red-400">{tool.error}</p>}
         {skipped > 0 && (
           <p className="text-xs text-amber-400">
-            仅处理首个文件,已忽略其余 {skipped} 个(批量处理请用 Batch Queue)
+            {t('common.skipPrefix')}{skipped}{t('common.skipSuffix')}
           </p>
         )}
         {inputInfo && outputInfo && (
@@ -228,12 +242,12 @@ export default function ResizeTool() {
         {/* Input / Output 对比 */}
         <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
           {!tool.inputId ? (
-            <UploadBox onFiles={handleFiles} hint="选择或拖入图片" className="md:col-span-2" />
+            <UploadBox onFiles={handleFiles} hint={t('resize.uploadHint')} className="md:col-span-2" />
           ) : (
             <>
-              <PreviewBox title="Input" url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
+              <PreviewBox title={t('common.input')} url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
               <PreviewBox
-                title="Output"
+                title={t('common.output')}
                 url={tool.outputUrl}
                 meta={imageInfoToMeta(tool.outputInfo)}
                 action={
@@ -247,7 +261,7 @@ export default function ResizeTool() {
                       }
                       className="text-[10px] text-indigo-400 hover:text-indigo-300"
                     >
-                      下载
+                      {t('common.download')}
                     </button>
                   )
                 }
@@ -261,7 +275,7 @@ export default function ResizeTool() {
             onClick={tool.reset}
             className="self-start text-[10px] text-zinc-500 hover:text-zinc-300"
           >
-            ← 重新选择图片
+            {t('resize.reselect')}
           </button>
         )}
       </div>

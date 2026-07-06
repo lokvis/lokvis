@@ -4,6 +4,9 @@ import type { LokvisRuntime } from '@lokvis/runtime';
 import imageToolsPlugin from '@lokvis/plugin-image';
 import devToolsPlugin from '@lokvis/plugin-dev';
 import { CodeEditor } from './CodeEditor';
+import { ErrorBoundary } from './ErrorBoundary';
+import { useLang } from '@/i18n/useLang';
+import { useTranslations } from '@/i18n/utils';
 
 /**
  * Lokvis Playground
@@ -41,6 +44,16 @@ interface LogEntry {
 let logIdCounter = 0;
 
 export function Playground() {
+  return (
+    <ErrorBoundary>
+      <PlaygroundContent />
+    </ErrorBoundary>
+  );
+}
+
+function PlaygroundContent() {
+  const lang = useLang();
+  const t = useTranslations(lang);
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
   const [code, setCode] = useState(DEFAULT_CODE);
   const [output, setOutput] = useState<LogEntry[]>([]);
@@ -110,14 +123,14 @@ export function Playground() {
       {/* Toolbar（壳已提供品牌条，这里仅保留 Run/Clear 工具栏） */}
       <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950/50 px-4 py-2">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-medium text-zinc-400">editor.js</span>
+          <span className="text-xs font-medium text-zinc-400">{t('playground.editorJs')}</span>
           {runtime && (
             <span className="flex items-center gap-1.5 rounded-full bg-emerald-950 px-2.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-800">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
               </span>
-              runtime ready
+              {t('playground.runtimeReady')}
             </span>
           )}
         </div>
@@ -126,7 +139,7 @@ export function Playground() {
             onClick={() => setOutput([])}
             className="rounded-md px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
           >
-            Clear
+            {t('playground.clear')}
           </button>
           <button
             onClick={handleRun}
@@ -136,12 +149,12 @@ export function Playground() {
             {running ? (
               <>
                 <svg className="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                Running...
+                {t('playground.running')}
               </>
             ) : (
               <>
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                Run
+                {t('playground.run')}
               </>
             )}
           </button>
@@ -154,13 +167,13 @@ export function Playground() {
           onClick={() => setTab('editor')}
           className={`flex-1 py-2 text-xs font-medium transition-colors ${tab === 'editor' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-zinc-500 hover:text-zinc-300'}`}
         >
-          Editor
+          {t('playground.editor')}
         </button>
         <button
           onClick={() => setTab('output')}
           className={`flex-1 py-2 text-xs font-medium transition-colors ${tab === 'output' ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-zinc-500 hover:text-zinc-300'}`}
         >
-          Output {output.length > 0 && `(${output.length})`}
+          {t('playground.output')} {output.length > 0 && `(${output.length})`}
         </button>
       </div>
 
@@ -171,15 +184,15 @@ export function Playground() {
           <div className="flex items-center justify-between border-b border-zinc-800/50 px-4 py-1.5">
             <span className="flex items-center gap-2 text-[11px] text-zinc-500">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-              editor.js
+              {t('playground.editorJs')}
             </span>
-            <span className="text-[11px] text-zinc-600">JavaScript</span>
+            <span className="text-[11px] text-zinc-600">{t('playground.javascript')}</span>
           </div>
           <div className="flex-1 overflow-auto bg-[#282c34]">
             <CodeEditor
               value={code}
               onChange={setCode}
-              placeholder="Write your code here..."
+              placeholder={t('playground.placeholder')}
             />
           </div>
         </div>
@@ -189,10 +202,10 @@ export function Playground() {
           <div className="flex items-center justify-between border-b border-zinc-800/50 px-4 py-1.5">
             <span className="flex items-center gap-2 text-[11px] text-zinc-500">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
-              output
+              {t('playground.output')}
             </span>
             {output.length > 0 && (
-              <span className="text-[11px] text-zinc-600">{output.length} lines</span>
+              <span className="text-[11px] text-zinc-600">{output.length}{t('playground.linesSuffix')}</span>
             )}
           </div>
           <div className="flex-1 overflow-auto bg-zinc-950 p-4">
@@ -200,8 +213,8 @@ export function Playground() {
               <div className="flex h-full items-center justify-center text-zinc-600">
                 <div className="text-center">
                   <svg className="mx-auto mb-2 h-8 w-8 text-zinc-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"/></svg>
-                  <p className="text-xs">Output will appear here</p>
-                  <p className="mt-1 text-[10px] text-zinc-700">Press Run to execute your code</p>
+                  <p className="text-xs">{t('playground.outputWillAppear')}</p>
+                  <p className="mt-1 text-[10px] text-zinc-700">{t('playground.runHint')}</p>
                 </div>
               </div>
             ) : (
