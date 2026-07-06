@@ -10,6 +10,7 @@
  * 当前状态：MVP 占位实现。
  */
 
+import { createEngineRegistry } from '@lokvis/engine-core';
 import type { AssetType } from '@lokvis/schema';
 
 /** 音频引擎名 */
@@ -112,32 +113,29 @@ export const lamejsEngine: AudioEngineAdapter = {
   },
 };
 
-const engines = new Map<AudioEngineName, AudioEngineAdapter>([
-  ['web-audio', webAudioEngine],
-  ['lamejs', lamejsEngine],
-]);
+// ─── 引擎注册表(委托 @lokvis/engine-core 工厂) ───────────
+// 旧版手写 Map + register/get/list/selectBest 四个函数,与 engine-pdf /
+// engine-video / engine-ai 完全相同。改为 createEngineRegistry 一次构造,
+// 消除四份重复样板。get(name?) 未命中时 fallback 到 webAudioEngine。
+const registry = createEngineRegistry<AudioEngineAdapter>(
+  [webAudioEngine, lamejsEngine],
+  webAudioEngine
+);
 
 export function registerAudioEngine(engine: AudioEngineAdapter): void {
-  engines.set(engine.name, engine);
+  registry.register(engine);
 }
 
 export function getAudioEngine(name?: AudioEngineName): AudioEngineAdapter {
-  if (name) {
-    const e = engines.get(name);
-    if (e) return e;
-  }
-  return webAudioEngine;
+  return registry.get(name);
 }
 
 export function listAudioEngines(): AudioEngineAdapter[] {
-  return Array.from(engines.values());
+  return registry.list();
 }
 
 export async function selectBestAudioEngine(): Promise<AudioEngineAdapter> {
-  for (const engine of engines.values()) {
-    if (await engine.isSupported()) return engine;
-  }
-  return webAudioEngine;
+  return registry.selectBest();
 }
 
 export type { AssetType };

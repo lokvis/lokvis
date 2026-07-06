@@ -269,6 +269,9 @@ importers:
 
   packages/engine-ai:
     dependencies:
+      '@lokvis/engine-core':
+        specifier: workspace:*
+        version: link:../engine-core
       '@lokvis/schema':
         specifier: workspace:*
         version: link:../schema
@@ -278,6 +281,19 @@ importers:
         version: 5.9.3
 
   packages/engine-audio:
+    dependencies:
+      '@lokvis/engine-core':
+        specifier: workspace:*
+        version: link:../engine-core
+      '@lokvis/schema':
+        specifier: workspace:*
+        version: link:../schema
+    devDependencies:
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
+  packages/engine-core:
     dependencies:
       '@lokvis/schema':
         specifier: workspace:*
@@ -299,6 +315,9 @@ importers:
 
   packages/engine-pdf:
     dependencies:
+      '@lokvis/engine-core':
+        specifier: workspace:*
+        version: link:../engine-core
       '@lokvis/schema':
         specifier: workspace:*
         version: link:../schema
@@ -309,6 +328,9 @@ importers:
 
   packages/engine-video:
     dependencies:
+      '@lokvis/engine-core':
+        specifier: workspace:*
+        version: link:../engine-core
       '@lokvis/schema':
         specifier: workspace:*
         version: link:../schema

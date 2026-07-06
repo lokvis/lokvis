@@ -22,6 +22,7 @@
  * - Phase 2:实现 cloudProxyEngine 接口 + transformersEngine OCR
  */
 
+import { createEngineRegistry } from '@lokvis/engine-core';
 import type { AssetType } from '@lokvis/schema';
 
 /** AI 引擎名 */
@@ -125,32 +126,29 @@ export const cloudProxyEngine: AiEngineAdapter = {
   },
 };
 
-const engines = new Map<AiEngineName, AiEngineAdapter>([
-  ['transformers-js', transformersEngine],
-  ['cloud-proxy', cloudProxyEngine],
-]);
+// ─── 引擎注册表(委托 @lokvis/engine-core 工厂) ───────────
+// 旧版手写 Map + register/get/list/selectBest 四个函数,与 engine-pdf /
+// engine-audio / engine-video 完全相同。改为 createEngineRegistry 一次构造,
+// 消除四份重复样板。get(name?) 未命中时 fallback 到 transformersEngine。
+const registry = createEngineRegistry<AiEngineAdapter>(
+  [transformersEngine, cloudProxyEngine],
+  transformersEngine
+);
 
 export function registerAiEngine(engine: AiEngineAdapter): void {
-  engines.set(engine.name, engine);
+  registry.register(engine);
 }
 
 export function getAiEngine(name?: AiEngineName): AiEngineAdapter {
-  if (name) {
-    const e = engines.get(name);
-    if (e) return e;
-  }
-  return transformersEngine;
+  return registry.get(name);
 }
 
 export function listAiEngines(): AiEngineAdapter[] {
-  return Array.from(engines.values());
+  return registry.list();
 }
 
 export async function selectBestAiEngine(): Promise<AiEngineAdapter> {
-  for (const engine of engines.values()) {
-    if (await engine.isSupported()) return engine;
-  }
-  return transformersEngine;
+  return registry.selectBest();
 }
 
 export type { AssetType };

@@ -30,6 +30,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@lokvis/engine-core": "workspace:*",
     "@lokvis/schema": "workspace:*"
   },
   "devDependencies": {
