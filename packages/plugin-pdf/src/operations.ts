@@ -4,24 +4,26 @@
  * 把 engine-pdf 的 Blob ↔ Blob 操作包装为 CapabilityImplementation:
  *   Asset[] + params → Asset[]
  *
- * single kind(1→1):通过 plugin-sdk 的 createBlobCapabilityImpl 工厂,
- *   与 plugin-image / plugin-video 共享"取 blob → 调 operation → 派生 metadata
- *   → createAsset → 进度/取消"五步样板。
- *
- * merge(N→1) / split(1→N):形态不同,由本文件自行实现。
+ * 三种形态全部走 plugin-sdk 工厂,与 plugin-image / plugin-video 共享
+ * "取 blob → 调 operation → 派生 metadata → createAsset → 进度/取消"五步样板:
+ * - single(1→1):createBlobCapabilityImpl
+ * - merge(N→1):createMergeCapabilityImpl
+ * - split(1→N):createSplitCapabilityImpl
  *
  * 注意:当前 engine-pdf 为占位实现,所有方法都会抛出异常,
  * 因此 plugin-pdf 的各操作在运行时也会抛出 —— 这是有意为之的 stub 行为。
  */
 
 import { getPdfEngine } from '@lokvis/engine-pdf';
-import { createBlobCapabilityImpl } from '@lokvis/plugin-sdk';
+import {
+  createBlobCapabilityImpl,
+  createMergeCapabilityImpl,
+  createSplitCapabilityImpl,
+} from '@lokvis/plugin-sdk';
 import type {
-  Asset,
   AssetMetadata,
   AssetType,
   CapabilityImplementation,
-  ExecutionContext,
   PluginContext,
 } from '@lokvis/schema';
 
@@ -101,9 +103,7 @@ export const PDF_CAPABILITY_ENTRIES: PdfCapabilityEntry[] = [
 ];
 
 /** 从输出 Blob 派生新 Asset 的元数据(不读 source,PDF 变换不传播 dimensions) */
-function derivePdfMetadata(
-  outputType: AssetType
-): (outBlob: Blob) => AssetMetadata {
+function derivePdfMetadata(outputType: AssetType): (outBlob: Blob) => AssetMetadata {
   const fallback = defaultMimeTypeAndFormat(outputType);
   return (outBlob: Blob) => {
     const mimeType = outBlob.type || fallback.mimeType;
@@ -128,99 +128,61 @@ function defaultMimeTypeAndFormat(
   }
 }
 
-/** 将 merge/split 操作包装为 CapabilityImplementation(形态不同,不共用工厂) */
-function wrapMergeOrSplitImplementation(
-  entry: PdfCapabilityEntry,
-  ctx: PluginContext
-): CapabilityImplementation {
-  const engineAdapter = getPdfEngine(entry.engine as 'pdf-lib');
-  const isStub = engineAdapter.version.includes('stub');
-  return {
-    capability: entry.capability,
-    engine: entry.engine,
-    status: isStub ? 'stub' : 'stable',
-    async execute(
-      inputs: Asset[],
-      params: Record<string, unknown>,
-      execCtx: ExecutionContext
-    ): Promise<Asset[]> {
-      if (inputs.length === 0) {
-        throw new Error(`Capability "${entry.capability}" requires at least one input asset`);
-      }
-
-      // merge:多输入 → 单输出
-      if (entry.kind === 'merge') {
-        const blobs: Blob[] = [];
-        for (let i = 0; i < inputs.length; i++) {
-          if (execCtx.signal.aborted) {
-            throw new DOMException('Aborted', 'AbortError');
-          }
-          const asset = inputs[i]!;
-          execCtx.onProgress?.(i / inputs.length, `Reading ${i + 1}/${inputs.length}`);
-          blobs.push(await ctx.runtime.getAssetBlob(asset));
-        }
-        execCtx.onProgress?.(0.9, 'Merging');
-        const outBlob = await (entry.operation as MergePdfOperation)(blobs, params);
-        const outAsset = await ctx.runtime.createAsset(
-          outBlob,
-          derivePdfMetadata(entry.outputType)(outBlob),
-          entry.outputType
-        );
-        execCtx.onProgress?.(1, 'Done');
-        return [outAsset];
-      }
-
-      // split:单输入 → 多输出
-      const outputs: Asset[] = [];
-      for (let i = 0; i < inputs.length; i++) {
-        if (execCtx.signal.aborted) {
-          throw new DOMException('Aborted', 'AbortError');
-        }
-        const asset = inputs[i]!;
-        execCtx.onProgress?.(i / inputs.length, `Processing ${i + 1}/${inputs.length}`);
-        const blob = await ctx.runtime.getAssetBlob(asset);
-        const outBlobs = await (entry.operation as SplitPdfOperation)(blob, params);
-        const derive = derivePdfMetadata(entry.outputType);
-        for (const outBlob of outBlobs) {
-          outputs.push(
-            await ctx.runtime.createAsset(outBlob, derive(outBlob), entry.outputType)
-          );
-        }
-      }
-      execCtx.onProgress?.(1, 'Done');
-      return outputs;
-    },
-  };
-}
-
 /**
  * 构造所有 PDF 能力的 CapabilityImplementation
  * (由 plugin.ts 在 installer 中调用)
+ *
+ * stub 检测在此一次性完成(AGENTS.md 约定:version.includes('stub')),
+ * 不再在 merge/split 包装函数中重复检测。
  */
 export function buildPdfCapabilityImplementations(
   ctx: PluginContext
 ): CapabilityImplementation[] {
-  const engineAdapter = getPdfEngine('pdf-lib');
-  const isStub = engineAdapter.version.includes('stub');
+  // 引擎 stub 标识只检测一次,避免在多处重复读取 engine.version
+  const isStub = engine().version.includes('stub');
+
   return PDF_CAPABILITY_ENTRIES.map((entry) => {
-    // single kind:用 plugin-sdk 工厂,与 image/video 共享样板
-    if (entry.kind === 'single') {
-      const derive = derivePdfMetadata(entry.outputType);
-      return createBlobCapabilityImpl(
-        {
-          capability: entry.capability,
-          engine: entry.engine,
-          outputType: entry.outputType,
-          operation: entry.operation as SinglePdfOperation,
-          isStub,
-          // 工厂签名是 (source, outBlob) => AssetMetadata,但 PDF 不读 source,
-          // 用包装层丢弃 source 只传 outBlob,语义更清晰
-          deriveMetadata: (_source, outBlob) => derive(outBlob),
-        },
-        ctx
-      );
+    const derive = derivePdfMetadata(entry.outputType);
+
+    switch (entry.kind) {
+      case 'merge':
+        return createMergeCapabilityImpl(
+          {
+            capability: entry.capability,
+            engine: entry.engine,
+            outputType: entry.outputType,
+            operation: entry.operation as MergePdfOperation,
+            isStub,
+            deriveMetadata: derive,
+          },
+          ctx
+        );
+      case 'split':
+        return createSplitCapabilityImpl(
+          {
+            capability: entry.capability,
+            engine: entry.engine,
+            outputType: entry.outputType,
+            operation: entry.operation as SplitPdfOperation,
+            isStub,
+            deriveMetadata: derive,
+          },
+          ctx
+        );
+      case 'single':
+        return createBlobCapabilityImpl(
+          {
+            capability: entry.capability,
+            engine: entry.engine,
+            outputType: entry.outputType,
+            operation: entry.operation as SinglePdfOperation,
+            isStub,
+            // 工厂签名是 (source, outBlob) => AssetMetadata,但 PDF 不读 source,
+            // 用包装层丢弃 source 只传 outBlob,语义更清晰
+            deriveMetadata: (_source, outBlob) => derive(outBlob),
+          },
+          ctx
+        );
     }
-    // merge / split:形态不同,自行包装
-    return wrapMergeOrSplitImplementation(entry, ctx);
   });
 }
