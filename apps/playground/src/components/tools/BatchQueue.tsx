@@ -258,7 +258,7 @@ function BatchQueueContent() {
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
         {/* 参数面板 */}
-        <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1">
             <span className="text-[10px] font-medium text-zinc-500">{t('batch.format')}</span>
             <select
@@ -282,24 +282,24 @@ function BatchQueueContent() {
               className="h-1.5 cursor-pointer appearance-none rounded-full bg-zinc-700 accent-indigo-500"
             />
           </label>
-          <div className="flex items-end">
-            <button
-              onClick={handleProcessAll}
-              disabled={!ready || !hasPending || processing}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {processing ? t('batch.processing') : hasPending ? t('batch.processAll') : t('batch.completed')}
-            </button>
-          </div>
-          <div className="flex items-end">
-            <button
-              onClick={handleClear}
-              disabled={total === 0}
-              className="w-full rounded-lg border border-zinc-700 px-4 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {t('batch.clear')}
-            </button>
-          </div>
+        </div>
+
+        {/* 操作按钮:居中处理 + 右侧清空(与其他工具页布局一致) */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleProcessAll}
+            disabled={!ready || !hasPending || processing}
+            className="mx-auto rounded-lg bg-indigo-600 px-24 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {processing ? t('batch.processing') : hasPending ? t('batch.processAll') : t('batch.completed')}
+          </button>
+          <button
+            onClick={handleClear}
+            disabled={total === 0}
+            className="rounded-lg border border-zinc-700 px-4 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {t('batch.clear')}
+          </button>
         </div>
 
         {/* 上传区 */}

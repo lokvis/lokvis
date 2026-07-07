@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+/* Tailwind v4 默认 darkMode: 'media'(跟随系统 prefers-color-scheme)。
+   playground 通过 <html class="dark"> 手动切换暗色主题,
+   需配置 class 策略让 dark: 前缀类生效。
+   :where() 保持零特异性,避免覆盖用户自定义样式。 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* @lokvis/ui-core 组件暗色主题补丁
+   ─────────────────────────────────────────────────
+   Tailwind v4 默认不扫描 monorepo 内的包源码,导致 ui-core 组件中的
+   dark: 类(如 dark:bg-zinc-900)不会被生成到最终 CSS 中。
+   这里用 .dark 前缀手动补全 Card / Select 等组件的暗色样式。 */
+
+/* Card 组件:rounded-xl border bg-white → 暗色下应为 zinc-800 边框 + zinc-900 背景 */
+.dark .lokvis-ui-card {
+  border-color: var(--color-zinc-800);
+  background-color: var(--color-zinc-900);
+}
+.dark .lokvis-ui-card:hover {
+  border-color: var(--color-zinc-700);
+}
+
+/* Select 组件:className 加到外层 div,样式应用到内部 select 元素 */
+.dark .lokvis-ui-select select {
+  border-color: var(--color-zinc-700);
+  background-color: var(--color-zinc-900);
+  color: var(--color-zinc-100);
+}
+
 /* @lokvis/ui-core Dialog CSS 变量:匹配 playground 暗色主题 */
 :root {
   --lokvis-surface: #18181b; /* zinc-900 */

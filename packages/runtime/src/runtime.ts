@@ -563,18 +563,24 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     // 下载时文件扩展名变成 .octet-stream。
     // 用 asset metadata 的 mimeType 补全 Blob type(IDB/Memory 后端不受影响)。
     const OPFS_FALLBACK_MIME = 'application/octet-stream';
-    const needsTypeRepair =
-      !blob.type || blob.type === OPFS_FALLBACK_MIME;
-    const blobWithType = needsTypeRepair
-      ? new Blob([blob], { type: asset.metadata.mimeType })
-      : blob;
+    const mimeType =
+      !blob.type || blob.type === OPFS_FALLBACK_MIME
+        ? asset.metadata.mimeType
+        : blob.type;
+    // 关键:用 arrayBuffer() 显式读取数据到内存,再构造新 Blob。
+    // 不能用 new Blob([blob]) —— 浏览器实现中它可能延迟引用底层 OPFS 文件,
+    // WatermarkBatchTool 在 export 后立即 removeAsset 删除 OPFS 文件,
+    // 导致后续 downloadBlob 读取悬空引用失败("check internet connection")。
+    // arrayBuffer() 立即拉取数据,确保返回的 Blob 完全独立于底层存储。
+    const buffer = await blob.arrayBuffer();
+    const exported = new Blob([buffer], { type: mimeType });
     this.eventBus.emit({
       type: 'export:completed',
       assetId: id,
       format: format ?? asset.metadata.format,
       size: blob.size,
     });
-    return blobWithType;
+    return exported;
   }
 
   /**

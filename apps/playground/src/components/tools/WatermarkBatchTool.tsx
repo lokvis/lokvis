@@ -453,19 +453,19 @@ function WatermarkBatchToolContent() {
           </label>
         </div>
 
-        {/* 操作栏 */}
+        {/* 操作按钮:居中处理 + 右侧清空(与其他工具页布局一致) */}
         <div className="flex items-center gap-3">
           <button
             onClick={handleProcessAll}
             disabled={!ready || !hasPending || processing || textEmpty}
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mx-auto rounded-lg bg-indigo-600 px-24 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {processing ? t('watermark.batch.processing') : hasPending ? t('watermark.batch.processAll') : t('watermark.batch.completed')}
           </button>
           {processing && (
             <button
               onClick={handleCancel}
-              className="rounded-lg border border-amber-700 px-4 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-950/40"
+              className="rounded-lg border border-amber-700 px-4 py-1.5 text-xs font-medium text-amber-300 transition-colors hover:bg-amber-950/40"
             >
               {t('common.cancel')}
             </button>
@@ -474,7 +474,7 @@ function WatermarkBatchToolContent() {
             onClick={handleClear}
             disabled={total === 0 || processing}
             title={processing ? t('watermark.batch.cancelFirst') : undefined}
-            className="rounded-lg border border-zinc-700 px-4 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg border border-zinc-700 px-4 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t('common.clear')}
           </button>

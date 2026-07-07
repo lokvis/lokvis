@@ -93,4 +93,27 @@ describe('exportAsset MIME 类型修复', () => {
     const exported = await runtime.exportAsset(id);
     expect(exported.type).toBe('image/png');
   });
+
+  it('export 后应返回独立 Blob(非底层引用),removeAsset 后仍可读取', async () => {
+    // WatermarkBatchTool 场景:exportAsset 后立即 removeAsset 清理资产。
+    // 若 exportAsset 返回 OPFS File 引用,removeAsset 删除底层文件后
+    // File 变悬空引用,后续读取失败。exportAsset 必须返回独立 Blob(拷贝数据)。
+    const runtime = new LokvisRuntimeImpl({
+      assetStore: createMemoryAssetStore(),
+    });
+
+    const data = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+    const id = await runtime.importAsset({
+      kind: 'blob',
+      blob: new Blob([data], { type: 'image/png' }),
+      name: 'c.png',
+    });
+
+    const exported = await runtime.exportAsset(id);
+    // 立即删除 asset(模拟 WatermarkBatchTool 清理)
+    await runtime.removeAsset(id);
+    // exported 必须仍然可读(数据已拷贝,不依赖底层存储)
+    const text = await exported.text();
+    expect(text).toBe(new TextDecoder().decode(data));
+  });
 });
