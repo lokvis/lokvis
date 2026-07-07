@@ -1,0 +1,193 @@
+---
+title: Engine
+description: 深入剖析 @lokvis/engine-image —— 可插拔的图像引擎适配器。涵盖 Canvas 引擎实现、ImageEngineAdapter 契约、操作函数签名、Streaming 类型、Worker 集成、PNG pHYs DPI 元数据以及 Stub 引擎模式。
+draft: false
+head: []
+---
+
+import Mermaid from '../../../../components/Mermaid.astro';
+import MermaidScript from '../../../../components/MermaidScript.astro';
+
+<MermaidScript />
+
+`@lokvis/engine-image` 位于 Lokvis 五层栈的最底层。它暴露纯 Blob↔Blob 操作和一个 `ImageEngineAdapter` 契约。该包对 `Asset`、`Workflow`、`Capability`、`Runtime` 一无所知 —— 那是上层关注的事项。本文档梳理其模块、契约、Canvas 实现、Worker 集成以及元数据边界情况。
+
+> **Canvas 引擎版本：** `CANVAS_ENGINE_VERSION = '0.1.0'` · **Worker 协议：** `IMAGE_WORKER_PROTOCOL_VERSION = '0.1.0'`（与 `@lokvis/runtime` 中的 `WORKER_PROTOCOL_VERSION` 一致）。
+
+## 模块地图
+
+| 文件 | 导出 | 职责 |
+| --- | --- | --- |
+| `types.ts` | `ImageEngineAdapter`, `ImageEngineName`, `ImageOutputFormat`, `FitStrategy`, `ResizeParams`…, `ImageTile`, `ImageChunk`, `StreamingImageOperation`, `StreamingImageEngineAdapter` | 引擎契约 + Streaming 类型 |
+| `canvas-engine.ts` | `canvasEngine`, `CANVAS_ENGINE_VERSION`, `decodeResized`, `createCanvas`, `get2DContext`, `detectFormatSupport`, `reencode` | 基于 Canvas 的参考适配器 |
+| `adapter.ts` | `registerImageEngine`, `getEngine`, `listEngines`, `selectBestEngine` | 引擎注册表 + 选择 |
+| `worker-adapter.ts` | `startImageWorker`, `dispatchImageMethod`, `createImageWorkerHandler`, `listImageWorkerMethods`, `IMAGE_WORKER_PROTOCOL_VERSION` | Worker 端协议处理 |
+| `operations/index.ts` | 重新导出 | 操作聚合 |
+| `operations/transform.ts` | `resize`, `crop`, `rotate`, `flip` | 几何操作 |
+| `operations/encode.ts` | `compress`, `convert`, `setBackground` | 格式/编码操作 |
+| `operations/watermark.ts` | `watermark`, `computeWatermarkPosition` | 文本/图像水印 |
+| `operations/filters.ts` | `filter` | `grayscale` / `invert` / `sepia` / `blur` 预设 |
+| `operations/compress-target.ts` | `compressToTargetSize` | 针对目标字节数二分搜索质量 |
+| `operations/tiles.ts` | `splitIntoTiles`, `mergeChunks`, `isDownscale`, `DEFAULT_TILE_SIZE` | 分块原语（W3.2） |
+| `operations/png-metadata.ts` | `embedPngDpi`, `readPngDpi` | PNG pHYs chunk DPI（W8.4） |
+| `operations/utils.ts` | `throwIfAborted`, `inferFormat`, `computeTargetSize` | 共享辅助函数 |
+| `index.ts` | 重新导出所有内容 | 包入口 |
+
+## `ImageEngineAdapter` 契约
+
+`types.ts` 定义了引擎契约。每个引擎（今天的 Canvas；后续的 Squoosh WASM、WebCodecs、ImageMagick）都实现同一套最小接口：
+
+```typescript
+interface ImageEngineAdapter {
+  name: ImageEngineName;        // 'canvas' | 'squoosh' | 'webcodecs' | 'imagemagick'
+  version: string;              // '0.1.0'; stub 引擎包含 'stub'
+  supportedCapabilities: string[];  // 例如 ['image.resize', 'image.compress', ...]
+  isSupported(): Promise<boolean>;
+  initialize?(): Promise<void>;
+  dispose?(): Promise<void>;
+
+  // ─── 原语 ─────────────────────────────────────────
+  decode(blob: Blob): Promise<DecodedImage>;
+  encode(
+    canvas: HTMLCanvasElement | OffscreenCanvas,
+    format: ImageOutputFormat,
+    quality?: number
+  ): Promise<Blob>;
+}
+```
+
+`decode` 返回 `DecodedImage = { bitmap: ImageBitmap; width: number; height: number }`。各操作在 `finally` 块中调用 `bitmap.close()` 以确定性地释放位图 —— 浏览器的 GC 对短命解码突发不够激进。
+
+`encode` 可作用于 `HTMLCanvasElement` 或 `OffscreenCanvas`。Canvas 适配器分派到 `canvas.toBlob`（DOM）或 `canvas.convertToBlob`（OffscreenCanvas），使同一段代码既能跑在主线程，也能跑在 Worker 内。
+
+## 操作函数签名
+
+按 `AGENTS.md`，每个引擎操作函数遵循同一签名：
+
+```typescript
+export async function resize(
+  blob: Blob,
+  params: Record<string, any>,
+  signal?: AbortSignal
+): Promise<Blob>
+```
+
+`params` 参数**始终**为 `Record<string, any>`，绝不会是 `ResizeParams` 这类具体接口。这条规则的存在，是因为 Capability 层（plugin-image / plugin-pdf / plugin-video）从执行器收到的 `params` 是 `Record<string, unknown>`，而 TypeScript 不允许在 `Record<string, unknown>` 与具体接口之间直接互转。在 Engine 边界使用 `Record<string, any>` 意味着 Plugin 层只需单次 `as` 断言即可直接透传 `params` —— 永远不需要 `as unknown as` 双断言。
+
+`types.ts` 中具体的 `ResizeParams` / `CompressParams` 等接口是文档，而非强制约束。在每个操作内部，实现通过 `params.width` / `params.quality` 读取字段并自行校验。
+
+`signal?: AbortSignal` 在每个解码 / 绘制 / 编码边界处通过 `throwIfAborted(signal)` 检查（抛出与 Web 平台惯例一致的 `DOMException('AbortError')`）。`compressToTargetSize` 的二分搜索循环在每轮编码前检查；`watermark` 把 `signal` 传给它的 `fetch(imageUrl)`，使网络级取消也能生效。
+
+## Canvas 引擎实现
+
+`canvasEngine` 是 MVP 参考适配器。它不依赖任何 WASM，首屏速度最快 —— `createImageBitmap` + `OffscreenCanvas` 覆盖约 80% 的图像处理需求。其代价是编码质量（Squoosh WASM 生成的 AVIF/WebP 更好）以及各浏览器对 AVIF 支持的缺口。
+
+| 方法 | 实现 |
+| --- | --- |
+| `decode(blob)` | `createImageBitmap(blob)` → `{ bitmap, width, height }`。若 `createImageBitmap` 缺失则抛出。 |
+| `encode(canvas, format, quality=90)` | `OffscreenCanvas.convertToBlob({ type, quality })` 或 `HTMLCanvasElement.toBlob(cb, type, quality)`。质量归一化到 `0..1`。 |
+| `isSupported()` | 若存在 `OffscreenCanvas` 或 `document` 则为 `true` —— 即任何现代浏览器或 Worker。 |
+
+`decodeResized(blob, targetW, targetH)` 是 Canvas 引擎中最重要的一项内存优化。它不采用 `decode → drawImage scaled`，而是用 `createImageBitmap(blob, { resizeWidth, resizeHeight, resizeQuality: 'high' })` 在解码**期间**缩放，永不实体化全分辨率位图。不支持 resize 选项的浏览器（较老的 Safari）回退到普通 `decode`。这对大图意义重大：一张 8000×6000 的 JPEG 经普通解码缩放到 1920×1080 缩略图会短暂占用约 190MB 位图；而 `decodeResized` 仅占用约 8MB。
+
+`detectFormatSupport()` 经验性地把一个 1×1 Canvas 编码为 `webp` 和 `avif`，并检查产物 MIME。PNG/JPEG/GIF 被假定为支持。结果驱动压缩 UI 中的格式选择器。
+
+`reencode(blob, params)` 是纯格式转换的快捷方式：`decode → drawImage → encode`。
+
+## Streaming 类型
+
+Canvas 无法真正流式处理 —— `createImageBitmap` 会一次性解码整张图。但未来 WASM/WebCodecs 引擎的**类型契约**现在就已定义，使适配器替换不必修改 API：
+
+```typescript
+interface ImageTile { x: number; y: number; width: number; height: number; }
+
+interface ImageChunk { tile: ImageTile; blob: Blob; }
+
+interface StreamingImageOperation {
+  (input: ReadableStream<Blob>, params: Record<string, unknown>, signal?: AbortSignal):
+    AsyncIterable<ImageChunk>;
+}
+
+interface StreamingImageEngineAdapter extends ImageEngineAdapter {
+  decodeRegion?(blob: Blob, tile: ImageTile): Promise<DecodedImage>;
+  mergeChunks?(chunks: ImageChunk[], totalW: number, totalH: number,
+               format: ImageOutputFormat, quality?: number): Promise<Blob>;
+}
+```
+
+Canvas 适配器借助 `operations/tiles.ts` 中的分块原语近似实现流式：
+
+- `splitIntoTiles(width, height, tileSize = 512)` —— 行优先网格，边缘块被钳制到图像边界。纯函数，确定性。
+- `mergeChunks(chunks, totalW, totalH, format, quality, signal?)` —— `逐块解码 → 在输出 Canvas 的 tile 位置 drawImage → encode`。合并期间内存峰值是一个块的位图加上完整输出 Canvas。
+- `isDownscale(srcW, srcH, targetW, targetH)` —— 用于判断 `decodeResized` 是否值得。
+
+`DEFAULT_TILE_SIZE = 512` 使单个块的 RGBA 占用保持在约 1MB。
+
+## Worker 集成
+
+`worker-adapter.ts` 运行在 Worker 线程**内部**。它接收来自主线程 `WorkerHost`（位于 `@lokvis/runtime`）的协议消息，分派给引擎操作，并把响应回传。该模块只依赖 `@lokvis/schema`（仅类型）—— 永不依赖 `@lokvis/runtime`，以维护五层依赖规则。
+
+Worker 入口流程：
+
+<Mermaid source={`flowchart TD
+  A["Worker boots"] --> B["startImageWorker(scope?)"]
+  B --> C["postMessage({ type: 'ready', protocolVersion: '0.1.0' })"]
+  C --> D["addEventListener('message', handler)"]
+  D --> E{"dispatch by message.type"}
+  E -->|ping| F["postMessage({ type: 'pong', id, ts })"]
+  E -->|cancel| G["inflight.get(id)?.abort()\ndelete from inflight Map"]
+  E -->|request| H["new AbortController()\ninflight.set(req.id, controller)"]
+  E -->|other| Z["ignore"]
+  H --> I["createImageWorkerHandler()(req, controller.signal)"]
+  I --> J["dispatchImageMethod(method, params, signal)"]
+  J --> K{"method"}
+  K -->|image.resize| L1["operations.resize(input, options, signal)"]
+  K -->|image.compress| L2["operations.compress(...)"]
+  K -->|image.detectFormats| L3["detectFormatSupport()"]
+  K -->|image.probe| L4["probeImage(params)"]
+  K -->|unknown| L5["throw Unknown image method"]
+  L1 --> M["postMessage(response ok=true result)"]
+  L2 --> M
+  L3 --> M
+  L4 --> M
+  L5 --> N["postMessage(response ok=false error)"]
+  M --> O["inflight.delete(req.id)"]
+  N --> O
+`} />
+
+**进行中取消追踪。** `startImageWorker` 维护 `inflight = new Map<string, AbortController>()`。每个 `request` 创建一个新控制器，按 `req.id` 注册，并把 `controller.signal` 传入 `dispatchImageMethod`。当 `cancel` 消息到来时，该控制器被 `abort()` 并移除 —— 操作的下一次 `throwIfAborted` 检查会抛出 `AbortError`，handler 捕获后转为 `response ok=false`。`finally` 块保证即便意外抛出也会执行 `inflight.delete(req.id)`。
+
+**方法名 → 能力名对齐。** Worker 暴露的方法名与能力完全相同（`image.resize`、`image.compress`、…）。Capability 层（plugin-image）在主线程直接调用引擎操作；未来在 Worker 隔离部署中，同样的能力名会经 `WorkerHost.request(method, params)` 路由到此处 handler。正是这种命名对齐使路由对调用方透明。
+
+**自包含协议类型。** `worker-adapter.ts` 自行声明 `WorkerRequest` / `WorkerResponse` / `WorkerCancel` 类型，而不从 `@lokvis/runtime/worker-protocol` 导入。这避免了 Engine → Runtime 依赖，否则会违反分层规则。文件中的一条注释标注两套定义必须保持结构兼容；长期计划是抽取一个共享的 `@lokvis/worker-protocol` 包。
+
+## PNG pHYs chunk DPI 元数据
+
+Canvas 的 `toBlob` / `convertToBlob` 生成的 PNG 不含物理分辨率元数据，因此印刷软件无法读取 DPI。`operations/png-metadata.ts` 是一个纯 Blob→Blob 工具（W8.4），用于嵌入/读取标准 PNG `pHYs` chunk：
+
+- **pHYs 结构**（9 字节数据 + 4 类型 + 4 长度 + 4 CRC = 共 21 字节）：大端序 `pixelsPerUnitX`（4B）、`pixelsPerUnitY`（4B）、`unit`（1B，`1 = meter`）。CRC32 覆盖类型 + 数据。
+- **DPI → 每米像素数：** `Math.round(dpi * 1000 / 25.4)`（1 英寸 = 25.4 毫米）。
+- **chunk 顺序：** pHYs 必须在 IDAT 之前；推荐位置紧跟 IHDR 之后。
+- **替换策略：** 若输入已含一个或多个 pHYs chunk（按规范严格非法，但在第三方工具产物中常见），`embedPngDpi` 会全部移除并在 IHDR 后插入单一新 chunk。
+- **非 PNG 输入：** 原样返回。DPI 非正：原样返回。
+
+`readPngDpi(png)` 返回 `number | null` —— 非 PNG、缺失 pHYs、`unit !== 1` 或 `ppmX !== ppmY`（非方形像素，无单一 DPI）时返回 `null`。读取时不重新校验 CRC（规范并不要求读者校验）。
+
+实现手写了 CRC32（IEEE 802.3 多项式 `0xedb88320`）与大端序 int32 读写 —— 无外部依赖、确定性，可在 Node 中单元测试。
+
+## Stub 引擎模式
+
+当一个新引擎包落地但其实际实现被推迟（Phase 2 的 ffmpeg.wasm、pdf-lib 等），stub 适配器遵循一份跨三层强制的契约：
+
+1. **Engine 层。** stub 适配器的 `version` 字段包含字面量 `'stub'` 标记（例如 `'0.1.0-stub'`）。每个操作方法都抛出 `new Error('xxx not implemented in stub')`。`supportedCapabilities` 列出未来的能力名，使注册表能在 UI 中展示。
+2. **Capability 层。** Plugin 包装函数调用 `wrapAsImplementation()`（或 `createBlobCapabilityImpl`），后者检查 `engine.version.includes('stub')` 并设置 `CapabilityImplementation.status = 'stub'`。
+3. **Runtime 层。** `CapabilityRegistry.resolve(name)` 在应用选择策略前过滤掉 `status === 'stub'` 的实现。若仅有 stub，`resolve` 返回 `undefined`，执行器抛出 `CapabilityStubOnlyError`，并给出可操作信息 `"Install a real engine plugin to use this capability"`。
+
+这份三层契约意味着 stub 在能力清单中可见（用户能看到即将到来的能力），但绝不会被误调用 —— 调用方得到的是指向缺失引擎的清晰错误，而非埋藏在 Worker 日志中的运行期 `not implemented` 异常。
+
+## 有意未包含的内容
+
+- **无 `Asset` / `Workflow` / `Capability` 导入。** Engine 只操作 `Blob`。
+- **无 React / DOM 耦合（除 `Canvas` 外）。** 优先使用 `OffscreenCanvas`，使同一段代码能在 Worker 中运行。
+- **无 EXIF 读取。** `readExif` 是 `Blob → ExifData`，属于违反 Blob↔Blob 契约的查询。它位于 `@lokvis/plugin-image`，并经由 MetadataReader 钩子注册（参见 [Runtime](./runtime#four-extension-hooks)）。
+- **尚无真正的流式。** `StreamingImageOperation` 与 `StreamingImageEngineAdapter` 类型为未来 WASM/WebCodecs 引擎预留；Canvas 仅通过分块近似。
