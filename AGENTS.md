@@ -42,10 +42,15 @@ Plugin 层（plugin-image / plugin-pdf / plugin-video）的操作包装函数中
 
 当 Engine 适配器为占位实现（`version` 包含 `'stub'`）时：
 
-1. Plugin 层在 `wrapAsImplementation()` 中检测 `engine.version.includes('stub')`
-2. 设置 `CapabilityImplementation.status = 'stub'`
+1. Plugin 层在 `buildXxxCapabilityImplementations()` 中读取 `engine.version.includes('stub')`
+2. 通过 `createBlobCapabilityImpl({ isStub })` / `wrapMergeOrSplitImplementation({ isStub })`
+   把布尔值传给工厂，工厂据此设置 `CapabilityImplementation.status = 'stub'`
 3. `CapabilityRegistry.resolve()` 自动跳过 stub 实现
 4. Executor 在 stub-only 时给出明确错误提示
+
+注意：不存在名为 `wrapAsImplementation()` 的函数。stub 标识由各 plugin
+的 `buildXxxCapabilityImplementations()` 一次性计算，并经工厂传给实现，
+避免在多个包装点重复检测。
 
 新增 Engine 包时，确保 stub 实现：
 - `version` 字段包含 `'stub'` 标识

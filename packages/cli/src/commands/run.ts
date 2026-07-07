@@ -56,8 +56,9 @@ export async function runWorkflow(
       throw new Error(`Input file not found: ${abs}`);
     }
     const buffer = await readFile(abs);
-    const blob = new Blob([buffer]);
-    const fileLike = new File([blob], file, { type: blob.type });
+    // new File 直接接受 Buffer,无需先包 Blob(blob.type 不传时为空字符串,
+    // 此处包装是无效的中间步骤)。MIME 由 runtime 在 import 时按需推断。
+    const fileLike = new File([buffer], file);
     const id = await runtime.importAsset({ kind: 'file', file: fileLike });
     inputIds.push(id);
   }

@@ -12,6 +12,7 @@
  * 参考 docs/whitepaper/04-技术架构设计.md 第六节「Engine Layer」。
  */
 
+import { createEngineRegistry } from '@lokvis/engine-core';
 import type { AssetType } from '@lokvis/schema';
 
 /** PDF 引擎名 */
@@ -137,32 +138,29 @@ export const pdfjsEngine: PdfEngineAdapter = {
   },
 };
 
-const engines = new Map<PdfEngineName, PdfEngineAdapter>([
-  ['pdf-lib', pdfLibEngine],
-  ['pdfjs', pdfjsEngine],
-]);
+// ─── 引擎注册表(委托 @lokvis/engine-core 工厂) ───────────
+// 旧版手写 Map + register/get/list/selectBest 四个函数,与 engine-audio /
+// engine-video / engine-ai 完全相同。改为 createEngineRegistry 一次构造,
+// 消除四份重复样板。get(name?) 未命中时 fallback 到 pdfLibEngine。
+const registry = createEngineRegistry<PdfEngineAdapter>(
+  [pdfLibEngine, pdfjsEngine],
+  pdfLibEngine
+);
 
 export function registerPdfEngine(engine: PdfEngineAdapter): void {
-  engines.set(engine.name, engine);
+  registry.register(engine);
 }
 
 export function getPdfEngine(name?: PdfEngineName): PdfEngineAdapter {
-  if (name) {
-    const e = engines.get(name);
-    if (e) return e;
-  }
-  return pdfLibEngine;
+  return registry.get(name);
 }
 
 export function listPdfEngines(): PdfEngineAdapter[] {
-  return Array.from(engines.values());
+  return registry.list();
 }
 
 export async function selectBestPdfEngine(): Promise<PdfEngineAdapter> {
-  for (const engine of engines.values()) {
-    if (await engine.isSupported()) return engine;
-  }
-  return pdfLibEngine;
+  return registry.selectBest();
 }
 
 export type { AssetType };

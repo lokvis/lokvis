@@ -10,12 +10,11 @@
  *       非 PNG 时 DPI 仅用于 UI 的印刷尺寸 mm 提示。预设切换时按目标平台推荐 DPI 自动设置。
  */
 import { useCallback, useRef, useState } from 'react';
-import type { Workflow } from '@lokvis/sdk';
-import { UploadBox } from '@/components/toolkit/UploadBox';
-import { PreviewBox } from '@/components/toolkit/PreviewBox';
 import { useImageTool } from '@/components/toolkit/useImageTool';
 import { PlatformPresetSelector } from '@/components/toolkit/PlatformPresetSelector';
-import { downloadBlob, formatBytes, imageInfoToMeta } from '@/components/toolkit/download';
+import { formatBytes } from '@/components/toolkit/download';
+import { buildSingleStepImageWorkflow } from '@/components/toolkit/workflow-builder';
+import { ToolResultPanel } from '@/components/toolkit/ToolResultPanel';
 import type { PlatformSizePreset } from '@lokvis/capability';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useLang } from '@/i18n/useLang';
@@ -89,21 +88,12 @@ function ResizeToolContent() {
     // 高度为 0 时省略,由 engine 按比例自动计算
     const params: Record<string, unknown> = { width, fit, maintainAspectRatio, dpi };
     if (height > 0) params.height = height;
-    const wf: Workflow = {
-      id: `resize-${Date.now()}`,
-      version: '1.0',
-      name: 'Resize',
-      description: 'Resize image to specified dimensions',
-      author: { id: 'playground', name: 'Playground' },
-      category: 'image',
-      tags: [],
-      nodes: [
-        { id: 'n1', type: 'transform', capability: 'image.resize', params },
-      ],
-      edges: [],
-      inputs: { type: 'image', multiple: false },
-      outputs: { type: 'image' },
-    };
+    const wf = buildSingleStepImageWorkflow(
+      'image.resize',
+      params,
+      'Resize',
+      'Resize image to specified dimensions'
+    );
     await tool.runWorkflow(wf);
   }, [tool, width, height, fit, maintainAspectRatio, dpi]);
 
@@ -226,58 +216,26 @@ function ResizeToolContent() {
           {height > 0 ? `${((height / dpi) * 25.4).toFixed(1)}${t('resize.dpiHintSuffix')}` : t('resize.dpiHeightAuto')}
         </p>
 
-        {tool.initError && <p className="text-xs text-red-400">{t('common.initFailedPrefix')}{tool.initError}</p>}
-        {tool.error && <p className="text-xs text-red-400">{tool.error}</p>}
-        {skipped > 0 && (
-          <p className="text-xs text-amber-400">
-            {t('common.skipPrefix')}{skipped}{t('common.skipSuffix')}
-          </p>
-        )}
-        {inputInfo && outputInfo && (
-          <p className="text-xs text-emerald-400">
-            {inputInfo.width}×{inputInfo.height} → {outputInfo.width}×{outputInfo.height} · {formatBytes(inputInfo.size)} → {formatBytes(outputInfo.size)}
-          </p>
-        )}
-
-        {/* Input / Output 对比 */}
-        <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
-          {!tool.inputId ? (
-            <UploadBox onFiles={handleFiles} hint={t('resize.uploadHint')} className="md:col-span-2" />
-          ) : (
-            <>
-              <PreviewBox title={t('common.input')} url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
-              <PreviewBox
-                title={t('common.output')}
-                url={tool.outputUrl}
-                meta={imageInfoToMeta(tool.outputInfo)}
-                action={
-                  tool.outputBlob && (
-                    <button
-                      onClick={() =>
-                        downloadBlob(
-                          tool.outputBlob!,
-                          `resized-${outputInfo?.width ?? width}x${outputInfo?.height ?? height}.${(outputInfo?.format ?? 'png').toLowerCase()}`
-                        )
-                      }
-                      className="text-[10px] text-indigo-400 hover:text-indigo-300"
-                    >
-                      {t('common.download')}
-                    </button>
-                  )
-                }
-              />
-            </>
+        <ToolResultPanel
+          tool={tool}
+          onFiles={handleFiles}
+          uploadHint={t('resize.uploadHint')}
+          reselectLabel={t('resize.reselect')}
+          downloadName={() =>
+            `resized-${outputInfo?.width ?? width}x${outputInfo?.height ?? height}.${(outputInfo?.format ?? 'png').toLowerCase()}`
+          }
+        >
+          {skipped > 0 && (
+            <p className="text-xs text-amber-400">
+              {t('common.skipPrefix')}{skipped}{t('common.skipSuffix')}
+            </p>
           )}
-        </div>
-
-        {tool.inputId && (
-          <button
-            onClick={tool.reset}
-            className="self-start text-[10px] text-zinc-500 hover:text-zinc-300"
-          >
-            {t('resize.reselect')}
-          </button>
-        )}
+          {inputInfo && outputInfo && (
+            <p className="text-xs text-emerald-400">
+              {inputInfo.width}×{inputInfo.height} → {outputInfo.width}×{outputInfo.height} · {formatBytes(inputInfo.size)} → {formatBytes(outputInfo.size)}
+            </p>
+          )}
+        </ToolResultPanel>
       </div>
     </div>
   );

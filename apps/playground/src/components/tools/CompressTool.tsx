@@ -10,11 +10,10 @@
  *       透明检测在 UI 层完成(detectTransparency),不影响 engine 的 Blob↔Blob 契约。
  */
 import { useCallback, useEffect, useState } from 'react';
-import type { Workflow } from '@lokvis/sdk';
-import { UploadBox } from '@/components/toolkit/UploadBox';
-import { PreviewBox } from '@/components/toolkit/PreviewBox';
 import { useImageTool } from '@/components/toolkit/useImageTool';
-import { downloadBlob, detectTransparency, formatBytes, imageInfoToMeta } from '@/components/toolkit/download';
+import { detectTransparency, formatBytes } from '@/components/toolkit/download';
+import { buildSingleStepImageWorkflow } from '@/components/toolkit/workflow-builder';
+import { ToolResultPanel } from '@/components/toolkit/ToolResultPanel';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useLang } from '@/i18n/useLang';
 import { useTranslations } from '@/i18n/utils';
@@ -94,21 +93,12 @@ function CompressToolContent() {
       // PNG 无损,quality 无意义;engine 内部对 PNG 会忽略 quality
       params.quality = quality;
     }
-    const wf: Workflow = {
-      id: `compress-${Date.now()}`,
-      version: '1.0',
-      name: 'Compress',
-      description: 'Compress image with specified quality or target size',
-      author: { id: 'playground', name: 'Playground' },
-      category: 'image',
-      tags: [],
-      nodes: [
-        { id: 'n1', type: 'transform', capability: 'image.compress', params },
-      ],
-      edges: [],
-      inputs: { type: 'image', multiple: false },
-      outputs: { type: 'image' },
-    };
+    const wf = buildSingleStepImageWorkflow(
+      'image.compress',
+      params,
+      'Compress',
+      'Compress image with specified quality or target size'
+    );
     await tool.runWorkflow(wf);
   }, [tool, mode, format, quality, targetKB, resolveFormat]);
 
@@ -240,53 +230,25 @@ function CompressToolContent() {
           </p>
         )}
 
-        {tool.initError && <p className="text-xs text-red-400">{t('common.initFailedPrefix')}{tool.initError}</p>}
-        {tool.error && <p className="text-xs text-red-400">{tool.error}</p>}
-        {skipped > 0 && (
-          <p className="text-xs text-amber-400">
-            {t('common.skipPrefix')}{skipped}{t('common.skipSuffix')}
-          </p>
-        )}
-        {ratioText && (
-          <p className={`text-xs ${outputInfo && inputInfo && outputInfo.size <= inputInfo.size ? 'text-emerald-400' : 'text-amber-400'}`}>
-            {ratioText}
-          </p>
-        )}
-
-        {/* Input / Output 对比 */}
-        <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
-          {!tool.inputId ? (
-            <UploadBox onFiles={handleFiles} hint={t('compress.uploadHint')} className="md:col-span-2" />
-          ) : (
-            <>
-              <PreviewBox title={t('common.input')} url={tool.inputUrl} meta={imageInfoToMeta(tool.inputInfo)} />
-              <PreviewBox
-                title={t('common.output')}
-                url={tool.outputUrl}
-                meta={imageInfoToMeta(tool.outputInfo)}
-                action={
-                  tool.outputBlob && (
-                    <button
-                      onClick={() => downloadBlob(tool.outputBlob!, `compressed.${resolvedFormat}`)}
-                      className="text-[10px] text-indigo-400 hover:text-indigo-300"
-                    >
-                      {t('common.download')}
-                    </button>
-                  )
-                }
-              />
-            </>
+        <ToolResultPanel
+          tool={tool}
+          onFiles={handleFiles}
+          uploadHint={t('compress.uploadHint')}
+          reselectLabel={t('compress.reselect')}
+          downloadName={() => `compressed.${resolvedFormat}`}
+          onReset={handleReset}
+        >
+          {skipped > 0 && (
+            <p className="text-xs text-amber-400">
+              {t('common.skipPrefix')}{skipped}{t('common.skipSuffix')}
+            </p>
           )}
-        </div>
-
-        {tool.inputId && (
-          <button
-            onClick={handleReset}
-            className="self-start text-[10px] text-zinc-500 hover:text-zinc-300"
-          >
-            {t('compress.reselect')}
-          </button>
-        )}
+          {ratioText && (
+            <p className={`text-xs ${outputInfo && inputInfo && outputInfo.size <= inputInfo.size ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {ratioText}
+            </p>
+          )}
+        </ToolResultPanel>
       </div>
     </div>
   );

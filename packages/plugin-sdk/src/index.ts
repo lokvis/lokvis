@@ -147,7 +147,8 @@ export interface BlobCapabilityOptions {
  * 五步样板。plugin-image / plugin-video / plugin-pdf(single kind)共享此工厂,
  * 各自只提供 operation 函数与 isStub 检测,不再重复 wrapAsImplementation。
  *
- * merge(N→1) / split(1→N) 形态不同,仍由 plugin-pdf 自行实现。
+ * merge(N→1) / split(1→N) 形态不同,使用 createMergeCapabilityImpl /
+ * createSplitCapabilityImpl 工厂。
  */
 export function createBlobCapabilityImpl(
   options: BlobCapabilityOptions,
@@ -188,6 +189,157 @@ export function createBlobCapabilityImpl(
           outputType
         );
         outputs.push(outAsset);
+      }
+      execCtx.onProgress?.(1, 'Done');
+      return outputs;
+    },
+  };
+}
+
+/** Merge(N→1)能力实现工厂选项 */
+export interface MergeCapabilityOptions {
+  /** 对应 Capability 名 */
+  capability: string;
+  /** 引擎名 */
+  engine: string;
+  /** 输出 Asset 类型 */
+  outputType: AssetType;
+  /** 实际执行函数(Blob[] → Blob) */
+  operation: (
+    blobs: Blob[],
+    params: Record<string, unknown>
+  ) => Promise<Blob>;
+  /** 是否为 stub 实现(engine.version.includes('stub')) */
+  isStub: boolean;
+  /**
+   * 自定义元数据派生;merge 无单一 source,签名是 (outBlob) => AssetMetadata。
+   * 必填(无合理默认值,各 AssetType 默认 MIME 不同)。
+   */
+  deriveMetadata: (outBlob: Blob) => AssetMetadata;
+}
+
+/**
+ * 创建多输入→单输出的 Merge 能力实现(N→1,如 pdf.merge)。
+ *
+ * 封装"逐个取 blob → 调 operation(blobs[]) → 派生 metadata → createAsset
+ * → 进度/取消"五步样板。与 createBlobCapabilityImpl 共用语义,
+ * 区别在 operation 接收 Blob[] 而非单 Blob,只产出 1 个 Asset。
+ */
+export function createMergeCapabilityImpl(
+  options: MergeCapabilityOptions,
+  ctx: PluginContext
+): CapabilityImplementation {
+  const { capability, engine, outputType, operation, isStub, deriveMetadata } =
+    options;
+  return {
+    capability,
+    engine,
+    status: isStub ? 'stub' : 'stable',
+    async execute(
+      inputs: Asset[],
+      params: Record<string, unknown>,
+      execCtx: ExecutionContext
+    ): Promise<Asset[]> {
+      if (inputs.length === 0) {
+        throw new Error(
+          `Capability "${capability}" requires at least one input asset`
+        );
+      }
+      const blobs: Blob[] = [];
+      for (let i = 0; i < inputs.length; i++) {
+        if (execCtx.signal.aborted) {
+          throw new DOMException('Aborted', 'AbortError');
+        }
+        const asset = inputs[i]!;
+        execCtx.onProgress?.(
+          i / inputs.length,
+          `Reading ${i + 1}/${inputs.length}`
+        );
+        blobs.push(await ctx.runtime.getAssetBlob(asset));
+      }
+      execCtx.onProgress?.(0.9, 'Merging');
+      const outBlob = await operation(blobs, params);
+      const outAsset = await ctx.runtime.createAsset(
+        outBlob,
+        deriveMetadata(outBlob),
+        outputType
+      );
+      execCtx.onProgress?.(1, 'Done');
+      return [outAsset];
+    },
+  };
+}
+
+/** Split(1→N)能力实现工厂选项 */
+export interface SplitCapabilityOptions {
+  /** 对应 Capability 名 */
+  capability: string;
+  /** 引擎名 */
+  engine: string;
+  /** 输出 Asset 类型 */
+  outputType: AssetType;
+  /** 实际执行函数(Blob → Blob[]) */
+  operation: (
+    blob: Blob,
+    params: Record<string, unknown>
+  ) => Promise<Blob[]>;
+  /** 是否为 stub 实现(engine.version.includes('stub')) */
+  isStub: boolean;
+  /**
+   * 自定义元数据派生;split 有多个 outBlob,签名是 (outBlob) => AssetMetadata,
+   * 对每个 outBlob 调用一次。必填(无合理默认值)。
+   */
+  deriveMetadata: (outBlob: Blob) => AssetMetadata;
+}
+
+/**
+ * 创建单输入→多输出的 Split 能力实现(1→N,如 pdf.split)。
+ *
+ * 封装"取 blob → 调 operation(blob) → 对每个 outBlob 派生 metadata +
+ * createAsset → 进度/取消"五步样板。与 createBlobCapabilityImpl 共用语义,
+ * 区别在 operation 返回 Blob[] 而非单 Blob,产生 N 个 Asset。
+ */
+export function createSplitCapabilityImpl(
+  options: SplitCapabilityOptions,
+  ctx: PluginContext
+): CapabilityImplementation {
+  const { capability, engine, outputType, operation, isStub, deriveMetadata } =
+    options;
+  return {
+    capability,
+    engine,
+    status: isStub ? 'stub' : 'stable',
+    async execute(
+      inputs: Asset[],
+      params: Record<string, unknown>,
+      execCtx: ExecutionContext
+    ): Promise<Asset[]> {
+      if (inputs.length === 0) {
+        throw new Error(
+          `Capability "${capability}" requires at least one input asset`
+        );
+      }
+      const outputs: Asset[] = [];
+      for (let i = 0; i < inputs.length; i++) {
+        if (execCtx.signal.aborted) {
+          throw new DOMException('Aborted', 'AbortError');
+        }
+        const asset = inputs[i]!;
+        execCtx.onProgress?.(
+          i / inputs.length,
+          `Processing ${i + 1}/${inputs.length}`
+        );
+        const blob = await ctx.runtime.getAssetBlob(asset);
+        const outBlobs = await operation(blob, params);
+        for (const outBlob of outBlobs) {
+          outputs.push(
+            await ctx.runtime.createAsset(
+              outBlob,
+              deriveMetadata(outBlob),
+              outputType
+            )
+          );
+        }
       }
       execCtx.onProgress?.(1, 'Done');
       return outputs;

@@ -13,6 +13,7 @@
  * 参考 docs/whitepaper/04-技术架构设计.md 第六节「Engine Layer」。
  */
 
+import { createEngineRegistry } from '@lokvis/engine-core';
 import type { AssetType } from '@lokvis/schema';
 
 /** 视频引擎名标识 */
@@ -126,37 +127,33 @@ export const webcodecsEngine: VideoEngineAdapter = {
   },
 };
 
-/** 已注册的视频引擎 */
-const engines = new Map<VideoEngineName, VideoEngineAdapter>([
-  ['ffmpeg-wasm', ffmpegEngine],
-  ['webcodecs', webcodecsEngine],
-]);
+// ─── 引擎注册表(委托 @lokvis/engine-core 工厂) ───────────
+// 旧版手写 Map + register/get/list/selectBest 四个函数,与 engine-pdf /
+// engine-audio / engine-ai 完全相同。改为 createEngineRegistry 一次构造,
+// 消除四份重复样板。get(name?) 未命中时 fallback 到 ffmpegEngine。
+const registry = createEngineRegistry<VideoEngineAdapter>(
+  [ffmpegEngine, webcodecsEngine],
+  ffmpegEngine
+);
 
 /** 注册视频引擎 */
 export function registerVideoEngine(engine: VideoEngineAdapter): void {
-  engines.set(engine.name, engine);
+  registry.register(engine);
 }
 
 /** 获取指定引擎 */
 export function getVideoEngine(name?: VideoEngineName): VideoEngineAdapter {
-  if (name) {
-    const e = engines.get(name);
-    if (e) return e;
-  }
-  return ffmpegEngine;
+  return registry.get(name);
 }
 
 /** 列出所有已注册引擎 */
 export function listVideoEngines(): VideoEngineAdapter[] {
-  return Array.from(engines.values());
+  return registry.list();
 }
 
 /** 异步选择最佳可用引擎 */
 export async function selectBestVideoEngine(): Promise<VideoEngineAdapter> {
-  for (const engine of engines.values()) {
-    if (await engine.isSupported()) return engine;
-  }
-  return ffmpegEngine;
+  return registry.selectBest();
 }
 
 export type { AssetType };

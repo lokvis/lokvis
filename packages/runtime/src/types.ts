@@ -14,12 +14,30 @@ import type {
   ExifData,
   HistoryEntry,
   McpManifest,
+  PluginConfig,
+  PluginInstaller,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { EventBus } from '@lokvis/schema';
 import type { AssetStore } from './asset-store.js';
 import type { BatchProcessor } from './batch-processor.js';
 import type { HistoryStore, HistoryStoreOptions } from './history-store.js';
+
+/**
+ * 待安装的插件条目。
+ *
+ * 由 SDK 的 `createLokvis({ plugins })` 与 `loadPlugin()` 构造,
+ * 交给 `LokvisRuntime.installPlugin()` 在 runtime 内部完成注册
+ * (能力声明 + 调用 installer + 发射 plugin:loaded 事件)。
+ *
+ * 把"插件安装"提升为 Runtime 公共接口,避免 SDK 通过
+ * `instanceof LokvisRuntimeImpl` + 私有 `_getAssetStore()` /
+ * `_getCapabilityRegistry()` 反向耦合具体实现类。
+ */
+export interface PluginInstallEntry {
+  config: PluginConfig;
+  install: PluginInstaller;
+}
 
 /** Runtime 配置 */
 export interface RuntimeConfig {
@@ -215,4 +233,23 @@ export interface LokvisRuntime {
    * 仅为接口对称性(未来可能涉及异步加载)。
    */
   toMcpManifest(options?: ToMcpManifestOptions): McpManifest;
+
+  // ─── 插件安装 ────────────────────────────────────────
+  /**
+   * 在 Runtime 上安装一个插件。
+   *
+   * 步骤:
+   * 1. 把 plugin.config.capabilities 注册到 CapabilityRegistry(声明能力)
+   * 2. 构造受限 PluginContext(只暴露 getAsset/importAsset/getAssetBlob/
+   *    createAsset/listCapabilities + eventBus + registerCapability +
+   *    registerMetadataReader + registerPanel + log)
+   * 3. 调用 plugin.install(ctx),让插件注册 CapabilityImplementation
+   * 4. 发射 `plugin:loaded` 事件
+   *
+   * SDK 的 `createLokvis({ plugins })` 与 `loadPlugin()` 都委托到这里,
+   * 不再需要 `instanceof LokvisRuntimeImpl` + `_getAssetStore()` 等内部 API。
+   *
+   * @throws plugin.install 抛出的任何错误(runtime 不吞错,由 SDK 包成 PluginLoadError)
+   */
+  installPlugin(plugin: PluginInstallEntry): Promise<void>;
 }

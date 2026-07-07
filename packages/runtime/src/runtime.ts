@@ -17,11 +17,14 @@ import type {
   McpManifest,
   McpToolManifest,
   MetadataReader,
+  PanelDefinition,
+  PluginContext,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import { validateWorkflow } from '@lokvis/schema';
 import type {
   LokvisRuntime,
+  PluginInstallEntry,
   RuntimeConfig,
   RuntimeStatus,
   ToMcpManifestOptions,
@@ -690,14 +693,44 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     };
   }
 
-  // ─── 内部 API（供 Plugin SDK 使用） ──────────────────
+  // ─── 插件安装 ────────────────────────────────────────
 
-  /** 获取 AssetStore（内部用） */
+  /**
+   * 在本 Runtime 上安装一个插件(实现 LokvisRuntime.installPlugin 接口)。
+   *
+   * 步骤:
+   * 1. 注册能力声明(plugin.config.capabilities → CapabilityRegistry)
+   * 2. 构造受限 PluginContext(只暴露受限 Runtime API + 注册器 + 日志)
+   * 3. 调用 plugin.install(ctx),让插件注册 CapabilityImplementation
+   * 4. 发射 `plugin:loaded` 事件
+   *
+   * 不吞错:plugin.install 抛出的错误原样上抛,由 SDK 包成 PluginLoadError。
+   *
+   * 此前 SDK 通过 `instanceof LokvisRuntimeImpl` + `_getAssetStore()` /
+   * `_getCapabilityRegistry()` 反向访问内部依赖,现改为公共接口调用,
+   * SDK 不再依赖具体实现类。
+   */
+  async installPlugin(plugin: PluginInstallEntry): Promise<void> {
+    for (const capability of plugin.config.capabilities) {
+      this.capabilityRegistry.registerCapability(capability);
+    }
+    const ctx = createPluginContext(plugin.config.name, this);
+    await plugin.install(ctx);
+    this.eventBus.emit({
+      type: 'plugin:loaded',
+      name: plugin.config.name,
+      version: plugin.config.version,
+    });
+  }
+
+  // ─── 内部 API（供测试使用,SDK 不再调用） ──────────────
+
+  /** 获取 AssetStore(仅测试用,SDK 通过 installPlugin 间接访问) */
   _getAssetStore(): AssetStore {
     return this.assetStore;
   }
 
-  /** 获取 CapabilityRegistry（内部用） */
+  /** 获取 CapabilityRegistry(仅测试用,SDK 通过 installPlugin 间接访问) */
   _getCapabilityRegistry(): CapabilityRegistry {
     return this.capabilityRegistry;
   }
@@ -943,6 +976,70 @@ export async function createRuntime(
   // 预加载持久化的历史快照(跨会话恢复 undo/redo 链)
   await impl.loadPersistedHistory();
   return impl;
+}
+
+/**
+ * 构造受限 PluginContext(模块级 helper,供 installPlugin 使用)。
+ *
+ * Plugin 只看到受限的 Runtime API:
+ * - getAsset / importAsset / getAssetBlob / createAsset / listCapabilities
+ * - 看不到 React / Redux / Cloud
+ *
+ * registerMetadataReader 把读取函数转发给 runtime._registerMetadataReader
+ * (依赖反转:Plugin 提供实现,Runtime 持有引用)。
+ *
+ * 错误契约:getAsset 在资产不存在时抛 plain Error,message 以 "Asset not found"
+ * 开头。SDK 的 fromLokvisError 据此模式匹配转换为 AssetNotFoundError,
+ * 保持 SDK 消费者的错误类型契约不变。
+ */
+function createPluginContext(
+  pluginName: string,
+  runtime: LokvisRuntimeImpl
+): PluginContext {
+  const assetStore = runtime._getAssetStore();
+  const capabilityRegistry = runtime._getCapabilityRegistry();
+  return {
+    runtime: {
+      getAsset: async (id) => {
+        const asset = await assetStore.get(id);
+        if (!asset) throw new Error(`Asset not found: ${id}`);
+        return asset;
+      },
+      importAsset: async (file) => {
+        // PluginContext.importAsset 接受 File | Blob,统一转为 AssetSource
+        if (file instanceof File) {
+          const asset = await assetStore.import({ kind: 'file', file });
+          return asset.id;
+        }
+        const asset = await assetStore.import({
+          kind: 'blob',
+          blob: file,
+          name: `blob_${Date.now()}`,
+        });
+        return asset.id;
+      },
+      getAssetBlob: (asset) => assetStore.getBlob(asset.blob),
+      createAsset: (blob, metadata, type) =>
+        assetStore.create(blob, metadata, type),
+      listCapabilities: async () => capabilityRegistry.list(),
+    },
+    eventBus: runtime.eventBus,
+    registerCapability: (impl) =>
+      capabilityRegistry.registerImplementation(impl),
+    registerMetadataReader: <T>(name: string, reader: MetadataReader<T>) => {
+      runtime._registerMetadataReader(name, reader as MetadataReader);
+    },
+    registerPanel: (panel: PanelDefinition) => {
+      // Panel 注册由 UI 层处理,这里仅记录日志
+      void panel;
+    },
+    log: (level, message) => {
+      const prefix = `[${pluginName}]`;
+      if (level === 'error') console.error(`${prefix} ${message}`);
+      else if (level === 'warn') console.warn(`${prefix} ${message}`);
+      else console.log(`${prefix} ${message}`);
+    },
+  };
 }
 
 /**
