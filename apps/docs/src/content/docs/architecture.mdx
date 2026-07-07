@@ -56,157 +56,157 @@ Pluggable adapters wrap WASM libraries (Squoosh, ffmpeg.wasm, pdf-lib). The MVP 
 
 Metadata in IndexedDB (via Dexie in future), large files in OPFS (Origin Private File System). Runtime only manipulates AssetIds — never raw Blobs.
 
-## Worker 隔离(Worker Isolation)
+## Worker Isolation
 
-所有重计算(图像编解码、未来 WASM 引擎)运行在独立 Web Worker 内,与主线程 UI 解耦,避免长任务阻塞渲染(对应白皮书 T1「浏览器内存/性能 ★★★★★」)。跨域隔离(COOP/COEP)在 `apps/playground/public/_headers` 配置,启用 `SharedArrayBuffer` 供多线程 WASM 使用。
+All heavy computation (image encoding/decoding, future WASM engines) runs in a dedicated Web Worker, decoupled from the main-thread UI to prevent long tasks from blocking rendering (corresponding to whitepaper T1 "Browser memory/performance ★★★★★"). Cross-origin isolation (COOP/COEP) is configured in `apps/playground/public/_headers`, enabling `SharedArrayBuffer` for multi-threaded WASM.
 
-### 通信协议(`@lokvis/runtime` worker-protocol)
+### Communication Protocol (`@lokvis/runtime` worker-protocol)
 
-纯 JSON 消息,按流向分两组:
+Pure JSON messages, grouped by direction:
 
-- **Host → Worker**:`request`(带 id 的方法调用)、`ping`(心跳)
-- **Worker → Host**:`response`(按 id 关联)、`pong`、`event`(进度等)、`ready`(握手)、`error`(致命错误)
+- **Host → Worker**: `request` (method call with id), `ping` (heartbeat)
+- **Worker → Host**: `response` (correlated by id), `pong`, `event` (progress, etc.), `ready` (handshake), `error` (fatal error)
 
-Worker 启动后主动发 `ready`(携带协议版本),Host 校验版本后才开始发送请求。
+After startup, the Worker proactively sends `ready` (carrying the protocol version); the Host validates the version before sending any requests.
 
-**协议交互时序**(ready 握手 → 心跳 → 请求/响应 → 崩溃重启):
+**Protocol interaction sequence** (ready handshake → heartbeat → request/response → crash restart):
 
 <Mermaid source={workerSequenceDiagram} />
 
-### Host 管理(`WorkerHost`)
+### Host Management (`WorkerHost`)
 
-- **Request/Response**:每个请求唯一 id,响应按 id 关联;每请求独立超时(默认 60s)。
-- **心跳与超时**:Host 周期性 `ping`(默认 5s),Worker 必须在超时(默认 15s)内 `pong`,否则视为崩溃。
-- **崩溃重启**:传输层 error / 心跳超时 → 终止当前 Worker、拒绝所有 pending、重建新 Worker(最多 `maxRestarts` 次,默认 3)。超过上限进入 `dead`,交由上层降级。
-- **传输层抽象**:`WorkerTransport` 接口屏蔽浏览器 Worker / 测试 Fake 差异,使协议与重启逻辑可在 Node 单测中验证。
+- **Request/Response**: Each request has a unique id; responses are correlated by id; each request has an independent timeout (default 60s).
+- **Heartbeat and timeout**: The Host periodically sends `ping` (default 5s); the Worker must `pong` within the timeout (default 15s), otherwise it is treated as crashed.
+- **Crash restart**: Transport-layer error / heartbeat timeout → terminate the current Worker, reject all pending requests, rebuild a new Worker (up to `maxRestarts` times, default 3). When the limit is exceeded, it enters `dead` and is handed to the upper layer for degradation.
+- **Transport-layer abstraction**: The `WorkerTransport` interface abstracts over the differences between the browser Worker and the test Fake, allowing the protocol and restart logic to be verified in Node unit tests.
 
-**WorkerHost 状态机**(idle → ready → restarting → dead/disposed):
+**WorkerHost state machine** (idle → ready → restarting → dead/disposed):
 
 <Mermaid source={workerStateDiagram} />
 
-### Engine in Worker(`@lokvis/engine-image` worker-adapter)
+### Engine in Worker (`@lokvis/engine-image` worker-adapter)
 
-图像操作在 Worker 内基于 `OffscreenCanvas` + `createImageBitmap` 渲染。Worker 入口调用 `startImageWorker()` 完成 ready 握手、ping→pong、request→response 接线;方法名与能力名对齐(`image.resize` / `image.compress` / …)。该模块仅依赖 `@lokvis/schema`,消息结构与 runtime 协议兼容,不反向依赖 runtime。
+Image operations inside the Worker are rendered with `OffscreenCanvas` + `createImageBitmap`. The Worker entry calls `startImageWorker()` to wire up the ready handshake, ping→pong, and request→response; method names align with capability names (`image.resize` / `image.compress` / …). This module depends only on `@lokvis/schema`; its message structure is compatible with the runtime protocol and it does not depend back on runtime.
 
-**Engine Image Worker 接线流程**(Worker 线程内部):
+**Engine Image Worker wiring flow** (inside the Worker thread):
 
 <Mermaid source={engineWorkerFlow} />
 
-## 历史栈与 undo/redo(`HistoryStack`)
+## History Stack and undo/redo (`HistoryStack`)
 
-每个工作流拥有独立的 `HistoryStack`,记录每一步 transform 的 `HistoryEntry`。undo/redo 通过 cursor(游标)实现:cursor 指向最后一条已应用的 entry;append 新操作时截断 cursor 之后的 redo 分支;超出上限(默认 10 步)时 LRU 淘汰最旧条目并回调 `onEvict` 通知调用方清理 OPFS 资产。每次变更通过 eventBus 发出 `history:changed` 事件。
+Each workflow owns an independent `HistoryStack` that records a `HistoryEntry` for every transform step. undo/redo is implemented via a cursor: the cursor points to the last applied entry; appending a new operation truncates the redo branch after the cursor; when the limit (default 10 steps) is exceeded, the oldest entry is evicted via LRU and `onEvict` is called back to notify the caller to clean up the OPFS asset. Every change emits a `history:changed` event through the eventBus.
 
-**HistoryStack 内部结构**:
+**HistoryStack internal structure**:
 
 <Mermaid source={historyStackStructure} />
 
-**append / undo / redo 与 redo 分支截断流程**:
+**append / undo / redo and redo branch truncation flow**:
 
 <Mermaid source={historyOperationFlow} />
 
-## 资产存储与三级降级(`AssetStore`)
+## Asset Storage and Three-tier Fallback (`AssetStore`)
 
-Runtime 只操作 `AssetId`,不直接持有 Blob。资产存储由 `createAssetStore()` 工厂按优先级自动探测最佳后端:OPFS(最优,支持 `FileSystemSyncAccessHandle`)→ IndexedDB(Dexie,持久化降级)→ 内存(最终降级,不持久化)。每个后端用 `BlobHandle.path` 前缀(`opfs://` / `idb://` / `memory://`)区分。Runtime 在 `run()` 前执行 `checkStorageQuota()`,超限抛 `QuotaExceededError`。
+The Runtime only manipulates `AssetId` and never holds Blobs directly. Asset storage is provided by the `createAssetStore()` factory, which auto-detects the best backend by priority: OPFS (best, supports `FileSystemSyncAccessHandle`) → IndexedDB (Dexie, persistent fallback) → in-memory (final fallback, non-persistent). Each backend is distinguished by the `BlobHandle.path` prefix (`opfs://` / `idb://` / `memory://`). The Runtime runs `checkStorageQuota()` before `run()` and throws `QuotaExceededError` when the quota is exceeded.
 
-**createAssetStore 三级降级探测链**:
+**createAssetStore three-tier fallback detection chain**:
 
 <Mermaid source={assetStoreFallbackFlow} />
 
-**OPFS / IDB / 内存三种后端的数据布局**:
+**Data layout of the OPFS / IDB / in-memory backends**:
 
 <Mermaid source={assetStoreLayout} />
 
-**Runtime run() 与配额校验、历史记录接通流程**:
+**Runtime run() with quota validation and history recording flow**:
 
 <Mermaid source={runtimeRunSequence} />
 
-**undo/redo 端到端流程**(含游标移动与事件触发):
+**undo/redo end-to-end flow** (including cursor movement and event emission):
 
 <Mermaid source={undoRedoFlow} />
 
-## 流式与内存防御(W3:Streaming + Memory Defense)
+## Streaming and Memory Defense (W3: Streaming + Memory Defense)
 
-浏览器单 tab 内存有限(桌面典型 2-4GB,移动端更少),大图批量处理极易触发 OOM 崩溃(整个 tab 被杀,丢失所有中间结果)。W3 通过四层机制把"要么全量要么崩溃"的单点决策,细化为可观测、可降级的内存安全管线。
+A single browser tab has limited memory (typically 2-4GB on desktop, even less on mobile); batch processing of large images can easily trigger OOM crashes (the entire tab is killed, losing all intermediate results). W3 refines the all-or-nothing "either full or crash" decision into an observable, degradable memory-safety pipeline through four layers of mechanisms.
 
-> Alpha 阶段(W12)已落地的能力目录:9 个 image 域能力(resize / compress / convert / crop / rotate / flip / watermark / setBackground / filter)+ 1 个 EXIF MetadataReader。视频/PDF/Audio 引擎为 stub,Phase 2 接入。详见 `docs/capabilities.md`。
+> Capabilities shipped in the Alpha stage (W12): 9 image-domain capabilities (resize / compress / convert / crop / rotate / flip / watermark / setBackground / filter) + 1 EXIF MetadataReader. The video/PDF/Audio engines are stubs and will be integrated in Phase 2. See `docs/capabilities.md`.
 
-### 流式类型契约(W3.1)
+### Streaming Type Contracts (W3.1)
 
-`engine-image/src/types.ts` 定义了面向未来 WASM 引擎(逐行/分块编解码)的流式接口:
+`engine-image/src/types.ts` defines streaming interfaces aimed at future WASM engines (line-by-line / chunked encoding and decoding):
 
-- `ImageTile` / `ImageChunk`:分片几何信息与编码结果,供分片管线按 tile 处理。
-- `StreamingImageOperation`:输入 `ReadableStream<ImageTile>`、输出 `WritableStream<ImageChunk>` 的流式操作签名。
-- `StreamingImageEngineAdapter`:流式引擎适配层契约(`splitInput` / `processTile` / `mergeChunks`)。
+- `ImageTile` / `ImageChunk`: tile geometry info and encoding results, consumed by the tiled pipeline on a per-tile basis.
+- `StreamingImageOperation`: streaming operation signature that takes `ReadableStream<ImageTile>` as input and `WritableStream<ImageChunk>` as output.
+- `StreamingImageEngineAdapter`: contract for the streaming engine adapter layer (`splitInput` / `processTile` / `mergeChunks`).
 
-Canvas 引擎无法真正流式(`createImageBitmap` 一旦调用就全量解码),但类型契约为后续接入 Squoosh/WebCodecs WASM 引擎预留了接入点。当前 Canvas 引擎通过分片基础设施近似实现内存峰值控制。
+The Canvas engine cannot truly stream (`createImageBitmap` decodes in full once invoked), but the type contracts reserve integration points for the future Squoosh/WebCodecs WASM engine. The current Canvas engine approximates memory-peak control through the tiling infrastructure.
 
-### 分片处理基础设施(W3.2)
+### Tile Processing Infrastructure (W3.2)
 
-`engine-image/src/operations/tiles.ts` 提供分片原语:
+`engine-image/src/operations/tiles.ts` provides tiling primitives:
 
-- `splitIntoTiles(width, height, tileSize=512)`:把图切成行优先网格,边缘 tile 对齐到图边界。纯函数,便于单测与确定性回归。
-- `mergeChunks(chunks, totalW, totalH, format, quality)`:把分片编码结果合回单张 Blob(decode → drawImage 到输出 canvas → encode)。
-- `isDownscale(srcW, srcH, targetW, targetH)`:判断是否为缩小,用于决定是否走 `decodeResized` 路径。
+- `splitIntoTiles(width, height, tileSize=512)`: splits the image into a row-major grid; edge tiles align to the image boundary. A pure function, convenient for unit tests and deterministic regression.
+- `mergeChunks(chunks, totalW, totalH, format, quality)`: merges the tile encoding results back into a single Blob (decode → drawImage onto an output canvas → encode).
+- `isDownscale(srcW, srcH, targetW, targetH)`: determines whether the operation is a downscale, used to decide whether to take the `decodeResized` path.
 
-`canvas-engine.ts` 新增 `decodeResized(blob, targetW, targetH)`:使用 `createImageBitmap` 的 `resizeWidth/resizeHeight` 选项在解码阶段就缩放,避免先 decode 全分辨率位图再缩放——这是 Canvas 引擎最大的单点内存优化。不支持 resize 选项的浏览器自动回退到普通 decode。
+`canvas-engine.ts` adds `decodeResized(blob, targetW, targetH)`: it uses the `resizeWidth`/`resizeHeight` options of `createImageBitmap` to scale during decoding, avoiding the cost of first decoding a full-resolution bitmap and then scaling — this is the Canvas engine's single biggest memory optimization. Browsers that do not support the resize option automatically fall back to a plain decode.
 
-> **设计备注**:resize 走标准的 decode → computeTargetSize → drawImage 路径(单次解码),`decodeResized` 作为导出原语留给未来"显式 maxEdge"型 API 或 WASM 引擎。W3.2 真正落地的是分片基础设施 + 流式类型契约。
+> **Design note**: resize takes the standard decode → computeTargetSize → drawImage path (single decode); `decodeResized` is exposed as a primitive reserved for future "explicit maxEdge"-style APIs or WASM engines. What W3.2 actually ships is the tiling infrastructure + streaming type contracts.
 
-### 内存守卫 MemoryGuard(W3.3)
+### Memory Guard (W3.3)
 
-`runtime/src/memory-guard.ts` 追踪中间结果占用,在逼近预算时触发 OPFS 溢出:
+`runtime/src/memory-guard.ts` tracks the footprint of intermediate results and triggers OPFS spillover as it approaches the budget:
 
-- **显式 tracked 计数**:不依赖 `performance.memory`(Chrome-only、deprecated、MB 粒度),而是由调用方在 decode/canvas 输出时显式 `track(bytes)` 登记,`release()` 回退(幂等)。
-- **四级压力**:`low`(&lt;60%) / `elevated`(60-80%) / `high`(80-95%) / `critical`(≥95%),基于 `tracked / budget`。
-- **OPFS 溢出**:`shouldSpill()` 在 `high`/`critical` 时为 true;`spill(blob)` 把中间 Blob 落到 AssetStore(OPFS-backed),`restore(asset)` 按需读回,`evict(asset)` 回收空间。把"OPFS 当虚拟内存用"——内存里只留当前活跃的一两个 Blob。
-- **估算助手**:`estimateDecodedBytes(w, h)`(w×h×4 RGBA)用于追踪 decode 结果真实占用(一个 4000×3000 JPEG blob 可能只有 2MB,但 decode 后占 46MB)。
+- **Explicit tracked accounting**: instead of relying on `performance.memory` (Chrome-only, deprecated, MB granularity), the caller explicitly registers `track(bytes)` at decode/canvas output and rolls back with `release()` (idempotent).
+- **Four pressure levels**: `low` (&lt;60%) / `elevated` (60-80%) / `high` (80-95%) / `critical` (≥95%), based on `tracked / budget`.
+- **OPFS spillover**: `shouldSpill()` returns true at `high`/`critical`; `spill(blob)` flushes the intermediate Blob to the AssetStore (OPFS-backed), `restore(asset)` reads it back on demand, and `evict(asset)` reclaims the space. This treats OPFS as virtual memory — keeping only the one or two currently active Blobs resident in memory.
+- **Estimation helper**: `estimateDecodedBytes(w, h)` (w×h×4 RGBA) is used to track the real footprint of a decode result (a 4000×3000 JPEG blob may be only 2MB, but after decoding it occupies 46MB).
 
-### 降级阶梯(W3.4)
+### Degradation Ladder (W3.4)
 
-`runtime/src/degradation.ts` 实现四级降级政策,决策是纯函数 `pickDegradation(ctx)`:
+`runtime/src/degradation.ts` implements a four-tier degradation policy; the decision is the pure function `pickDegradation(ctx)`:
 
-| 等级 | 触发条件 | 策略 |
+| Level | Trigger condition | Strategy |
 |------|---------|------|
-| **L1-full** | pressure = low / elevated | 完整质量,正常处理 |
-| **L2-tiled** | pressure = high + 操作可 tile | 分片处理 + OPFS 溢出中间结果 |
-| **L3-degraded** | pressure = high 但不可 tile,或 critical | 降级输出:缩到 maxEdge(4096)+ 质量 70 |
-| **L4-reject** | critical 且即使降级也无救 | 拒绝 + 抛 `DegradationRejectedError` 携带用户引导 |
+| **L1-full** | pressure = low / elevated | Full quality, normal processing |
+| **L2-tiled** | pressure = high + operation is tileable | Tile processing + OPFS spillover of intermediate results |
+| **L3-degraded** | pressure = high but not tileable, or critical | Degraded output: scale down to maxEdge (4096) + quality 70 |
+| **L4-reject** | critical and unsalvageable even with degradation | Reject + throw `DegradationRejectedError` carrying user guidance |
 
-L4 触发条件:输入 blob 本身超预算且不可溢出,或解码后位图按 maxEdge 缩放估算仍 ≥ 0.95×budget。`DegradationRejectedError` 携带 `guide` 数组(用户可读建议:换更小源图 / 关闭其他 tab / 用桌面端),UI 可直接渲染。`applyDegradationToResizeParams` 把 L3 决策应用到 resize 参数(注入 `maxEdge` 上限)。
+L4 trigger condition: the input blob itself exceeds the budget and cannot be spilled, or the post-decode bitmap, even when scaled down by maxEdge, is still estimated at ≥ 0.95×budget. `DegradationRejectedError` carries a `guide` array (user-readable suggestions: use a smaller source image / close other tabs / use the desktop client), which the UI can render directly. `applyDegradationToResizeParams` applies the L3 decision to the resize params (injecting the `maxEdge` ceiling).
 
-### Cancel 贯穿(W3.5)
+### Cancel Propagation (W3.5)
 
-`AbortSignal` 从 executor 一路贯穿到引擎操作,使 `cancel()` 真正中止在途工作而非仅置标志位:
+The `AbortSignal` is threaded all the way from the executor into engine operations, so `cancel()` actually aborts in-flight work instead of merely setting a flag:
 
-1. **executor → plugin-image**:`execCtx.signal` 传入 `wrapAsImplementation.execute`。
-2. **plugin-image → engine-image**:`ImageOperation` 类型签名纳入 `signal?: AbortSignal`,`wrapAsImplementation` 把 `execCtx.signal` 透传给每个操作。
-3. **engine-image 操作**:所有操作(resize/crop/rotate/flip/compress/convert/watermark/setBackground/filter)在 decode / draw / encode 边界调用 `throwIfAborted(signal)`。`compressToTargetSize` 的二分循环(6 轮)每轮编码前检查,避免取消后继续做昂贵的 canvas 编码。`watermark` 的 `fetch(imageUrl)` 也传入 signal 实现网络层取消。
-4. **worker-host → worker-adapter**:`WorkerHost.request()` 接受 `signal?: AbortSignal`;触发 abort 时发送 `WorkerCancel { type: 'cancel', id }` 消息并立即 reject `WorkerRequestAbortedError`(不等 Worker 回响应)。已 aborted 的 signal 在发送前直接抛错(pre-flight check)。
-5. **worker-adapter**:`startImageWorker` 维护 `Map<id, AbortController>` 在途表;收到 `cancel` 消息时 `controller.abort()` 中止对应操作;`dispatchImageMethod` 与 `createImageWorkerHandler` 把 signal 下传给操作。
+1. **executor → plugin-image**: `execCtx.signal` is passed into `wrapAsImplementation.execute`.
+2. **plugin-image → engine-image**: the `ImageOperation` type signature includes `signal?: AbortSignal`, and `wrapAsImplementation` forwards `execCtx.signal` to each operation.
+3. **engine-image operations**: all operations (resize/crop/rotate/flip/compress/convert/watermark/setBackground/filter) call `throwIfAborted(signal)` at the decode / draw / encode boundaries. The binary-search loop of `compressToTargetSize` (6 rounds) checks before each round's encoding, avoiding expensive canvas encoding after cancellation. The `fetch(imageUrl)` in `watermark` also takes the signal to achieve network-layer cancellation.
+4. **worker-host → worker-adapter**: `WorkerHost.request()` accepts `signal?: AbortSignal`; when abort is triggered, it sends a `WorkerCancel { type: 'cancel', id }` message and immediately rejects with `WorkerRequestAbortedError` (without waiting for the Worker to respond). An already-aborted signal throws before sending (pre-flight check).
+5. **worker-adapter**: `startImageWorker` maintains an in-flight `Map<id, AbortController>` table; on receiving a `cancel` message it calls `controller.abort()` to abort the corresponding operation; `dispatchImageMethod` and `createImageWorkerHandler` pass the signal down to the operations.
 
-`throwIfAborted(signal)` 抛 `DOMException('AbortError')`,与 Web 平台约定一致,上层 executor 已将 cancelled 状态映射到 `WorkflowResult.cancelled`。
+`throwIfAborted(signal)` throws `DOMException('AbortError')`, consistent with Web platform conventions; the upper-layer executor already maps the cancelled state to `WorkflowResult.cancelled`.
 
-## Workflow 编排(W10-W11)
+## Workflow Orchestration (W10-W11)
 
-Year 1 仅支持线性工作流(最多 5 步)。`WorkflowBuilder` 提供链式 API:`add(capability, params)` / `remove(nodeId)` / `move(from, to)` / `swap(a, b)` / `updateParams(nodeId, params)`,内部校验 5 步上限(`MAX_WORKFLOW_STEPS = 5`)。`build()` 输出 `Workflow` 对象,经 `validateWorkflow()` 校验空节点 / 输入输出连接 / 相邻节点 capability 兼容性(三层:输入节点 inputTypes 与 workflow.inputs.type / 相邻节点 outputTypes∩inputTypes / 输出节点 outputTypes)。
+Year 1 supports only linear workflows (up to 5 steps). `WorkflowBuilder` provides a chained API: `add(capability, params)` / `remove(nodeId)` / `move(from, to)` / `swap(a, b)` / `updateParams(nodeId, params)`, internally validating the 5-step limit (`MAX_WORKFLOW_STEPS = 5`). `build()` outputs a `Workflow` object, which is validated by `validateWorkflow()` for empty nodes / input-output connections / capability compatibility between adjacent nodes (three layers: the input node's inputTypes vs. workflow.inputs.type / adjacent nodes' outputTypes∩inputTypes / the output node's outputTypes).
 
-UI 端 `@lokvis/ui-react` 提供:
-- `WorkflowEditor.tsx`:HTML5 Drag and Drop API 拖拽重排 + 键盘 ← → 移动 + Delete 删除 + InsertConnector hover 插入
-- `useWorkflows.ts`:5 槽位免费 / Pro 无限 + localStorage 持久化 + JSON 导入导出
-- `useShareLink.ts`:`?workflow=<base64url>` 分享链接(UTF-8 安全,处理中文水印)
-- `data/workflow-templates.ts`:5 个内置模板(web-optimize / social-batch / ecommerce-main / print-prep / screenshot-compress)
+The UI side, `@lokvis/ui-react`, provides:
+- `WorkflowEditor.tsx`: HTML5 Drag and Drop API for drag-to-reorder + ← → keyboard movement + Delete to remove + InsertConnector hover-insert
+- `useWorkflows.ts`: 5 free slots / unlimited on Pro + localStorage persistence + JSON import/export
+- `useShareLink.ts`: `?workflow=<base64url>` share link (UTF-8 safe, handles Chinese watermarks)
+- `data/workflow-templates.ts`: 5 built-in templates (web-optimize / social-batch / ecommerce-main / print-prep / screenshot-compress)
 
-## 版本与兼容性(Alpha)
+## Version and Compatibility (Alpha)
 
-- **Runtime version**:`0.1.0`(`RUNTIME_VERSION` 常量)
-- **Workflow schema**:`v1`(分享链接 `?workflow=<base64url>` 内 `{v:1, nodes:[...]}`)
-- **MCP manifest version**:`2025-06-18`(MCP spec draft)
-- **Worker protocol**:握手时 Worker 发送 `ready` 携带协议版本,Host 校验后才开始通信
-- **Engine version**:`canvasEngine.version = '0.1.0'`;stub 引擎 `version` 包含 `'stub'` 标识,Plugin 层 `wrapAsImplementation()` 检测后设置 `CapabilityImplementation.status = 'stub'`,`CapabilityRegistry.resolve()` 自动跳过
+- **Runtime version**: `0.1.0` (`RUNTIME_VERSION` constant)
+- **Workflow schema**: `v1` (within the share link `?workflow=<base64url>`: `{v:1, nodes:[...]}`)
+- **MCP manifest version**: `2025-06-18` (MCP spec draft)
+- **Worker protocol**: during the handshake the Worker sends `ready` carrying the protocol version; the Host validates it before communication begins
+- **Engine version**: `canvasEngine.version = '0.1.0'`; stub engines have a `version` containing the `'stub'` marker; the Plugin layer's `wrapAsImplementation()` detects this and sets `CapabilityImplementation.status = 'stub'`, and `CapabilityRegistry.resolve()` automatically skips it
 
-**Phase 1 Alpha 已知限制**(不阻塞 Alpha,详见 `docs/reports/W12.1-alpha-acceptance.md` §5):
-- L1:视频/PDF/Audio 引擎为 stub(Phase 2 接入 ffmpeg.wasm / pdf-lib)
-- L2:Plugin SDK 仅 Alpha(ADR-O2,第三方插件暂不可用,Phase 2 优先 MCP server)
-- L3:真实浏览器 Lighthouse 未跑(待 playground 部署后 W16.5 任务)
-- L4:内部 Alpha 测试 5 人 1 天未执行(W11.7 非代码任务,W12.7 缓冲期执行)
-- L5:Sentry 监控已接入但未配置 DSN(W12.3 已落地,部署时注入 `PUBLIC_SENTRY_DSN`)
+**Phase 1 Alpha known limitations** (not blocking Alpha; see `docs/reports/W12.1-alpha-acceptance.md` §5):
+- L1: video/PDF/Audio engines are stubs (Phase 2 integrates ffmpeg.wasm / pdf-lib)
+- L2: Plugin SDK is Alpha-only (ADR-O2; third-party plugins are not yet available; Phase 2 prioritizes the MCP server)
+- L3: real-browser Lighthouse has not been run (a W16.5 task after the playground is deployed)
+- L4: the internal Alpha test (5 people, 1 day) has not been conducted (W11.7 is a non-code task; execution is scheduled for the W12.7 buffer)
+- L5: Sentry monitoring is integrated but no DSN is configured (landed in W12.3; `PUBLIC_SENTRY_DSN` is injected at deployment)
