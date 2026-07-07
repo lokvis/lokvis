@@ -11,7 +11,7 @@ import {
   getImageInfo,
   imageInfoToMeta,
   type ImageInfo,
-} from '@/components/toolkit/download';
+} from '../download';
 
 describe('formatBytes', () => {
   it('小于 1024 时显示 B', () => {
