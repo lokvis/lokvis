@@ -1,0 +1,266 @@
+---
+title: Runtime
+description: 深入剖析 @lokvis/runtime —— 浏览器本地的工作流执行引擎。AssetStore 三级回退、CapabilityRegistry 解析流程、WorkflowExecutor 线性 DAG、HistoryStack 游标、MemoryGuard 压力、Worker 隔离,以及四个扩展钩子。
+draft: false
+head: []
+---
+
+import Mermaid from '../../../../components/Mermaid.astro';
+import MermaidScript from '../../../../components/MermaidScript.astro';
+
+<MermaidScript />
+
+`@lokvis/runtime` 是 Lokvis 内部的"浏览器操作系统"。它唯一的职责是 `Input → Run → Output`:持有资产、调度能力、追踪历史、将重计算隔离到 Worker 中,并暴露出一个既不感知 React、也不感知 Redux 或 Cloudflare 的接口表面。本文档映射了该包的每一个模块、契约与扩展点。
+
+> **版本:** `RUNTIME_VERSION = '0.1.0'` · **Schema 版本:** `v1` · 参阅 [架构概览](../architecture) 了解本包所执行的五层依赖规则。
+
+## 模块映射表
+
+| 文件 | 导出 | 角色 |
+| --- | --- | --- |
+| `types.ts` | `LokvisRuntime`, `RuntimeConfig`, `RuntimeStatus`, `RunOptions`, `ToMcpManifestOptions` | 公共接口契约 |
+| `runtime.ts` | `LokvisRuntimeImpl`, `createRuntime`, `RUNTIME_VERSION`, `QuotaExceededError` | 实现 + 异步工厂 |
+| `asset-store.ts` | `AssetStore`, `createAssetStore`, `createMemoryAssetStore`, `prepareImport`, `buildAsset` | 存储接口 + 三级工厂 |
+| `opfs-asset-store.ts` | `createOpfsAssetStore`, `isOpfsSupported` | OPFS 后端 |
+| `idb-asset-store.ts` | `createIdbAssetStore`, `isIdbSupported` | IndexedDB 后端(不依赖 Dexie) |
+| `capability-registry.ts` | `CapabilityRegistry` | Capability + implementation 注册表,`resolve()` 选择 |
+| `executor.ts` | `WorkflowExecutor`, `topologicalSort` | 线性 DAG 执行器 |
+| `workflow-builder.ts` | `WorkflowBuilder`, `MAX_WORKFLOW_STEPS`, `workflowToBuilder` | 线性工作流的链式 API |
+| `history.ts` | `HistoryStack`, `createHistoryStack`, `HistoryStackSnapshot` | 每个工作流的 undo/redo 游标 |
+| `history-store.ts` | `HistoryStore`, `createHistoryStore` | IndexedDB 快照持久化 |
+| `memory-guard.ts` | `MemoryGuard`, `MemoryAllocation`, `estimateDecodedBytes`, `DEFAULT_MEMORY_BUDGET` | 基于已追踪字节数的压力模型 |
+| `degradation.ts` | `pickDegradation`, `DegradationRejectedError`, `applyDegradationToResizeParams` | L1–L4 策略阶梯 |
+| `worker-protocol.ts` | `WorkerRequest`, `WorkerResponse`, `WorkerReady`, `WorkerCancel`, `isWorkerMessageToHost` | 纯协议类型 + 守卫 |
+| `worker-host.ts` | `WorkerHost`, `WorkerTransport`, `WorkerCrashedError`, `WorkerDeadError`, `WorkerRequestAbortedError` | 主线程 Worker 管理器 |
+| `batch-processor.ts` | `BatchProcessor`, `BatchLimitExceededError` | 并发 + 进度 + 重试 |
+| `event-bus.ts` | `EventBus`, `createEventBus` | 类型化 pub/sub |
+| `index.ts` | 重新导出上述全部内容 | 包入口 |
+
+## `LokvisRuntime` 契约
+
+`types.ts` 定义了公共接口表面。它被拆分为五个领域,以便调用方可以直接检索所需内容,而无需扫描整个接口。
+
+```typescript
+interface LokvisRuntime {
+  // ─── 工作流执行 ─────────────────────────────────
+  run(workflow, inputs, options?): Promise<WorkflowResult>;
+  cancel(workflowId): Promise<void>;
+  pause(workflowId): Promise<void>;
+  resume(workflowId): Promise<void>;
+  getCurrentOutputs(workflowId): Promise<AssetId[]>;
+  disposeWorkflow(workflowId): Promise<void>;
+
+  // ─── 历史与 undo/redo ────────────────────────────────
+  history(workflowId): Promise<HistoryEntry[]>;
+  getHistoryState(workflowId): Promise<{ entries: HistoryEntry[]; cursor: number }>;
+  undo(workflowId): Promise<void>;
+  redo(workflowId): Promise<void>;
+  jumpTo(workflowId, index): Promise<void>;
+
+  // ─── 资产管理 ───────────────────────────────────
+  importAsset(source): Promise<AssetId>;
+  getAsset(id): Promise<Asset>;
+  exportAsset(id, format?): Promise<Blob>;
+  readAssetExif(id): Promise<ExifData | null>;
+  removeAsset(id): Promise<void>;
+  listAssets(): Promise<Asset[]>;
+  getStorageUsage(): Promise<{ usage: number; quota: number }>;
+
+  // ─── Capability 查询 ─────────────────────────────────
+  capabilities(): Promise<Capability[]>;
+  hasCapability(name): Promise<boolean>;
+
+  // ─── MCP 暴露 ───────────────────────────────
+  toMcpManifest(options?): McpManifest;
+
+  // ─── 顶层状态 ────────────────────────────
+  readonly version: string;
+  readonly status: 'idle' | 'running' | 'paused' | 'error';
+  readonly eventBus: EventBus;
+  readonly isPro: boolean;
+  readonly batch: BatchProcessor;
+}
+```
+
+`run()` 接受 `AssetId[] | Asset[]`。`RunOptions.appendHistory` 会保留现有的历史栈,使连续的 `run()` 调用链成一条 undo/redo 时间线(playground 的 `HistoryDemo` 利用此特性实现堆叠滤镜)。默认值为 `false` —— 每次 `run()` 都会重置栈,匹配"重新执行"语义。
+
+## `createRuntime()` 构造流程
+
+`createRuntime(config?)` 是 `async` 的,因为环境探测(OPFS / IDB)无法同步完成。该工厂按顺序装配六个子系统,然后在返回实例之前预加载恢复任何已持久化的历史快照。
+
+<Mermaid source={`flowchart TD
+  A["createRuntime(config)"] --> B["createAssetStore()\nOPFS → IDB → Memory"]
+  B --> C["createHistoryStore()\nIDB or undefined"]
+  C --> D["new LokvisRuntimeImpl({...config, assetStore, historyStore})"]
+  D --> E["wrapAssetStoreWithQuota()\nimport/create/remove serialized"]
+  E --> F["new CapabilityRegistry(engineStrategy)"]
+  F --> G["new WorkflowExecutor({assetStore, registry, eventBus})"]
+  G --> H["new MemoryGuard({budget, assetStore})"]
+  H --> I["new BatchProcessor({runtime, eventBus, isPro, memoryGuard})"]
+  I --> J["eventBus.on('node:finished', recordHistoryFromNodeEvent)"]
+  J --> K["impl.loadPersistedHistory()\nrestore undo/redo from IDB"]
+  K --> L["return impl as LokvisRuntime"]
+`} />
+
+直接构造 `LokvisRuntimeImpl`(不通过工厂)会回退到 `MemoryAssetStore` 并打印一条警告 —— 异步的 OPFS/IDB 探测只能在异步工厂中发生。生产代码应始终通过 `createRuntime()`(或 SDK 中的 `createLokvis()`)进入。
+
+## 五个子系统
+
+### 1. AssetStore —— 三级回退 + 配额包装
+
+`createAssetStore({ preferOpfs: true })` 按顺序探测后端,并在任何失败时降级。最终回退(`createMemoryAssetStore`)始终可用,但永不持久化。
+
+| 层级 | 后端 | `BlobHandle.path` 前缀 | 何时被选中 |
+| --- | --- | --- | --- |
+| 1 | OPFS(`FileSystemSyncAccessHandle`) | `opfs://` | `preferOpfs && isOpfsSupported()` |
+| 2 | IndexedDB(原生 IDB,无 Dexie) | `idb://` | `isIdbSupported()` |
+| 3 | Memory(`Map<AssetId, Blob>`) | `memory://` | 始终可用,不持久化 |
+
+`prepareImport(source)` 被所有三个后端共享:它提取 Blob、生成 `AssetId`、从 MIME 推断 `AssetType`,并异步拉取**富元数据**(通过 `createImageBitmap` 获取图像 `dimensions`,通过 `HTMLMediaElement.loadedmetadata` 获取视频/音频 `duration`,pdf 的 `pages` 推迟到 Phase 2)。失败会被静默降级为 `undefined`,因此一个损坏的 EXIF 块永远不会阻塞导入。
+
+`wrapAssetStoreWithQuota(inner, quota)` 会被无条件应用(即使是注入的 store 也一样)。它维护一个运行中的 `usage` 计数器,并通过一个 promise 链(`runExclusive`)串行化 `import`/`create`/`remove`,使得"检查-更新"窗口在并发下不会发生 TOCTOU(检查时序/使用时序竞态)。超大导入会抛出 `QuotaExceededError(usage, delta, quota)`。该包装器还暴露 `_getQuotaUsage(): number`(在 `ensureInit` 完成之前返回 `-1`),因此 `runtime.getStorageUsage()` 可以以 O(1) 而非 O(n) 的 `listAssets()` 读取使用量。
+
+### 2. CapabilityRegistry —— 解析流程
+
+`CapabilityRegistry` 持有 `Map<CapabilityName, { capability, implementations[] }>`。两阶段注册与 Plugin 生命周期匹配:`registerCapability(capability)` 声明形状,然后 `registerImplementation(impl)` 附加引擎支持的 `execute` 函数。
+
+`resolve(name, preferredEngine?)` 是执行器为每个节点调用的热路径。它运行一个三阶段流水线:
+
+<Mermaid source={`flowchart LR
+  A["resolve(name, preferredEngine?)"] --> B{"implementations empty?"}
+  B -- yes --> X["return undefined"]
+  B -- no --> C["filter(i => i.status !== 'stub')"]
+  C --> D{"available empty?"}
+  D -- yes --> X
+  D -- no --> E{"preferredEngine specified?"}
+  E -- yes --> F["find(i => i.engine === preferredEngine)"]
+  F -- found --> G["return impl"]
+  F -- not found --> H["selectByStrategy(available)"]
+  E -- no --> H
+  H --> I{"defaultStrategy"}
+  I -- first --> J["return available[0]"]
+  I -- fastest --> K["rank by PERFORMANCE_RANK\nfast=0 medium=1 slow=2\nstable: ties keep registration order"]
+  I -- balanced --> L["filter by capability.performance\nfallback to fastest if no match"]
+  K --> G
+  L --> G
+`} />
+
+`hasImplementation(name)` 和 `isStubOnly(name)` 让执行器能够产生可操作的错误信息:一个仅 stub 的能力会抛出 `"Install a real engine plugin to use this capability"`,而不是泛泛的 `"No implementation registered"`。
+
+### 3. WorkflowExecutor —— 线性 DAG + node:finished → 历史
+
+Year 1 仅支持线性工作流(无分支、循环、条件或并行)。执行器仍然运行完整的 `topologicalSort(nodes, edges)`,因此未来的 DAG 支持只是放宽限制,而非重写。排序是防御性的:它会拒绝重复的节点 id、引用未知节点(包括 `__input__` 哨兵)的边、自环,以及真实的环,并给出精确的错误信息。
+
+每个节点的执行:
+
+<Mermaid source={`sequenceDiagram
+  participant R as Runtime.run()
+  participant E as WorkflowExecutor
+  participant CR as CapabilityRegistry
+  participant EB as EventBus
+  participant H as HistoryStack
+  R->>E: execute(workflow, inputs)
+  E->>EB: emit workflow:started
+  loop transform nodes (topological order)
+    E->>E: waitForResume() if paused
+    E->>EB: emit node:started
+    E->>CR: resolve(capability)
+    CR-->>E: CapabilityImplementation
+    E->>E: impl.execute(currentAssets, params, ctx)
+    E->>EB: emit node:finished (outputs)
+    EB-->>H: recordHistoryFromNodeEvent appends entry
+  end
+  E->>EB: emit workflow:completed
+  E-->>R: WorkflowResult
+`} />
+
+`pause()` 通过一个 Promise resolver(`waitForResume`)停驻循环 —— 无轮询、无 CPU 开销。`cancel()` 翻转 `state.status = 'cancelled'`,调用 `abortController.abort()`(它会通过 `ExecutionContext.signal` 传播到每个引擎操作),并 resolve 已停驻的 resolver,使循环醒来并中断。
+
+`disposeWorkflow(workflowId)` 是 UI 在卸载时必须调用的清理入口:它会取消任何正在运行的执行,调用 `stack.reset()`(触发 `onEvict` 以从 AssetStore 移除历史输出),并从 `historyStacks` / `initialInputsMap` / `currentOutputsMap` 中删除该工作流。如果不调用,长时间运行的会话会泄漏 Map 条目和 OPFS blob。
+
+### 4. HistoryStack —— 游标 + LRU 32 + IDB 持久化
+
+每个工作流都有自己的 `HistoryStack`。模型是数组上的一个游标:
+
+- `cursor = -1` —— 初始状态,没有条目被应用
+- `cursor = i` —— 条目 `i` 是当前已应用的状态
+- `append(entry)` —— 截断 redo 分支(`cursor + 1..end`),推入,推进游标,如果超过 `maxEntries`(默认 10)则淘汰 LRU
+- `undo()` —— cursor--,返回新的当前条目(回到初始时为 `null`)
+- `redo()` —— cursor++,返回新的当前条目
+- `jumpTo(index)` —— 直接移动游标,用于 HistoryPanel 的点击跳转
+
+`onEvict(entry)` 是资产回收钩子:Runtime 注册一个回调,为被淘汰条目的每个输出调用 `assetStore.remove(assetId)`,防止 OPFS 泄漏。`onChanged(workflowId, entries, cursor)` 在 EventBus 上触发 `history:changed`,并触发 `persistHistory`(W7.2)。
+
+**LRU 32。** Runtime 将 `historyStacks` 上限设为 `MAX_CONCURRENT_WORKFLOW_STACKS = 32`。超过上限时,最旧的栈(Map 插入顺序 = ES2015 规范)会被 `reset()` 并删除。当前工作流永远不会成为牺牲品,因为 `enforceHistoryStacksLimit()` 在 `getOrCreateHistoryStack` 插入新条目之前运行。
+
+**IDB 持久化。** 当 `enableIndexedDB` 为 true 时,`createHistoryStore()` 返回一个 IDB 支持的 store。`persistHistory(workflowId)` 快照 `{ entries, cursor, initialInputs, currentOutputs, updatedAt }`。`currentOutputs` 是从快照派生的(cursor 为 `-1` → `initialInputs`,否则为 `entries[cursor].outputs`)—— 而不是来自 `currentOutputsMap` —— 因为 `onChanged` 在 map 更新之前同步触发于 `append`/`undo`/`redo`/`jumpTo` 内部。
+
+**`dirtyDuringLoad` 守卫。** 在 `loadPersistedHistory()` 期间,`restore()` 会重新触发 `onChanged` → `persistHistory`。一个朴素地在加载期间丢弃所有写入的守卫会丢失来自并发 `run()`/`undo()` 调用的合法变更。修复方案:被跳过的工作流 id 会被加入 `dirtyDuringLoad: Set<string>`,加载完成后每个都会被重新持久化。
+
+### 5. MemoryGuard + 降级阶梯
+
+`MemoryGuard` 拒绝 `performance.memory`(仅 Chrome 支持,已弃用,MB 粒度),转而采用**显式追踪**:调用方在分配解码/Canvas 缓冲区时调用 `track(bytes)`,在丢弃时调用 `release()`。该句柄是幂等的 —— 重复 `release()` 是 no-op。
+
+| 压力 | 触发条件 | `shouldSpill()` | 典型阶梯级别 |
+| --- | --- | --- | --- |
+| `low` | ratio < 0.6 | false | L1-full |
+| `elevated` | 0.6 ≤ ratio < 0.8 | false | L1-full |
+| `high` | 0.8 ≤ ratio < 0.95 | true(若设置了 `assetStore`) | L2-tiled 或 L3-degraded |
+| `critical` | 0.95 ≤ ratio | true | L3-degraded 或 L4-reject |
+
+`estimateDecodedBytes(w, h)` 返回 `w * h * 4`(RGBA)—— 一张 4000×3000 的 JPEG 在磁盘上可能是 2MB,但解码后约 46MB。如果追踪 `blob.size` 而不是这个值,会严重低估压力。
+
+`pickDegradation(ctx)` 是一个实现四级策略的**纯函数**:
+
+| 级别 | 触发条件 | 策略 |
+| --- | --- | --- |
+| **L1-full** | `pressure ∈ {low, elevated}` | 完整质量,正常处理 |
+| **L2-tiled** | `pressure = high` + `canTile = true` | 基于分块的处理 + OPFS 溢出 |
+| **L3-degraded** | `pressure = high` + 不可分块,或 `critical`(且缩放估计 < 0.95×预算) | 将输出限制到 `DEGRADED_MAX_EDGE = 4096` + `DEGRADED_QUALITY = 70` |
+| **L4-reject** | `critical` + 输入 > 预算 + 无溢出,或 maxEdge 上限后的解码估计仍 ≥ 0.95×预算 | 抛出 `DegradationRejectedError`,带 `guide[]` |
+
+`DegradationRejectedError.guide` 是一个用户可读的字符串数组(使用更小的源图像、关闭其他标签页、使用桌面应用)。UI 直接渲染它。`applyDegradationToResizeParams(params, decision)` 在 L3 激活时将 `maxEdge` 注入到 resize 参数中。
+
+## Worker 隔离协议
+
+重计算(图像编解码、未来的 WASM 引擎)运行在专用的 Web Worker 中,使主线程永远不会在 Canvas 工作上阻塞。跨源隔离(COOP/COEP)在 `apps/playground/public/_headers` 中配置,以便为未来的多线程 WASM 启用 `SharedArrayBuffer`。
+
+`worker-protocol.ts` 是一个纯类型 + 守卫模块(与 `Worker` 没有运行时耦合):
+
+- **Host → Worker:** `request`(以 id 为键的方法调用)、`ping`(心跳)、`cancel`(中止进行中的工作,W3.5)
+- **Worker → Host:** `response`(成功/失败,以 id 关联)、`pong`、`event`(进度,无 ack)、`ready`(带 `protocolVersion` 的握手)、`error`(致命,worker 存活但卡住)
+
+`WorkerHost`(主线程)处理生命周期:带版本检查的就绪握手、每请求超时(默认 60s)、定期 ping(5s)及 pong 超时(15s)、崩溃检测(传输错误或心跳超时)、最多重启 `DEFAULT_MAX_RESTARTS = 3` 次,然后 `dead`。`WorkerTransport` 接口抽象了浏览器 Worker / Node `worker_threads` / 测试 Fake,使得协议和重启逻辑可在 Node 中单元测试。
+
+`WorkerHost.request(method, params, signal?)` 接受一个 `AbortSignal`。在中止时,它会发送 `WorkerCancel { type: 'cancel', id }` 并立即以 `WorkerRequestAbortedError` reject —— 它**不**等待 Worker 的响应。预检:一个已中止的 signal 会在发送前抛出。
+
+## 四个扩展钩子
+
+Runtime 为 SDK 和集成测试暴露了四个下划线前缀的钩子。它们不是 `LokvisRuntime` 接口的一部分 —— 它们仅存在于 `LokvisRuntimeImpl` 上。
+
+| 钩子 | 调用方 | 用途 |
+| --- | --- | --- |
+| `_getAssetStore()` | `@lokvis/sdk` `installPlugin` | 让插件共享 Runtime 的 AssetStore 进行 blob 读写 |
+| `_getCapabilityRegistry()` | `@lokvis/sdk` `installPlugin` | 让插件调用 `registerCapability` / `registerImplementation` |
+| `_getMemoryGuard()` | 集成测试 | 驱动合成压力以验证 `BatchProcessor` 并发收缩 |
+| `_registerMetadataReader(name, reader)` | `@lokvis/sdk`(从 `ctx.registerMetadataReader` 转发) | 注册只查询的 reader,例如 `image.read-exif` |
+
+MetadataReader 钩子是那些既不符合 Engine Blob↔Blob 契约、也不符合 Capability `Asset[]→Asset[]` 契约的只查询操作的长期归宿。`runtime.readAssetExif(id)` 在 readers map 中查找 `'image.read-exif'`,如果插件未安装则返回 `null` —— 不抛出,优雅降级。
+
+## 测试说明
+
+Runtime 拥有 monorepo 中最深的测试覆盖(根据 `AGENTS.md`,runtime 是"核心包",必须有测试)。测试位于 `src/__tests__/`,遵循 Vitest 且 `globals: false`(显式 `import { describe, it, expect, vi } from 'vitest'`),中文测试描述,以及 `Canvas` / `OPFS` / `IndexedDB` 的 fake 实现。关键测试套件:
+
+- `runtime-factory.test.ts` —— `createRuntime` 装配 + LRU 32
+- `worker-host.test.ts` —— 心跳、重启、通过注入 Fake transport 的取消
+- `history.test.ts` + `history-persistence.test.ts` —— 游标数学 + `dirtyDuringLoad` 守卫
+- `memory-guard.test.ts` + `degradation.test.ts` —— 压力阈值 + L1–L4 矩阵
+- `executor.test.ts` —— 拓扑排序边缘情况(哨兵 id、自环、真实环)
+- `capability-registry.test.ts` —— `resolve` 策略矩阵(first/fastest/balanced,stub 跳过)
+
+## 故意未包含的内容
+
+- **不感知 React / Redux。** `eventBus.emit({ type: 'history:changed', ... })` 是唯一的副作用通道;UI 通过 `eventBus.on` 订阅。
+- **不导入 Cloudflare / Cloud SDK。** `lokvis-open` ↔ `lokvis-cloud` 边界由包依赖强制执行,而非仅靠约定。
+- **不使用 `performance.memory`。** 内存压力由显式的 `track()` 调用驱动,使相同的逻辑可在 Node 测试中运行。
+- **无分支 / 循环 / 并行。** Year 1 执行器设计为线性。DAG 形态的 `topologicalSort` 是前向兼容的,而非过早设计。

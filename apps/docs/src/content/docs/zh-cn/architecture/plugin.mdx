@@ -1,0 +1,376 @@
+---
+title: Plugin SDK
+description: 深入剖析 @lokvis/plugin-sdk —— definePlugin、PluginContext 受限的 Runtime 视图、createBlobCapabilityImpl 工厂、完整的 plugin-image 示例、MetadataReader 只查询异常、Stub 插件模式、Alpha 权限建议、Panels,以及 Vitest 测试模式。
+draft: false
+head: []
+---
+
+import Mermaid from '../../../../components/Mermaid.astro';
+import MermaidScript from '../../../../components/MermaidScript.astro';
+
+<MermaidScript />
+
+`@lokvis/plugin-sdk` 是向 Lokvis 添加能力的唯一受支持方式。一个插件是一个 `{ config, install }` 对:`config` 声明插件提供什么,`install(ctx)` 在加载时运行以向 runtime 注册实现。SDK 是刻意保持小巧的 —— `definePlugin`、`createCapabilityImpl`、`createBlobCapabilityImpl`、`definePanel` —— 因为大部分重活位于引擎包中,以及 SDK 调用进入的 runtime 钩子中。
+
+> **Alpha 状态。** Plugin SDK 为 `0.1.0-alpha`。根据 ADR-O2,第三方插件尚未启用。如果你的目标是让 AI 客户端(Claude / Cursor / ChatGPT)调用本地能力,请使用 [`@lokvis/mcp-server`](../mcp) —— 那是 Phase 2 的优先级。Plugin SDK 用于将 Lokvis 嵌入到你自己的 web 应用中以使用自定义能力。
+
+## 模块映射表
+
+`@lokvis/plugin-sdk` 是一个单文件包(`src/index.ts`),从 `@lokvis/schema` 重新导出类型,并提供四个工厂函数。
+
+| 导出 | 种类 | 角色 |
+| --- | --- | --- |
+| `definePlugin` | 工厂 | 构建 `{ config, install }` 插件对象 |
+| `createCapabilityImpl` | 工厂 | 低层:从 `execute` 函数构建原始 `CapabilityImplementation` |
+| `createBlobCapabilityImpl` | 工厂 | 高层:用 5 步样板将 Blob→Blob 操作包装为 `CapabilityImplementation` |
+| `definePanel` | 工厂 | 为 UI 扩展构建 `PanelDefinition` |
+| `defaultDeriveOutputMetadata` | 辅助 | `createBlobCapabilityImpl` 的默认 `deriveMetadata` |
+| `BlobCapabilityOptions` | 接口 | `createBlobCapabilityImpl` 的选项 |
+| 重新导出 | 类型 | 从 `@lokvis/schema` 导入的 `Asset`, `AssetMetadata`, `AssetType`, `Capability`, `CapabilityImplementation`, `ExecutionContext`, `PluginConfig`, `PluginContext`, `PluginInstaller`, `PluginPermission`, `PanelDefinition` |
+
+## `Plugin` 对象
+
+```typescript
+type Plugin = { config: PluginConfig; install: PluginInstaller };
+
+interface PluginConfig {
+  name: string;                  // 'lokvis-image-tools'
+  version: string;               // '0.1.0'
+  description?: string;
+  capabilities: Capability[];    // 声明式形状(插件提供什么)
+  engine?: string;               // 'canvas' | 'squoosh' | ...
+  permissions?: PluginPermission[];
+}
+
+type PluginInstaller = (ctx: PluginContext) => void | Promise<void>;
+```
+
+`definePlugin(config, installer?)` 返回插件对象。`installer` 是可选的,但在实践中总是存在 —— 没有它,插件声明了能力但不注册实现,使它们在解析时全部为 "no implementation registered"。
+
+`PluginPermission` 是一个字符串联合声明:`'asset:read'` / `'asset:write'` / `'network:none'` / `'network:limited'` / `'network:full'` / `'filesystem:opfs'` / `'filesystem:local'`。强制执行状态见 [Alpha 权限](#alpha-permissions-advisory)。
+
+## 插件生命周期
+
+SDK 不运行生命周期 —— `@lokvis/sdk` 的 `installPlugin` 才运行。下面的流程记录了当 `createLokvis({ plugins: [imageToolsPlugin()] })` 或 `loadPlugin(plugin)` 运行时发生的事情:
+
+<Mermaid source={`sequenceDiagram
+  participant U as User code
+  participant S as @lokvis/sdk
+  participant R as Runtime
+  participant CR as CapabilityRegistry
+  participant P as Plugin.install
+  U->>S: createLokvis({ plugins: [plugin] })
+  S->>R: createRuntime(config)
+  S->>R: _getAssetStore(), _getCapabilityRegistry()
+  loop for each plugin
+    S->>CR: registerCapability(cap) for each config.capabilities
+    S->>S: createPluginContext(config.name, assetStore, registry, eventBus, runtime)
+    S->>P: install(ctx)
+    P->>CR: ctx.registerCapability(impl)  (or ctx.registerMetadataReader)
+    P->>S: ctx.log('info', 'Registered N capabilities')
+    S->>R: eventBus.emit({ type: 'plugin:loaded', name, version })
+  end
+  S-->>U: lokvis (LokvisRuntime)
+`} />
+
+**失败语义。** 如果 `install(ctx)` 抛出,`installPlugin` 会将错误包装为 `PluginLoadError(pluginName, message, cause)` 并中止循环。在失败之前加载的插件保持已注册;之后的插件永远不会被触及。`createLokvis` 向调用方重新抛出。
+
+**`PluginContext` 每个插件构造一次。** 它捕获的 runtime 引用是活的 `LokvisRuntimeImpl`,因此插件始终看到当前状态(已注册的能力、asset store 内容)。`registerCapability` / `registerMetadataReader` 调用直接进入 `CapabilityRegistry` 和 runtime 内部的 `metadataReaders` map。
+
+## `PluginContext` —— 受限的 Runtime 视图
+
+`PluginContext`(定义在 `@lokvis/schema/plugin.ts`)是对 runtime 的一个刻意收窄的视图。插件不能调用 `run()`、`cancel()`、`undo()`、`redo()`、`importAsset()`、`removeAsset()`,或任何工作流执行 API。它们只能读写执行器递交给它们的资产,并注册能力/reader/panel。
+
+```typescript
+interface PluginContext {
+  runtime: {
+    getAsset(id): Promise<Asset>;                              // 元数据查找
+    importAsset(file: File | Blob): Promise<string>;           // 临时导入(例如水印)
+    getAssetBlob(asset: Promise<Blob>;                         // 用于处理的字节
+    createAsset(blob, metadata, type): Promise<Asset>;         // 发布一个变换输出
+    listCapabilities(): Promise<Capability[]>;                 // 内省注册表
+  };
+  eventBus: EventBus;                                          // subscribe/emit
+  registerCapability(impl: CapabilityImplementation): void;   // 变换:Asset[] → Asset[]
+  registerMetadataReader<T>(name, reader: MetadataReader<T>): void;  // 查询:Asset → T
+  registerPanel(panel: PanelDefinition): void;                // UI 扩展
+  log(level: 'info' | 'warn' | 'error', message: string): void;
+}
+```
+
+| 成员 | 用途 |
+| --- | --- |
+| `runtime.getAsset(id)` | 按 id 读取资产元数据(用于检查执行器传入的输入) |
+| `runtime.importAsset(file)` | 拉入辅助文件(例如用户在带外提供的水印图像) |
+| `runtime.getAssetBlob(asset)` | **主要**读取路径 —— 获取用于处理的字节 |
+| `runtime.createAsset(blob, metadata, type)` | **主要**写入路径 —— 将变换输出发布回 AssetStore |
+| `runtime.listCapabilities()` | 内省已注册内容(避免重复注册) |
+| `eventBus` | 订阅 runtime 事件(`node:finished`、`history:changed`……)或发出插件特有的事件 |
+| `registerCapability(impl)` | 注册变换实现(Asset[]→Asset[])—— 通过 `WorkflowExecutor` 调用 |
+| `registerMetadataReader(name, reader)` | 注册只查询 reader(Asset→T)—— 通过 `Runtime.readAssetExif` 等调用 |
+| `registerPanel(panel)` | 声明一个 UI 面板(sidebar / inspector / toolbar / modal)供宿主应用渲染 |
+| `log(level, message)` | 通过 runtime 日志通道路由的结构化日志 |
+
+## `createBlobCapabilityImpl` 工厂
+
+大多数能力是单输入→单输出的 Blob 变换。该工厂(定义在 `@lokvis/plugin-sdk`)封装了每个此类能力都需要的 5 步样板:
+
+```typescript
+function createBlobCapabilityImpl(
+  options: BlobCapabilityOptions,
+  ctx: PluginContext
+): CapabilityImplementation
+```
+
+工厂在 `execute` 内部实现的 5 个步骤:
+
+1. **校验输入** —— 若 `inputs.length === 0` 则抛出
+2. **逐资产循环** —— 对每个 `inputs[i]`:
+   - 检查 `execCtx.signal.aborted` → 抛出 `DOMException('Aborted', 'AbortError')`
+   - 调用 `execCtx.onProgress(i / inputs.length, 'Processing i/N')`
+   - `blob = await ctx.runtime.getAssetBlob(asset)`
+   - `outBlob = await operation(blob, params, execCtx.signal)` ← 插件的 Blob→Blob 函数
+   - `metadata = deriveMetadata(asset, outBlob)` ← 默认:从源复制 dimensions,从 outBlob 复制 mime/size/format
+   - `outAsset = await ctx.runtime.createAsset(outBlob, metadata, outputType)`
+   - 推入 outputs
+3. **最终进度** —— `execCtx.onProgress(1, 'Done')`
+4. **返回** `outputs: Asset[]`
+5. **Stub 处理** —— `options.isStub` 传播到 `CapabilityImplementation.status = 'stub'`,因此 `CapabilityRegistry.resolve()` 会跳过它
+
+`BlobCapabilityOptions`:
+
+```typescript
+interface BlobCapabilityOptions {
+  capability: string;        // 'image.resize'
+  engine: string;            // 'canvas'
+  outputType: AssetType;     // 'image'
+  operation: (blob, params: Record<string, unknown>, signal?) => Promise<Blob>;
+  isStub: boolean;           // 通常为 engine.version.includes('stub')
+  deriveMetadata?: (source, outBlob) => AssetMetadata;  // 可选覆盖
+}
+```
+
+`operation` 签名匹配引擎层约定(`Record<string, unknown>` 参数、可选 `AbortSignal`)—— 因此插件作者可以直接把引擎函数透传,无需适配器。根据 `AGENTS.md`,这也是引擎操作必须使用 `Record<string, any>` 而非具体接口的原因:它让 SDK 无需 `as unknown as` 双重断言即可转发参数。
+
+该工厂是消除每个插件重复代码的长期归宿。`plugin-image` / 未来的 `plugin-video`(单类型)/ 未来的 `plugin-pdf`(单类型)都共享它。N→1(`pdf.merge`)和 1→N(`pdf.split`)形态不符合 1→1 模式,仍由这些插件手动实现。
+
+## 完整示例:`@lokvis/plugin-image`
+
+参考插件在 `plugin.ts` + `operations.ts` 中约 70 行。它注册了由 Canvas 引擎支持的 9 个图像能力,以及通过 MetadataReader 机制的一个 EXIF reader。
+
+```typescript
+// packages/plugin-image/src/plugin.ts (abridged)
+import { definePlugin } from '@lokvis/plugin-sdk';
+import { IMAGE_CAPABILITIES } from '@lokvis/capability';
+import { buildImageCapabilityImplementations } from './operations.js';
+import { readExifFromBlob } from './exif-reader.js';
+
+export const PLUGIN_NAME = 'lokvis-image-tools';
+export const PLUGIN_VERSION = '0.1.0';
+export const PLUGIN_ENGINE = 'canvas';
+export const EXIF_READER_NAME = 'image.read-exif';
+
+export function imageToolsPlugin() {
+  return definePlugin(
+    {
+      name: PLUGIN_NAME,
+      version: PLUGIN_VERSION,
+      description: 'Official image tools: resize / compress / ... + EXIF reader',
+      capabilities: IMAGE_CAPABILITIES,           // 9 declarations from @lokvis/capability
+      engine: PLUGIN_ENGINE,
+      permissions: ['asset:read', 'asset:write', 'network:none'],
+    },
+    (ctx) => {
+      // 1. Transform capabilities (Asset→Asset, via CapabilityRegistry + WorkflowExecutor)
+      const impls = buildImageCapabilityImplementations(ctx);
+      for (const impl of impls) ctx.registerCapability(impl);
+
+      // 2. Metadata reader (Asset→ExifData, via Runtime.readAssetExif)
+      ctx.registerMetadataReader(EXIF_READER_NAME, async (asset) => {
+        const blob = await ctx.runtime.getAssetBlob(asset);
+        return readExifFromBlob(blob);
+      });
+
+      ctx.log('info', `Registered ${impls.length} image capabilities + EXIF reader`);
+    }
+  );
+}
+```
+
+```typescript
+// packages/plugin-image/src/operations.ts (abridged)
+import { createBlobCapabilityImpl } from '@lokvis/plugin-sdk';
+import { canvasEngine, resize as opResize, /* ... */ } from '@lokvis/engine-image';
+
+const isStub = canvasEngine.version.includes('stub');   // AGENTS.md convention
+
+export function buildImageCapabilityImplementations(ctx) {
+  return [
+    { capability: 'image.resize',     engine: 'canvas', operation: opResize },
+    { capability: 'image.compress',   engine: 'canvas', operation: opCompress },
+    // ... 7 more
+  ].map((entry) =>
+    createBlobCapabilityImpl(
+      { capability: entry.capability, engine: entry.engine,
+        outputType: 'image', operation: entry.operation, isStub },
+      ctx
+    )
+  );
+}
+```
+
+注意 `operation: opResize` 是直接透传的引擎函数 —— 无包装器、无双重断言。引擎的 `Record<string, any>` 签名使这成为可能。
+
+## MetadataReader —— 只查询异常
+
+一些插件能力是查询,而非变换。EXIF 读取(`Blob → ExifData`)既违反 Engine Blob↔Blob 契约(它产出结构化数据,而非 Blob),也违反 Capability `Asset[] → Asset[]` 契约(它返回 `ExifData`,而非 `Asset[]`)。强制让它走 Capability `execute` 会需要:
+
+- 创建一个临时的 `data` Asset 包装序列化的 ExifData
+- 调用方在读取后手动 `removeAsset()`(泄漏风险)
+- JSON 序列化/反序列化开销
+- 类型保真度丢失(`ExifData` → `unknown` → 转回)
+
+`MetadataReader<T>` 是依赖反转的逃生口:
+
+```typescript
+type MetadataReader<T = unknown> = (asset: Asset) => Promise<T | null>;
+```
+
+插件调用 `ctx.registerMetadataReader('image.read-exif', reader)`。SDK 将其转发到 `runtime._registerMetadataReader(name, reader)`,后者存储在内部 `Map<string, MetadataReader>` 中。runtime 暴露 `readAssetExif(id): Promise<ExifData | null>`,它会:
+
+1. 加载资产,若 `asset.type !== 'image'` 则返回 `null`
+2. 在 readers map 中查找 `'image.read-exif'`
+3. 若未注册 reader 则返回 `null`(优雅降级 —— 插件未安装)
+4. 否则调用 `reader(asset)` 并返回结果
+
+这个模式是任何未来只查询操作(例如 `video.read-codecs`、`pdf.read-outline`)的长期归宿。它保持引擎层纯净(仅 Blob↔Blob)并使能力层聚焦于变换。
+
+## Stub 插件模式
+
+当插件的引擎是 stub 时,`createBlobCapabilityImpl` 会将 `isStub` 传播到 `CapabilityImplementation.status = 'stub'`。stub 检测约定是 `engine.version.includes('stub')`(根据 `AGENTS.md`)。
+
+三层效果:
+
+1. **Plugin 层** —— `IMAGE_CAPABILITY_ENTRIES` 映射到 `engine.version` 包含 `'stub'` 的操作。`createBlobCapabilityImpl` 设置 `status: 'stub'`。
+2. **注册表层** —— `CapabilityRegistry.resolve(name)` 在策略选择之前过滤掉 `status === 'stub'` 的实现。如果只有 stub 存在,返回 `undefined`。
+3. **执行器层** —— `WorkflowExecutor.execute` 检查 `isStubOnly(capability)` 并抛出精确错误:`"Capability 'X' is not yet available (only stub engine registered). Install a real engine plugin to use this capability."`
+
+这让 `runtime.capabilities()` 能广告由 stub 支撑的能力(让用户看到 Phase 2 即将到来的内容),同时防止意外调用。
+
+## Alpha 权限建议
+
+`PluginConfig.permissions` 已声明,但在 Alpha runtime 中**尚未强制执行**。字符串联合覆盖:
+
+| 权限 | 预期含义 |
+| --- | --- |
+| `asset:read` | 从 AssetStore 读取资产 |
+| `asset:write` | 创建 / 修改 / 删除资产 |
+| `network:none` | 无网络访问(离线插件默认) |
+| `network:limited` | 从配置的允许列表 fetch |
+| `network:full` | 不受限网络 |
+| `filesystem:opfs` | 直接 OPFS 访问(绕过 AssetStore 抽象) |
+| `filesystem:local` | 原生文件系统访问(File System Access API) |
+
+在 Alpha 中:
+
+- `asset:read` / `asset:write` **始终被授予** —— `PluginContext.runtime` 无条件暴露相关方法。
+- `network:*` **未强制执行** —— 插件可自由 `fetch()`。期望宿主应用在嵌入层应用 CSP 规则。
+- `filesystem:*` **未强制执行** —— 插件目前没有直接的文件系统 API,但权限为未来扩展保留。
+
+该建议的存在是为了让插件作者现在就声明意图,Lokvis 之后可以在不破坏 manifest 契约的情况下强制执行。Phase 2 将在插件沙箱落地后接入实际强制执行。
+
+## Panels
+
+`definePanel(panel: PanelDefinition): PanelDefinition` 是 UI 扩展的透传工厂:
+
+```typescript
+interface PanelDefinition {
+  id: string;
+  name: string;
+  location: 'sidebar' | 'inspector' | 'toolbar' | 'modal';
+  component: string;          // 由宿主应用解析的组件标识符
+  show?: (context: { selectedAssets: string[] }) => boolean;
+}
+```
+
+Panels 是刻意**声明式**的 —— 插件发出 `PanelDefinition`,宿主应用(`@lokvis/ui-react`)决定如何渲染 `component` 标识符。这让 React 留在插件 SDK 之外,使非 React 宿主(未来的 Vue/Svelte 绑定)可以插入自己的渲染器。
+
+在 Phase 1 Alpha 中,`registerPanel` 记录定义,但官方 UI 尚未解析自定义组件。这是前向的 API 表面;[embed SDK 指南](../guides/embed-sdk)涵盖今天实际接入的内容。
+
+## Vitest 测试模式
+
+根据 `AGENTS.md`,测试使用 Vitest 且 `globals: false`(显式导入)、中文描述,以及 fake 浏览器 API。plugin-image 测试(`packages/plugin-image/src/__tests__/plugin.test.ts`)是规范的参考。模式:
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Asset, CapabilityImplementation, PluginContext } from '@lokvis/schema';
+
+// 1. Mock the engine so tests don't need Canvas / createImageBitmap
+vi.mock('@lokvis/engine-image', () => ({
+  canvasEngine: { version: '0.1.0' },                    // not 'stub'
+  resize: vi.fn(async (blob: Blob) => blob),             // passthrough stub
+  compress: vi.fn(async (blob: Blob) => blob),
+  // ... 7 more operations
+}));
+
+// 2. Import after vi.mock (hoisted)
+const { imageToolsPlugin, PLUGIN_NAME } = await import('../plugin.js');
+const { buildImageCapabilityImplementations } = await import('../operations.js');
+
+// 3. Build a mock PluginContext that captures registrations
+function createMockContext() {
+  const registered: CapabilityImplementation[] = [];
+  const readers = new Map<string, (asset: Asset) => Promise<unknown>>();
+  const logs: Array<{ level: string; message: string }> = [];
+  const ctx: PluginContext = {
+    runtime: {
+      getAsset: vi.fn(async (id: string) => ({ id }) as Asset),
+      getAssetBlob: vi.fn(async (asset: Asset) =>
+        new Blob([new Uint8Array([0])], { type: asset.metadata.mimeType })),
+      createAsset: vi.fn(async (blob, metadata, type) => ({
+        id: `out-${Math.random().toString(36).slice(2)}`,
+        type, metadata,
+        blob: { path: 'memory://x', size: blob.size, mimeType: metadata.mimeType },
+        history: [], tags: [],
+        createdAt: Date.now(), updatedAt: Date.now(),
+      }) as Asset),
+      listCapabilities: vi.fn(async () => []),
+      importAsset: vi.fn(async () => 'asset-id'),
+    },
+    eventBus: { on: vi.fn(), onAny: vi.fn(), emit: vi.fn(), clear: vi.fn() },
+    registerCapability: vi.fn((impl) => registered.push(impl)),
+    registerMetadataReader: vi.fn((name, reader) => readers.set(name, reader)),
+    registerPanel: vi.fn(),
+    log: vi.fn((level, message) => logs.push({ level, message })),
+  };
+  return { ctx, registered, readers, logs };
+}
+
+describe('imageToolsPlugin 定义', () => {
+  it('应暴露正确的插件常量', () => {
+    expect(PLUGIN_NAME).toBe('lokvis-image-tools');
+    // ...
+  });
+
+  it('config.capabilities 应包含全部 9 个图像能力声明', () => {
+    const plugin = imageToolsPlugin();
+    expect(plugin.config.capabilities).toHaveLength(9);
+  });
+
+  it('installer 应注册 9 个实现 + 1 个 EXIF reader', () => {
+    const { ctx, registered, readers } = createMockContext();
+    imageToolsPlugin().install(ctx);
+    expect(registered).toHaveLength(9);
+    expect(readers.has('image.read-exif')).toBe(true);
+  });
+});
+```
+
+模式:在模块边界 mock 引擎,在 `vi.mock` 之后动态导入,并断言 `install(ctx)` 产生正确的注册。mock context 捕获每次 `registerCapability` / `registerMetadataReader` / `log` 调用,使测试可以断言副作用而无需启动一个真实的 runtime。
+
+## 故意未包含的内容
+
+- **不导入 React / Redux。** 插件仅通过 `PluginContext` 和 `eventBus` 通信。
+- **不导入 Cloud / cloud-sdk。** `lokvis-open` ↔ `lokvis-cloud` 边界在包级别强制执行。
+- **尚无沙箱。** Alpha 插件运行在与宿主相同的 JS realm 中。Phase 2 将引入权限强制执行。
+- **无动态加载。** 插件作为已导入的 `{ config, install }` 对象传递给 `createLokvis({ plugins })` 或 `loadPlugin()`。未来的插件市场工作可能添加动态 `import()` 加载,但那是 Alpha 之后的事。

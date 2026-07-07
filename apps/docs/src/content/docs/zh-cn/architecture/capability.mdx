@@ -1,0 +1,270 @@
+---
+title: Capability
+description: 深入剖析 @lokvis/capability 与 CapabilityRegistry —— Capability 形状、8 种 CapabilityParam 类型、Phase 1 目录(image/asset/developer 真实,video/pdf stub)、11 个辅助函数、63 个平台预设、解析流程、3 层工作流校验,以及 MCP manifest 生成。
+draft: false
+head: []
+---
+
+import Mermaid from '../../../../components/Mermaid.astro';
+import MermaidScript from '../../../../components/MermaidScript.astro';
+
+<MermaidScript />
+
+`@lokvis/capability` 是 Runtime 层与 Engine 层之间的桥梁。它定义**存在哪些操作**(声明式 `Capability` 对象),而不知道**它们如何运行**(那是 Engine 的职责)。Runtime 从不导入 FFmpeg 或 Squoosh —— 它只触碰 `Capability` 形状。本文档映射了本包、位于上一层 `@lokvis/runtime` 中的注册表,以及将它们串联起来的 `@lokvis/schema` 中的校验 + MCP-manifest 机制。
+
+> **Phase 1 状态:** 9 个 image 能力 ✅ 稳定 · 2 个 asset 能力 ✅ 稳定 · 4 个 developer 能力 ✅ 稳定(仅声明)· 7 个 video 能力 stub · 7 个 PDF 能力 stub。面向用户的列表见 [Capabilities 参考](../capabilities)。
+
+## 模块映射表
+
+| 文件 | 导出 | 角色 |
+| --- | --- | --- |
+| `names.ts` | `CAPABILITY_DOMAINS`, `CapabilityDomain`, `CAPABILITY_NAMES`, `CapabilityNameKey`, `domainOf`, `actionOf`, `sameDomain` | 命名约定 + 名称常量 |
+| `helpers.ts` | `filterByDomain`, `filterByInputType`, `filterByPerformance`, `groupByDomain`, `findCapability`, `isBatchable`, `requiredParams`, `optionalParams`, `defaultParams`, `mergeParams`, `validateParams` | 11 个查询/过滤工具 |
+| `presets/image.ts` | `IMAGE_RESIZE` … `IMAGE_FILTER`, `IMAGE_CAPABILITIES` | 9 个图像能力预设 |
+| `presets/asset.ts` | `ASSET_RENAME`, `ASSET_ARCHIVE`, `ASSET_CAPABILITIES` | 2 个跨类型资产能力 |
+| `presets/developer.ts` | `DEV_INSPECT_CAPABILITIES`, `DEV_INSPECT_ASSET`, `DEV_VALIDATE_WORKFLOW`, `DEV_PROFILE`, `DEVELOPER_CAPABILITIES` | 4 个开发者工具能力 |
+| `presets/video.ts` | `VIDEO_COMPRESS` … `VIDEO_TO_GIF`, `VIDEO_CAPABILITIES` | 7 个视频能力预设(Phase 1 中仅 stub) |
+| `presets/pdf.ts` | `PDF_MERGE` … `PDF_SIGN`, `PDF_CAPABILITIES` | 7 个 PDF 能力预设(Phase 1 中仅 stub) |
+| `presets/platform.ts` | `PLATFORM_PRESETS`, `PlatformSizePreset`, `PlatformPresetCategory`, `findPlatformPreset`, `listPlatforms`, `groupPlatformPresetsByCategory`, `groupPlatformPresetsByPlatform`, `PLATFORM_PRESET_CATEGORY_LABELS` | 63 个平台尺寸预设 + 分组辅助 |
+| `presets/builtin.ts` | `BUILTIN_CAPABILITIES` | 所有领域预设的聚合数组 |
+| `presets/index.ts` | 重新导出 | 预设聚合入口 |
+| `index.ts` | 重新导出全部内容 | 包入口 |
+
+`CapabilityRegistry` 类本身位于 `@lokvis/runtime`(`runtime/src/capability-registry.ts`)—— 见 [Runtime → CapabilityRegistry](./runtime#2-capabilityregistry--resolve-flow)。本包只交付**声明**;持有实现的注册表是 Runtime 的关注点,因为它必须与执行器和 stub 跳过策略协调。
+
+## `Capability` 形状
+
+```typescript
+interface Capability {
+  name: CapabilityName;          // '<domain>.<action>',例如 'image.resize'
+  description: string;
+  inputTypes: AssetType[];       // 接受这些资产类型
+  outputTypes: AssetType[];      // 产出这些资产类型
+  params: CapabilityParam[];     // 参数 schema
+  performance: PerformanceLevel; // 'fast' | 'medium' | 'slow'
+  batchable?: boolean;           // 可在单次调用中处理 N 个输入
+  mcpExposure?: 'public' | 'private' | 'batch-only';
+  mcpToolName?: string;          // 覆盖默认 lokvis_<name> 工具名
+}
+```
+
+`name` 遵循由 `names.ts` 强制执行的 `<domain>.<action>` 约定:
+
+- `domain` 与 `AssetType` 对齐(`image` / `video` / `audio` / `pdf` / `text` / `data`),或是跨切领域(`asset` 用于与类型无关的操作,`ai` 用于 AI 驱动的操作,`developer` 用于诊断)。
+- `action` 是一个动词或动词短语(`resize`、`extract-audio`、`inspect.capabilities`)。
+- `domainOf('image.resize') === 'image'`,`actionOf('image.resize') === 'resize'`,`sameDomain('image.resize', 'image.crop') === true`。
+
+`inputTypes` / `outputTypes` 驱动[工作流兼容性检查](#3-layer-workflow-validation)以及 UI 中"哪些能力适用于我选中的资产"过滤器(`filterByInputType`)。`asset.rename` 接受所有资产类型并输出相同类型 —— 它是规范的类型保留能力。
+
+`performance` 是一个**声明**,而非测量值。它喂给 `CapabilityRegistry.resolve()` 中的 `EngineSelectionStrategy = 'balanced'` 模式,并作为 UI 提示呈现(⚡ fast / 🐢 slow)。引擎实现可通过 `CapabilityImplementation.performance` 按实现覆盖它。
+
+`batchable: true` 意味着单次 `execute(inputs: Asset[], ...)` 调用会处理整个数组。Runtime 中的 `BatchProcessor` 用它来决定是将一个作业作为单个单元入队,还是按资产拆分。
+
+### MCP 暴露
+
+`mcpExposure` 控制 `runtime.toMcpManifest(options)` 中的可见性:
+
+| 值 | 默认? | 在 `toMcpManifest()` 中 | 在 `toMcpManifest({ batchMode: true })` 中 |
+| --- | --- | --- | --- |
+| `'public'` | 是 | ✅ | ✅ |
+| `'batch-only'` | — | ❌ | ✅ |
+| `'private'` | — | ❌ | ❌ |
+
+`'batch-only'` 适用于像 `asset.archive`(zip 打包)这种对单文件无意义的能力 —— 在单文件 MCP 模式下暴露它们会诱导误用。`mcpToolName` 覆盖让能力作者可以选择更友好的工具名(例如 `lokvis_compress_image` 而非 `lokvis_image_compress`)。
+
+## `CapabilityParam` —— 8 种类型
+
+```typescript
+type CapabilityParamType =
+  | 'number'   | 'string' | 'boolean'
+  | 'enum'     | 'color'  | 'file'
+  | 'array'    | 'object';
+
+interface CapabilityParam {
+  name: string;
+  type: CapabilityParamType;
+  description?: string;
+  required?: boolean;
+  default?: unknown;
+  min?: number;          // 仅 number 类型
+  max?: number;          // 仅 number 类型
+  values?: string[];     // 仅 enum 类型
+  items?: CapabilityParamType;  // 仅 array 类型(元素类型)
+}
+```
+
+| 类型 | JSON Schema 映射 | UI 渲染 |
+| --- | --- | --- |
+| `number` | `{ type: 'number', minimum, maximum }` | `<Slider>` 或 `<input type="number">` |
+| `string` | `{ type: 'string' }` | `<input type="text">` |
+| `boolean` | `{ type: 'boolean' }` | `<Toggle>` |
+| `enum` | `{ type: 'string', enum: values }` | `<Select>` |
+| `color` | `{ type: 'string', format: 'color' }` | `<input type="color">` |
+| `file` | `{ type: 'string' }`(描述为文件路径) | `<input type="file">` |
+| `array` | `{ type: 'array', items: { ...items } }` | 列表编辑器 |
+| `object` | `{ type: 'object' }` | JSON 编辑器 |
+
+`color` 和 `file` 是 Lokvis 对 JSON Schema 的扩展。MCP manifest 生成器(位于 `@lokvis/runtime/runtime.ts`)将它们映射到标准 JSON Schema 类型,这样外部 MCP 客户端就不会出错。`validateParams(cap, params)` 返回任何缺失的必填参数名 —— 用于工作流编辑器的预检。
+
+## Phase 1 能力目录
+
+| 领域 | 数量 | 状态 | 能力 |
+| --- | --- | --- | --- |
+| `image.*` | 9 | ✅ 稳定(Canvas 引擎) | `resize`, `compress`, `convert`, `crop`, `rotate`, `flip`, `watermark`, `background`, `filter` |
+| `asset.*` | 2 | ✅ 稳定 | `rename`(基于模式)、`archive`(zip 打包) |
+| `developer.*` | 4 | ✅ 已声明(Phase 4 workspace) | `inspect.capabilities`, `inspect.asset`, `validate.workflow`, `profile` |
+| `video.*` | 7 | 🚧 stub(Phase 2 ffmpeg.wasm) | `compress`, `transcode`, `trim`, `merge`, `extract-audio`, `to-gif`, `screenshot` |
+| `pdf.*` | 7 | 🚧 stub(Phase 2 pdf-lib) | `merge`, `split`, `compress`, `rotate`, `watermark`, `ocr`, `sign` |
+
+所有 image 能力都声明 `performance: 'fast'` 和 `batchable: true` —— Canvas 操作在典型输入上是亚秒级的,并在资产间可轻松并行化。video 能力声明 `performance: 'slow'`(转码是分钟级)且大多数 `batchable: true`,除了 `merge`(N→1,不是按资产的操作)。
+
+`BUILTIN_CAPABILITIES` 以固定顺序(image → pdf → video → asset → developer)聚合所有五个领域数组。这是 `@lokvis/sdk` 在未指定插件时默认注册的数组。
+
+## 11 个辅助函数
+
+`helpers.ts` 为 UI / 工作流编辑器 / AI 生成器消费者提供纯工具函数。它们都不会修改输入。
+
+| 函数 | 返回 | 用例 |
+| --- | --- | --- |
+| `filterByDomain(caps, domain)` | `Capability[]` | 在图像工具页只显示图像能力 |
+| `filterByInputType(caps, type)` | `Capability[]` | 只显示适用于选中资产的能力 |
+| `filterByPerformance(caps, level)` | `Capability[]` | 为即时预览模式过滤为仅 fast |
+| `groupByDomain(caps)` | `Map<string, Capability[]>` | 按领域分组渲染能力选择器 |
+| `findCapability(caps, name)` | `Capability \| undefined` | 按名称查找 |
+| `isBatchable(cap)` | `boolean` | 决定作为单个批入队还是按资产 |
+| `requiredParams(cap)` | `CapabilityParam[]` | 渲染必填参数表单字段 |
+| `optionalParams(cap)` | `CapabilityParam[]` | 渲染可选参数表单字段 |
+| `defaultParams(cap)` | `Record<string, unknown>` | 用默认值预填表单 |
+| `mergeParams(cap, userParams)` | `Record<string, unknown>` | 在用户提供的值之下应用默认值 |
+| `validateParams(cap, params)` | `string[]`(缺失名称) | 工作流执行前的预检 |
+
+## 63 个平台预设
+
+`presets/platform.ts` 提供跨 5 个类别的 63 个尺寸预设,来源于平台创建者文档(2026 年公开数据)。每个预设与任何具体能力解耦 —— 同一个 `youtube.thumbnail` 预设可驱动 `image.resize`(fit)或 `image.crop`(center crop)。
+
+```typescript
+interface PlatformSizePreset {
+  id: string;                  // 'youtube.thumbnail'(全局唯一)
+  platform: string;            // 'YouTube'
+  name: string;                // 'Thumbnail (1280×720)'
+  width: number;
+  height: number;
+  category: 'social' | 'ecommerce' | 'video' | 'print' | 'other';
+  description?: string;
+  recommendedFormat?: 'png' | 'jpeg' | 'webp';
+  recommendedFit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
+}
+```
+
+| 类别 | 覆盖范围 |
+| --- | --- |
+| `social` | YouTube、Instagram、TikTok、Twitter/X、LinkedIn、Facebook、Pinterest…… |
+| `ecommerce` | Shopify、Etsy、Amazon、eBay…… |
+| `video` | 视频平台缩略图与频道艺术尺寸 |
+| `print` | DPI 感知尺寸(A4、A3、名片、照片冲印) |
+| `other` | 通用 web banner、favicon、应用图标 |
+
+分组辅助:
+
+- `groupPlatformPresetsByCategory(presets)` → `Map<PlatformPresetCategory, PlatformSizePreset[]>`
+- `groupPlatformPresetsByPlatform(presets)` → `Map<string /* platform */, PlatformSizePreset[]>`
+- `findPlatformPreset(presets, id)` → `PlatformSizePreset | undefined`
+- `listPlatforms(presets)` → `string[]`(按插入顺序的唯一平台名)
+- `PLATFORM_PRESET_CATEGORY_LABELS` → 每个类别的人类可读标签,用于 UI 下拉
+
+平台推荐尺寸会随时间漂移;将它们集中在一个文件中意味着更新只触及单一可信源。
+
+## CapabilityRegistry 解析流程
+
+注册表位于 `@lokvis/runtime` 中,但在此处文档化,因为它是本包声明的 Runtime 对应物。两阶段注册与插件生命周期匹配:
+
+```typescript
+registry.registerCapability(capability);   // 声明形状(幂等:重复会抛出)
+registry.registerImplementation(impl);     // 附加引擎支持的 execute 函数
+```
+
+`resolve(name, preferredEngine?)` 运行在 [Runtime → CapabilityRegistry](./runtime#2-capabilityregistry--resolve-flow) 中描述的三阶段流水线:过滤 stub → 尝试 `preferredEngine` → 回退到 `defaultStrategy`(`'first'` / `'fastest'` / `'balanced'`)。
+
+`EngineSelectionStrategy` 模式:
+
+| 策略 | 行为 |
+| --- | --- |
+| `'first'`(默认) | 返回 `available[0]` —— 注册顺序,确定性,保留现有行为 |
+| `'fastest'` | 按 `PERFORMANCE_RANK` 排序(`fast=0, medium=1, slow=2`);平局保持注册顺序(稳定排序) |
+| `'balanced'` | 优先选择 `performance` 与能力声明匹配的实现;若无匹配则回退到 `'fastest'` |
+
+`CapabilityImplementation.performance`(可选)为该具体引擎覆盖能力声明的 `performance`。这让一个 WASM 引擎可以为 `image.compress` 声明 `'medium'`,而 Canvas 引擎为同一能力声明 `'fast'` —— balanced 策略会为 fast 层需求选择 Canvas,为 quality 层需求选择 WASM。
+
+## 3 层工作流校验
+
+`@lokvis/schema/validators.ts` 导出 `validateWorkflow(data, options?)`,返回 `SafeParseReturnType` 形状的结果(`{ success: true, data } | { success: false, error: { issues } }`)。校验器按顺序运行五项检查;第一个失败的检查会短路:
+
+<Mermaid source={`flowchart TD
+  A["validateWorkflow(data, options)"] --> B["1. Zod shape\nworkflowSchema.safeParse"]
+  B -->|fail| X["return { success: false, error: zodError }"]
+  B -->|pass| C["2. Reserved-id guard\n__input__ / __output__ / __start__ / __end__"]
+  C --> D["3. Node id uniqueness"]
+  D --> E["4. Edge references + self-loop"]
+  E --> F["5. DAG: topological sort covers all nodes?"]
+  F -->|cycle| Y["push error: only N/M nodes reachable"]
+  F -->|acyclic| G{"options.maxSteps set?"}
+  G -- yes --> H["check nodes.length <= maxSteps"]
+  G -- no --> I
+  H --> I{"options.resolveCapability provided?"}
+  I -- yes --> J["5a. input node inputTypes ⊇ workflow.inputs.type\n5b. edge from.outputTypes ∩ to.inputTypes ≠ ∅\n5c. output node outputTypes ⊇ workflow.outputs.type\n(unless output is 'archive')\n5d. unknown capability → push error"]
+  I -- no --> K
+  J --> K{"errors.length > 0?"}
+  K -- yes --> Y2["return { success: false, error: { issues: errors } }"]
+  K -- no --> Z["return { success: true, data: wf }"]
+`} />
+
+第五项检查是**能力兼容性** —— 仅当调用方提供 `resolveCapability(name)` 回调时才运行(Runtime 这样做以注入其 `CapabilityRegistry.get(name)`)。它校验三个边界条件:
+
+- **输入节点(入度 0):** `cap.inputTypes` 必须包含 `workflow.inputs.type`
+- **相邻边:** `from.capability.outputTypes` ∩ `to.capability.inputTypes` 必须非空
+- **输出节点(出度 0):** `cap.outputTypes` 必须包含 `workflow.outputs.type`(当输出类型为 `'archive'` 时跳过,该类型为 zip 打包场景接受任何内容)
+
+schema 包不能导入 `@lokvis/capability` 或 `@lokvis/runtime`(那会违反五层规则),因此回调注入模式保持了依赖方向的纯净。
+
+Runtime 在 `run()` 顶部以 `maxSteps: MAX_WORKFLOW_STEPS = 5` 和绑定到其注册表的 `resolveCapability` 调用 `validateWorkflow`。结构性问题会作为精确错误呈现("Edge from `__input__` references a reserved sentinel id"),而不是被执行器的拓扑排序误诊为环。
+
+## MCP manifest 生成
+
+`runtime.toMcpManifest(options?)` 遍历 `capabilityRegistry.list()`,按 `mcpExposure` 过滤,并产出 `McpManifest`:
+
+```typescript
+interface McpManifest {
+  serverName: 'lokvis';
+  version: RUNTIME_VERSION;
+  tools: McpToolManifest[];
+  resources: [
+    { uri: 'lokvis://capabilities', name: 'Capabilities', mimeType: 'application/json' },
+    { uri: 'lokvis://workflows',    name: 'Workflows',    mimeType: 'application/json' },
+  ];
+}
+
+interface McpToolManifest {
+  name: string;            // cap.mcpToolName ?? `lokvis_${name.replace(/\./g, '_')}`
+  description: string;
+  inputSchema: object;     // 由 CapabilityParam[] 生成的 JSON Schema
+  capabilities: string[];  // 支撑的能力名
+}
+```
+
+`capabilityParamsToJsonSchema(params)`(`runtime.ts` 中的私有辅助)将每个 `CapabilityParam` 映射到一个 JSON Schema 属性:
+
+- `color` → `{ type: 'string', format: 'color' }`
+- `file` / `enum` → `{ type: 'string' }`(enum 的 `values[]` 成为 `prop.enum`)
+- `array` → `{ type: 'array', items: { ...items mapped } }`(递归,因此 `array<color>` 可工作)
+- `number` → `{ type: 'number', minimum, maximum }`(仅 number 类型参数有 `min`/`max`)
+- `string` / `boolean` / `object` → 同名 JSON Schema 类型
+- 未知类型 → 降级为 `{ type: 'string' }`(永不产生无效的 JSON Schema)
+
+`required: string[]` 由带 `required: true` 的参数构造。manifest 是**同步**计算的(它是内存注册表的纯投影)—— `toMcpManifest` 是 `LokvisRuntime` 上唯一的非 async 方法,正是为此。MCP 服务器与文档站点都消费它。
+
+## 故意未包含的内容
+
+- **不导入引擎。** 本包从不触碰 Canvas、FFmpeg 或任何具体引擎。
+- **无 `execute` 实现。** 能力是声明式的;`CapabilityImplementation.execute` 位于 Plugin 包(`@lokvis/plugin-image` 等)。
+- **无工作流执行。** 本包塑造能力;执行器位于 `@lokvis/runtime`。
+- **无持久化。** 能力是在插件加载时注册的内存中声明。
