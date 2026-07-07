@@ -11,11 +11,11 @@ This guide walks you through installing Lokvis, running the playground, and embe
 
 ## Prerequisites
 
-- **Node.js** ≥ 22 LTS(推荐 22.x)
-- **pnpm** ≥ 9.12.0(`corepack enable && corepack prepare pnpm@9.12.0 --activate`)
-- **Browser**:任何支持 OffscreenCanvas + createImageBitmap + OPFS 的现代浏览器(Chrome 102+ / Edge 102+ / Safari 16.4+ / Firefox 111+)
+- **Node.js** ≥ 22 LTS (22.x recommended)
+- **pnpm** ≥ 9.12.0 (`corepack enable && corepack prepare pnpm@9.12.0 --activate`)
+- **Browser**: Any modern browser supporting OffscreenCanvas + createImageBitmap + OPFS (Chrome 102+ / Edge 102+ / Safari 16.4+ / Firefox 111+)
 
-> Lokvis 是 local-first 工具,**所有处理在浏览器中完成,不上传文件**。
+> Lokvis is a local-first tool — **all processing happens in the browser; no files are uploaded**.
 
 ## 1. Clone & Install
 
@@ -25,7 +25,7 @@ cd lokvis
 pnpm install
 ```
 
-仓库是 pnpm monorepo,包含 18+ `@lokvis/*` 包 + `apps/playground` Astro 应用。
+The repository is a pnpm monorepo containing 18+ `@lokvis/*` packages plus the `apps/playground` Astro app.
 
 ## 2. Run the Playground
 
@@ -34,32 +34,32 @@ pnpm dev --filter @lokvis/playground
 # → http://localhost:5601/playground
 ```
 
-Playground 提供:
-- 8 个工具页(resize / compress / convert / crop / watermark / 批量水印 / 批量处理 / 下载)
-- Workflow 编辑器(拖拽 + 模板 + 分享链接)
-- History 面板(undo/redo)
-- 隐私指示器(离线检测 + Local-only badge)
+The playground provides:
+- 8 tool pages (resize / compress / convert / crop / watermark / batch watermark / batch processing / download)
+- Workflow editor (drag-and-drop + templates + share links)
+- History panel (undo/redo)
+- Privacy indicator (offline detection + Local-only badge)
 
 ## 3. Build & Test
 
 ```bash
-pnpm typecheck   # 全量类型检查(36 包)
-pnpm build       # 构建(20 任务)
-pnpm test        # 运行测试(777 测试)
-pnpm test:coverage  # 覆盖率(lines 91%+ / branches 88%+)
+pnpm typecheck   # Full type check (36 packages)
+pnpm build       # Build (20 tasks)
+pnpm test        # Run tests (777 tests)
+pnpm test:coverage  # Coverage (lines 91%+ / branches 88%+)
 ```
 
 ## 4. Embed the Runtime SDK
 
-`@lokvis/sdk` 是将 Lokvis Runtime 嵌入任何 Web 应用的最简方式。
+`@lokvis/sdk` is the easiest way to embed the Lokvis Runtime in any web app.
 
-### 安装
+### Install
 
 ```bash
 pnpm add @lokvis/sdk @lokvis/plugin-image
 ```
 
-### 最小示例
+### Minimal example
 
 ```typescript
 import { createLokvis } from '@lokvis/sdk';
@@ -69,10 +69,10 @@ const lokvis = await createLokvis({
   plugins: [imageToolsPlugin()],
 });
 
-// 导入文件
+// Import file
 const assetId = await lokvis.importAsset({ kind: 'file', file });
 
-// 定义工作流(线性 5 步上限)
+// Define a workflow (linear, 5-step max)
 const workflow = {
   id: 'demo',
   name: 'Web Optimize',
@@ -92,14 +92,14 @@ const workflow = {
   ],
 };
 
-// 执行
+// Run
 const result = await lokvis.run(workflow, [assetId]);
 const outputBlob = await lokvis.exportAsset(result.outputs[0]);
 ```
 
 ## 5. Use the Workspace UI
 
-`@lokvis/ui-react` 提供完整的 Workspace 组件,可嵌入任意 React 19 应用。
+`@lokvis/ui-react` provides a complete Workspace component that can be embedded in any React 19 app.
 
 ```bash
 pnpm add @lokvis/ui-react @lokvis/plugin-image
@@ -122,11 +122,11 @@ function App() {
 }
 ```
 
-`Workspace` 提供 5 个 `enable*` prop 可按需关闭子功能,适配移动端抽屉模式。
+`Workspace` exposes 5 `enable*` props that let you toggle sub-features on demand, including a mobile drawer mode.
 
-## 6. Sentry 监控(可选)
+## 6. Sentry Monitoring (optional)
 
-Playground 已内置 Sentry 接入(W12.3)。部署时配置 DSN 即可启用:
+The playground ships with Sentry integration built in (W12.3). Configure the DSN at deploy time to enable it:
 
 ```bash
 # apps/playground/.env
@@ -134,28 +134,28 @@ PUBLIC_SENTRY_DSN=https://your-key@sentry.io/project-id
 PUBLIC_SENTRY_RELEASE=playground@0.1.0
 ```
 
-未配置 DSN 时整个模块退化为 no-op,本地开发与自托管用户零侵入。详见 [W12.3 设计](https://github.com/lokvis/lokvis/blob/dev/docs/PROJECT_PLAN.md#123-sentry-监控接入)。
+When no DSN is configured, the entire module becomes a no-op — zero overhead for local development and self-hosted users. See the [W12.3 design](https://github.com/lokvis/lokvis/blob/dev/docs/PROJECT_PLAN.md#123-sentry-监控接入).
 
-## 7. 下一步
+## 7. Next Steps
 
-- [Architecture](./architecture) — 五层架构、Worker 隔离、HistoryStack、AssetStore 三级降级
-- [SDK](./sdk) — `@lokvis/sdk` 完整 API 参考
-- [MCP Integration](https://github.com/lokvis/lokvis/blob/dev/docs/mcp-integration.md) — 将 Lokvis 能力暴露给 Claude / ChatGPT / Cursor
-- [Plugin Development](https://github.com/lokvis/lokvis/blob/dev/docs/plugins.md) — Plugin SDK 结构与 PluginContext API
-- [Project Plan](https://github.com/lokvis/lokvis/blob/dev/docs/PROJECT_PLAN.md) — Phase 1 24 周小时级任务拆分
+- [Architecture](./architecture) — Five-layer architecture, Worker isolation, HistoryStack, and the AssetStore three-tier fallback
+- [SDK](./sdk) — Full API reference for `@lokvis/sdk`
+- [MCP Integration](https://github.com/lokvis/lokvis/blob/dev/docs/mcp-integration.md) — Expose Lokvis capabilities to Claude / ChatGPT / Cursor
+- [Plugin Development](https://github.com/lokvis/lokvis/blob/dev/docs/plugins.md) — Plugin SDK structure and the PluginContext API
+- [Project Plan](https://github.com/lokvis/lokvis/blob/dev/docs/PROJECT_PLAN.md) — Phase 1 hour-level task breakdown across 24 weeks
 
-## 故障排查
+## Troubleshooting
 
-| 问题 | 原因 | 解决 |
+| Problem | Cause | Solution |
 |------|------|------|
-| `pnpm install` 报 `ERR_PNPM_OUTDATED_LOCKFILE` | lockfile 与 package.json 不同步 | `pnpm install --no-frozen-lockfile` |
-| Playground 白屏 + Console 报 `SharedArrayBuffer is not defined` | 未配 COOP/COEP | `apps/playground/astro.config.mjs` 已配,生产部署需在 CDN `_headers` 配 |
-| `createLokvis` 报 `CAPABILITY_NOT_REGISTERED` | 未加载 plugin | `plugins: [imageToolsPlugin()]` |
-| Worker 崩溃重启后仍失败 | 浏览器内存不足 | 减小批量并发数 / 用更小源图 |
-| `STORAGE_QUOTA_EXCEEDED` | OPFS/IDB 配额满 | `lokvis.removeAsset(id)` 清理 / 调高 `storageQuota` |
+| `pnpm install` reports `ERR_PNPM_OUTDATED_LOCKFILE` | lockfile out of sync with package.json | `pnpm install --no-frozen-lockfile` |
+| Playground white screen + console reports `SharedArrayBuffer is not defined` | COOP/COEP not configured | Already configured in `apps/playground/astro.config.mjs`; production deployments must add it to the CDN `_headers` file |
+| `createLokvis` reports `CAPABILITY_NOT_REGISTERED` | Plugin not loaded | `plugins: [imageToolsPlugin()]` |
+| Worker crashes and still fails after restart | Browser out of memory | Reduce batch concurrency / use a smaller source image |
+| `STORAGE_QUOTA_EXCEEDED` | OPFS/IDB quota full | `lokvis.removeAsset(id)` to clean up / raise `storageQuota` |
 
-## 反馈
+## Feedback
 
-- 🐛 Bug:[GitHub Issues](https://github.com/lokvis/lokvis/issues)
-- 💬 讨论:[GitHub Discussions](https://github.com/lokvis/lokvis/discussions)
-- 📧 邮件:hello@lokvis.com
+- 🐛 Bugs: [GitHub Issues](https://github.com/lokvis/lokvis/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/lokvis/lokvis/discussions)
+- 📧 Email: hello@lokvis.com
