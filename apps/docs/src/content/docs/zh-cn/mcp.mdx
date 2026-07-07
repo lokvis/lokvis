@@ -1,0 +1,165 @@
+---
+title: MCP 集成
+description: 通过 Model Context Protocol 向 AI 客户端(Claude / ChatGPT / Cursor)暴露 Lokvis 能力。
+draft: false
+head: []
+---
+
+import Mermaid from '../../../components/Mermaid.astro';
+import MermaidScript from '../../../components/MermaidScript.astro';
+
+<MermaidScript />
+
+# MCP 集成
+
+Lokvis 提供一个 MCP(Model Context Protocol)服务器,让 AI 客户端 —— Claude Desktop、ChatGPT、Cursor、Windsurf —— 直接调用 Lokvis 的本地文件处理能力。文件始终保留在用户机器上,不上传任何内容。
+
+> **状态:**Phase 2 P0。`@lokvis/mcp-server` 包骨架已在本仓库中;工具实现与 Claude Desktop 集成测试在 Phase 2 W5-W12 落地。完整设计见 [`docs/AI生态冲击调整方案.md`](https://github.com/lokvis/lokvis/blob/dev/docs/AI生态冲击调整方案.md)。
+
+## 为什么选 MCP?
+
+AI 生态在 2026 年发生转向:MCP 成为工具集成的事实标准,AI 智能体已能自行编排一次性任务。Lokvis 不与 AI 竞争,而是将自身定位为 **AI 的本地执行引擎** —— 处理 AI 不擅长的事情:
+
+- 批量处理 100+ 个文件
+- 大文件(>50MB 视频)
+- 隐私敏感场景(文件从不离开浏览器)
+- 确定性工作流(便于审计)
+- 离线场景
+- 细粒度参数控制(DPI / EXIF / 色彩空间)
+
+## 架构
+
+Lokvis 采用 **混合架构(mode E)**:浏览器优先,Node.js 兜底。
+
+<Mermaid source={`graph LR
+  A[AI Client] -->|MCP Protocol<br/>JSON-RPC over stdio| B[@lokvis/mcp-server<br/>Node.js]
+  B -->|Internal API| C[@lokvis/sdk Runtime]
+  C --> D[engine-image / engine-pdf]
+  D --> E[Local WASM/Canvas Processing]
+`} />
+
+### 模式 1:浏览器连接(完整能力)
+
+当用户在浏览器标签页中打开 `lokvis.app` 时,MCP 服务器通过 WebSocket 将工具调用转发至浏览器。浏览器 Runtime 使用 WASM/Canvas/OPFS —— 完整能力集。
+
+### 模式 2:Node.js 兜底(基础能力)
+
+当没有浏览器连接时,MCP 服务器直接在 Node.js 中使用 `sharp`(图像)和 `pdf-lib`(PDF)执行。此模式不支持视频与音频。
+
+`ToolRouter` 自动选择路径:浏览器优先、Node 兜底,若两者均不支持该能力则报错。
+
+## 快速开始
+
+### 1. 安装
+
+```bash
+npm install @lokvis/mcp-server
+# or run without installing
+npx @lokvis/mcp-server
+```
+
+### 2. Claude Desktop 配置
+
+编辑 `~/Library/Application Support/Claude/claude_desktop_config.json`(macOS)或你所用平台上的等价文件:
+
+```json
+{
+  "mcpServers": {
+    "lokvis": {
+      "command": "npx",
+      "args": ["-y", "@lokvis/mcp-server"],
+      "env": {
+        "LOKVIS_WORKDIR": "/Users/you/Documents"
+      }
+    }
+  }
+}
+```
+
+### 3. Cursor 配置
+
+编辑 `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "lokvis": {
+      "command": "npx",
+      "args": ["-y", "@lokvis/mcp-server@latest"]
+    }
+  }
+}
+```
+
+重启 AI 客户端后,Lokvis 工具即可用。
+
+## 可用工具
+
+| 工具 | 说明 | 示例提示 |
+|---|---|---|
+| `lokvis_compress_image` | 本地压缩图像(目标大小 / 质量 / 格式) | "把 image.jpg 压缩到 100KB 以下" |
+| `lokvis_resize_image` | 调整图像尺寸(预设或自定义) | "调整为 1920x1080" |
+| `lokvis_convert_image` | 转换格式(WebP / AVIF / PNG / JPEG) | "把 PNG 转为 WebP" |
+| `lokvis_batch_process` | 批量处理最多 100 个文件 | "压缩 /photos 下的所有图像" |
+| `lokvis_run_workflow` | 执行已保存的工作流 | "运行我的 web-optimize 工作流" |
+
+## 资源
+
+服务器还暴露两个 MCP 资源:
+
+- `lokvis://capabilities` — 所有可用能力的 JSON 列表
+- `lokvis://workflows` — 已保存工作流的 JSON 列表
+
+## Runtime API:`toMcpManifest()`
+
+Lokvis Runtime 暴露一个 `toMcpManifest()` 方法,返回描述哪些能力可通过 MCP 暴露的清单。适用于:
+
+1. MCP 服务器在注册工具前探测能力
+2. 仪表盘展示"AI 可调用的能力"
+3. 文档站自动生成工具列表
+
+```typescript
+import { createLokvis } from '@lokvis/sdk';
+
+const lokvis = await createLokvis({ plugins: [pluginImage] });
+const manifest = lokvis.toMcpManifest();
+
+console.log(manifest.tools);
+// [
+//   { name: 'lokvis_image_resize', description: '...', inputSchema: {...}, capabilities: ['image.resize'] },
+//   { name: 'lokvis_image_compress', ... },
+//   ...
+// ]
+```
+
+能力可通过可选的 `mcpExposure` 字段退出 MCP 暴露:
+
+- `'public'`(默认)— 暴露给 MCP
+- `'private'` — 永不暴露(内部 / 危险能力)
+- `'batch-only'` — 仅在批量模式下暴露
+
+## 运行模式
+
+### stdio 模式(默认,推荐)
+
+面向桌面端 AI 客户端(Claude Desktop、Cursor、Windsurf)。服务器从 stdin 读取 JSON-RPC 请求,向 stdout 写入响应。
+
+### SSE 模式(实验性,Phase 2.5+)
+
+面向 Web 端 AI 客户端。服务器暴露一个 HTTP/SSE 端点。状态:实验性,依赖 MCP Web 生态的成熟度。
+
+## 安全模型
+
+| 威胁 | 缓解措施 |
+|---|---|
+| 恶意 MCP 客户端窃取文件 | 工具白名单;文件路径限定在工作目录内;拒绝 `..` |
+| 本地进程连接 WebSocket | Origin 校验(仅允许 `lokvis.app`)+ 连接令牌 |
+| 浏览器标签页被恶意页面控制 | WebSocket 仅接受 `lokvis.app` origin |
+| AI 调用危险操作 | 危险工具需在浏览器中由用户确认 |
+| Node 兜底 `sharp` 的 RCE | 成熟库;参数经 Zod 校验 |
+
+## 了解更多
+
+- [AI 生态冲击调整方案](https://github.com/lokvis/lokvis/blob/dev/docs/AI生态冲击调整方案.md) — 完整战略背景与架构对比
+- [插件](./plugins) — Plugin SDK 与 MCP Server 对比
+- [路线图](./roadmap) — Phase 2 MCP 里程碑
