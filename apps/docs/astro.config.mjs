@@ -12,47 +12,101 @@ export default defineConfig({
       title: 'Lokvis',
       description: 'Local-first Browser Workspace - Documentation',
 
-      // 多语言:i18n 基础设施
-      // 当前 root locale 为 English,后续添加中文时:
-      // 1. 创建 src/content/docs/zh-cn/ 目录并放入翻译
-      // 2. 在下方 locales 添加 'zh-cn': { label: '简体中文', lang: 'zh-CN' }
+      // 多语言:i18n — root (English) + zh-cn (简体中文)
+      // root locale 内容在 src/content/docs/,无路径前缀
+      // zh-cn locale 内容在 src/content/docs/zh-cn/,路径前缀 /zh-cn/
       locales: {
-        root: { label: 'English', lang: 'en' },
+        root: {
+          label: 'English',
+          lang: 'en',
+          // 英文侧边栏导航(手动配置以控制顺序)
+          sidebar: [
+            { label: 'Overview', slug: 'index' },
+            { label: 'Getting Started', slug: 'getting-started' },
+            {
+              label: 'Architecture',
+              collapsed: true,
+              items: [
+                { label: 'Overview', slug: 'architecture' },
+                { label: 'Runtime', slug: 'architecture/runtime' },
+                { label: 'Engine', slug: 'architecture/engine' },
+                { label: 'Capability', slug: 'architecture/capability' },
+                { label: 'Plugin SDK', slug: 'architecture/plugin' },
+              ],
+            },
+            { label: 'Capabilities', slug: 'capabilities' },
+            { label: 'Plugins', slug: 'plugins' },
+            { label: 'MCP Integration', slug: 'mcp' },
+            { label: 'Workflows', slug: 'workflows' },
+            {
+              label: 'Guides',
+              collapsed: true,
+              items: [
+                { label: 'Embed the SDK', slug: 'guides/embed-sdk' },
+                { label: 'Write Your First Plugin', slug: 'guides/write-first-plugin' },
+                { label: 'Build a Custom Workspace', slug: 'guides/custom-workspace' },
+                { label: 'CLI Automation', slug: 'guides/cli-automation' },
+              ],
+            },
+            { label: 'SDK', slug: 'sdk' },
+            { label: 'CLI', slug: 'cli' },
+            { label: 'Roadmap', slug: 'roadmap' },
+          ],
+        },
+        'zh-cn': {
+          label: '简体中文',
+          lang: 'zh-CN',
+          // 中文 UI 字符串覆盖
+          labels: {
+            'search.label': '搜索文档',
+            'search.shortcut.hint': '按 Ctrl / ⌘ + K 搜索',
+            'siteTitle.label': 'Lokvis 文档',
+            'page.editLink': '编辑此页',
+            'page.lastUpdated': '最后更新:',
+            'page.navLink.previous': '上一页',
+            'page.navLink.next': '下一页',
+            'page.draft': '草稿',
+            'page.tableOfContents.onThisPage': '本页内容',
+            'page.tableOfContents.overview': '概览',
+            'languageSwitcher': '语言',
+            '404.title': '页面未找到',
+            '404.content': '该页面不存在或已被移动。',
+          },
+          // 中文侧边栏导航(与英文结构一致,标签为中文)
+          sidebar: [
+            { label: '概览', slug: 'index' },
+            { label: '快速开始', slug: 'getting-started' },
+            {
+              label: '架构',
+              collapsed: true,
+              items: [
+                { label: '架构概览', slug: 'architecture' },
+                { label: 'Runtime 运行时', slug: 'architecture/runtime' },
+                { label: 'Engine 引擎', slug: 'architecture/engine' },
+                { label: 'Capability 能力', slug: 'architecture/capability' },
+                { label: 'Plugin SDK 插件', slug: 'architecture/plugin' },
+              ],
+            },
+            { label: '能力目录', slug: 'capabilities' },
+            { label: '插件', slug: 'plugins' },
+            { label: 'MCP 集成', slug: 'mcp' },
+            { label: '工作流', slug: 'workflows' },
+            {
+              label: '指南',
+              collapsed: true,
+              items: [
+                { label: '嵌入 SDK', slug: 'guides/embed-sdk' },
+                { label: '编写第一个插件', slug: 'guides/write-first-plugin' },
+                { label: '构建自定义工作台', slug: 'guides/custom-workspace' },
+                { label: 'CLI 自动化', slug: 'guides/cli-automation' },
+              ],
+            },
+            { label: 'SDK', slug: 'sdk' },
+            { label: 'CLI', slug: 'cli' },
+            { label: '路线图', slug: 'roadmap' },
+          ],
+        },
       },
-
-      // 侧边栏导航(手动配置以控制顺序)
-      sidebar: [
-        { label: 'Overview', slug: 'index' },
-        { label: 'Getting Started', slug: 'getting-started' },
-        {
-          label: 'Architecture',
-          collapsed: true,
-          items: [
-            { label: 'Overview', slug: 'architecture' },
-            { label: 'Runtime', slug: 'architecture/runtime' },
-            { label: 'Engine', slug: 'architecture/engine' },
-            { label: 'Capability', slug: 'architecture/capability' },
-            { label: 'Plugin SDK', slug: 'architecture/plugin' },
-          ],
-        },
-        { label: 'Capabilities', slug: 'capabilities' },
-        { label: 'Plugins', slug: 'plugins' },
-        { label: 'MCP Integration', slug: 'mcp' },
-        { label: 'Workflows', slug: 'workflows' },
-        {
-          label: 'Guides',
-          collapsed: true,
-          items: [
-            { label: 'Embed the SDK', slug: 'guides/embed-sdk' },
-            { label: 'Write Your First Plugin', slug: 'guides/write-first-plugin' },
-            { label: 'Build a Custom Workspace', slug: 'guides/custom-workspace' },
-            { label: 'CLI Automation', slug: 'guides/cli-automation' },
-          ],
-        },
-        { label: 'SDK', slug: 'sdk' },
-        { label: 'CLI', slug: 'cli' },
-        { label: 'Roadmap', slug: 'roadmap' },
-      ],
 
       // Starlight 插件(W13.2: TypeDoc 自动生成 API Reference)
       plugins: [
