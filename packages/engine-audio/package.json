@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/engine-audio",
-  "version": "0.1.1-beta.0",
+  "version": "0.2.0",
   "description": "Lokvis Audio Engine Adapter - Web Audio API / lamejs",
   "license": "MIT",
   "type": "module",

@@ -1,5 +1,24 @@
 # @lokvis/cli
 
+## 0.1.1
+
+### Patch Changes
+
+- 2aebedb: - `run` 命令使用 `new File([blob], name, { type })` 替代不可靠的 `{ ...blob, name } as unknown as File` 强转
+- Updated dependencies [1ffd8c1]
+- Updated dependencies [2aebedb]
+- Updated dependencies [0bef2e0]
+- Updated dependencies [2aebedb]
+- Updated dependencies [2aebedb]
+- Updated dependencies [980eafd]
+- Updated dependencies [e95976e]
+- Updated dependencies [bb5706c]
+- Updated dependencies [191877e]
+  - @lokvis/runtime@0.2.0
+  - @lokvis/capability@0.2.0
+  - @lokvis/sdk@0.2.0
+  - @lokvis/schema@0.2.0
+
 ## 0.1.1-beta.0
 
 ### Patch Changes

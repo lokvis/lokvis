@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/example-custom-workspace",
-  "version": "0.1.1-beta.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Example: build a custom workspace UI with only @lokvis/sdk (no @lokvis/ui-react)",
   "license": "MIT",
