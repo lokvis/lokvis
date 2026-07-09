@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/engine-video",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Lokvis Video Engine Adapter - ffmpeg.wasm / WebCodecs",
   "license": "MIT",
   "type": "module",

@@ -23,6 +23,10 @@
  * - `useCommandPalette()` - ⌘K shortcut registration hook (W9.2)
  */
 
+// 引入设计 token(--lokvis-* CSS 变量),消费方无需手动 import styles.css。
+// sideEffects: ["**/*.css"] 保证 bundler 不 tree-shake 此 import。
+import '@lokvis/ui-core/styles.css';
+
 export { useLokvis, type UseLokvisOptions, type UseLokvisResult } from './hooks/useLokvis.js';
 export { useTheme, type UseThemeResult, type ThemeMode } from './hooks/useTheme.js';
 export { useMediaQuery, useBreakpoints, type Breakpoints } from './hooks/useMediaQuery.js';

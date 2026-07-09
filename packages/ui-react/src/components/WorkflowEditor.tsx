@@ -2,14 +2,14 @@
  * WorkflowEditor - 拖拽式工作流编辑器(W10.4)
  *
  * 增强 PipelineBar,提供节点拖拽重排能力:
- *   - 拖拽节点到任意位置重排线性链
- *   - 拖拽时显示插入指示器
- *   - 键盘支持:选中节点后 ← → 移动(无障碍)
- *   - 节点数上限 MAX_WORKFLOW_STEPS=5(M1 MVP 约束,UI 层常量)
+ * - 拖拽节点到任意位置重排线性链
+ * - 拖拽时显示插入指示器
+ * - 键盘支持:选中节点后 ← → 移动(无障碍)
+ * - 节点数上限 MAX_WORKFLOW_STEPS=5(M1 MVP 约束,UI 层常量)
  *
  * 与 PipelineBar 区别:
- *   - PipelineBar:只读 + 选中/删除(快速预览)
- *   - WorkflowEditor:可编辑 + 拖拽重排(编辑模式)
+ * - PipelineBar:只读 + 选中/删除(快速预览)
+ * - WorkflowEditor:可编辑 + 拖拽重排(编辑模式)
  *
  * 使用原生 HTML5 Drag and Drop API,无额外依赖。
  * 触摸设备降级为按钮上下移动(HTML5 DnD 在移动端支持不佳)。
@@ -23,240 +23,240 @@ import type { Capability } from '@lokvis/schema';
 import { useWorkspaceStore, MAX_WORKFLOW_STEPS } from '../store/index.js';
 
 export interface WorkflowEditorProps {
-  className?: string;
+ className?: string;
 }
 
 export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
-  const nodes = useWorkspaceStore((s) => s.nodes);
-  const selectedNodeId = useWorkspaceStore((s) => s.selectedNodeId);
-  const selectNode = useWorkspaceStore((s) => s.selectNode);
-  const removeNode = useWorkspaceStore((s) => s.removeNode);
-  const moveNode = useWorkspaceStore((s) => s.moveNode);
-  const insertNodeAt = useWorkspaceStore((s) => s.insertNodeAt);
-  const capabilities = useWorkspaceStore((s) => s.capabilities);
-  const clearWorkflow = useWorkspaceStore((s) => s.clearWorkflow);
+ const nodes = useWorkspaceStore((s) => s.nodes);
+ const selectedNodeId = useWorkspaceStore((s) => s.selectedNodeId);
+ const selectNode = useWorkspaceStore((s) => s.selectNode);
+ const removeNode = useWorkspaceStore((s) => s.removeNode);
+ const moveNode = useWorkspaceStore((s) => s.moveNode);
+ const insertNodeAt = useWorkspaceStore((s) => s.insertNodeAt);
+ const capabilities = useWorkspaceStore((s) => s.capabilities);
+ const clearWorkflow = useWorkspaceStore((s) => s.clearWorkflow);
 
-  // 拖拽状态:被拖拽的节点索引 + 当前 hover 的插入位置
-  const [dragIndex, setDragIndex] = React.useState<number | null>(null);
-  const [hoverIndex, setHoverIndex] = React.useState<number | null>(null);
+ // 拖拽状态:被拖拽的节点索引 + 当前 hover 的插入位置
+ const [dragIndex, setDragIndex] = React.useState<number | null>(null);
+ const [hoverIndex, setHoverIndex] = React.useState<number | null>(null);
 
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDragIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    // Firefox 需要设置 data 才能触发 dragstart
-    e.dataTransfer.setData('text/plain', String(index));
-  };
+ const handleDragStart = (e: React.DragEvent, index: number) => {
+ setDragIndex(index);
+ e.dataTransfer.effectAllowed = 'move';
+ // Firefox 需要设置 data 才能触发 dragstart
+ e.dataTransfer.setData('text/plain', String(index));
+ };
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragIndex !== null && dragIndex !== index) {
-      setHoverIndex(index);
-    }
-  };
+ const handleDragOver = (e: React.DragEvent, index: number) => {
+ e.preventDefault();
+ e.dataTransfer.dropEffect = 'move';
+ if (dragIndex !== null && dragIndex !== index) {
+ setHoverIndex(index);
+ }
+ };
 
-  const handleDragLeave = () => {
-    // 不立即清空 hoverIndex,因为 dragleave 在子元素间会误触发
-    // 由 handleDrop / handleDragEnd 统一清空
-  };
+ const handleDragLeave = () => {
+ // 不立即清空 hoverIndex,因为 dragleave 在子元素间会误触发
+ // 由 handleDrop / handleDragEnd 统一清空
+ };
 
-  const handleDrop = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (dragIndex !== null && dragIndex !== index) {
-      moveNode(dragIndex, index);
-    }
-    setDragIndex(null);
-    setHoverIndex(null);
-  };
+ const handleDrop = (e: React.DragEvent, index: number) => {
+ e.preventDefault();
+ if (dragIndex !== null && dragIndex !== index) {
+ moveNode(dragIndex, index);
+ }
+ setDragIndex(null);
+ setHoverIndex(null);
+ };
 
-  const handleDragEnd = () => {
-    setDragIndex(null);
-    setHoverIndex(null);
-  };
+ const handleDragEnd = () => {
+ setDragIndex(null);
+ setHoverIndex(null);
+ };
 
-  // 键盘支持:选中节点后用 ← → 移动。传 node.id 而非 index 避免异步操作后 stale index
-  const handleKeyDown = (e: React.KeyboardEvent, nodeId: string, index: number) => {
-    if (e.key === 'ArrowLeft' && index > 0) {
-      e.preventDefault();
-      moveNode(index, index - 1);
-    } else if (e.key === 'ArrowRight' && index < nodes.length - 1) {
-      e.preventDefault();
-      moveNode(index, index + 1);
-    } else if (e.key === 'Delete' || e.key === 'Backspace') {
-      e.preventDefault();
-      removeNode(nodeId);
-    }
-  };
+ // 键盘支持:选中节点后用 ← → 移动。传 node.id 而非 index 避免异步操作后 stale index
+ const handleKeyDown = (e: React.KeyboardEvent, nodeId: string, index: number) => {
+ if (e.key === 'ArrowLeft' && index > 0) {
+ e.preventDefault();
+ moveNode(index, index - 1);
+ } else if (e.key === 'ArrowRight' && index < nodes.length - 1) {
+ e.preventDefault();
+ moveNode(index, index + 1);
+ } else if (e.key === 'Delete' || e.key === 'Backspace') {
+ e.preventDefault();
+ removeNode(nodeId);
+ }
+ };
 
-  const canAddMore = nodes.length < MAX_WORKFLOW_STEPS;
+ const canAddMore = nodes.length < MAX_WORKFLOW_STEPS;
 
-  return (
-    <div
-      className={`flex flex-col border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 ${className}`}
-      role="region"
-      aria-label="工作流编辑器"
-    >
-      {/* 顶部:标题 + 步数 + 清空 */}
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-zinc-100 px-3 dark:border-zinc-800/50">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-            Workflow Editor
-          </span>
-          <span
-            className={`rounded px-1.5 py-0.5 text-[10px] tabular-nums ${
-              canAddMore
-                ? 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
-                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-            }`}
-          >
-            {nodes.length}/{MAX_WORKFLOW_STEPS}
-          </span>
-        </div>
-        {nodes.length > 0 && (
-          <button
-            type="button"
-            onClick={() => {
-              if (window.confirm('清空当前工作流?所有节点将被移除。')) {
-                clearWorkflow();
-              }
-            }}
-            className="text-[10px] text-zinc-400 transition-colors hover:text-red-500"
-            aria-label="清空工作流"
-          >
-            Clear
-          </button>
-        )}
-      </div>
+ return (
+ <div
+ className={`flex flex-col border-b border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] ${className}`}
+ role="region"
+ aria-label="工作流编辑器"
+ >
+ {/* 顶部:标题 + 步数 + 清空 */}
+ <div className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--lokvis-border)] px-3">
+ <div className="flex items-center gap-2">
+ <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
+ Workflow Editor
+ </span>
+ <span
+ className={`rounded px-1.5 py-0.5 text-[10px] tabular-nums ${
+ canAddMore
+ ? 'bg-[var(--lokvis-surface-muted)] text-[var(--lokvis-fg-muted)]'
+ : 'bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]'
+ }`}
+ >
+ {nodes.length}/{MAX_WORKFLOW_STEPS}
+ </span>
+ </div>
+ {nodes.length > 0 && (
+ <button
+ type="button"
+ onClick={() => {
+ if (window.confirm('清空当前工作流?所有节点将被移除。')) {
+ clearWorkflow();
+ }
+ }}
+ className="text-[10px] text-[var(--lokvis-fg-subtle)] transition-colors hover:text-[var(--lokvis-danger)]"
+ aria-label="清空工作流"
+ >
+ Clear
+ </button>
+ )}
+ </div>
 
-      {/* 节点链 */}
-      <div className="flex min-h-[3rem] items-center gap-1 overflow-x-auto px-3 py-2">
-        {nodes.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center py-2 text-center">
-            <p className="text-[11px] text-zinc-400">
-              空工作流 &mdash; 从右侧 <span className="font-mono">Capabilities</span> 面板点击添加节点
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Source indicator */}
-            <div className="flex shrink-0 items-center gap-1 rounded-md bg-zinc-100 px-2 py-1 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-              <Icon size={12}><path d="M12 4.5v15m7.5-7.5h-15" /></Icon>
-              Source
-            </div>
+ {/* 节点链 */}
+ <div className="flex min-h-[3rem] items-center gap-1 overflow-x-auto px-3 py-2">
+ {nodes.length === 0 ? (
+ <div className="flex flex-1 items-center justify-center py-2 text-center">
+ <p className="text-[11px] text-[var(--lokvis-fg-subtle)]">
+ 空工作流 &mdash; 从右侧 <span className="font-mono">Capabilities</span> 面板点击添加节点
+ </p>
+ </div>
+ ) : (
+ <>
+ {/* Source indicator */}
+ <div className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[10px] font-medium text-[var(--lokvis-fg-muted)]">
+ <Icon size={12}><path d="M12 4.5v15m7.5-7.5h-15" /></Icon>
+ Source
+ </div>
 
-            {/* W11.1: 节点之间可插入的连接器(+ 按钮) */}
-            <InsertConnector
-              index={0}
-              capabilities={capabilities}
-              onInsert={insertNodeAt}
-              disabled={nodes.length >= MAX_WORKFLOW_STEPS}
-            />
+ {/* W11.1: 节点之间可插入的连接器(+ 按钮) */}
+ <InsertConnector
+ index={0}
+ capabilities={capabilities}
+ onInsert={insertNodeAt}
+ disabled={nodes.length >= MAX_WORKFLOW_STEPS}
+ />
 
-            {/* 节点 */}
-            {nodes.map((node, i) => {
-              const selected = node.id === selectedNodeId;
-              const isDragging = dragIndex === i;
-              const isHoverTarget = hoverIndex === i && dragIndex !== null && dragIndex !== i;
-              return (
-                <React.Fragment key={node.id}>
-                  <button
-                    type="button"
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, i)}
-                    onDragOver={(e) => handleDragOver(e, i)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, i)}
-                    onDragEnd={handleDragEnd}
-                    onClick={() => selectNode(node.id)}
-                    onKeyDown={(e) => handleKeyDown(e, node.id, i)}
-                    aria-label={`节点 ${node.capability},位置 ${i + 1},拖拽或方向键重排,Delete 删除`}
-                    className={`group relative flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all ${
-                      isDragging
-                        ? 'opacity-40'
-                        : isHoverTarget
-                        ? 'ring-2 ring-indigo-400 ring-offset-1 dark:ring-offset-zinc-900'
-                        : selected
-                        ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-300 dark:bg-indigo-950/50 dark:text-indigo-300 dark:ring-indigo-700'
-                        : node.status === 'running'
-                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
-                        : node.status === 'success'
-                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
-                        : node.status === 'failed'
-                        ? 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400'
-                        : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
-                    } cursor-grab active:cursor-grabbing`}
-                  >
-                    {/* 步骤序号 */}
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-black/5 text-[9px] tabular-nums dark:bg-white/10">
-                      {i + 1}
-                    </span>
-                    <span className="font-mono">{node.capability}</span>
-                    <StatusDot status={node.status} />
-                    {/* 删除按钮:作为兄弟 button 而非嵌套(HTML 规范禁止 button 嵌套)
-                        使用 position absolute 浮在节点 button 之上,避免叠加在 capability 文字上;
-                        group-hover 显示;stopPropagation 避免触发 selectNode */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeNode(node.id);
-                      }}
-                      aria-label="删除节点"
-                      tabIndex={-1}
-                      className="absolute -right-1 -top-1 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40"
-                    >
-                      <Icon size={10} strokeWidth={3}><path d="M6 18L18 6M6 6l12 12" /></Icon>
-                    </button>
-                  </button>
+ {/* 节点 */}
+ {nodes.map((node, i) => {
+ const selected = node.id === selectedNodeId;
+ const isDragging = dragIndex === i;
+ const isHoverTarget = hoverIndex === i && dragIndex !== null && dragIndex !== i;
+ return (
+ <React.Fragment key={node.id}>
+ <button
+ type="button"
+ draggable
+ onDragStart={(e) => handleDragStart(e, i)}
+ onDragOver={(e) => handleDragOver(e, i)}
+ onDragLeave={handleDragLeave}
+ onDrop={(e) => handleDrop(e, i)}
+ onDragEnd={handleDragEnd}
+ onClick={() => selectNode(node.id)}
+ onKeyDown={(e) => handleKeyDown(e, node.id, i)}
+ aria-label={`节点 ${node.capability},位置 ${i + 1},拖拽或方向键重排,Delete 删除`}
+ className={`group relative flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all ${
+ isDragging
+ ? 'opacity-40'
+ : isHoverTarget
+ ? 'ring-2 ring-[var(--lokvis-primary)] ring-offset-1'
+ : selected
+ ? 'bg-[var(--lokvis-primary)]/15 text-[var(--lokvis-primary)] ring-1 ring-[var(--lokvis-primary)]/50'
+ : node.status === 'running'
+ ? 'bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]'
+ : node.status === 'success'
+ ? 'bg-[var(--lokvis-success)]/15 text-[var(--lokvis-success)]'
+ : node.status === 'failed'
+ ? 'bg-[var(--lokvis-danger)]/15 text-[var(--lokvis-danger)]'
+ : 'bg-[var(--lokvis-surface-muted)] text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-border)]'
+ } cursor-grab active:cursor-grabbing`}
+ >
+ {/* 步骤序号 */}
+ <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--lokvis-fg)]/5 text-[9px] tabular-nums">
+ {i + 1}
+ </span>
+ <span className="font-mono">{node.capability}</span>
+ <StatusDot status={node.status} />
+ {/* 删除按钮:作为兄弟 button 而非嵌套(HTML 规范禁止 button 嵌套)
+ 使用 position absolute 浮在节点 button 之上,避免叠加在 capability 文字上;
+ group-hover 显示;stopPropagation 避免触发 selectNode */}
+ <button
+ type="button"
+ onClick={(e) => {
+ e.stopPropagation();
+ removeNode(node.id);
+ }}
+ aria-label="删除节点"
+ tabIndex={-1}
+ className="absolute -right-1 -top-1 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--lokvis-danger)]/15 hover:text-[var(--lokvis-danger)]"
+ >
+ <Icon size={10} strokeWidth={3}><path d="M6 18L18 6M6 6l12 12" /></Icon>
+ </button>
+ </button>
 
-                  {/* W11.1: 每个节点后的插入连接器(最后一个用于追加到 Output 前) */}
-                  <InsertConnector
-                    index={i + 1}
-                    capabilities={capabilities}
-                    onInsert={insertNodeAt}
-                    disabled={nodes.length >= MAX_WORKFLOW_STEPS}
-                  />
-                </React.Fragment>
-              );
-            })}
+ {/* W11.1: 每个节点后的插入连接器(最后一个用于追加到 Output 前) */}
+ <InsertConnector
+ index={i + 1}
+ capabilities={capabilities}
+ onInsert={insertNodeAt}
+ disabled={nodes.length >= MAX_WORKFLOW_STEPS}
+ />
+ </React.Fragment>
+ );
+ })}
 
-            {/* Output indicator */}
-            {nodes.length > 0 && (
-              <div className="flex shrink-0 items-center gap-1 rounded-md bg-zinc-100 px-2 py-1 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                <Icon size={12}><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></Icon>
-                Output
-              </div>
-            )}
-          </>
-        )}
-      </div>
+ {/* Output indicator */}
+ {nodes.length > 0 && (
+ <div className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[10px] font-medium text-[var(--lokvis-fg-muted)]">
+ <Icon size={12}><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></Icon>
+ Output
+ </div>
+ )}
+ </>
+ )}
+ </div>
 
-      {/* 提示行 */}
-      {nodes.length > 0 && (
-        <div className="flex shrink-0 items-center gap-2 border-t border-zinc-100 px-3 py-1 text-[10px] text-zinc-400 dark:border-zinc-800/50">
-          <Icon size={10}><path d="M13 5.5a1 1 0 1 1 2 0 1-1 0 0 0-.5.86L16.5 9l1.5-.5a1 1 0 1 1 0 2l-1.5-.5-1 1.5a1 1 0 1 1-2 0l1-1.5-1-1.5a1 1 0 0 1 0-2z" /></Icon>
-          <span>拖拽重排 · 方向键移动 · Delete 删除 · hover 箭头处插入节点</span>
-        </div>
-      )}
-    </div>
-  );
+ {/* 提示行 */}
+ {nodes.length > 0 && (
+ <div className="flex shrink-0 items-center gap-2 border-t border-[var(--lokvis-border)] px-3 py-1 text-[10px] text-[var(--lokvis-fg-subtle)]">
+ <Icon size={10}><path d="M13 5.5a1 1 0 1 1 2 0 1-1 0 0 0-.5.86L16.5 9l1.5-.5a1 1 0 1 1 0 2l-1.5-.5-1 1.5a1 1 0 1 1-2 0l1-1.5-1-1.5a1 1 0 0 1 0-2z" /></Icon>
+ <span>拖拽重排 · 方向键移动 · Delete 删除 · hover 箭头处插入节点</span>
+ </div>
+ )}
+ </div>
+ );
 }
 
 function StatusDot({ status }: { status: string }) {
-  const color =
-    status === 'running'
-      ? 'bg-amber-500'
-      : status === 'success'
-      ? 'bg-emerald-500'
-      : status === 'failed'
-      ? 'bg-red-500'
-      : status === 'pending'
-      ? 'bg-zinc-400 dark:bg-zinc-500'
-      : 'bg-zinc-300 dark:bg-zinc-600';
+ const color =
+ status === 'running'
+ ? 'bg-[var(--lokvis-warning)]'
+ : status === 'success'
+ ? 'bg-[var(--lokvis-success)]'
+ : status === 'failed'
+ ? 'bg-[var(--lokvis-danger)]'
+ : status === 'pending'
+ ? 'bg-[var(--lokvis-fg-subtle)]'
+ : 'bg-[var(--lokvis-fg-subtle)]';
 
-  const animate = status === 'running' ? 'animate-pulse' : '';
+ const animate = status === 'running' ? 'animate-pulse' : '';
 
-  return <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${color} ${animate}`} />;
+ return <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${color} ${animate}`} />;
 }
 
 /**
@@ -266,117 +266,117 @@ function StatusDot({ status }: { status: string }) {
  * 选择后调用 onInsert(index, capability)。
  */
 function InsertConnector({
-  index,
-  capabilities,
-  onInsert,
-  disabled,
+ index,
+ capabilities,
+ onInsert,
+ disabled,
 }: {
-  index: number;
-  capabilities: Capability[];
-  onInsert: (index: number, capability: string) => void;
-  disabled?: boolean;
+ index: number;
+ capabilities: Capability[];
+ onInsert: (index: number, capability: string) => void;
+ disabled?: boolean;
 }) {
-  const [open, setOpen] = React.useState(false);
-  const [filter, setFilter] = React.useState('');
-  const ref = React.useRef<HTMLDivElement>(null);
+ const [open, setOpen] = React.useState(false);
+ const [filter, setFilter] = React.useState('');
+ const ref = React.useRef<HTMLDivElement>(null);
 
-  // 点击外部关闭菜单
-  React.useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      // 用 instanceof guard 替代 as Node 断言:运行时安全 + 类型安全
-      if (!(e.target instanceof Node)) return;
-      if (ref.current && !ref.current.contains(e.target)) {
-        setOpen(false);
-        setFilter('');
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+ // 点击外部关闭菜单
+ React.useEffect(() => {
+ if (!open) return;
+ const handler = (e: MouseEvent) => {
+ // 用 instanceof guard 替代 as Node 断言:运行时安全 + 类型安全
+ if (!(e.target instanceof Node)) return;
+ if (ref.current && !ref.current.contains(e.target)) {
+ setOpen(false);
+ setFilter('');
+ }
+ };
+ document.addEventListener('mousedown', handler);
+ return () => document.removeEventListener('mousedown', handler);
+ }, [open]);
 
-  const filtered = React.useMemo(
-    () =>
-      capabilities.filter(
-        (c) =>
-          c.name.toLowerCase().includes(filter.toLowerCase()) ||
-          c.description.toLowerCase().includes(filter.toLowerCase())
-      ),
-    [capabilities, filter]
-  );
+ const filtered = React.useMemo(
+ () =>
+ capabilities.filter(
+ (c) =>
+ c.name.toLowerCase().includes(filter.toLowerCase()) ||
+ c.description.toLowerCase().includes(filter.toLowerCase())
+ ),
+ [capabilities, filter]
+ );
 
-  const handleSelect = (capName: string) => {
-    onInsert(index, capName);
-    setOpen(false);
-    setFilter('');
-  };
+ const handleSelect = (capName: string) => {
+ onInsert(index, capName);
+ setOpen(false);
+ setFilter('');
+ };
 
-  if (disabled) {
-    // 5 步上限时只显示箭头,不显示 +
-    return (
-      <Icon size={12} className="shrink-0 text-zinc-300 dark:text-zinc-600">
-        <path d="m9 5 7 7-7 7" />
-      </Icon>
-    );
-  }
+ if (disabled) {
+ // 5 步上限时只显示箭头,不显示 +
+ return (
+ <Icon size={12} className="shrink-0 text-[var(--lokvis-fg-subtle)]">
+ <path d="m9 5 7 7-7 7" />
+ </Icon>
+ );
+ }
 
-  return (
-    <div ref={ref} className="relative flex shrink-0 items-center">
-      {/* 箭头 / + 按钮切换 */}
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        aria-label={`在位置 ${index + 1} 插入节点`}
-        title="插入节点"
-        className="group flex h-5 w-5 items-center justify-center rounded text-zinc-300 transition-colors hover:bg-indigo-100 hover:text-indigo-500 dark:text-zinc-600 dark:hover:bg-indigo-950/40"
-      >
-        <Icon size={12} className="group-hover:hidden">
-          <path d="m9 5 7 7-7 7" />
-        </Icon>
-        <Icon size={12} className="hidden group-hover:block" strokeWidth={2.5}>
-          <path d="M12 5v14M5 12h14" />
-        </Icon>
-      </button>
+ return (
+ <div ref={ref} className="relative flex shrink-0 items-center">
+ {/* 箭头 / + 按钮切换 */}
+ <button
+ type="button"
+ onClick={() => setOpen(!open)}
+ aria-label={`在位置 ${index + 1} 插入节点`}
+ title="插入节点"
+ className="group flex h-5 w-5 items-center justify-center rounded text-[var(--lokvis-fg-subtle)] transition-colors hover:bg-[var(--lokvis-primary)]/15 hover:text-[var(--lokvis-primary)]"
+ >
+ <Icon size={12} className="group-hover:hidden">
+ <path d="m9 5 7 7-7 7" />
+ </Icon>
+ <Icon size={12} className="hidden group-hover:block" strokeWidth={2.5}>
+ <path d="M12 5v14M5 12h14" />
+ </Icon>
+ </button>
 
-      {/* 弹出菜单 */}
-      {open && (
-        <div className="absolute top-full left-1/2 z-50 mt-1 w-56 -translate-x-1/2 rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
-          {/* 搜索 */}
-          <div className="border-b border-zinc-100 p-1.5 dark:border-zinc-800">
-            <input
-              type="text"
-              autoFocus
-              placeholder="搜索 capability..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="w-full rounded border border-zinc-200 bg-white px-2 py-1 text-[11px] placeholder-zinc-400 focus:border-indigo-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          </div>
-          {/* 列表 */}
-          <div className="max-h-48 overflow-y-auto p-1">
-            {filtered.length === 0 ? (
-              <p className="px-2 py-2 text-center text-[10px] text-zinc-400">无匹配 capability</p>
-            ) : (
-              filtered.map((cap) => (
-                <button
-                  key={cap.name}
-                  type="button"
-                  onClick={() => handleSelect(cap.name)}
-                  className="block w-full rounded px-2 py-1 text-left transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
-                >
-                  <span className="block font-mono text-[10px] font-medium text-zinc-700 dark:text-zinc-300">
-                    {cap.name}
-                  </span>
-                  <span className="block truncate text-[9px] text-zinc-500 dark:text-zinc-400">
-                    {cap.description}
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+ {/* 弹出菜单 */}
+ {open && (
+ <div className="absolute top-full left-1/2 z-50 mt-1 w-56 -translate-x-1/2 rounded-lg border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] shadow-lg">
+ {/* 搜索 */}
+ <div className="border-b border-[var(--lokvis-border)] p-1.5">
+ <input
+ type="text"
+ autoFocus
+ placeholder="搜索 capability..."
+ value={filter}
+ onChange={(e) => setFilter(e.target.value)}
+ className="w-full rounded border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-2 py-1 text-[11px] placeholder-zinc-400 focus:border-[var(--lokvis-primary)] focus:outline-none"
+ />
+ </div>
+ {/* 列表 */}
+ <div className="max-h-48 overflow-y-auto p-1">
+ {filtered.length === 0 ? (
+ <p className="px-2 py-2 text-center text-[10px] text-[var(--lokvis-fg-subtle)]">无匹配 capability</p>
+ ) : (
+ filtered.map((cap) => (
+ <button
+ key={cap.name}
+ type="button"
+ onClick={() => handleSelect(cap.name)}
+ className="block w-full rounded px-2 py-1 text-left transition-colors hover:bg-[var(--lokvis-primary)]/10"
+ >
+ <span className="block font-mono text-[10px] font-medium text-[var(--lokvis-fg-muted)]">
+ {cap.name}
+ </span>
+ <span className="block truncate text-[9px] text-[var(--lokvis-fg-muted)]">
+ {cap.description}
+ </span>
+ </button>
+ ))
+ )}
+ </div>
+ </div>
+ )}
+ </div>
+ );
 }
 

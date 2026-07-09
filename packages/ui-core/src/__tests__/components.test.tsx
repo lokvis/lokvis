@@ -494,6 +494,6 @@ describe('Button(回归)', () => {
 
   it('variant=danger 渲染对应类名', () => {
     render(<Button variant="danger">删除</Button>);
-    expect(screen.getByRole('button').className).toContain('bg-red-600');
+    expect(screen.getByRole('button').className).toContain('bg-[var(--lokvis-danger)]');
   });
 });

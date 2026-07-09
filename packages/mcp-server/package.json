@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/mcp-server",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Lokvis MCP Server - 把 Lokvis Runtime 的本地处理能力暴露给 AI 客户端(Claude/ChatGPT/Cursor)",
   "license": "MIT",
   "type": "module",

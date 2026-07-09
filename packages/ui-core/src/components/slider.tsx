@@ -1,16 +1,16 @@
 import * as React from 'react';
 
 export interface SliderProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
-  /** 显示当前值与范围标签(渲染在滑块上方) */
-  showValue?: boolean;
-  /** 自定义值格式化(如百分比 / 单位) */
-  format?: (value: number) => string;
-  /**
-   * 便捷回调:仅传数值,免去从 `e.target.value` 手动解包。
-   * 与 `onChange`(原生事件回调)可同时使用,二者都会触发。
-   * 推荐用此 prop 处理业务逻辑,`onChange` 仅在需要原生事件对象时使用。
-   */
-  onValueChange?: (value: number) => void;
+ /** 显示当前值与范围标签(渲染在滑块上方) */
+ showValue?: boolean;
+ /** 自定义值格式化(如百分比 / 单位) */
+ format?: (value: number) => string;
+ /**
+ * 便捷回调:仅传数值,免去从 `e.target.value` 手动解包。
+ * 与 `onChange`(原生事件回调)可同时使用,二者都会触发。
+ * 推荐用此 prop 处理业务逻辑,`onChange` 仅在需要原生事件对象时使用。
+ */
+ onValueChange?: (value: number) => void;
 }
 
 /**
@@ -23,52 +23,52 @@ export interface SliderProps extends Omit<React.InputHTMLAttributes<HTMLInputEle
  * 原 `onChange` 仍透传原生 `ChangeEvent`,方便需要 `e.target` 的场景。两者不冲突。
  */
 export function Slider({
-  showValue = false,
-  format,
-  onValueChange,
-  className = '',
-  value,
-  defaultValue,
-  min = 0,
-  max = 100,
-  step = 1,
-  onChange,
-  ...props
+ showValue = false,
+ format,
+ onValueChange,
+ className = '',
+ value,
+ defaultValue,
+ min = 0,
+ max = 100,
+ step = 1,
+ onChange,
+ ...props
 }: SliderProps) {
-  // 非受控模式:用 internal state 跟踪当前值,保证 showValue 显示随拖动实时更新。
-  // 受控模式(value !== undefined)优先用外部 value,不写 internal。
-  const isControlled = value !== undefined;
-  const [internal, setInternal] = React.useState(defaultValue ?? 0);
-  const current = isControlled ? (value as number) : internal;
-  const display = format ? format(Number(current)) : String(current);
+ // 非受控模式:用 internal state 跟踪当前值,保证 showValue 显示随拖动实时更新。
+ // 受控模式(value !== undefined)优先用外部 value,不写 internal。
+ const isControlled = value !== undefined;
+ const [internal, setInternal] = React.useState(defaultValue ?? 0);
+ const current = isControlled ? (value as number) : internal;
+ const display = format ? format(Number(current)) : String(current);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isControlled) setInternal(Number(e.target.value));
-    onChange?.(e);
-    onValueChange?.(Number(e.target.value));
-  };
+ const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+ if (!isControlled) setInternal(Number(e.target.value));
+ onChange?.(e);
+ onValueChange?.(Number(e.target.value));
+ };
 
-  return (
-    <div className={`flex flex-col gap-1.5 ${className}`}>
-      {showValue && (
-        <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-          <span>{min}</span>
-          <span className="font-medium text-zinc-700 dark:text-zinc-200">{display}</span>
-          <span>{max}</span>
-        </div>
-      )}
-      <input
-        type="range"
-        value={value}
-        defaultValue={value === undefined ? defaultValue : undefined}
-        min={min}
-        max={max}
-        step={step}
-        onChange={handleChange}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-zinc-200 accent-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:bg-zinc-700 dark:accent-indigo-400"
-        style={{ accentColor: 'var(--lokvis-primary, #6366f1)' }}
-        {...props}
-      />
-    </div>
-  );
+ return (
+ <div className={`flex flex-col gap-1.5 ${className}`}>
+ {showValue && (
+ <div className="flex items-center justify-between text-xs text-[var(--lokvis-fg-muted)]">
+ <span>{min}</span>
+ <span className="font-medium text-[var(--lokvis-fg-muted)]">{display}</span>
+ <span>{max}</span>
+ </div>
+ )}
+ <input
+ type="range"
+ value={value}
+ defaultValue={value === undefined ? defaultValue : undefined}
+ min={min}
+ max={max}
+ step={step}
+ onChange={handleChange}
+ className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-[var(--lokvis-border)] accent-[var(--lokvis-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)] focus-visible:ring-offset-1"
+ style={{ accentColor: 'var(--lokvis-primary, #6366f1)' }}
+ {...props}
+ />
+ </div>
+ );
 }

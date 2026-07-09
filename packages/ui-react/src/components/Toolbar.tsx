@@ -11,77 +11,77 @@ import { Button } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 
 export interface ToolbarProps {
-  title?: string;
-  rightExtra?: React.ReactNode;
+ title?: string;
+ rightExtra?: React.ReactNode;
 }
 
 export function Toolbar({ title = 'Lokvis Workspace', rightExtra }: ToolbarProps) {
-  const running = useWorkspaceStore((s) => s.running);
-  const statusMessage = useWorkspaceStore((s) => s.statusMessage);
-  const error = useWorkspaceStore((s) => s.error);
-  const nodes = useWorkspaceStore((s) => s.nodes);
-  const selectedAssetId = useWorkspaceStore((s) => s.selectedAssetId);
-  const run = useWorkspaceStore((s) => s.run);
-  const clearWorkflow = useWorkspaceStore((s) => s.clearWorkflow);
-  const setError = useWorkspaceStore((s) => s.setError);
+ const running = useWorkspaceStore((s) => s.running);
+ const statusMessage = useWorkspaceStore((s) => s.statusMessage);
+ const error = useWorkspaceStore((s) => s.error);
+ const nodes = useWorkspaceStore((s) => s.nodes);
+ const selectedAssetId = useWorkspaceStore((s) => s.selectedAssetId);
+ const run = useWorkspaceStore((s) => s.run);
+ const clearWorkflow = useWorkspaceStore((s) => s.clearWorkflow);
+ const setError = useWorkspaceStore((s) => s.setError);
 
-  const canRun = !running && nodes.length > 0 && !!selectedAssetId;
+ const canRun = !running && nodes.length > 0 && !!selectedAssetId;
 
-  async function handleRun() {
-    try {
-      await run();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }
+ async function handleRun() {
+ try {
+ await run();
+ } catch (err) {
+ setError(err instanceof Error ? err.message : String(err));
+ }
+ }
 
-  return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 dark:border-zinc-800 dark:bg-zinc-900">
-      {/* Left: Brand */}
-      <div className="flex items-center gap-2.5 min-w-0">
-        <span
-          className="shrink-0 text-base font-bold leading-none"
-          style={{
-            background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
-        >
-          ◆
-        </span>
-        <span className="truncate text-sm font-semibold tracking-tight">{title}</span>
-      </div>
+ return (
+ <header className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-4">
+ {/* Left: Brand */}
+ <div className="flex items-center gap-2.5 min-w-0">
+ <span
+ className="shrink-0 text-base font-bold leading-none"
+ style={{
+ background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+ WebkitBackgroundClip: 'text',
+ WebkitTextFillColor: 'transparent',
+ }}
+ >
+ ◆
+ </span>
+ <span className="truncate text-sm font-semibold tracking-tight">{title}</span>
+ </div>
 
-      {/* Center: Status */}
-      <div className="flex flex-1 items-center justify-center px-4 min-w-0">
-        <span className={`truncate text-xs ${error ? 'text-red-500' : 'text-zinc-400'}`}>
-          {statusMessage}
-        </span>
-      </div>
+ {/* Center: Status */}
+ <div className="flex flex-1 items-center justify-center px-4 min-w-0">
+ <span className={`truncate text-xs ${error ? 'text-[var(--lokvis-danger)]' : 'text-[var(--lokvis-fg-subtle)]'}`}>
+ {statusMessage}
+ </span>
+ </div>
 
-      {/* Right: Actions */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        {rightExtra}
-        {nodes.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearWorkflow}
-            disabled={running}
-          >
-            Clear
-          </Button>
-        )}
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={handleRun}
-          loading={running}
-          disabled={!canRun}
-        >
-          Run
-        </Button>
-      </div>
-    </header>
-  );
+ {/* Right: Actions */}
+ <div className="flex items-center gap-1.5 shrink-0">
+ {rightExtra}
+ {nodes.length > 0 && (
+ <Button
+ variant="ghost"
+ size="sm"
+ onClick={clearWorkflow}
+ disabled={running}
+ >
+ Clear
+ </Button>
+ )}
+ <Button
+ variant="primary"
+ size="sm"
+ onClick={handleRun}
+ loading={running}
+ disabled={!canRun}
+ >
+ Run
+ </Button>
+ </div>
+ </header>
+ );
 }
