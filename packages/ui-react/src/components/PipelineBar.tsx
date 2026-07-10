@@ -64,17 +64,17 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  >
  <span className="font-mono">{node.capability}</span>
  <StatusDot status={node.status} />
- <span
+ <button
+ type="button"
  onClick={(e) => {
  e.stopPropagation();
  removeNode(node.id);
  }}
  className="ml-0.5 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--lokvis-danger)]/15 hover:text-[var(--lokvis-danger)]"
- role="button"
  aria-label="Remove step"
  >
  <Icon size={10} strokeWidth={3}><path d="M6 18L18 6M6 6l12 12" /></Icon>
- </span>
+ </button>
  </button>
 
  {/* Arrow between nodes */}

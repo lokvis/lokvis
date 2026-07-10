@@ -14,7 +14,7 @@ export function Card({
  <div
  className={`rounded-xl border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] p-6 transition-all duration-200 ${
  hoverable
- ? 'cursor-default hover:border-[var(--lokvis-border-strong)] hover:shadow-md hover:shadow-zinc-200/50'
+ ? 'cursor-default hover:border-[var(--lokvis-border-strong)] hover:shadow-[var(--lokvis-elevation-2)]'
  : ''
  } ${className}`}
  {...props}

@@ -99,14 +99,13 @@ export function Tabs({
  aria-selected={isActive}
  disabled={item.disabled}
  onClick={() => select(item.value)}
- className={`relative -mb-px px-3 py-2 text-sm font-medium transition-colors focus:outline-none ${
+ className={`relative -mb-px px-3 py-2 text-sm font-medium transition-colors rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--lokvis-surface)] ${
  isActive
  ? 'border-b-2 border-[var(--lokvis-primary)] text-[var(--lokvis-primary)]'
  : item.disabled
  ? 'cursor-not-allowed text-[var(--lokvis-fg-subtle)]'
- : 'border-b-2 border-transparent text-[var(--lokvis-fg-muted)] hover:text-[var(--lokvis-fg-muted)]'
+ : 'border-b-2 border-transparent text-[var(--lokvis-fg-muted)] hover:text-[var(--lokvis-fg)]'
  }`}
- style={isActive ? { borderColor: 'var(--lokvis-primary, #6366f1)' } : undefined}
  >
  {item.label}
  </button>

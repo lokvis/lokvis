@@ -40,7 +40,7 @@ export function Select({
  value={value}
  defaultValue={value === undefined ? defaultValue : undefined}
  onChange={handleChange}
- className="w-full appearance-none rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] py-1.5 pl-3 pr-9 text-sm text-[var(--lokvis-fg)] transition-colors focus:border-[var(--lokvis-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--lokvis-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+ className="w-full appearance-none rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] py-1.5 pl-3 pr-9 text-sm text-[var(--lokvis-fg)] transition-colors focus:border-[var(--lokvis-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)]/40 disabled:cursor-not-allowed disabled:opacity-50"
  {...props}
  >
  {placeholder && (

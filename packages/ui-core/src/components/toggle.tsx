@@ -62,10 +62,9 @@ export function Toggle({
  aria-label={ariaLabel ?? label}
  disabled={disabled}
  onClick={toggle}
- className={`relative inline-flex flex-shrink-0 items-center rounded-full transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)] focus-visible:ring-offset-1 ${s.track} ${
- isOn ? 'bg-[var(--lokvis-primary-hover)]' : 'bg-[var(--lokvis-border)]'
+ className={`relative inline-flex flex-shrink-0 items-center rounded-full transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)] focus-visible:ring-offset-1 ${s.track} ${
+ isOn ? 'bg-[var(--lokvis-primary)]' : 'bg-[var(--lokvis-border)]'
  }`}
- style={isOn ? { backgroundColor: 'var(--lokvis-primary, #6366f1)' } : undefined}
  >
  <span
  className={`inline-block transform rounded-full bg-[var(--lokvis-primary-fg)] shadow-sm transition-transform duration-150 ${s.thumb} ${

@@ -112,7 +112,7 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  return (
  <div
  ref={containerRef}
- className={`relative select-none overflow-hidden rounded-lg ring-1 ring-black/5 ${className}`}
+ className={`relative select-none overflow-hidden rounded-lg ring-1 ring-[var(--lokvis-border)]/50 ${className}`}
  onMouseDown={handleMouseDown}
  onTouchStart={handleTouchStart}
  >
@@ -159,7 +159,7 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  onKeyDown={handleKeyDown}
  >
  <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-[var(--lokvis-surface)] shadow-md" />
- <div className="absolute top-1/2 left-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--lokvis-surface)] shadow-lg ring-1 ring-black/10">
+ <div className="absolute top-1/2 left-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-2)] ring-1 ring-[var(--lokvis-border)]">
  <Icon size={14} className="text-[var(--lokvis-fg-muted)]">
  <path d="M9 5l-5 7 5 7M15 5l5 7-5 7" />
  </Icon>

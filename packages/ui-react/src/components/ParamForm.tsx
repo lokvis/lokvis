@@ -41,7 +41,7 @@ export function ParamForm({ capability, values, onChange }: ParamFormProps) {
 }
 
 const inputBase =
- 'w-full rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-2.5 py-1.5 text-[11px] transition-colors focus:border-[var(--lokvis-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--lokvis-primary)]';
+ 'w-full rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-2.5 py-1.5 text-[11px] transition-colors hover:border-[var(--lokvis-border-strong)] focus:border-[var(--lokvis-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)]/30 disabled:cursor-not-allowed disabled:opacity-50';
 
 function ParamField({
  param,

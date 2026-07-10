@@ -349,7 +349,7 @@ function InsertConnector({
  placeholder="搜索 capability..."
  value={filter}
  onChange={(e) => setFilter(e.target.value)}
- className="w-full rounded border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-2 py-1 text-[11px] placeholder-zinc-400 focus:border-[var(--lokvis-primary)] focus:outline-none"
+ className="w-full rounded border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-2 py-1 text-[11px] placeholder:text-[var(--lokvis-fg-subtle)] focus:border-[var(--lokvis-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--lokvis-primary)]/40"
  />
  </div>
  {/* 列表 */}

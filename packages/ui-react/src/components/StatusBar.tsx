@@ -116,7 +116,7 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  <button
  type="button"
  onClick={() => setError(null)}
- className="shrink-0 text-[10px] text-[var(--lokvis-danger)] underline decoration-red-300 hover:text-[var(--lokvis-danger)]"
+ className="shrink-0 text-[10px] text-[var(--lokvis-danger)] underline decoration-[var(--lokvis-danger)]/40 hover:text-[var(--lokvis-danger)]"
  >
  dismiss
  </button>

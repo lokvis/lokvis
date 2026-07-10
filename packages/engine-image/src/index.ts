@@ -32,3 +32,7 @@ export {
   TOP_5_OPERATIONS,
 } from './lazy.js';
 export type { BlobOperation } from './lazy.js';
+
+// ─── 统一工具入口 ──────────────────────────────────────────────────
+export { runTool, listTools, hasTool, compressToTargetSize } from './run-tool.js';
+export type { RunToolOptions } from './run-tool.js';

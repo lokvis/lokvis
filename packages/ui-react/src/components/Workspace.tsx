@@ -84,6 +84,27 @@ export interface WorkspaceProps extends UseLokvisOptions {
  enableErrorBanner?: boolean;
  /** 是否从 URL ?workflow= 参数加载分享工作流（默认 true,W11.5） */
  enableShareLink?: boolean;
+
+ /**
+  * 初始化时自动导入的资产列表。
+  * Runtime 就绪后,通过 runtime.importAsset() 逐个导入。
+  */
+ initialAssets?: Array<{ blob: Blob; name: string }>;
+ /**
+  * 初始化时预选的能力名称(自动添加到工作流节点)。
+  */
+ initialCapability?: string;
+ /**
+  * 初始化时预填的参数(与 initialCapability 配合使用)。
+  */
+ initialParams?: Record<string, unknown>;
+ /**
+  * 布局模式:
+  * - 'full': 完整三栏布局(默认)
+  * - 'focused': 精简模式,隐藏 AssetPanel 和 PipelineBar,适合单工具页跳转进入
+  */
+ mode?: 'full' | 'focused';
+
  className?: string;
 }
 
@@ -103,6 +124,10 @@ export function Workspace({
  enableProgressBar = true,
  enableErrorBanner = true,
  enableShareLink = true,
+ initialAssets,
+ initialCapability,
+ initialParams,
+ mode = 'full',
  className = '',
  ...lokvisOptions
 }: WorkspaceProps) {
@@ -140,13 +165,52 @@ export function Workspace({
  }
  }, [enableShareLink, status, loadFromCurrentUrl]);
 
+ // 初始化 props:runtime 就绪后导入资产、添加节点、填充参数
+ const initDoneRef = React.useRef(false);
+ React.useEffect(() => {
+  if (initDoneRef.current || status !== 'ready') return;
+  const store = useWorkspaceStore.getState();
+  if (!store.runtime) return;
+  initDoneRef.current = true;
+
+  (async () => {
+   // 导入初始资产
+   if (initialAssets?.length) {
+    for (const { blob, name } of initialAssets) {
+     const file = new File([blob], name, { type: blob.type });
+     await store.runtime!.importAsset({ kind: 'file', file });
+    }
+    await store.refreshAssets();
+    // 自动选中第一个资产
+    const assets = store.assets;
+    if (assets.length > 0) {
+     store.selectAsset(assets[0]!.id);
+    }
+   }
+
+   // 添加初始能力节点并填充参数
+   if (initialCapability) {
+    store.addNode(initialCapability);
+    if (initialParams) {
+     const nodes = useWorkspaceStore.getState().nodes;
+     const lastNode = nodes[nodes.length - 1];
+     if (lastNode) {
+      store.updateNodeParams(lastNode.id, initialParams);
+     }
+    }
+   }
+  })();
+ }, [status, initialAssets, initialCapability, initialParams]);
+
+ const isFocused = mode === 'focused';
+
  if (status === 'initializing') {
  return (
  <div className="flex h-full items-center justify-center">
  <div className="flex flex-col items-center gap-4">
  <div className="relative flex h-12 w-12 items-center justify-center">
  <div className="absolute inset-0 rounded-full border-2 border-[var(--lokvis-primary)]/40" />
- <div className="h-8 w-8 animate-spin rounded-full border-2 border-transparent border-t-indigo-500" />
+ <div className="h-8 w-8 animate-spin rounded-full border-2 border-transparent border-t-[var(--lokvis-primary)]" />
  </div>
  <div className="text-center">
  <p className="text-sm font-medium text-[var(--lokvis-fg-muted)]">Initializing Runtime</p>
@@ -232,6 +296,7 @@ export function Workspace({
  {/* Middle: Panel area */}
  <div className="flex flex-1 overflow-hidden relative">
  {/* W9.8 桌面:三栏并列;移动:Canvas 单独,其他为 overlay drawer */}
+ {!isFocused && (
  <div
  className={`${
  isMobile
@@ -243,6 +308,7 @@ export function Workspace({
  >
  <AssetPanel className="h-full" />
  </div>
+ )}
 
  <Canvas enableCompare={enableCompare} />
 
@@ -259,7 +325,7 @@ export function Workspace({
  </div>
 
  {/* W9.8 移动端遮罩:点击关闭抽屉 */}
- {isMobile && mobilePanel !== null && (
+ {isMobile && mobilePanel !== null && !isFocused && (
  <button
  type="button"
  aria-label="Close panel"
@@ -270,7 +336,7 @@ export function Workspace({
  </div>
 
  {/* Pipeline bar */}
- {enableWorkflowEditor ? <WorkflowEditor /> : <PipelineBar />}
+ {!isFocused && (enableWorkflowEditor ? <WorkflowEditor /> : <PipelineBar />)}
 
  {/* W11.6 ProgressBar + Cancel */}
  {enableProgressBar && <ProgressBar />}

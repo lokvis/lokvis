@@ -42,7 +42,7 @@ export function Toolbar({ title = 'Lokvis Workspace', rightExtra }: ToolbarProps
  <span
  className="shrink-0 text-base font-bold leading-none"
  style={{
- background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+ background: 'linear-gradient(135deg, var(--lokvis-primary), var(--lokvis-info))',
  WebkitBackgroundClip: 'text',
  WebkitTextFillColor: 'transparent',
  }}

@@ -18,6 +18,7 @@
   --lokvis-bg: #ffffff;             /* 应用底色 */
   --lokvis-surface: #ffffff;        /* 卡片 / 面板背景 */
   --lokvis-surface-muted: #f4f4f5;  /* 次级表面(hover / disabled bg) */
+  --lokvis-surface-raised: #ffffff;  /* 浮层(亮色下与 surface 同色,靠阴影分层) */
 
   /* ── 前景文字 ─────────────────────────────── */
   --lokvis-fg: #18181b;             /* 主文字 */
@@ -61,6 +62,39 @@
 
   /* ── Overlay(Dialog 遮罩)──────────────────── */
   --lokvis-overlay: rgb(0 0 0 / 0.5);
+
+  /* ── 间距(8pt 栅格)──────────────────────── */
+  --lokvis-space-1: 0.25rem;   /* 4px */
+  --lokvis-space-2: 0.5rem;    /* 8px */
+  --lokvis-space-3: 0.75rem;   /* 12px */
+  --lokvis-space-4: 1rem;      /* 16px */
+  --lokvis-space-6: 1.5rem;    /* 24px */
+
+  /* ── 控件高度 ─────────────────────────────── */
+  --lokvis-control-h-sm: 1.75rem;  /* 28px */
+  --lokvis-control-h: 2rem;        /* 32px */
+  --lokvis-control-h-lg: 2.5rem;   /* 40px */
+
+  /* ── 排版 ─────────────────────────────────── */
+  --lokvis-text-xs: 0.6875rem;  /* 11px */
+  --lokvis-text-sm: 0.8125rem;  /* 13px */
+  --lokvis-text-base: 0.875rem; /* 14px */
+  --lokvis-text-lg: 1rem;       /* 16px */
+  --lokvis-leading: 1.5;
+
+  /* ── Elevation(分层阴影)────────────────── */
+  --lokvis-elevation-1: 0 1px 2px rgb(0 0 0 / 0.04);
+  --lokvis-elevation-2: 0 2px 8px rgb(0 0 0 / 0.06);
+  --lokvis-elevation-3: 0 8px 24px rgb(0 0 0 / 0.12);
+  --lokvis-elevation-overlay: 0 12px 32px rgb(0 0 0 / 0.16);
+
+  /* ── 面板结构 ─────────────────────────────── */
+  --lokvis-panel-header-h: 2.5rem;   /* 40px */
+  --lokvis-toolbar-h: 3rem;          /* 48px */
+  --lokvis-statusbar-h: 1.75rem;     /* 28px */
+
+  /* ── 交互态 ───────────────────────────────── */
+  --lokvis-focus-ring: 0 0 0 2px var(--lokvis-bg), 0 0 0 4px var(--lokvis-primary);
 }
 
 /* 暗色模式:.dark 类(Tailwind v4 默认) */
@@ -87,6 +121,13 @@
   --lokvis-info: #60a5fa;
 
   --lokvis-overlay: rgb(0 0 0 / 0.7);
+
+  --lokvis-surface-raised: #1f1f23;
+
+  --lokvis-elevation-1: 0 1px 2px rgb(0 0 0 / 0.2);
+  --lokvis-elevation-2: 0 2px 8px rgb(0 0 0 / 0.3);
+  --lokvis-elevation-3: 0 8px 24px rgb(0 0 0 / 0.4);
+  --lokvis-elevation-overlay: 0 12px 32px rgb(0 0 0 / 0.5);
 }
 
 /*
@@ -117,6 +158,13 @@
     --lokvis-danger-hover: #ef4444;
     --lokvis-info: #60a5fa;
     --lokvis-overlay: rgb(0 0 0 / 0.7);
+
+    --lokvis-surface-raised: #1f1f23;
+
+    --lokvis-elevation-1: 0 1px 2px rgb(0 0 0 / 0.2);
+    --lokvis-elevation-2: 0 2px 8px rgb(0 0 0 / 0.3);
+    --lokvis-elevation-3: 0 8px 24px rgb(0 0 0 / 0.4);
+    --lokvis-elevation-overlay: 0 12px 32px rgb(0 0 0 / 0.5);
   }
 }
 
@@ -137,6 +185,7 @@
   --color-lokvis-bg: var(--lokvis-bg);
   --color-lokvis-surface: var(--lokvis-surface);
   --color-lokvis-surface-muted: var(--lokvis-surface-muted);
+  --color-lokvis-surface-raised: var(--lokvis-surface-raised);
   --color-lokvis-fg: var(--lokvis-fg);
   --color-lokvis-fg-muted: var(--lokvis-fg-muted);
   --color-lokvis-fg-subtle: var(--lokvis-fg-subtle);
@@ -155,4 +204,8 @@
   --radius-lokvis: var(--lokvis-radius);
   --radius-lokvis-lg: var(--lokvis-radius-lg);
   --radius-lokvis-full: var(--lokvis-radius-full);
+
+  --shadow-lokvis-1: var(--lokvis-elevation-1);
+  --shadow-lokvis-2: var(--lokvis-elevation-2);
+  --shadow-lokvis-3: var(--lokvis-elevation-3);
 }

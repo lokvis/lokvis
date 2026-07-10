@@ -99,7 +99,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  placeholder="Search capabilities..."
  value={filter}
  onChange={(e) => setFilter(e.target.value)}
- className="w-full rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] py-1 pl-7 pr-2 text-[11px] placeholder-zinc-400 focus:border-[var(--lokvis-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--lokvis-primary)]"
+ className="w-full rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] py-1 pl-7 pr-2 text-[11px] placeholder:text-[var(--lokvis-fg-subtle)] focus:border-[var(--lokvis-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--lokvis-primary)]/40"
  />
  </div>
  </div>

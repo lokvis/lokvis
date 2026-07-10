@@ -157,8 +157,7 @@ export function Dialog({
  aria-modal="true"
  aria-label={typeof title === 'string' ? title : undefined}
  tabIndex={-1}
- className={`w-full ${sizeClass[size]} rounded-xl border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] shadow-lg outline-none`}
- style={{ backgroundColor: 'var(--lokvis-surface, #ffffff)' }}
+ className={`w-full ${sizeClass[size]} rounded-xl border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-3)] outline-none`}
  onClick={(e) => e.stopPropagation()}
  >
  {title && (

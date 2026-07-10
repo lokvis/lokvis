@@ -143,7 +143,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  className={`m-2 block cursor-pointer rounded-lg border border-dashed px-2 py-3 text-center transition-all ${
  dragging
  ? 'border-[var(--lokvis-primary)] bg-[var(--lokvis-primary)]/10 text-[var(--lokvis-primary)]'
- : 'border-[var(--lokvis-border)] text-[var(--lokvis-fg-subtle)] hover:border-[var(--lokvis-primary)]/50 hover:bg-[var(--lokvis-primary)]/10/50 hover:text-[var(--lokvis-primary)]'
+ : 'border-[var(--lokvis-border)] text-[var(--lokvis-fg-subtle)] hover:border-[var(--lokvis-primary)]/50 hover:bg-[var(--lokvis-primary)]/5 hover:text-[var(--lokvis-primary)]'
  }`}
  >
  <input
@@ -214,7 +214,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  onChange={(e) => setSearchQuery(e.target.value)}
  placeholder="Filter by type..."
  aria-label="Filter assets by format"
- className="w-full rounded bg-[var(--lokvis-surface-muted)] py-1 pl-6 pr-1.5 text-[10px] text-[var(--lokvis-fg-muted)] placeholder:text-[var(--lokvis-fg-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--lokvis-primary)]/50"
+ className="w-full rounded bg-[var(--lokvis-surface-muted)] py-1 pl-6 pr-1.5 text-[10px] text-[var(--lokvis-fg-muted)] placeholder:text-[var(--lokvis-fg-subtle)] hover:bg-[var(--lokvis-border)]/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--lokvis-primary)]/40"
  />
  </div>
  </div>
@@ -250,7 +250,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  selectAsset(asset.id);
  }
  }}
- className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-all focus:outline-none focus:ring-2 focus:ring-[var(--lokvis-primary)]/50 ${
+ className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)]/50 ${
  selected
  ? 'bg-[var(--lokvis-primary)]/10 ring-1 ring-[var(--lokvis-primary)]/40'
  : 'hover:bg-[var(--lokvis-surface)]'

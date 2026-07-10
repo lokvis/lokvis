@@ -54,6 +54,7 @@ export { GlobalDropzone, type GlobalDropzoneProps } from './components/GlobalDro
 export { CompareSlider, type CompareSliderProps } from './components/CompareSlider.js';
 export { DownloadPanel, type DownloadPanelProps } from './components/DownloadPanel.js';
 export { ThemeToggle, type ThemeToggleProps } from './components/ThemeToggle.js';
+export { ToolRunner, type ToolRunnerProps } from './components/ToolRunner.js';
 
 export {
   WORKFLOW_TEMPLATES,

@@ -86,7 +86,7 @@ export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
  <div
  className="absolute inset-0 opacity-[0.35]"
  style={{
- backgroundImage: 'radial-gradient(circle, #d4d4d8 1px, transparent 1px)',
+ backgroundImage: 'radial-gradient(circle, var(--lokvis-border) 1px, transparent 1px)',
  backgroundSize: '20px 20px',
  }}
  />
@@ -122,7 +122,7 @@ export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
  )}
 
  {dragOver && (
- <div className="absolute inset-4 z-10 rounded-xl border-2 border-dashed border-[var(--lokvis-primary)] bg-[var(--lokvis-primary)]/10/80 flex items-center justify-center">
+ <div className="absolute inset-4 z-10 rounded-xl border-2 border-dashed border-[var(--lokvis-primary)] bg-[var(--lokvis-primary)]/10 flex items-center justify-center">
  <div className="text-center">
  <Icon size={32} className="mx-auto text-[var(--lokvis-primary)]" strokeWidth={1.5}><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></Icon>
  <p className="mt-2 text-sm font-medium text-[var(--lokvis-primary)]">Drop files to import</p>
@@ -141,7 +141,7 @@ export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
  <img
  src={preview}
  alt={selected.metadata.format}
- className="max-h-[calc(100%-4rem)] max-w-[calc(100%-4rem)] rounded-lg object-contain shadow-2xl shadow-black/10 ring-1 ring-black/5"
+ className="max-h-[calc(100%-4rem)] max-w-[calc(100%-4rem)] rounded-lg object-contain shadow-[var(--lokvis-elevation-3)] ring-1 ring-[var(--lokvis-border)]/50"
  />
  {/* Metadata overlay */}
  <div className="absolute bottom-2 left-2 rounded-lg bg-[var(--lokvis-surface)]/90 px-2.5 py-1 text-[11px] text-[var(--lokvis-fg-muted)] shadow-sm backdrop-blur-sm">
