@@ -641,6 +641,10 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     return this.capabilityRegistry.has(name);
   }
 
+  async isStubOnly(name: string): Promise<boolean> {
+    return this.capabilityRegistry.isStubOnly(name);
+  }
+
   // ─── MCP 暴露(见 docs/AI生态冲击调整方案.md §6) ─────
 
   /**

@@ -34,6 +34,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  const moveNode = useWorkspaceStore((s) => s.moveNode);
  const insertNodeAt = useWorkspaceStore((s) => s.insertNodeAt);
  const capabilities = useWorkspaceStore((s) => s.capabilities);
+ const stubCapabilities = useWorkspaceStore((s) => s.stubCapabilities);
  const clearWorkflow = useWorkspaceStore((s) => s.clearWorkflow);
 
  // 拖拽状态:被拖拽的节点索引 + 当前 hover 的插入位置
@@ -148,6 +149,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  <InsertConnector
  index={0}
  capabilities={capabilities}
+ stubCapabilities={stubCapabilities}
  onInsert={insertNodeAt}
  disabled={nodes.length >= MAX_WORKFLOW_STEPS}
  />
@@ -211,6 +213,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  <InsertConnector
  index={i + 1}
  capabilities={capabilities}
+ stubCapabilities={stubCapabilities}
  onInsert={insertNodeAt}
  disabled={nodes.length >= MAX_WORKFLOW_STEPS}
  />
@@ -266,11 +269,13 @@ function StatusDot({ status }: { status: string }) {
 function InsertConnector({
  index,
  capabilities,
+ stubCapabilities,
  onInsert,
  disabled,
 }: {
  index: number;
  capabilities: Capability[];
+ stubCapabilities: Set<string>;
  onInsert: (index: number, capability: string) => void;
  disabled?: boolean;
 }) {
@@ -355,21 +360,33 @@ function InsertConnector({
  {filtered.length === 0 ? (
  <p className="px-2 py-2 text-center text-[10px] text-[var(--lokvis-fg-subtle)]">无匹配 capability</p>
  ) : (
- filtered.map((cap) => (
+ filtered.map((cap) => {
+ // A7: stub-only 能力显示 "Coming Soon" 标记
+ const isStubOnly = stubCapabilities.has(cap.name);
+ return (
  <button
  key={cap.name}
  type="button"
  onClick={() => handleSelect(cap.name)}
+ title={isStubOnly ? 'Coming soon — no engine installed yet' : undefined}
  className="block w-full rounded px-2 py-1 text-left transition-colors hover:bg-[var(--lokvis-primary)]/10"
  >
+ <span className="flex items-center justify-between gap-1.5">
  <span className="block font-mono text-[10px] font-medium text-[var(--lokvis-fg-muted)]">
  {cap.name}
+ </span>
+ {isStubOnly && (
+ <span className="shrink-0 rounded px-1 py-0.5 text-[8px] font-medium uppercase bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]">
+ Soon
+ </span>
+ )}
  </span>
  <span className="block truncate text-[9px] text-[var(--lokvis-fg-muted)]">
  {cap.description}
  </span>
  </button>
- ))
+ );
+ })
  )}
  </div>
  </div>

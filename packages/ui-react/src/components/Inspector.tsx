@@ -20,6 +20,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  const nodes = useWorkspaceStore((s) => s.nodes);
  const selectedNodeId = useWorkspaceStore((s) => s.selectedNodeId);
  const capabilityMap = useWorkspaceStore((s) => s.capabilityMap);
+ const stubCapabilities = useWorkspaceStore((s) => s.stubCapabilities);
  const addNode = useWorkspaceStore((s) => s.addNode);
  const updateNodeParams = useWorkspaceStore((s) => s.updateNodeParams);
 
@@ -122,11 +123,14 @@ export function Inspector({ className = '' }: InspectorProps) {
  <ul className="space-y-0.5">
  {caps.map((cap) => {
  const isInPipeline = nodes.some((n) => n.capability === cap.name);
+ // A7: stub-only 能力显示 "Coming Soon" 标记(无可用引擎)
+ const isStubOnly = stubCapabilities.has(cap.name);
  return (
  <li key={cap.name}>
  <button
  type="button"
  onClick={() => addNode(cap.name)}
+ title={isStubOnly ? 'Coming soon — no engine installed yet' : undefined}
  className={`group w-full rounded-md px-2 py-1.5 text-left transition-all ${
  isInPipeline
  ? 'bg-[var(--lokvis-primary)]/5 ring-1 ring-[var(--lokvis-primary)]/40'
@@ -134,7 +138,12 @@ export function Inspector({ className = '' }: InspectorProps) {
  }`}
  >
  <div className="flex items-center justify-between gap-2">
- <span className="truncate font-mono text-[11px] font-medium">{cap.name}</span>
+ <span className={`truncate font-mono text-[11px] font-medium ${isStubOnly ? 'text-[var(--lokvis-fg-muted)]' : ''}`}>{cap.name}</span>
+ {isStubOnly ? (
+ <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-medium uppercase bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]">
+ Soon
+ </span>
+ ) : (
  <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-medium uppercase ${
  cap.performance === 'fast'
  ? 'bg-[var(--lokvis-success)]/15 text-[var(--lokvis-success)]'
@@ -144,6 +153,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  }`}>
  {cap.performance}
  </span>
+ )}
  </div>
  <p className="mt-0.5 truncate text-[10px] text-[var(--lokvis-fg-muted)]">{cap.description}</p>
  </button>
