@@ -6,7 +6,7 @@
  */
 
 import * as React from 'react';
-import { Icon } from '@lokvis/ui-core';
+import { Icon, Input } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 import { ParamForm } from './ParamForm.js';
 import { ExifPanel } from './ExifPanel.js';
@@ -92,16 +92,15 @@ export function Inspector({ className = '' }: InspectorProps) {
 
  {/* Search */}
  <div className="px-2 py-2 border-b border-[var(--lokvis-border)]">
- <div className="relative">
- <Icon size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--lokvis-fg-subtle)]"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>
- <input
- type="text"
+ <Input
+ size="sm"
  placeholder="Search capabilities..."
  value={filter}
  onChange={(e) => setFilter(e.target.value)}
- className="w-full rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] py-1 pl-7 pr-2 text-[11px] placeholder:text-[var(--lokvis-fg-subtle)] focus:border-[var(--lokvis-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--lokvis-primary)]/40"
+ leadingIcon={
+ <Icon size={12}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>
+ }
  />
- </div>
  </div>
 
  {/* Capability list */}

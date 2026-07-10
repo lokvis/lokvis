@@ -18,7 +18,7 @@
  */
 
 import * as React from 'react';
-import { Icon } from '@lokvis/ui-core';
+import { Icon, Input } from '@lokvis/ui-core';
 import type { Capability } from '@lokvis/schema';
 import { useWorkspaceStore, MAX_WORKFLOW_STEPS } from '../store/index.js';
 
@@ -343,13 +343,13 @@ function InsertConnector({
  <div className="absolute top-full left-1/2 z-50 mt-1 w-56 -translate-x-1/2 rounded-lg border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] shadow-lg">
  {/* 搜索 */}
  <div className="border-b border-[var(--lokvis-border)] p-1.5">
- <input
+ <Input
  type="text"
+ size="sm"
  autoFocus
  placeholder="搜索 capability..."
  value={filter}
  onChange={(e) => setFilter(e.target.value)}
- className="w-full rounded border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-2 py-1 text-[11px] placeholder:text-[var(--lokvis-fg-subtle)] focus:border-[var(--lokvis-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--lokvis-primary)]/40"
  />
  </div>
  {/* 列表 */}

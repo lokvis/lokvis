@@ -6,6 +6,7 @@
  */
 
 import type { Capability, CapabilityParam } from '@lokvis/schema';
+import { Input } from '@lokvis/ui-core';
 
 export interface ParamFormProps {
  capability: Capability;
@@ -40,7 +41,9 @@ export function ParamForm({ capability, values, onChange }: ParamFormProps) {
  );
 }
 
-const inputBase =
+// 仅用于 enum 的原生 <select>(Select 组件 API 不同,不在此迁移);
+// 文本/数字输入已统一改用 <Input size="sm"> 组件,消除重复样式。
+const selectBase =
  'w-full rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-2.5 py-1.5 text-[11px] transition-colors hover:border-[var(--lokvis-border-strong)] focus:border-[var(--lokvis-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)]/30 disabled:cursor-not-allowed disabled:opacity-50';
 
 function ParamField({
@@ -79,7 +82,7 @@ function ParamField({
  <select
  value={(value as string) ?? (param.default as string) ?? ''}
  onChange={(e) => onChange(e.target.value)}
- className={inputBase}
+ className={selectBase}
  >
  {param.values.map((v) => (
  <option key={v} value={v}>{v}</option>
@@ -102,11 +105,11 @@ function ParamField({
  onChange={(e) => onChange(e.target.value)}
  className="h-7 w-7 shrink-0 cursor-pointer rounded border border-[var(--lokvis-border)]"
  />
- <input
+ <Input
  type="text"
+ size="sm"
  value={(value as string) ?? (param.default as string) ?? '#ffffff'}
  onChange={(e) => onChange(e.target.value)}
- className={inputBase}
  />
  </div>
  </div>
@@ -129,13 +132,13 @@ function ParamField({
  </span>
  )}
  </div>
- <input
+ <Input
  type="number"
+ size="sm"
  value={value === undefined ? (param.default as number | undefined) ?? '' : (value as number)}
  min={param.min}
  max={param.max}
  onChange={(e) => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
- className={inputBase}
  />
  </div>
  );
@@ -151,12 +154,12 @@ function ParamField({
  <span className="ml-1 font-normal text-[var(--lokvis-fg-subtle)]">{param.description}</span>
  )}
  </label>
- <input
+ <Input
  type="text"
+ size="sm"
  value={(value as string) ?? (param.default as string) ?? ''}
  onChange={(e) => onChange(e.target.value)}
  placeholder={param.type === 'file' ? 'data URL or path' : ''}
- className={inputBase}
  />
  </div>
  );
