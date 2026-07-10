@@ -139,6 +139,15 @@ export const FREE_BATCH_LIMIT = 10;
 export const FREE_CONCURRENCY = 4;
 export const PRO_CONCURRENCY = 16;
 
+/**
+ * 终态 job 保留上限(超出按 FIFO 淘汰最旧)。
+ *
+ * 终态(completed/failed/cancelled)的 job 仍保留在 jobs Map 中供 get()/list()
+ * 查询最近结果,但长会话中反复发起批量作业会导致 Map 无界增长(每项含 items
+ * 数组、workflow 引用等)。超出此上限时按 startedAt FIFO 删除最旧的终态 job。
+ */
+export const MAX_RETAINED_JOBS = 10;
+
 /** 按 MemoryPressure 收缩并发槽位 */
 function shrinkConcurrencyByPressure(
   base: number,
@@ -303,6 +312,7 @@ export class BatchProcessor {
     job.endedAt = Date.now();
     this.emit({ type: 'batch:cancelled', jobId, cancelled: cancelledCount });
     this.cleanupJobSubs(jobId);
+    this.pruneJobs();
   }
 
   /** 暂停 job:schedule 不再补满,已 in-flight 项跑完即止 */
@@ -419,6 +429,27 @@ export class BatchProcessor {
   /** 清理 job 的所有进度订阅(终态时调用,避免泄漏) */
   private cleanupJobSubs(jobId: string): void {
     this.progressSubs.delete(jobId);
+  }
+
+  /**
+   * 清理过多的终态 job(LRU)。
+   *
+   * 终态 job 保留最近 MAX_RETAINED_JOBS 个供 get()/list() 查询,超出按
+   * startedAt FIFO 淘汰最旧的,避免长会话反复批量作业导致 jobs Map
+   * 无界增长(每项含 items 数组、workflow 引用等)。
+   */
+  private pruneJobs(): void {
+    const terminal: BatchJobInternal[] = [];
+    for (const job of this.jobs.values()) {
+      if (this.isTerminal(job.status)) terminal.push(job);
+    }
+    if (terminal.length <= MAX_RETAINED_JOBS) return;
+    // 按 startedAt 升序(最旧在前),删除超出部分
+    terminal.sort((a, b) => a.startedAt - b.startedAt);
+    const removeCount = terminal.length - MAX_RETAINED_JOBS;
+    for (let i = 0; i < removeCount; i++) {
+      this.jobs.delete(terminal[i]!.id);
+    }
   }
 
   // ─── 内部实现 ────────────────────────────────────────
@@ -635,6 +666,7 @@ export class BatchProcessor {
     });
     // M5:进入终态清理进度订阅,避免 waitForCompletion 调用方丢弃 promise 后泄漏
     this.cleanupJobSubs(job.id);
+    this.pruneJobs();
   }
 
   private isTerminal(status: BatchJobStatus): boolean {
