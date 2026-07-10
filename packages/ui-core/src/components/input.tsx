@@ -2,7 +2,8 @@ import * as React from 'react';
 
 export type InputSize = 'sm' | 'md' | 'lg';
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
  /** 前置图标槽位(传 <Icon> 组件) */
  leadingIcon?: React.ReactNode;
  /** 后置图标槽位 */
