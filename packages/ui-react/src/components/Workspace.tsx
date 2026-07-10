@@ -56,6 +56,7 @@ import { DownloadPanel } from './DownloadPanel.js';
 import { CommandPalette, useCommandPalette } from './CommandPalette.js';
 import { GlobalDropzone } from './GlobalDropzone.js';
 import { ThemeToggle } from './ThemeToggle.js';
+import { ErrorBoundary } from './ErrorBoundary.js';
 import { useShareLink } from '../hooks/useShareLink.js';
 import { useWorkspaceStore } from '../store/index.js';
 
@@ -278,6 +279,9 @@ export function Workspace({
  );
 
  return (
+ // D6: ErrorBoundary 捕获子组件渲染异常,避免整个 workspace 白屏。
+ // useLokvis 异常不在本组件树内(早于本 return),由消费方在外层包裹处理。
+ <ErrorBoundary>
  <div className={`flex h-full flex-col bg-[var(--lokvis-surface)] ${className}`}>
  {/* Top: Toolbar */}
  <Toolbar title={title} rightExtra={toolbarRight} />
@@ -350,5 +354,6 @@ export function Workspace({
  {/* Bottom: StatusBar */}
  {showStatusBar && <StatusBar />}
  </div>
+ </ErrorBoundary>
  );
 }

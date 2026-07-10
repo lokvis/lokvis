@@ -36,6 +36,7 @@ export { useShareLink, type UseShareLinkResult, encodeWorkflowForShare, decodeWo
 export { useWorkspaceStore, type WorkspaceState, type WorkspaceActions } from './store/index.js';
 
 export { Workspace, type WorkspaceProps } from './components/Workspace.js';
+export { ErrorBoundary, type ErrorBoundaryProps } from './components/ErrorBoundary.js';
 export { AssetPanel } from './components/AssetPanel.js';
 export { Canvas } from './components/Canvas.js';
 export { Inspector } from './components/Inspector.js';
