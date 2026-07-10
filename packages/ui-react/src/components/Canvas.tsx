@@ -93,7 +93,7 @@ export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
 
  {/* W9.4 Compare 模式切换按钮(右上) */}
  {canCompare && (
- <div className="absolute top-2 right-2 z-20 flex items-center gap-1 rounded-md bg-[var(--lokvis-surface)]/90 p-0.5 shadow-sm backdrop-blur-sm">
+ <div className="absolute top-2 right-2 z-20 flex items-center gap-1 rounded-md bg-[var(--lokvis-surface)]/90 p-0.5 shadow-[var(--lokvis-elevation-1)] backdrop-blur-sm">
  <button
  type="button"
  onClick={() => setCompareMode(false)}
@@ -144,7 +144,7 @@ export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
  className="max-h-[calc(100%-4rem)] max-w-[calc(100%-4rem)] rounded-lg object-contain shadow-[var(--lokvis-elevation-3)] ring-1 ring-[var(--lokvis-border)]/50"
  />
  {/* Metadata overlay */}
- <div className="absolute bottom-2 left-2 rounded-lg bg-[var(--lokvis-surface)]/90 px-2.5 py-1 text-[11px] text-[var(--lokvis-fg-muted)] shadow-sm backdrop-blur-sm">
+ <div className="absolute bottom-2 left-2 rounded-lg bg-[var(--lokvis-surface)]/90 px-2.5 py-1 text-[11px] text-[var(--lokvis-fg-muted)] shadow-[var(--lokvis-elevation-1)] backdrop-blur-sm">
  <div className="flex items-center gap-2">
  <span className="font-medium">{selected.metadata.format.toUpperCase()}</span>
  {selected.metadata.dimensions && (
@@ -166,7 +166,7 @@ export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
  )
  ) : (
  <div className="relative flex flex-col items-center gap-5 px-6 text-center">
- <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--lokvis-surface)] shadow-sm ring-1 ring-[var(--lokvis-border)]/80">
+ <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-1)] ring-1 ring-[var(--lokvis-border)]/80">
  <Icon size={36} className="text-[var(--lokvis-fg-subtle)]" strokeWidth={1.5}>
  <path d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
  </Icon>
@@ -180,7 +180,7 @@ export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
  </p>
  </div>
  {assets.length === 0 && (
- <label className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[var(--lokvis-primary-hover)] px-4 py-2 text-xs font-medium text-[var(--lokvis-primary-fg)] shadow-sm cursor-pointer transition-colors hover:bg-[var(--lokvis-primary)]">
+ <label className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[var(--lokvis-primary-hover)] px-4 py-2 text-xs font-medium text-[var(--lokvis-primary-fg)] shadow-[var(--lokvis-elevation-1)] cursor-pointer transition-colors hover:bg-[var(--lokvis-primary)]">
  <Icon size={14}><path d="M12 4.5v15m7.5-7.5h-15" /></Icon>
  Import Files
  <input

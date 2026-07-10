@@ -67,7 +67,7 @@ export function Toggle({
  }`}
  >
  <span
- className={`inline-block transform rounded-full bg-[var(--lokvis-primary-fg)] shadow-sm transition-transform duration-150 ${s.thumb} ${
+ className={`inline-block transform rounded-full bg-[var(--lokvis-primary-fg)] shadow-[var(--lokvis-elevation-1)] transition-transform duration-150 ${s.thumb} ${
  isOn ? s.translate : 'translate-x-0.5'
  }`}
  />

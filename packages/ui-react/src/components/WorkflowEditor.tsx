@@ -340,7 +340,7 @@ function InsertConnector({
 
  {/* 弹出菜单 */}
  {open && (
- <div className="absolute top-full left-1/2 z-50 mt-1 w-56 -translate-x-1/2 rounded-lg border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] shadow-lg">
+ <div className="absolute top-full left-1/2 z-50 mt-1 w-56 -translate-x-1/2 rounded-lg border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-2)]">
  {/* 搜索 */}
  <div className="border-b border-[var(--lokvis-border)] p-1.5">
  <Input

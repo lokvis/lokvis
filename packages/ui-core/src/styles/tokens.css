@@ -208,4 +208,5 @@
   --shadow-lokvis-1: var(--lokvis-elevation-1);
   --shadow-lokvis-2: var(--lokvis-elevation-2);
   --shadow-lokvis-3: var(--lokvis-elevation-3);
+  --shadow-lokvis-overlay: var(--lokvis-elevation-overlay);
 }

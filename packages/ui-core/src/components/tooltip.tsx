@@ -91,7 +91,7 @@ export function Tooltip({
  <span
  id={tipId}
  role="tooltip"
- className={`pointer-events-none absolute z-40 whitespace-nowrap rounded-md bg-[var(--lokvis-fg)] px-2 py-1 text-xs font-medium text-[var(--lokvis-bg)] shadow-md ${sideClass[side]}`}
+ className={`pointer-events-none absolute z-40 whitespace-nowrap rounded-md bg-[var(--lokvis-fg)] px-2 py-1 text-xs font-medium text-[var(--lokvis-bg)] shadow-[var(--lokvis-elevation-2)] ${sideClass[side]}`}
  >
  {content}
  </span>

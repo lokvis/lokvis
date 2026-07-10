@@ -8,12 +8,12 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantClasses: Record<string, string> = {
  primary:
- 'bg-[var(--lokvis-fg)] text-[var(--lokvis-bg)] hover:bg-[var(--lokvis-surface-muted)] shadow-sm',
+ 'bg-[var(--lokvis-fg)] text-[var(--lokvis-bg)] hover:bg-[var(--lokvis-surface-muted)] shadow-[var(--lokvis-elevation-1)]',
  secondary:
  'bg-[var(--lokvis-surface-muted)] text-[var(--lokvis-fg)] hover:bg-[var(--lokvis-border)]',
  ghost:
  'bg-transparent text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)]',
- danger: 'bg-[var(--lokvis-danger)] text-[var(--lokvis-primary-fg)] hover:bg-[var(--lokvis-danger-hover)] shadow-sm',
+ danger: 'bg-[var(--lokvis-danger)] text-[var(--lokvis-primary-fg)] hover:bg-[var(--lokvis-danger-hover)] shadow-[var(--lokvis-elevation-1)]',
 };
 
 const sizeClasses: Record<string, string> = {
