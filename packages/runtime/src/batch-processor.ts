@@ -415,6 +415,10 @@ export class BatchProcessor {
         finish(() => resolve(this.toJobView(this.jobs.get(jobId) ?? job)));
       });
       timer = setTimeout(() => {
+        // 先 finish(reject + 取消订阅),再 cancel job。
+        // 顺序重要:finish 内 offCancelled() 解除订阅,此后 cancel 触发的
+        // batch:cancelled 事件不会被本 Promise 监听,避免抢先 resolve。
+        // cancel 是 fire-and-forget:调用方已收到超时错误,job 清理在后台进行。
         finish(() =>
           reject(
             new Error(
@@ -422,6 +426,9 @@ export class BatchProcessor {
             )
           )
         );
+        void this.cancel(jobId).catch(() => {
+          // cancel 失败不阻断:调用方已收到超时错误
+        });
       }, timeoutMs);
     });
   }
