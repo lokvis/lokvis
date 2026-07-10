@@ -528,13 +528,26 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     // 路径访问需要 filesystem access permission，未来单独实现）
     let effectiveSource = source;
     if (source.kind === 'url') {
-      const resp = await fetch(source.url);
-      if (!resp.ok) {
-        throw new Error(`Failed to fetch asset from ${source.url}: ${resp.status}`);
+      // 超时保护:防止慢响应或挂起的 URL 无限期阻塞 import。
+      // 30s 覆盖绝大多数正常图片下载;超时后 abort 并抛明确错误。
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30_000);
+      try {
+        const resp = await fetch(source.url, { signal: controller.signal });
+        if (!resp.ok) {
+          throw new Error(`Failed to fetch asset from ${source.url}: ${resp.status}`);
+        }
+        const blob = await resp.blob();
+        const name = source.url.split('/').pop()?.split('?')[0] ?? 'asset';
+        effectiveSource = { kind: 'blob', blob, name };
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new Error(`Failed to fetch asset from ${source.url}: timed out after 30s`);
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeoutId);
       }
-      const blob = await resp.blob();
-      const name = source.url.split('/').pop()?.split('?')[0] ?? 'asset';
-      effectiveSource = { kind: 'blob', blob, name };
     } else if (source.kind === 'opfs') {
       throw new Error(
         "AssetSource kind 'opfs' is not yet supported by importAsset; " +
