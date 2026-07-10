@@ -54,9 +54,9 @@ export interface AudioEngineAdapter {
   initialize?(): Promise<void>;
   dispose?(): Promise<void>;
   decode(blob: Blob): Promise<DecodedAudio>;
-  transcode(blob: Blob, params: AudioTranscodeParams): Promise<Blob>;
-  trim(blob: Blob, params: AudioTrimParams): Promise<Blob>;
-  normalize(blob: Blob, params: AudioNormalizeParams): Promise<Blob>;
+  transcode(blob: Blob, params: Record<string, any>): Promise<Blob>;
+  trim(blob: Blob, params: Record<string, any>): Promise<Blob>;
+  normalize(blob: Blob, params: Record<string, any>): Promise<Blob>;
   merge(blobs: Blob[]): Promise<Blob>;
 }
 

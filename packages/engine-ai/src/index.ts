@@ -75,10 +75,10 @@ export interface AiEngineAdapter {
   isSupported(): Promise<boolean>;
   initialize?(): Promise<void>;
   dispose?(): Promise<void>;
-  ocr(blob: Blob, params: OcrParams): Promise<OcrResult>;
-  caption(blob: Blob, params: CaptionParams): Promise<CaptionResult>;
-  removeBackground(blob: Blob, params: BackgroundRemoveParams): Promise<Blob>;
-  generateWorkflow(params: GenerateWorkflowParams): Promise<unknown>;
+  ocr(blob: Blob, params: Record<string, any>): Promise<OcrResult>;
+  caption(blob: Blob, params: Record<string, any>): Promise<CaptionResult>;
+  removeBackground(blob: Blob, params: Record<string, any>): Promise<Blob>;
+  generateWorkflow(params: Record<string, any>): Promise<unknown>;
 }
 
 /** transformers.js 引擎占位实现（本地推理） */
