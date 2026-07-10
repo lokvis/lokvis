@@ -159,6 +159,8 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  const isHoverTarget = hoverIndex === i && dragIndex !== null && dragIndex !== i;
  return (
  <React.Fragment key={node.id}>
+ {/* D7: remove button 作为 node button 的兄弟而非子元素(HTML 规范禁止 button 嵌套) */}
+ <div className="group relative flex shrink-0 items-center">
  <button
  type="button"
  draggable
@@ -170,7 +172,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  onClick={() => selectNode(node.id)}
  onKeyDown={(e) => handleKeyDown(e, node.id, i)}
  aria-label={`节点 ${node.capability},位置 ${i + 1},拖拽或方向键重排,Delete 删除`}
- className={`group relative flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all ${
+ className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all ${
  isDragging
  ? 'opacity-40'
  : isHoverTarget
@@ -192,22 +194,18 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  </span>
  <span className="font-mono">{node.capability}</span>
  <StatusDot status={node.status} />
- {/* 删除按钮:作为兄弟 button 而非嵌套(HTML 规范禁止 button 嵌套)
- 使用 position absolute 浮在节点 button 之上,避免叠加在 capability 文字上;
- group-hover 显示;stopPropagation 避免触发 selectNode */}
+ </button>
+ {/* 删除按钮:兄弟 button(position absolute 浮在节点右上角),group-hover 显示 */}
  <button
  type="button"
- onClick={(e) => {
- e.stopPropagation();
- removeNode(node.id);
- }}
+ onClick={() => removeNode(node.id)}
  aria-label="删除节点"
  tabIndex={-1}
  className="absolute -right-1 -top-1 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--lokvis-danger)]/15 hover:text-[var(--lokvis-danger)]"
  >
  <Icon size={10} strokeWidth={3}><path d="M6 18L18 6M6 6l12 12" /></Icon>
  </button>
- </button>
+ </div>
 
  {/* W11.1: 每个节点后的插入连接器(最后一个用于追加到 Output 前) */}
  <InsertConnector
