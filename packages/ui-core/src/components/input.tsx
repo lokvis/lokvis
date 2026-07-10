@@ -1,10 +1,14 @@
 import * as React from 'react';
 
+export type InputSize = 'sm' | 'md' | 'lg';
+
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
  /** 前置图标槽位(传 <Icon> 组件) */
  leadingIcon?: React.ReactNode;
  /** 后置图标槽位 */
  trailingIcon?: React.ReactNode;
+ /** 控件高度变体,消费 --lokvis-control-h-{sm,lg} token(默认 md) */
+ size?: InputSize;
 }
 
 /**
@@ -22,6 +26,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 export function Input({
  leadingIcon,
  trailingIcon,
+ size = 'md',
  className = '',
  disabled,
  ...props
@@ -29,10 +34,18 @@ export function Input({
  const hasLeading = !!leadingIcon;
  const hasTrailing = !!trailingIcon;
 
+ // 高度变体消费 --lokvis-control-h-{sm,lg} token(此前无消费者,见 gap 4.1.3)
+ const heightClass =
+  size === 'sm'
+   ? 'h-[var(--lokvis-control-h-sm)] text-[length:var(--lokvis-text-xs)]'
+   : size === 'lg'
+   ? 'h-[var(--lokvis-control-h-lg)] text-[length:var(--lokvis-text-base)]'
+   : 'h-[var(--lokvis-control-h)] text-[length:var(--lokvis-text-sm)]';
+
  const input = (
   <input
    disabled={disabled}
-   className={`w-full h-[var(--lokvis-control-h)] rounded-[var(--lokvis-radius-sm)] border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] text-[length:var(--lokvis-text-sm)] text-[var(--lokvis-fg)] placeholder:text-[var(--lokvis-fg-subtle)] transition-colors hover:border-[var(--lokvis-border-strong)] focus:border-[var(--lokvis-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)]/30 disabled:cursor-not-allowed disabled:opacity-50 ${
+   className={`w-full ${heightClass} rounded-[var(--lokvis-radius-sm)] border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] text-[var(--lokvis-fg)] placeholder:text-[var(--lokvis-fg-subtle)] transition-colors hover:border-[var(--lokvis-border-strong)] focus:border-[var(--lokvis-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)]/30 disabled:cursor-not-allowed disabled:opacity-50 ${
     hasLeading ? 'pl-8' : 'pl-[var(--lokvis-space-3)]'
    } ${hasTrailing ? 'pr-8' : 'pr-[var(--lokvis-space-3)]'} ${className}`}
    {...props}

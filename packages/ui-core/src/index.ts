@@ -11,7 +11,7 @@ export { Badge } from './components/badge.js';
 export { Icon } from './components/icon.js';
 export { Spinner } from './components/spinner.js';
 export { EmptyState } from './components/empty-state.js';
-export { Input, type InputProps } from './components/input.js';
+export { Input, type InputProps, type InputSize } from './components/input.js';
 export { Textarea, type TextareaProps } from './components/textarea.js';
 export { Slider, type SliderProps } from './components/slider.js';
 export { Toggle, type ToggleProps } from './components/toggle.js';
