@@ -61,7 +61,7 @@ export function StatusBar({ className = '' }: StatusBarProps) {
 
  return (
  <footer
- className={`flex h-7 shrink-0 items-center justify-between border-t border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-3 ${className}`}
+ className={`flex h-[var(--lokvis-statusbar-h)] shrink-0 items-center justify-between border-t border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-3 ${className}`}
  >
  {/* Left: Status — m5 加 aria-live,屏幕阅读器播报状态变化 */}
  <div

@@ -127,7 +127,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  }}
  >
  {/* Header */}
- <div className="flex items-center justify-between px-3 h-10 shrink-0 border-b border-[var(--lokvis-border)]">
+ <div className="flex items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] shrink-0 border-b border-[var(--lokvis-border)]">
  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
  Assets
  </span>

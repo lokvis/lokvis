@@ -59,7 +59,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  onClick={() => setConfigureOpen(!configureOpen)}
  aria-expanded={configureOpen}
  aria-controls={`configure-panel-${selectedNode.id}`}
- className="flex w-full items-center justify-between px-3 h-10 text-left transition-colors hover:bg-[var(--lokvis-surface)]"
+ className="flex w-full items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] text-left transition-colors hover:bg-[var(--lokvis-surface)]"
  >
  <div className="flex items-center gap-2">
  <Icon size={12} className={`text-[var(--lokvis-fg-subtle)] transition-transform ${configureOpen ? 'rotate-90' : ''}`}><path d="m9 5 7 7-7 7" /></Icon>
@@ -83,7 +83,7 @@ export function Inspector({ className = '' }: InspectorProps) {
 
  {/* Capabilities section */}
  <div className="flex flex-1 flex-col overflow-hidden">
- <div className="flex items-center justify-between px-3 h-10 shrink-0 border-b border-[var(--lokvis-border)]">
+ <div className="flex items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] shrink-0 border-b border-[var(--lokvis-border)]">
  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
  Capabilities
  </span>
