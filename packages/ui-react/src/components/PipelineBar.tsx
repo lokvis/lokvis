@@ -52,7 +52,16 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  <button
  type="button"
  onClick={() => selectNode(node.id)}
- className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${
+ onKeyDown={(e) => {
+ // 键盘可达:Delete/Backspace 删除节点(与 WorkflowEditor 一致)
+ if (e.key === 'Delete' || e.key === 'Backspace') {
+ e.preventDefault();
+ removeNode(node.id);
+ }
+ }}
+ aria-label={`节点 ${node.capability},位置 ${i + 1},Delete 删除`}
+ aria-pressed={selected}
+ className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)] focus-visible:ring-offset-1 ${
  selected
  ? 'bg-[var(--lokvis-primary)]/15 text-[var(--lokvis-primary)] ring-1 ring-[var(--lokvis-primary)]/50'
  : node.status === 'running'
@@ -70,7 +79,7 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  <button
  type="button"
  onClick={() => removeNode(node.id)}
- className="rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--lokvis-danger)]/15 hover:text-[var(--lokvis-danger)]"
+ className="rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-danger)] hover:bg-[var(--lokvis-danger)]/15 hover:text-[var(--lokvis-danger)]"
  aria-label="Remove step"
  >
  <Icon size={10} strokeWidth={3}><path d="M6 18L18 6M6 6l12 12" /></Icon>
