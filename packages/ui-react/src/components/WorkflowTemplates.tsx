@@ -67,7 +67,7 @@ export function WorkflowTemplates({
  key={tpl.id}
  type="button"
  onClick={() => handleApply(tpl)}
- className="group flex items-start gap-2 rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-2.5 py-2 text-left transition-all hover:border-[var(--lokvis-primary)]/50 hover:bg-[var(--lokvis-primary)]/10/50"
+ className="group flex items-start gap-2 rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-2.5 py-2 text-left transition-all hover:border-[var(--lokvis-primary)]/50 hover:bg-[var(--lokvis-primary)]/10"
  >
  <span className="mt-0.5 text-base leading-none">{tpl.icon}</span>
  <div className="flex-1 min-w-0">

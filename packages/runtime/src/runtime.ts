@@ -535,10 +535,10 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       try {
         const resp = await fetch(source.url, { signal: controller.signal });
         if (!resp.ok) {
-          throw new Error(`Failed to fetch asset from ${source.url}: ${resp.status}`);
+          throw new Error(`Failed to fetch asset from ${source.url}: ${resp.status} ${resp.statusText}`);
         }
         const blob = await resp.blob();
-        const name = source.url.split('/').pop()?.split('?')[0] ?? 'asset';
+        const name = source.url.split('/').pop()?.split('?')[0] || 'asset';
         effectiveSource = { kind: 'blob', blob, name };
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') {
