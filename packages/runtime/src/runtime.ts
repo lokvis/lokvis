@@ -409,7 +409,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       this.initialInputsMap.set(workflow.id, inputIds);
       this.currentOutputsMap.set(workflow.id, inputIds);
     }
-    this.enforceHistoryStacksLimit();
+    this.enforceHistoryStacksLimit(workflow.id);
 
     try {
       const result = await this.executor.execute(workflow, inputs);
@@ -776,14 +776,26 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
    * 按 FIFO 删除最旧 stack（reset 触发 onEvict → assetStore.remove 回收资产）。
    *
    * Map 的迭代顺序是插入顺序（ES2015+ 规范），所以第一个 entry 即最旧。
-   * 注意：当前 run() 的工作流尚未插入 Map（getOrCreateHistoryStack 才会插入），
-   * 所以这里清理不会误删当前工作流。
+   *
+   * 注意：appendHistory 模式下，当前 run() 的工作流栈在调用本方法前已存在于
+   * Map 中（保留旧历史），必须跳过它，否则 FIFO 首位时会被误删，导致本应保留的
+   * undo/redo 历史被回收。重置模式下当前栈已被 reset()，删除也无害，但统一跳过
+   * 可避免边界问题。
+   *
+   * @param currentWorkflowId 当前 run() 的工作流 id，清理时跳过
    */
-  private enforceHistoryStacksLimit(): void {
+  private enforceHistoryStacksLimit(currentWorkflowId: string): void {
     while (this.historyStacks.size >= MAX_CONCURRENT_WORKFLOW_STACKS) {
-      // 取最旧 workflowId（Map 第一个 key）
-      const oldestId = this.historyStacks.keys().next().value;
+      // 取最旧 workflowId（Map 第一个 key），跳过当前工作流
+      let oldestId = this.historyStacks.keys().next().value;
       if (oldestId === undefined) break;
+      if (oldestId === currentWorkflowId) {
+        // 当前工作流是最旧 entry：取第二个，没有则退出
+        const iter = this.historyStacks.keys();
+        iter.next(); // 跳过第一个
+        oldestId = iter.next().value;
+        if (oldestId === undefined) break;
+      }
       const stack = this.historyStacks.get(oldestId);
       if (stack) {
         // reset 触发 onEvict，回收历史 outputs 资产

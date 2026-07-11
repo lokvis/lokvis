@@ -191,7 +191,7 @@ Each workflow gets its own `HistoryStack`. The model is a cursor over an array:
 
 `onEvict(entry)` is the asset-reclamation hook: Runtime registers a callback that calls `assetStore.remove(assetId)` for every output of the evicted entry, preventing OPFS leaks. `onChanged(workflowId, entries, cursor)` fires `history:changed` on the EventBus and triggers `persistHistory` (W7.2).
 
-**LRU 32.** Runtime caps `historyStacks` at `MAX_CONCURRENT_WORKFLOW_STACKS = 32`. Above the cap, the oldest stack (Map insertion order = ES2015 spec) is `reset()` and deleted. The current workflow is never a victim because `enforceHistoryStacksLimit()` runs before `getOrCreateHistoryStack` inserts the new entry.
+**LRU 32.** Runtime caps `historyStacks` at `MAX_CONCURRENT_WORKFLOW_STACKS = 32`. Above the cap, the oldest stack (Map insertion order = ES2015 spec) is `reset()` and deleted. The current workflow is never a victim: `enforceHistoryStacksLimit(currentWorkflowId)` explicitly skips the running workflow's id, which matters in `appendHistory` mode where the current stack already exists in the Map before the limit check runs.
 
 **IDB persistence.** When `enableIndexedDB` is true, `createHistoryStore()` returns an IDB-backed store. `persistHistory(workflowId)` snapshots `{ entries, cursor, initialInputs, currentOutputs, updatedAt }`. `currentOutputs` is derived from the snapshot (cursor `-1` → `initialInputs`, else `entries[cursor].outputs`) — not from `currentOutputsMap` — because `onChanged` fires synchronously inside `append`/`undo`/`redo`/`jumpTo` before the map is updated.
 
