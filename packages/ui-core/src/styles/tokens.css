@@ -47,11 +47,6 @@
   --lokvis-radius-lg: 0.75rem;      /* 12px */
   --lokvis-radius-full: 9999px;
 
-  /* ── 阴影 ───────────────────────────────────── */
-  --lokvis-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --lokvis-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --lokvis-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-
   /* ── 动效 ───────────────────────────────────── */
   --lokvis-duration: 150ms;
   --lokvis-ease: cubic-bezier(0.4, 0, 0.2, 1);
