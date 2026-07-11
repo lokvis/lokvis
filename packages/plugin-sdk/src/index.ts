@@ -92,7 +92,10 @@ export function createCapabilityImpl(
   engine: string,
   execute: CapabilityImplementation['execute']
 ): CapabilityImplementation {
-  return { capability, engine, execute };
+  // 显式设 status:'stable'(AGENTS.md stub 约定要求显式标注;
+  // CapabilityRegistry.resolve() 依此判断是否跳过)。
+  // 本工厂仅用于内联 builtin 实现(如 plugin-dev),不用于 stub 占位。
+  return { capability, engine, status: 'stable', execute };
 }
 
 /** 便捷工具：创建 Panel 定义 */
