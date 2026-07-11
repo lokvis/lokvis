@@ -90,7 +90,7 @@ export function ToolRunner({
 
  function handleFiles(files: FileList | File[] | null) {
   if (!files || files.length === 0) return;
-  const file = files[0] instanceof File ? files[0] : files[0];
+  const file = files[0];
   if (!file) return;
 
   setInputBlob(file);
