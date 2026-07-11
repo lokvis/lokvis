@@ -60,6 +60,8 @@ export function Inspector({ className = '' }: InspectorProps) {
  <button
  type="button"
  onClick={() => setConfigureOpen(!configureOpen)}
+ aria-expanded={configureOpen}
+ aria-controls={`configure-panel-${selectedNode.id}`}
  className="flex w-full items-center justify-between px-3 h-10 text-left transition-colors hover:bg-[var(--lokvis-surface)]"
  >
  <div className="flex items-center gap-2">
@@ -71,7 +73,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  </span>
  </button>
  {configureOpen && (
- <div className="px-3 pb-3 max-h-60 overflow-y-auto">
+ <div id={`configure-panel-${selectedNode.id}`} className="px-3 pb-3 max-h-60 overflow-y-auto">
  <ParamForm
  capability={capabilityMap[selectedNode.capability]!}
  values={selectedNode.params}
