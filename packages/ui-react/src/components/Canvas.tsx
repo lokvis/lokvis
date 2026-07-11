@@ -93,7 +93,11 @@ export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
 
  {/* W9.4 Compare 模式切换按钮(右上) */}
  {canCompare && (
- <div className="absolute top-2 right-2 z-20 flex items-center gap-1 rounded-md bg-[var(--lokvis-surface)]/90 p-0.5 shadow-[var(--lokvis-elevation-1)] backdrop-blur-sm">
+ <div
+ role="group"
+ aria-label="对比模式切换"
+ className="absolute top-2 right-2 z-20 flex items-center gap-1 rounded-md bg-[var(--lokvis-surface)]/90 p-0.5 shadow-[var(--lokvis-elevation-1)] backdrop-blur-sm"
+ >
  <button
  type="button"
  onClick={() => setCompareMode(false)}

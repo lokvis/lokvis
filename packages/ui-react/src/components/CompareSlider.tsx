@@ -112,6 +112,8 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  return (
  <div
  ref={containerRef}
+ role="group"
+ aria-label="前后对比滑块"
  className={`relative select-none overflow-hidden rounded-lg ring-1 ring-[var(--lokvis-border)]/50 ${className}`}
  onMouseDown={handleMouseDown}
  onTouchStart={handleTouchStart}
