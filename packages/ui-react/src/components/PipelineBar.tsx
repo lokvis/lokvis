@@ -6,7 +6,7 @@
  */
 
 import * as React from 'react';
-import { Icon } from '@lokvis/ui-core';
+import { FOCUS_RING, Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 import { StatusDot } from './StatusDot.js';
 
@@ -62,7 +62,7 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  }}
  aria-label={`节点 ${node.capability},位置 ${i + 1},Delete 删除`}
  aria-pressed={selected}
- className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)] focus-visible:ring-offset-1 ${
+ className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${FOCUS_RING} ${
  selected
  ? 'bg-[var(--lokvis-primary)]/15 text-[var(--lokvis-primary)] ring-1 ring-[var(--lokvis-primary)]/50'
  : node.status === 'running'

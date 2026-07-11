@@ -7,7 +7,7 @@
 
 import * as React from 'react';
 import type { AssetType } from '@lokvis/schema';
-import { Icon, Input } from '@lokvis/ui-core';
+import { FOCUS_RING, Icon, Input } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 
 export interface AssetPanelProps {
@@ -247,7 +247,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  selectAsset(asset.id);
  }
  }}
- className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)]/50 ${
+ className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-all ${FOCUS_RING} ${
  selected
  ? 'bg-[var(--lokvis-primary)]/10 ring-1 ring-[var(--lokvis-primary)]/40'
  : 'hover:bg-[var(--lokvis-surface)]'

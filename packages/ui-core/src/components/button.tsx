@@ -1,9 +1,10 @@
 import * as React from 'react';
+import { FOCUS_RING, DISABLED_STYLE } from '../styles/constants.js';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
- variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
- size?: 'sm' | 'md' | 'lg';
- loading?: boolean;
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
 }
 
 const variantClasses: Record<string, string> = {
@@ -23,17 +24,17 @@ const sizeClasses: Record<string, string> = {
 };
 
 export function Button({
- variant = 'primary',
- size = 'md',
- loading = false,
- disabled,
- className = '',
- children,
- ...props
+  variant = 'primary',
+  size = 'md',
+  loading = false,
+  disabled,
+  className = '',
+  children,
+  ...props
 }: ButtonProps) {
  return (
  <button
- className={`inline-flex items-center justify-center rounded-lg font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)] focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50 ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+ className={`inline-flex items-center justify-center rounded-lg font-medium transition-all duration-150 ${FOCUS_RING} ${DISABLED_STYLE} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
  disabled={disabled || loading}
  {...props}
  >
