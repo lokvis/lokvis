@@ -18,5 +18,6 @@ export { Toggle, type ToggleProps } from './components/toggle.js';
 export { Select, type SelectProps, type SelectOption } from './components/select.js';
 export { Tabs, type TabItem, type TabsProps } from './components/tabs.js';
 export { Dialog, type DialogProps } from './components/dialog.js';
+export { ConfirmDialog, type ConfirmDialogProps } from './components/confirm-dialog.js';
 export { Tooltip, type TooltipProps } from './components/tooltip.js';
 export { FOCUS_RING, DISABLED_STYLE } from './styles/constants.js';

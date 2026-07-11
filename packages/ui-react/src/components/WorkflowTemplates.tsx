@@ -12,7 +12,7 @@
  */
 
 import * as React from 'react';
-import { Icon } from '@lokvis/ui-core';
+import { ConfirmDialog, Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from '../data/workflow-templates.js';
 
@@ -31,13 +31,18 @@ export function WorkflowTemplates({
 }: WorkflowTemplatesProps) {
  const loadWorkflowTemplate = useWorkspaceStore((s) => s.loadWorkflowTemplate);
  const nodes = useWorkspaceStore((s) => s.nodes);
+ // 待确认应用的模板(非空工作流替换前需用户确认)
+ const [pendingTpl, setPendingTpl] = React.useState<WorkflowTemplate | null>(null);
 
  const handleApply = (tpl: WorkflowTemplate) => {
  if (confirmIfNotEmpty && nodes.length > 0) {
- if (!window.confirm(`应用模板「${tpl.name}」将替换当前 ${nodes.length} 个节点,继续?`)) {
+ setPendingTpl(tpl);
  return;
  }
- }
+ applyTemplate(tpl);
+ };
+
+ const applyTemplate = (tpl: WorkflowTemplate) => {
  loadWorkflowTemplate(
  tpl.nodes.map((n) => ({ capability: n.capability, params: n.params }))
  );
@@ -96,6 +101,24 @@ export function WorkflowTemplates({
  </button>
  ))}
  </div>
+
+ {/* 替换确认对话框(替代 window.confirm) */}
+ <ConfirmDialog
+ open={pendingTpl !== null}
+ title="应用模板"
+ message={
+ pendingTpl
+ ? `应用模板「${pendingTpl.name}」将替换当前 ${nodes.length} 个节点,继续?`
+ : ''
+ }
+ confirmText="替换"
+ variant="danger"
+ onConfirm={() => {
+ if (pendingTpl) applyTemplate(pendingTpl);
+ setPendingTpl(null);
+ }}
+ onClose={() => setPendingTpl(null)}
+ />
  </div>
  );
 }

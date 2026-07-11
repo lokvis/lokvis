@@ -18,7 +18,7 @@
  */
 
 import * as React from 'react';
-import { Icon, Input } from '@lokvis/ui-core';
+import { ConfirmDialog, Icon, Input } from '@lokvis/ui-core';
 import type { Capability } from '@lokvis/schema';
 import { useWorkspaceStore, MAX_WORKFLOW_STEPS } from '../store/index.js';
 
@@ -40,6 +40,8 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  // 拖拽状态:被拖拽的节点索引 + 当前 hover 的插入位置
  const [dragIndex, setDragIndex] = React.useState<number | null>(null);
  const [hoverIndex, setHoverIndex] = React.useState<number | null>(null);
+ // 清空确认对话框
+ const [clearOpen, setClearOpen] = React.useState(false);
 
  const handleDragStart = (e: React.DragEvent, index: number) => {
  setDragIndex(index);
@@ -116,11 +118,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  {nodes.length > 0 && (
  <button
  type="button"
- onClick={() => {
- if (window.confirm('清空当前工作流?所有节点将被移除。')) {
- clearWorkflow();
- }
- }}
+ onClick={() => setClearOpen(true)}
  className="text-[10px] text-[var(--lokvis-fg-subtle)] transition-colors hover:text-[var(--lokvis-danger)]"
  aria-label="清空工作流"
  >
@@ -239,6 +237,20 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  <span>拖拽重排 · 方向键移动 · Delete 删除 · hover 箭头处插入节点</span>
  </div>
  )}
+
+ {/* 清空确认对话框(替代 window.confirm) */}
+ <ConfirmDialog
+ open={clearOpen}
+ title="清空工作流"
+ message="清空当前工作流?所有节点将被移除。"
+ confirmText="清空"
+ variant="danger"
+ onConfirm={() => {
+ clearWorkflow();
+ setClearOpen(false);
+ }}
+ onClose={() => setClearOpen(false)}
+ />
  </div>
  );
 }
