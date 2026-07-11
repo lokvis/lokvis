@@ -63,6 +63,11 @@
   /* ── Overlay(Dialog 遮罩)──────────────────── */
   --lokvis-overlay: rgb(0 0 0 / 0.5);
 
+  /* ── Scrim(图像/媒体上的半透明暗层)──────── */
+  /* 用于 before/after 标签、元数据徽标等叠在图片上的元素,
+     不随主题变化(图片本身明暗独立于 app 主题)。 */
+  --lokvis-scrim: rgb(0 0 0 / 0.6);
+
   /* ── 间距(8pt 栅格)──────────────────────── */
   --lokvis-space-1: 0.25rem;   /* 4px */
   --lokvis-space-2: 0.5rem;    /* 8px */

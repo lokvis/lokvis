@@ -139,10 +139,10 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  </div>
 
  {/* before/after 标签 */}
- <span className="absolute top-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-[var(--lokvis-primary-fg)]">
+ <span className="absolute top-2 left-2 rounded bg-[var(--lokvis-scrim)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--lokvis-primary-fg)]">
  Before
  </span>
- <span className="absolute top-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-[var(--lokvis-primary-fg)]">
+ <span className="absolute top-2 right-2 rounded bg-[var(--lokvis-scrim)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--lokvis-primary-fg)]">
  After
  </span>
 
@@ -170,12 +170,12 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  {(beforeAsset || afterAsset) && (
  <div className="absolute bottom-2 inset-x-2 flex justify-between text-[10px] text-[var(--lokvis-primary-fg)]">
  {beforeAsset?.metadata.dimensions && (
- <span className="rounded bg-black/60 px-1.5 py-0.5">
+ <span className="rounded bg-[var(--lokvis-scrim)] px-1.5 py-0.5">
  {beforeAsset.metadata.dimensions.width}×{beforeAsset.metadata.dimensions.height}
  </span>
  )}
  {afterAsset?.metadata.dimensions && (
- <span className="rounded bg-black/60 px-1.5 py-0.5">
+ <span className="rounded bg-[var(--lokvis-scrim)] px-1.5 py-0.5">
  {afterAsset.metadata.dimensions.width}×{afterAsset.metadata.dimensions.height}
  </span>
  )}
