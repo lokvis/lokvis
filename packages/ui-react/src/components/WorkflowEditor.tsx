@@ -21,6 +21,8 @@ import * as React from 'react';
 import { ConfirmDialog, Icon, Input } from '@lokvis/ui-core';
 import type { Capability } from '@lokvis/schema';
 import { useWorkspaceStore, MAX_WORKFLOW_STEPS } from '../store/index.js';
+import { filterCapabilities } from '../utils.js';
+import { StatusDot } from './StatusDot.js';
 
 export interface WorkflowEditorProps {
  className?: string;
@@ -255,23 +257,6 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  );
 }
 
-function StatusDot({ status }: { status: string }) {
- const color =
- status === 'running'
- ? 'bg-[var(--lokvis-warning)]'
- : status === 'success'
- ? 'bg-[var(--lokvis-success)]'
- : status === 'failed'
- ? 'bg-[var(--lokvis-danger)]'
- : status === 'pending'
- ? 'bg-[var(--lokvis-fg-subtle)]'
- : 'bg-[var(--lokvis-fg-subtle)]';
-
- const animate = status === 'running' ? 'animate-pulse' : '';
-
- return <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${color} ${animate}`} />;
-}
-
 /**
  * InsertConnector - 节点之间的连接器 + 插入按钮(W11.1)
  *
@@ -311,12 +296,7 @@ function InsertConnector({
  }, [open]);
 
  const filtered = React.useMemo(
- () =>
- capabilities.filter(
- (c) =>
- c.name.toLowerCase().includes(filter.toLowerCase()) ||
- c.description.toLowerCase().includes(filter.toLowerCase())
- ),
+ () => filterCapabilities(capabilities, filter),
  [capabilities, filter]
  );
 

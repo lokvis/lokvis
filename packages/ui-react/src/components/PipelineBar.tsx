@@ -8,6 +8,7 @@
 import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
+import { StatusDot } from './StatusDot.js';
 
 export interface PipelineBarProps {
  className?: string;
@@ -115,21 +116,4 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  )}
  </div>
  );
-}
-
-function StatusDot({ status }: { status: string }) {
- const color =
- status === 'running'
- ? 'bg-[var(--lokvis-warning)]'
- : status === 'success'
- ? 'bg-[var(--lokvis-success)]'
- : status === 'failed'
- ? 'bg-[var(--lokvis-danger)]'
- : status === 'pending'
- ? 'bg-[var(--lokvis-fg-subtle)]'
- : 'bg-[var(--lokvis-fg-subtle)]';
-
- const animate = status === 'running' ? 'animate-pulse' : '';
-
- return <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${color} ${animate}`} />;
 }

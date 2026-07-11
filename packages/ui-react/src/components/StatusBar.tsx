@@ -12,17 +12,10 @@
 import * as React from 'react';
 import { useWorkspaceStore } from '../store/index.js';
 import { useWorkflowProgress } from '../hooks/useWorkflowProgress.js';
+import { formatBytes } from '../utils.js';
 
 export interface StatusBarProps {
  className?: string;
-}
-
-/** 格式化字节数为人类可读(KB/MB/GB) */
-function formatBytes(bytes: number): string {
- if (bytes < 1024) return `${bytes} B`;
- if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
- if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
- return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 /** useOnlineStatus - 监听 navigator.onLine + online/offline 事件(W9.6) */

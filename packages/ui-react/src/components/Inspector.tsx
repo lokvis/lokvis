@@ -8,6 +8,7 @@
 import * as React from 'react';
 import { Icon, Input } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
+import { filterCapabilities } from '../utils.js';
 import { ParamForm } from './ParamForm.js';
 import { ExifPanel } from './ExifPanel.js';
 
@@ -28,11 +29,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  const [filter, setFilter] = React.useState('');
  const [configureOpen, setConfigureOpen] = React.useState(true);
 
- const filtered = capabilities.filter(
- (c) =>
- c.name.toLowerCase().includes(filter.toLowerCase()) ||
- c.description.toLowerCase().includes(filter.toLowerCase())
- );
+ const filtered = filterCapabilities(capabilities, filter);
 
  // 按域分组
  const grouped = React.useMemo(() => {
