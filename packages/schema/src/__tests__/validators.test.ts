@@ -384,6 +384,46 @@ describe('W10.2 capability 兼容性校验', () => {
     }
   });
 
+  it('未注册 capability 位于非输入节点(中间/末尾 transform 节点)时也应报错', () => {
+    // 首节点 image.resize 已注册(in-degree 0,5a 通过);
+    // 末节点 unknown.cap 未注册(in-degree 1,旧 5b 静默跳过 → bug)
+    // 修复后应遍历所有带 capability 的节点报错
+    const result = validateWorkflow(linearWf('image.resize', 'unknown.cap'), {
+      resolveCapability: resolveCap,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => /unknown capability "unknown\.cap"/.test(i.message)))
+        .toBe(true);
+    }
+  });
+
+  it('未注册 capability 位于三节点链中间节点时也应报错', () => {
+    // n1 image.resize(已知) → n2 audio.denoise(未注册) → n3 image.compress(已知)
+    // 旧实现:5b 边检查 !toCap 时 continue 跳过,5a 仅查入度 0 节点 → 漏报
+    const result = validateWorkflow({
+      ...validWorkflow,
+      nodes: [
+        { id: 'n1', type: 'transform' as const, capability: 'image.resize', params: {} },
+        { id: 'n2', type: 'transform' as const, capability: 'audio.denoise', params: {} },
+        { id: 'n3', type: 'transform' as const, capability: 'image.compress', params: {} },
+      ],
+      edges: [
+        { from: 'n1', to: 'n2' },
+        { from: 'n2', to: 'n3' },
+      ],
+      inputs: { type: 'image', multiple: false },
+      outputs: { type: 'image' },
+    }, {
+      resolveCapability: resolveCap,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => /unknown capability "audio\.denoise"/.test(i.message)))
+        .toBe(true);
+    }
+  });
+
   it('resolveCapability 未提供时应跳过兼容性校验(向后兼容)', () => {
     const result = validateWorkflow(linearWf('image.resize', 'video.to-frames'));
     expect(result.success).toBe(true);
