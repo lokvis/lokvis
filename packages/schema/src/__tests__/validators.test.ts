@@ -508,3 +508,124 @@ describe('W10 枚举 schema 校验', () => {
     expect(result.success).toBe(false);
   });
 });
+
+// ─── Phase 2: fan-out 节点支持 ─────────────────────────────
+
+describe('Phase 2 fan-out 节点校验', () => {
+  /** 合法 fan-out:resize → fan-out → [compress, watermark] 两并行分支 */
+  const fanOutWorkflow = {
+    ...validWorkflow,
+    nodes: [
+      { id: 'n1', type: 'transform' as const, capability: 'image.resize', params: {} },
+      { id: 'fan', type: 'fan-out' as const },
+      { id: 'n2', type: 'transform' as const, capability: 'image.compress', params: {} },
+      { id: 'n3', type: 'transform' as const, capability: 'image.watermark', params: {} },
+    ],
+    edges: [
+      { from: 'n1', to: 'fan' },
+      { from: 'fan', to: 'n2' },
+      { from: 'fan', to: 'n3' },
+    ],
+  };
+
+  it('合法 fan-out(2 条出边,2 并行分支)应通过', () => {
+    const result = validateWorkflow(fanOutWorkflow);
+    expect(result.success).toBe(true);
+  });
+
+  it('fan-out 节点带 capability 应失败(结构节点,不引用能力)', () => {
+    const result = validateWorkflow({
+      ...fanOutWorkflow,
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'image.resize', params: {} },
+        { id: 'fan', type: 'fan-out', capability: 'image.resize' },
+        { id: 'n2', type: 'transform', capability: 'image.compress', params: {} },
+        { id: 'n3', type: 'transform', capability: 'image.watermark', params: {} },
+      ],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/fan-out.*must not.*capability|capability.*fan-out/i);
+    }
+  });
+
+  it('fan-out 节点仅 1 条出边应失败(无并行意义)', () => {
+    const result = validateWorkflow({
+      ...fanOutWorkflow,
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'image.resize', params: {} },
+        { id: 'fan', type: 'fan-out' },
+        { id: 'n2', type: 'transform', capability: 'image.compress', params: {} },
+      ],
+      edges: [
+        { from: 'n1', to: 'fan' },
+        { from: 'fan', to: 'n2' },
+      ],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/fan-out.*at least 2|fan-out.*≥\s*2|fan-out.*2.*outgoing/i);
+    }
+  });
+
+  it('fan-out 节点 0 条出边应失败', () => {
+    const result = validateWorkflow({
+      ...fanOutWorkflow,
+      nodes: [
+        { id: 'n1', type: 'transform', capability: 'image.resize', params: {} },
+        { id: 'fan', type: 'fan-out' },
+      ],
+      edges: [{ from: 'n1', to: 'fan' }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msg = result.error.issues.map((i) => i.message).join('; ');
+      expect(msg).toMatch(/fan-out.*at least 2|fan-out.*≥\s*2|fan-out.*2.*outgoing/i);
+    }
+  });
+
+  it('fan-out 节点作为入口(入度 0)且有 2 条出边应通过', () => {
+    const result = validateWorkflow({
+      ...fanOutWorkflow,
+      nodes: [
+        { id: 'fan', type: 'fan-out' },
+        { id: 'n2', type: 'transform', capability: 'image.resize', params: {} },
+        { id: 'n3', type: 'transform', capability: 'image.watermark', params: {} },
+      ],
+      edges: [
+        { from: 'fan', to: 'n2' },
+        { from: 'fan', to: 'n3' },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('fan-out 3 条出边(三平台并行)应通过', () => {
+    const result = validateWorkflow({
+      ...fanOutWorkflow,
+      nodes: [
+        { id: 'fan', type: 'fan-out' },
+        { id: 'a', type: 'transform', capability: 'image.resize', params: { width: 1080 } },
+        { id: 'b', type: 'transform', capability: 'image.resize', params: { width: 720 } },
+        { id: 'c', type: 'transform', capability: 'image.resize', params: { width: 480 } },
+      ],
+      edges: [
+        { from: 'fan', to: 'a' },
+        { from: 'fan', to: 'b' },
+        { from: 'fan', to: 'c' },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('fan-out 节点不应被 maxSteps 误判(transform 计数),但仍计入总节点数', () => {
+    // 4 节点(含 1 fan-out),maxSteps=4 应通过
+    const result = validateWorkflow(fanOutWorkflow, { maxSteps: 4 });
+    expect(result.success).toBe(true);
+    // 4 节点,maxSteps=3 应失败(节点总数超限)
+    const result2 = validateWorkflow(fanOutWorkflow, { maxSteps: 3 });
+    expect(result2.success).toBe(false);
+  });
+});

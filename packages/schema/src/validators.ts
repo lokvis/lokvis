@@ -55,14 +55,17 @@ export const assetMetadataSchema = z.object({
 
 export const workflowNodeSchema = z.object({
   id: z.string(),
-  type: z.enum(['load', 'transform', 'export']),
-  // capability 仅 transform 节点必填;load/export 可不填
+  type: z.enum(['load', 'transform', 'export', 'fan-out']),
+  // capability 仅 transform 节点必填;load/export/fan-out 可不填
   capability: z.string().optional(),
   params: z.record(z.unknown()).optional(),
   label: z.string().optional(),
 }).refine(
   (node) => node.type !== 'transform' || (typeof node.capability === 'string' && node.capability.length > 0),
   { message: 'transform 节点必须指定 capability' }
+).refine(
+  (node) => node.type !== 'fan-out' || node.capability === undefined,
+  { message: 'fan-out 节点不能指定 capability（fan-out 是结构节点，不引用能力）' }
 );
 
 export const workflowEdgeSchema = z.object({
@@ -239,6 +242,27 @@ export function validateWorkflow(data: unknown, options?: ValidateWorkflowOption
       errors.push(
         `Workflow contains a cycle: only ${visited}/${wf.nodes.length} nodes are reachable.`
       );
+    }
+  }
+
+  // 4b. Phase 2: fan-out 节点结构校验
+  //     fan-out 节点必须有 ≥2 条出边(否则无并行意义);
+  //     capability 已由 workflowNodeSchema.refine 禁止,此处不重复。
+  if (errors.length === 0) {
+    const outDegree = new Map<string, number>();
+    for (const node of wf.nodes) outDegree.set(node.id, 0);
+    for (const edge of wf.edges) {
+      outDegree.set(edge.from, (outDegree.get(edge.from) ?? 0) + 1);
+    }
+    for (const node of wf.nodes) {
+      if (node.type !== 'fan-out') continue;
+      const outDeg = outDegree.get(node.id) ?? 0;
+      if (outDeg < 2) {
+        errors.push(
+          `fan-out node "${node.id}" must have at least 2 outgoing edges ` +
+            `(found ${outDeg}); fan-out with fewer than 2 branches has no parallel meaning.`
+        );
+      }
     }
   }
 
