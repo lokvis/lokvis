@@ -8,6 +8,7 @@ import {
   IMAGE_CAPABILITIES,
   PDF_CAPABILITIES,
   VIDEO_CAPABILITIES,
+  AUDIO_CAPABILITIES,
   ASSET_CAPABILITIES,
   DEVELOPER_CAPABILITIES,
   BUILTIN_CAPABILITIES,
@@ -21,6 +22,11 @@ import {
   PDF_SPLIT,
   VIDEO_COMPRESS,
   VIDEO_TRIM,
+  AUDIO_TRIM,
+  AUDIO_NORMALIZE,
+  AUDIO_DENOISE,
+  AUDIO_TRANSCODE,
+  AUDIO_MERGE,
 } from '../presets/index.js';
 import { domainOf } from '../names.js';
 
@@ -108,6 +114,58 @@ describe('视频能力预设', () => {
   });
 });
 
+describe('音频能力预设', () => {
+  it('AUDIO_TRIM 应有正确的输入输出类型与必填参数', () => {
+    expect(AUDIO_TRIM.name).toBe('audio.trim');
+    expect(AUDIO_TRIM.inputTypes).toEqual(['audio']);
+    expect(AUDIO_TRIM.outputTypes).toEqual(['audio']);
+    expect(AUDIO_TRIM.batchable).toBe(true);
+    const start = AUDIO_TRIM.params.find((p) => p.name === 'start');
+    const end = AUDIO_TRIM.params.find((p) => p.name === 'end');
+    expect(start?.required).toBe(true);
+    expect(end?.required).toBe(true);
+  });
+
+  it('AUDIO_NORMALIZE 应输出 audio 类型', () => {
+    expect(AUDIO_NORMALIZE.name).toBe('audio.normalize');
+    expect(AUDIO_NORMALIZE.outputTypes).toEqual(['audio']);
+    expect(AUDIO_NORMALIZE.performance).toBe('medium');
+  });
+
+  it('AUDIO_DENOISE 性能应为 slow', () => {
+    expect(AUDIO_DENOISE.name).toBe('audio.denoise');
+    expect(AUDIO_DENOISE.performance).toBe('slow');
+  });
+
+  it('AUDIO_TRANSCODE 的 format 参数应为必填 enum', () => {
+    const format = AUDIO_TRANSCODE.params.find((p) => p.name === 'format');
+    expect(format?.type).toBe('enum');
+    expect(format?.required).toBe(true);
+    expect(format?.values).toContain('mp3');
+    expect(format?.values).toContain('wav');
+  });
+
+  it('AUDIO_MERGE 应不可批量(一次合并多段)', () => {
+    expect(AUDIO_MERGE.name).toBe('audio.merge');
+    expect(AUDIO_MERGE.batchable).toBe(false);
+  });
+
+  it('AUDIO_CAPABILITIES 应包含 5 个能力且全部 audio 域', () => {
+    expect(AUDIO_CAPABILITIES).toHaveLength(5);
+    expect(AUDIO_CAPABILITIES.every((c) => domainOf(c.name) === 'audio')).toBe(true);
+    const names = AUDIO_CAPABILITIES.map((c) => c.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'audio.trim',
+        'audio.normalize',
+        'audio.denoise',
+        'audio.transcode',
+        'audio.merge',
+      ])
+    );
+  });
+});
+
 describe('内置能力集合', () => {
   it('ASSET_CAPABILITIES 应包含 rename 与 archive', () => {
     const names = ASSET_CAPABILITIES.map((c) => c.name);
@@ -125,6 +183,7 @@ describe('内置能力集合', () => {
       IMAGE_CAPABILITIES.length +
         PDF_CAPABILITIES.length +
         VIDEO_CAPABILITIES.length +
+        AUDIO_CAPABILITIES.length +
         ASSET_CAPABILITIES.length +
         DEVELOPER_CAPABILITIES.length
     );
