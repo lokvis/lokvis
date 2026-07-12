@@ -57,6 +57,14 @@ describe('图像能力预设', () => {
     expect(formatParam?.required).toBe(true);
   });
 
+  it('IMAGE_CONVERT 的 format 枚举应包含 ico(用于 favicon 场景)', () => {
+    const formatParam = IMAGE_CONVERT.params.find((p) => p.name === 'format');
+    expect(formatParam?.values).toContain('ico');
+    expect(formatParam?.values).toEqual(
+      expect.arrayContaining(['png', 'jpeg', 'webp', 'avif', 'gif', 'ico'])
+    );
+  });
+
   it('IMAGE_CROP 所有参数都应为必填', () => {
     expect(IMAGE_CROP.params.every((p) => p.required)).toBe(true);
     expect(IMAGE_CROP.params.map((p) => p.name).sort()).toEqual([

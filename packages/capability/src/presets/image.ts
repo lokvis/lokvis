@@ -55,7 +55,7 @@ export const IMAGE_CONVERT: Capability = {
     {
       name: 'format',
       type: 'enum',
-      values: ['png', 'jpeg', 'webp', 'avif', 'gif'],
+      values: ['png', 'jpeg', 'webp', 'avif', 'gif', 'ico'],
       required: true,
     },
     { name: 'quality', type: 'number', min: 0, max: 100, default: 90 },
