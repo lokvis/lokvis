@@ -454,7 +454,7 @@ describe('watermark AbortSignal', () => {
     mockFetch.mockResolvedValue({ ok: true, blob: async () => wmBlob });
     mockCreateImageBitmap.mockResolvedValue({ width: 20, height: 20, close: vi.fn() });
     await watermark(INPUT, {
-      image: 'https://example.com/wm.png',
+      imagePath: 'https://example.com/wm.png',
       position: 'tile',
     });
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -464,13 +464,13 @@ describe('watermark AbortSignal', () => {
   it('图片水印 fetch 失败应抛错', async () => {
     mockFetch.mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' });
     await expect(
-      watermark(INPUT, { image: 'https://example.com/wm.png' })
+      watermark(INPUT, { imagePath: 'https://example.com/wm.png' })
     ).rejects.toThrow(/Failed to fetch watermark/);
   });
 
   it('图片水印 URL 不安全(SSRF)应抛错', async () => {
     await expect(
-      watermark(INPUT, { image: 'http://127.0.0.1/evil' })
+      watermark(INPUT, { imagePath: 'http://127.0.0.1/evil' })
     ).rejects.toThrow(/SSRF guard/);
     expect(mockFetch).not.toHaveBeenCalled();
   });
@@ -480,7 +480,7 @@ describe('watermark AbortSignal', () => {
     mockFetch.mockResolvedValue({ ok: true, blob: async () => wmBlob });
     mockCreateImageBitmap.mockResolvedValue({ width: 20, height: 20, close: vi.fn() });
     const controller = new AbortController();
-    await watermark(INPUT, { image: 'https://example.com/wm.png' }, controller.signal);
+    await watermark(INPUT, { imagePath: 'https://example.com/wm.png' }, controller.signal);
     expect(mockFetch).toHaveBeenCalledWith(
       'https://example.com/wm.png',
       { signal: controller.signal }
@@ -559,33 +559,33 @@ describe('computeWatermarkPosition', () => {
 
 describe('watermark isSafeImageUrl(SSRF 守卫)', () => {
   it('应拒绝 loopback 地址', async () => {
-    await expect(watermark(INPUT, { image: 'http://localhost/x' })).rejects.toThrow(/SSRF/);
-    await expect(watermark(INPUT, { image: 'http://127.0.0.1/x' })).rejects.toThrow(/SSRF/);
+    await expect(watermark(INPUT, { imagePath: 'http://localhost/x' })).rejects.toThrow(/SSRF/);
+    await expect(watermark(INPUT, { imagePath: 'http://127.0.0.1/x' })).rejects.toThrow(/SSRF/);
   });
 
   it('应拒绝私有网段', async () => {
-    await expect(watermark(INPUT, { image: 'http://10.0.0.1/x' })).rejects.toThrow(/SSRF/);
-    await expect(watermark(INPUT, { image: 'http://192.168.1.1/x' })).rejects.toThrow(/SSRF/);
-    await expect(watermark(INPUT, { image: 'http://172.16.0.1/x' })).rejects.toThrow(/SSRF/);
+    await expect(watermark(INPUT, { imagePath: 'http://10.0.0.1/x' })).rejects.toThrow(/SSRF/);
+    await expect(watermark(INPUT, { imagePath: 'http://192.168.1.1/x' })).rejects.toThrow(/SSRF/);
+    await expect(watermark(INPUT, { imagePath: 'http://172.16.0.1/x' })).rejects.toThrow(/SSRF/);
   });
 
   it('应拒绝链路本地', async () => {
-    await expect(watermark(INPUT, { image: 'http://169.254.169.254/x' })).rejects.toThrow(/SSRF/);
+    await expect(watermark(INPUT, { imagePath: 'http://169.254.169.254/x' })).rejects.toThrow(/SSRF/);
   });
 
   it('应拒绝非 http/https 协议', async () => {
-    await expect(watermark(INPUT, { image: 'file:///etc/passwd' })).rejects.toThrow(/SSRF/);
-    await expect(watermark(INPUT, { image: 'ftp://example.com/x' })).rejects.toThrow(/SSRF/);
+    await expect(watermark(INPUT, { imagePath: 'file:///etc/passwd' })).rejects.toThrow(/SSRF/);
+    await expect(watermark(INPUT, { imagePath: 'ftp://example.com/x' })).rejects.toThrow(/SSRF/);
   });
 
   it('应拒绝 .local / .internal 后缀', async () => {
-    await expect(watermark(INPUT, { image: 'http://host.local/x' })).rejects.toThrow(/SSRF/);
-    await expect(watermark(INPUT, { image: 'http://host.internal/x' })).rejects.toThrow(/SSRF/);
+    await expect(watermark(INPUT, { imagePath: 'http://host.local/x' })).rejects.toThrow(/SSRF/);
+    await expect(watermark(INPUT, { imagePath: 'http://host.internal/x' })).rejects.toThrow(/SSRF/);
   });
 
   it('应拒绝云元数据 host', async () => {
     await expect(
-      watermark(INPUT, { image: 'http://metadata.google.internal/x' })
+      watermark(INPUT, { imagePath: 'http://metadata.google.internal/x' })
     ).rejects.toThrow(/SSRF/);
   });
 
@@ -593,11 +593,11 @@ describe('watermark isSafeImageUrl(SSRF 守卫)', () => {
     const wmBlob = new Blob([new Uint8Array([1])]);
     mockFetch.mockResolvedValue({ ok: true, blob: async () => wmBlob });
     mockCreateImageBitmap.mockResolvedValue({ width: 20, height: 20, close: vi.fn() });
-    await watermark(INPUT, { image: 'https://example.com/wm.png' });
+    await watermark(INPUT, { imagePath: 'https://example.com/wm.png' });
     expect(mockFetch).toHaveBeenCalled();
   });
 
   it('应拒绝无效 URL', async () => {
-    await expect(watermark(INPUT, { image: 'not-a-url' })).rejects.toThrow(/SSRF/);
+    await expect(watermark(INPUT, { imagePath: 'not-a-url' })).rejects.toThrow(/SSRF/);
   });
 });

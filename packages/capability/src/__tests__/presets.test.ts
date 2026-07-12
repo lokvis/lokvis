@@ -18,6 +18,7 @@ import {
   IMAGE_CROP,
   IMAGE_ROTATE,
   IMAGE_FLIP,
+  IMAGE_WATERMARK,
   PDF_MERGE,
   PDF_SPLIT,
   PDF_ADD_PAGE_NUMBERS,
@@ -83,6 +84,15 @@ describe('图像能力预设', () => {
   it('IMAGE_FLIP 的 axis 参数应支持三种值', () => {
     const axisParam = IMAGE_FLIP.params.find((p) => p.name === 'axis');
     expect(axisParam?.values).toEqual(['horizontal', 'vertical', 'both']);
+  });
+
+  it('IMAGE_WATERMARK 应声明 imagePath 参数(图片水印)', () => {
+    const imagePathParam = IMAGE_WATERMARK.params.find((p) => p.name === 'imagePath');
+    expect(imagePathParam?.type).toBe('file');
+    expect(imagePathParam?.required).toBe(false);
+    // 仍保留 text 参数用于文字水印
+    const textParam = IMAGE_WATERMARK.params.find((p) => p.name === 'text');
+    expect(textParam?.type).toBe('string');
   });
 
   it('IMAGE_CAPABILITIES 应包含全部 9 个图像能力', () => {

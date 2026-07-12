@@ -116,7 +116,7 @@ export const IMAGE_WATERMARK: Capability = {
   outputTypes: ['image'],
   params: [
     { name: 'text', type: 'string', required: false, description: 'Text watermark' },
-    { name: 'image', type: 'file', required: false, description: 'Image watermark (data URL)' },
+    { name: 'imagePath', type: 'file', required: false, description: 'Image watermark (data URL or http(s) URL)' },
     {
       name: 'position',
       type: 'enum',
