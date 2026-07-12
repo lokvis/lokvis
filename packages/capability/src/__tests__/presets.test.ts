@@ -20,6 +20,7 @@ import {
   IMAGE_FLIP,
   PDF_MERGE,
   PDF_SPLIT,
+  PDF_ADD_PAGE_NUMBERS,
   VIDEO_COMPRESS,
   VIDEO_TRIM,
   AUDIO_TRIM,
@@ -92,8 +93,26 @@ describe('PDF 能力预设', () => {
     expect(PDF_SPLIT.outputTypes).toEqual(['data']);
   });
 
-  it('PDF_CAPABILITIES 应包含 7 个能力', () => {
-    expect(PDF_CAPABILITIES).toHaveLength(7);
+  it('PDF_CAPABILITIES 应包含 8 个能力', () => {
+    expect(PDF_CAPABILITIES).toHaveLength(8);
+  });
+
+  it('PDF_ADD_PAGE_NUMBERS 应声明页码位置/格式/起始页参数', () => {
+    expect(PDF_ADD_PAGE_NUMBERS.name).toBe('pdf.add-page-numbers');
+    expect(PDF_ADD_PAGE_NUMBERS.inputTypes).toEqual(['pdf']);
+    expect(PDF_ADD_PAGE_NUMBERS.outputTypes).toEqual(['pdf']);
+    expect(PDF_ADD_PAGE_NUMBERS.performance).toBe('fast');
+    expect(PDF_ADD_PAGE_NUMBERS.batchable).toBe(false);
+    const position = PDF_ADD_PAGE_NUMBERS.params.find((p) => p.name === 'position');
+    expect(position?.type).toBe('enum');
+    expect(position?.values).toEqual(
+      expect.arrayContaining(['bottom-center', 'bottom-right', 'top-center', 'top-right'])
+    );
+    const format = PDF_ADD_PAGE_NUMBERS.params.find((p) => p.name === 'format');
+    expect(format?.type).toBe('string');
+    const startFrom = PDF_ADD_PAGE_NUMBERS.params.find((p) => p.name === 'startFrom');
+    expect(startFrom?.type).toBe('number');
+    expect(startFrom?.default).toBe(1);
   });
 });
 

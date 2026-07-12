@@ -95,6 +95,33 @@ export const PDF_SIGN: Capability = {
   batchable: true,
 };
 
+export const PDF_ADD_PAGE_NUMBERS: Capability = {
+  name: 'pdf.add-page-numbers',
+  description: 'Add page numbers to a PDF',
+  inputTypes: ['pdf'],
+  outputTypes: ['pdf'],
+  params: [
+    {
+      name: 'position',
+      type: 'enum',
+      values: ['bottom-center', 'bottom-right', 'top-center', 'top-right'],
+      default: 'bottom-center',
+      description: 'Page number position',
+    },
+    {
+      name: 'format',
+      type: 'string',
+      default: 'Page {n} of {total}',
+      description: 'Number format ({n}=current page, {total}=total pages)',
+    },
+    { name: 'startFrom', type: 'number', min: 1, default: 1, description: 'First page number' },
+    { name: 'fontSize', type: 'number', default: 12, description: 'Font size in pt' },
+    { name: 'color', type: 'color', default: '#000000' },
+  ],
+  performance: 'fast',
+  batchable: false,
+};
+
 /** 所有内置 PDF 能力预设 */
 export const PDF_CAPABILITIES: Capability[] = [
   PDF_MERGE,
@@ -104,4 +131,5 @@ export const PDF_CAPABILITIES: Capability[] = [
   PDF_WATERMARK,
   PDF_OCR,
   PDF_SIGN,
+  PDF_ADD_PAGE_NUMBERS,
 ];

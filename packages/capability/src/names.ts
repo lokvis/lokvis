@@ -65,6 +65,7 @@ export const CAPABILITY_NAMES = {
   PDF_WATERMARK: 'pdf.watermark',
   PDF_OCR: 'pdf.ocr',
   PDF_SIGN: 'pdf.sign',
+  PDF_ADD_PAGE_NUMBERS: 'pdf.add-page-numbers',
 
   // AI
   AI_GENERATE_WORKFLOW: 'ai.generate-workflow',
