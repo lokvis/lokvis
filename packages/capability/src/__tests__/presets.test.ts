@@ -23,6 +23,9 @@ import {
   PDF_ADD_PAGE_NUMBERS,
   VIDEO_COMPRESS,
   VIDEO_TRIM,
+  VIDEO_RESIZE,
+  VIDEO_CROP,
+  VIDEO_NORMALIZE_AUDIO,
   AUDIO_TRIM,
   AUDIO_NORMALIZE,
   AUDIO_DENOISE,
@@ -128,8 +131,44 @@ describe('视频能力预设', () => {
     expect(end?.required).toBe(true);
   });
 
-  it('VIDEO_CAPABILITIES 应包含 7 个能力', () => {
-    expect(VIDEO_CAPABILITIES).toHaveLength(7);
+  it('VIDEO_CAPABILITIES 应包含 10 个能力', () => {
+    expect(VIDEO_CAPABILITIES).toHaveLength(10);
+  });
+
+  it('VIDEO_RESIZE 应声明尺寸/比例保持/适配策略参数', () => {
+    expect(VIDEO_RESIZE.name).toBe('video.resize');
+    expect(VIDEO_RESIZE.inputTypes).toEqual(['video']);
+    expect(VIDEO_RESIZE.outputTypes).toEqual(['video']);
+    expect(VIDEO_RESIZE.performance).toBe('medium');
+    expect(VIDEO_RESIZE.batchable).toBe(true);
+    const fit = VIDEO_RESIZE.params.find((p) => p.name === 'fit');
+    expect(fit?.type).toBe('enum');
+    expect(fit?.values).toEqual(
+      expect.arrayContaining(['cover', 'contain', 'fill', 'inside', 'outside'])
+    );
+    const maintain = VIDEO_RESIZE.params.find((p) => p.name === 'maintainAspectRatio');
+    expect(maintain?.type).toBe('boolean');
+    expect(maintain?.default).toBe(true);
+  });
+
+  it('VIDEO_CROP 的 x/y/width/height 应为必填', () => {
+    expect(VIDEO_CROP.name).toBe('video.crop');
+    expect(VIDEO_CROP.inputTypes).toEqual(['video']);
+    expect(VIDEO_CROP.outputTypes).toEqual(['video']);
+    for (const pname of ['x', 'y', 'width', 'height']) {
+      const p = VIDEO_CROP.params.find((pp) => pp.name === pname);
+      expect(p?.required).toBe(true);
+    }
+  });
+
+  it('VIDEO_NORMALIZE_AUDIO 应输出 video 类型且性能为 slow', () => {
+    expect(VIDEO_NORMALIZE_AUDIO.name).toBe('video.normalize-audio');
+    expect(VIDEO_NORMALIZE_AUDIO.inputTypes).toEqual(['video']);
+    expect(VIDEO_NORMALIZE_AUDIO.outputTypes).toEqual(['video']);
+    expect(VIDEO_NORMALIZE_AUDIO.performance).toBe('slow');
+    const targetLUFS = VIDEO_NORMALIZE_AUDIO.params.find((p) => p.name === 'targetLUFS');
+    expect(targetLUFS?.type).toBe('number');
+    expect(targetLUFS?.default).toBe(-23);
   });
 });
 
