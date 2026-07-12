@@ -8,6 +8,7 @@
  * - pdf.ts:       PDF 能力(7 个)
  * - video.ts:     视频能力(7 个)
  * - audio.ts:     音频能力(5 个,W14.5)
+ * - ai.ts:        AI 能力(5 个,W14.5)
  * - asset.ts:     Asset 通用能力(2 个)
  * - developer.ts: Developer 工具能力(4 个)
  * - platform.ts:  平台尺寸预设库(W8.1,20+ 平台)
@@ -17,6 +18,7 @@ export * from './image.js';
 export * from './pdf.js';
 export * from './video.js';
 export * from './audio.js';
+export * from './ai.js';
 export * from './asset.js';
 export * from './developer.js';
 export * from './platform.js';

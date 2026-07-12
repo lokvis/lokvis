@@ -32,6 +32,12 @@ import {
   AUDIO_DENOISE,
   AUDIO_TRANSCODE,
   AUDIO_MERGE,
+  AI_CAPABILITIES,
+  AI_GENERATE_WORKFLOW,
+  AI_OPTIMIZE_WORKFLOW,
+  AI_CAPTION,
+  AI_OCR,
+  AI_BACKGROUND_REMOVE,
 } from '../presets/index.js';
 import { domainOf } from '../names.js';
 
@@ -242,6 +248,69 @@ describe('音频能力预设', () => {
   });
 });
 
+describe('AI 能力预设', () => {
+  it('AI_CAPABILITIES 应包含 5 个能力且全部 ai 域', () => {
+    expect(AI_CAPABILITIES).toHaveLength(5);
+    expect(AI_CAPABILITIES.every((c) => domainOf(c.name) === 'ai')).toBe(true);
+    const names = AI_CAPABILITIES.map((c) => c.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'ai.generate-workflow',
+        'ai.optimize-workflow',
+        'ai.caption',
+        'ai.ocr',
+        'ai.background-remove',
+      ])
+    );
+  });
+
+  it('AI_GENERATE_WORKFLOW 应接收 data 输入并声明 prompt 必填参数', () => {
+    expect(AI_GENERATE_WORKFLOW.name).toBe('ai.generate-workflow');
+    expect(AI_GENERATE_WORKFLOW.inputTypes).toContain('data');
+    expect(AI_GENERATE_WORKFLOW.outputTypes).toContain('data');
+    expect(AI_GENERATE_WORKFLOW.performance).toBe('slow');
+    const prompt = AI_GENERATE_WORKFLOW.params.find((p) => p.name === 'prompt');
+    expect(prompt?.type).toBe('string');
+    expect(prompt?.required).toBe(true);
+  });
+
+  it('AI_OPTIMIZE_WORKFLOW 应声明 prompt 参数', () => {
+    expect(AI_OPTIMIZE_WORKFLOW.name).toBe('ai.optimize-workflow');
+    expect(AI_OPTIMIZE_WORKFLOW.inputTypes).toContain('data');
+    expect(AI_OPTIMIZE_WORKFLOW.outputTypes).toContain('data');
+    const prompt = AI_OPTIMIZE_WORKFLOW.params.find((p) => p.name === 'prompt');
+    expect(prompt?.type).toBe('string');
+  });
+
+  it('AI_CAPTION 应接收 image 输入并输出 text', () => {
+    expect(AI_CAPTION.name).toBe('ai.caption');
+    expect(AI_CAPTION.inputTypes).toContain('image');
+    expect(AI_CAPTION.outputTypes).toContain('text');
+    expect(AI_CAPTION.performance).toBe('slow');
+    const language = AI_CAPTION.params.find((p) => p.name === 'language');
+    expect(language?.type).toBe('string');
+  });
+
+  it('AI_OCR 应接收 image 与 pdf 输入并输出 text', () => {
+    expect(AI_OCR.name).toBe('ai.ocr');
+    expect(AI_OCR.inputTypes).toEqual(expect.arrayContaining(['image', 'pdf']));
+    expect(AI_OCR.outputTypes).toContain('text');
+    const format = AI_OCR.params.find((p) => p.name === 'format');
+    expect(format?.type).toBe('enum');
+    expect(format?.values).toEqual(expect.arrayContaining(['text', 'json', 'structured']));
+  });
+
+  it('AI_BACKGROUND_REMOVE 应接收 image 输入并输出 image(背景移除)', () => {
+    expect(AI_BACKGROUND_REMOVE.name).toBe('ai.background-remove');
+    expect(AI_BACKGROUND_REMOVE.inputTypes).toEqual(['image']);
+    expect(AI_BACKGROUND_REMOVE.outputTypes).toEqual(['image']);
+    expect(AI_BACKGROUND_REMOVE.performance).toBe('slow');
+    const format = AI_BACKGROUND_REMOVE.params.find((p) => p.name === 'format');
+    expect(format?.type).toBe('enum');
+    expect(format?.values).toEqual(expect.arrayContaining(['png', 'webp']));
+  });
+});
+
 describe('内置能力集合', () => {
   it('ASSET_CAPABILITIES 应包含 rename 与 archive', () => {
     const names = ASSET_CAPABILITIES.map((c) => c.name);
@@ -260,6 +329,7 @@ describe('内置能力集合', () => {
         PDF_CAPABILITIES.length +
         VIDEO_CAPABILITIES.length +
         AUDIO_CAPABILITIES.length +
+        AI_CAPABILITIES.length +
         ASSET_CAPABILITIES.length +
         DEVELOPER_CAPABILITIES.length
     );
