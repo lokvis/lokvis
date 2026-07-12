@@ -497,3 +497,45 @@ describe('集成:节点空输出不记录历史(T6)', () => {
     expect(history).toHaveLength(0);
   });
 });
+
+describe('集成:enforceHistoryStacksLimit LRU 不误删当前工作流', () => {
+  it('appendHistory 模式下当前工作流即使为最旧 entry 也不被 LRU 淘汰', async () => {
+    // 回归测试:enforceHistoryStacksLimit 原实现未跳过 currentWorkflowId,
+    // appendHistory 模式下当前栈已存在于 Map 中,若处于 FIFO 首位且 size>=32,
+    // 会被 reset+delete,导致本应保留的 undo/redo 历史被回收。
+    const runtime = makeRuntime();
+    const inputAsset: Asset = {
+      id: 'asset-input',
+      type: 'image',
+      metadata: { mimeType: 'image/png', size: 1, format: 'png' },
+      blob: { path: 'memory://asset-input', size: 1, mimeType: 'image/png' },
+      history: [],
+      tags: [],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+
+    // 先跑一次目标工作流(使其成为 Map 第一个 entry = 最旧)
+    const targetWf = buildWorkflow();
+    await runtime.run(targetWf, [inputAsset]);
+    const targetHistoryBefore = await runtime.history(WF_ID);
+    expect(targetHistoryBefore).toHaveLength(2);
+
+    // 填充 31 个其他工作流,使 Map 达到 32(MAX_CONCURRENT_WORKFLOW_STACKS)
+    // 目标工作流仍为最旧 entry(Map 插入顺序首位)
+    for (let i = 0; i < 31; i++) {
+      const wf: Workflow = {
+        ...buildWorkflow(),
+        id: `wf-fill-${i}`,
+      };
+      await runtime.run(wf, [inputAsset]);
+    }
+
+    // 此时 size=32,appendHistory 重跑目标工作流:enforceHistoryStacksLimit 触发,
+    // 但必须跳过 currentWorkflowId=WF_ID,保留其历史
+    await runtime.run(targetWf, [inputAsset], { appendHistory: true });
+    const targetHistoryAfter = await runtime.history(WF_ID);
+    // 第一次 2 条 + 第二次 append 2 条 = 4 条(若被误删则为 2 条或 0 条)
+    expect(targetHistoryAfter).toHaveLength(4);
+  });
+});

@@ -18,9 +18,11 @@
  */
 
 import * as React from 'react';
-import { Icon } from '@lokvis/ui-core';
+import { ConfirmDialog, Icon, Input } from '@lokvis/ui-core';
 import type { Capability } from '@lokvis/schema';
 import { useWorkspaceStore, MAX_WORKFLOW_STEPS } from '../store/index.js';
+import { filterCapabilities } from '../utils.js';
+import { StatusDot } from './StatusDot.js';
 
 export interface WorkflowEditorProps {
  className?: string;
@@ -34,11 +36,14 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  const moveNode = useWorkspaceStore((s) => s.moveNode);
  const insertNodeAt = useWorkspaceStore((s) => s.insertNodeAt);
  const capabilities = useWorkspaceStore((s) => s.capabilities);
+ const stubCapabilities = useWorkspaceStore((s) => s.stubCapabilities);
  const clearWorkflow = useWorkspaceStore((s) => s.clearWorkflow);
 
  // 拖拽状态:被拖拽的节点索引 + 当前 hover 的插入位置
  const [dragIndex, setDragIndex] = React.useState<number | null>(null);
  const [hoverIndex, setHoverIndex] = React.useState<number | null>(null);
+ // 清空确认对话框
+ const [clearOpen, setClearOpen] = React.useState(false);
 
  const handleDragStart = (e: React.DragEvent, index: number) => {
  setDragIndex(index);
@@ -115,11 +120,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  {nodes.length > 0 && (
  <button
  type="button"
- onClick={() => {
- if (window.confirm('清空当前工作流?所有节点将被移除。')) {
- clearWorkflow();
- }
- }}
+ onClick={() => setClearOpen(true)}
  className="text-[10px] text-[var(--lokvis-fg-subtle)] transition-colors hover:text-[var(--lokvis-danger)]"
  aria-label="清空工作流"
  >
@@ -148,6 +149,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  <InsertConnector
  index={0}
  capabilities={capabilities}
+ stubCapabilities={stubCapabilities}
  onInsert={insertNodeAt}
  disabled={nodes.length >= MAX_WORKFLOW_STEPS}
  />
@@ -159,6 +161,8 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  const isHoverTarget = hoverIndex === i && dragIndex !== null && dragIndex !== i;
  return (
  <React.Fragment key={node.id}>
+ {/* D7: remove button 作为 node button 的兄弟而非子元素(HTML 规范禁止 button 嵌套) */}
+ <div className="group relative flex shrink-0 items-center">
  <button
  type="button"
  draggable
@@ -170,7 +174,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  onClick={() => selectNode(node.id)}
  onKeyDown={(e) => handleKeyDown(e, node.id, i)}
  aria-label={`节点 ${node.capability},位置 ${i + 1},拖拽或方向键重排,Delete 删除`}
- className={`group relative flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all ${
+ className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all ${
  isDragging
  ? 'opacity-40'
  : isHoverTarget
@@ -192,27 +196,24 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  </span>
  <span className="font-mono">{node.capability}</span>
  <StatusDot status={node.status} />
- {/* 删除按钮:作为兄弟 button 而非嵌套(HTML 规范禁止 button 嵌套)
- 使用 position absolute 浮在节点 button 之上,避免叠加在 capability 文字上;
- group-hover 显示;stopPropagation 避免触发 selectNode */}
+ </button>
+ {/* 删除按钮:兄弟 button(position absolute 浮在节点右上角),group-hover 显示 */}
  <button
  type="button"
- onClick={(e) => {
- e.stopPropagation();
- removeNode(node.id);
- }}
+ onClick={() => removeNode(node.id)}
  aria-label="删除节点"
  tabIndex={-1}
  className="absolute -right-1 -top-1 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--lokvis-danger)]/15 hover:text-[var(--lokvis-danger)]"
  >
  <Icon size={10} strokeWidth={3}><path d="M6 18L18 6M6 6l12 12" /></Icon>
  </button>
- </button>
+ </div>
 
  {/* W11.1: 每个节点后的插入连接器(最后一个用于追加到 Output 前) */}
  <InsertConnector
  index={i + 1}
  capabilities={capabilities}
+ stubCapabilities={stubCapabilities}
  onInsert={insertNodeAt}
  disabled={nodes.length >= MAX_WORKFLOW_STEPS}
  />
@@ -238,25 +239,22 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  <span>拖拽重排 · 方向键移动 · Delete 删除 · hover 箭头处插入节点</span>
  </div>
  )}
+
+ {/* 清空确认对话框(替代 window.confirm) */}
+ <ConfirmDialog
+ open={clearOpen}
+ title="清空工作流"
+ message="清空当前工作流?所有节点将被移除。"
+ confirmText="清空"
+ variant="danger"
+ onConfirm={() => {
+ clearWorkflow();
+ setClearOpen(false);
+ }}
+ onClose={() => setClearOpen(false)}
+ />
  </div>
  );
-}
-
-function StatusDot({ status }: { status: string }) {
- const color =
- status === 'running'
- ? 'bg-[var(--lokvis-warning)]'
- : status === 'success'
- ? 'bg-[var(--lokvis-success)]'
- : status === 'failed'
- ? 'bg-[var(--lokvis-danger)]'
- : status === 'pending'
- ? 'bg-[var(--lokvis-fg-subtle)]'
- : 'bg-[var(--lokvis-fg-subtle)]';
-
- const animate = status === 'running' ? 'animate-pulse' : '';
-
- return <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${color} ${animate}`} />;
 }
 
 /**
@@ -268,11 +266,13 @@ function StatusDot({ status }: { status: string }) {
 function InsertConnector({
  index,
  capabilities,
+ stubCapabilities,
  onInsert,
  disabled,
 }: {
  index: number;
  capabilities: Capability[];
+ stubCapabilities: Set<string>;
  onInsert: (index: number, capability: string) => void;
  disabled?: boolean;
 }) {
@@ -296,12 +296,7 @@ function InsertConnector({
  }, [open]);
 
  const filtered = React.useMemo(
- () =>
- capabilities.filter(
- (c) =>
- c.name.toLowerCase().includes(filter.toLowerCase()) ||
- c.description.toLowerCase().includes(filter.toLowerCase())
- ),
+ () => filterCapabilities(capabilities, filter),
  [capabilities, filter]
  );
 
@@ -340,16 +335,16 @@ function InsertConnector({
 
  {/* 弹出菜单 */}
  {open && (
- <div className="absolute top-full left-1/2 z-50 mt-1 w-56 -translate-x-1/2 rounded-lg border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] shadow-lg">
+ <div className="absolute top-full left-1/2 z-50 mt-1 w-56 -translate-x-1/2 rounded-lg border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-2)]">
  {/* 搜索 */}
  <div className="border-b border-[var(--lokvis-border)] p-1.5">
- <input
+ <Input
  type="text"
+ size="sm"
  autoFocus
  placeholder="搜索 capability..."
  value={filter}
  onChange={(e) => setFilter(e.target.value)}
- className="w-full rounded border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-2 py-1 text-[11px] placeholder:text-[var(--lokvis-fg-subtle)] focus:border-[var(--lokvis-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--lokvis-primary)]/40"
  />
  </div>
  {/* 列表 */}
@@ -357,21 +352,33 @@ function InsertConnector({
  {filtered.length === 0 ? (
  <p className="px-2 py-2 text-center text-[10px] text-[var(--lokvis-fg-subtle)]">无匹配 capability</p>
  ) : (
- filtered.map((cap) => (
+ filtered.map((cap) => {
+ // A7: stub-only 能力显示 "Coming Soon" 标记
+ const isStubOnly = stubCapabilities.has(cap.name);
+ return (
  <button
  key={cap.name}
  type="button"
  onClick={() => handleSelect(cap.name)}
+ title={isStubOnly ? 'Coming soon — no engine installed yet' : undefined}
  className="block w-full rounded px-2 py-1 text-left transition-colors hover:bg-[var(--lokvis-primary)]/10"
  >
+ <span className="flex items-center justify-between gap-1.5">
  <span className="block font-mono text-[10px] font-medium text-[var(--lokvis-fg-muted)]">
  {cap.name}
+ </span>
+ {isStubOnly && (
+ <span className="shrink-0 rounded px-1 py-0.5 text-[8px] font-medium uppercase bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]">
+ Soon
+ </span>
+ )}
  </span>
  <span className="block truncate text-[9px] text-[var(--lokvis-fg-muted)]">
  {cap.description}
  </span>
  </button>
- ))
+ );
+ })
  )}
  </div>
  </div>

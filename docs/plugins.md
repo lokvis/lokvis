@@ -3,6 +3,11 @@
 > 插件是向 Lokvis 添加能力的唯一方式。
 > 2026 AI 生态转型后，**MCP Server 是推荐路径**；Plugin SDK 维持为 Alpha 预览。
 
+> **仓库范围（[ADR-012](./adr/012-商业资产迁出.md)）**：开源仓库（MIT）仅保留
+> `apps/docs/`（文档站）与 `apps/playground/`（SDK/Runtime/Plugin demo）。
+> 商业化 Workspace SPA、SEO 工具页等已迁出至闭源 `lokvis-cloud` 仓库。插件开发者
+> 可在 `apps/playground/` 中验证自有插件，无需依赖已迁出的 `apps/web`。
+
 ---
 
 ## 选择扩展方式
@@ -104,10 +109,14 @@ lokvis plugin create my-plugin
 
 | 插件 | 能力数 | 引擎 | 状态 |
 |------|--------|------|------|
-| `@lokvis/plugin-image` | 8 | Canvas + createImageBitmap | ✅ 已实现 |
-| `@lokvis/plugin-video` | 7 | ffmpeg.wasm | 🟡 骨架 |
-| `@lokvis/plugin-pdf` | 7 | pdf-lib | 🟡 骨架 |
-| `@lokvis/plugin-dev` | 4 | — | 🟡 骨架（Phase 4） |
+| `@lokvis/plugin-image` | 9 | Canvas + createImageBitmap | ✅ 已实现 |
+| `@lokvis/plugin-video` | 7 | ffmpeg.wasm（计划） | 🟡 stub |
+| `@lokvis/plugin-pdf` | 7 | pdf-lib（计划） | 🟡 stub |
+| `@lokvis/plugin-dev` | 4 | 无（内置实现） | ✅ 已实现 |
+
+> stub 引擎遵循统一约定（见 [AGENTS.md](../AGENTS.md)）：`version` 含 `'stub'` 标识，
+> 操作抛 `not implemented in stub`，`CapabilityRegistry.resolve()` 自动跳过。
+> UI 层（A7）会为 stub-only 能力显示 "Coming Soon" 标记，避免用户执行时才报错。
 
 ---
 
@@ -126,8 +135,9 @@ lokvis plugin create my-plugin
 2. 教学价值：帮助开发者理解 Lokvis 能力模型
 3. 未来兼容：若 MCP 生态变化，可作为 fallback
 
-不删除，但不主动投入。仅维持 `0.1.0-alpha`。
+不删除，但不主动投入。当前维持在 `0.2.2`（Alpha 预览，不发 GA）。
 
 ---
 
-*本文档整合自 `apps/docs/src/content/docs/plugins.md` 与 AI 调整方案 §4。*
+*本文档为插件信息单一信息源（对齐 [ADR-012](./adr/012-商业资产迁出.md)），
+`apps/docs/` 中的 `plugins.md` 为其发布版摘要。*

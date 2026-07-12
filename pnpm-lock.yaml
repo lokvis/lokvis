@@ -305,6 +305,9 @@ importers:
 
   packages/engine-image:
     dependencies:
+      '@lokvis/engine-core':
+        specifier: workspace:*
+        version: link:../engine-core
       '@lokvis/schema':
         specifier: workspace:*
         version: link:../schema

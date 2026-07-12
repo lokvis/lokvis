@@ -173,7 +173,7 @@ export function GlobalDropzone({
 
  {/* 内容 */}
  <div
- className={`relative w-full max-w-md rounded-2xl border-2 border-dashed p-8 text-center bg-[var(--lokvis-surface)] shadow-2xl ${
+ className={`relative w-full max-w-md rounded-2xl border-2 border-dashed p-8 text-center bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-overlay)] ${
  hasRejections ? 'border-[var(--lokvis-danger)]' : 'border-[var(--lokvis-primary)]'
  }`}
  >

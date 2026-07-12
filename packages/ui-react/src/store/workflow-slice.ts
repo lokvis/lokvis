@@ -9,7 +9,7 @@
  * run() 内部依赖 buildLinearWorkflow(本地工具)把节点序列构建为 Workflow 定义。
  */
 import type { StateCreator } from 'zustand';
-import type { Asset, Workflow, WorkflowEdge, WorkflowNode } from '@lokvis/schema';
+import type { Asset, AssetType, Workflow, WorkflowCategory, WorkflowEdge, WorkflowNode } from '@lokvis/schema';
 import type { WorkspaceNode } from '../types.js';
 import type { WorkspaceStore, WorkspaceState, WorkspaceActions } from './types.js';
 import { genNodeId, MAX_WORKFLOW_STEPS } from './types.js';
@@ -168,7 +168,7 @@ export const createWorkflowSlice: StateCreator<
   },
 
   async run() {
-    const { runtime, nodes, selectedAssetId, running } = get();
+    const { runtime, nodes, selectedAssetId, running, assets } = get();
     if (!runtime) throw new Error('Runtime not initialized');
     if (nodes.length === 0) throw new Error('Workflow is empty');
     if (!selectedAssetId) throw new Error('No asset selected');
@@ -205,8 +205,11 @@ export const createWorkflowSlice: StateCreator<
     });
 
     try {
+      // 从选中资产推导输入类型(去硬编码 'image')
+      const selectedAsset = assets.find((a) => a.id === selectedAssetId);
+      if (!selectedAsset) throw new Error('Selected asset not found');
       // 构建 Workflow
-      const workflow = buildLinearWorkflow(nodes);
+      const workflow = buildLinearWorkflow(nodes, selectedAsset.type);
       // W11.6: 记录当前 workflowId 供 cancelRun() 使用
       set({ currentRunId: workflow.id });
       const input = await runtime.getAsset(selectedAssetId);
@@ -300,8 +303,28 @@ export const createWorkflowSlice: StateCreator<
   },
 });
 
+/**
+ * AssetType → WorkflowCategory 映射。
+ *
+ * AssetType 的 'text' / 'unknown' 无对应 WorkflowCategory,归入 'other';
+ * 其余类型('image' | 'video' | 'audio' | 'pdf' | 'data')与 WorkflowCategory 同名直接复用。
+ */
+function assetTypeToCategory(type: AssetType): WorkflowCategory {
+  switch (type) {
+    case 'image':
+    case 'video':
+    case 'audio':
+    case 'pdf':
+    case 'data':
+      return type;
+    case 'text':
+    case 'unknown':
+      return 'other';
+  }
+}
+
 /** 把工作台节点序列构建为线性 Workflow */
-function buildLinearWorkflow(nodes: WorkspaceNode[]): Workflow {
+function buildLinearWorkflow(nodes: WorkspaceNode[], inputType: AssetType): Workflow {
   if (nodes.length === 0) {
     throw new Error('Workflow is empty');
   }
@@ -319,17 +342,18 @@ function buildLinearWorkflow(nodes: WorkspaceNode[]): Workflow {
     edges.push({ from: fromNode.id, to: toNode.id });
   }
   return {
+    $schema: 'https://lokvis.dev/schemas/workflow.json',
     id: `wf_${Date.now().toString(36)}`,
     name: 'Workspace Workflow',
-    version: '1',
+    version: '1.0.0',
     description: 'Workspace linear workflow',
     author: { id: 'local', name: 'Local User' },
-    category: 'image',
+    category: assetTypeToCategory(inputType),
     tags: [],
     nodes: workflowNodes,
     edges,
-    inputs: { type: 'image', multiple: true },
-    outputs: { type: 'image' },
+    inputs: { type: inputType, multiple: true },
+    outputs: { type: inputType },
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };

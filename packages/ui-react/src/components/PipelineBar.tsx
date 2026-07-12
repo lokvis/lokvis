@@ -6,8 +6,9 @@
  */
 
 import * as React from 'react';
-import { Icon } from '@lokvis/ui-core';
+import { FOCUS_RING, Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
+import { StatusDot } from './StatusDot.js';
 
 export interface PipelineBarProps {
  className?: string;
@@ -47,10 +48,21 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  const selected = node.id === selectedNodeId;
  return (
  <React.Fragment key={node.id}>
+ {/* D7: remove button 作为 node button 的兄弟而非子元素(HTML 规范禁止 button 嵌套) */}
+ <div className="group flex shrink-0 items-center gap-0.5">
  <button
  type="button"
  onClick={() => selectNode(node.id)}
- className={`group flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${
+ onKeyDown={(e) => {
+ // 键盘可达:Delete/Backspace 删除节点(与 WorkflowEditor 一致)
+ if (e.key === 'Delete' || e.key === 'Backspace') {
+ e.preventDefault();
+ removeNode(node.id);
+ }
+ }}
+ aria-label={`节点 ${node.capability},位置 ${i + 1},Delete 删除`}
+ aria-pressed={selected}
+ className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${FOCUS_RING} ${
  selected
  ? 'bg-[var(--lokvis-primary)]/15 text-[var(--lokvis-primary)] ring-1 ring-[var(--lokvis-primary)]/50'
  : node.status === 'running'
@@ -64,18 +76,16 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  >
  <span className="font-mono">{node.capability}</span>
  <StatusDot status={node.status} />
+ </button>
  <button
  type="button"
- onClick={(e) => {
- e.stopPropagation();
- removeNode(node.id);
- }}
- className="ml-0.5 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--lokvis-danger)]/15 hover:text-[var(--lokvis-danger)]"
+ onClick={() => removeNode(node.id)}
+ className="rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-danger)] hover:bg-[var(--lokvis-danger)]/15 hover:text-[var(--lokvis-danger)]"
  aria-label="Remove step"
  >
  <Icon size={10} strokeWidth={3}><path d="M6 18L18 6M6 6l12 12" /></Icon>
  </button>
- </button>
+ </div>
 
  {/* Arrow between nodes */}
  {i < nodes.length - 1 && (
@@ -106,21 +116,4 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  )}
  </div>
  );
-}
-
-function StatusDot({ status }: { status: string }) {
- const color =
- status === 'running'
- ? 'bg-[var(--lokvis-warning)]'
- : status === 'success'
- ? 'bg-[var(--lokvis-success)]'
- : status === 'failed'
- ? 'bg-[var(--lokvis-danger)]'
- : status === 'pending'
- ? 'bg-[var(--lokvis-fg-subtle)]'
- : 'bg-[var(--lokvis-fg-subtle)]';
-
- const animate = status === 'running' ? 'animate-pulse' : '';
-
- return <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${color} ${animate}`} />;
 }

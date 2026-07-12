@@ -121,7 +121,7 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
  <button
  type="button"
  onClick={() => setOpen(!open)}
- className="flex w-full items-center justify-between px-3 h-10 text-left transition-colors hover:bg-[var(--lokvis-surface)]"
+ className="flex w-full items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] text-left transition-colors hover:bg-[var(--lokvis-surface)]"
  aria-expanded={open}
  >
  <div className="flex items-center gap-2">

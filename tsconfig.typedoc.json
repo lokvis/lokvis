@@ -15,6 +15,8 @@
       "@lokvis/plugin-sdk/*": ["packages/plugin-sdk/src/*"],
       "@lokvis/plugin-image": ["packages/plugin-image/src/index.ts"],
       "@lokvis/plugin-image/*": ["packages/plugin-image/src/*"],
+      "@lokvis/engine-core": ["packages/engine-core/src/index.ts"],
+      "@lokvis/engine-core/*": ["packages/engine-core/src/*"],
       "@lokvis/engine-image": ["packages/engine-image/src/index.ts"],
       "@lokvis/engine-image/*": ["packages/engine-image/src/*"],
       "@lokvis/ui-react": ["packages/ui-react/src/index.ts"],

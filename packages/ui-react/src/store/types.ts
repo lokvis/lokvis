@@ -28,6 +28,12 @@ export interface WorkspaceState {
   capabilities: Capability[];
   /** 能力映射表（name → Capability） */
   capabilityMap: CapabilityMap;
+  /**
+   * 仅有 stub 实现的能力名集合(A7)。
+   * UI 据此为 stub-only 能力显示 "Coming Soon" 标记,
+   * 避免用户选择后在工作流执行阶段才收到 stub error。
+   */
+  stubCapabilities: Set<string>;
 
   /** 工作流节点序列（线性链） */
   nodes: WorkspaceNode[];

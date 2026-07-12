@@ -227,7 +227,19 @@ export class WorkerHost {
   ): void {
     const set = this.listeners.get(type);
     if (!set) return;
-    for (const h of set) (h as Listener<WorkerHostEventMap[K]>)(payload);
+    // 对齐 AGENTS.md EventBus 安全规范:遍历副本 + try/catch
+    // 防止 handler 回调中 unsubscribe 触发 set.delete mutate 正在迭代的 Set,
+    // 以及单个 handler 抛错中断后续分发
+    for (const h of [...set]) {
+      try {
+        (h as Listener<WorkerHostEventMap[K]>)(payload);
+      } catch (err) {
+        console.error(
+          `[WorkerHost] listener for "${type}" threw:`,
+          err
+        );
+      }
+    }
   }
 
   private log(message: string): void {

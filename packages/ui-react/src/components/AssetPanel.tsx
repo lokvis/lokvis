@@ -7,7 +7,7 @@
 
 import * as React from 'react';
 import type { AssetType } from '@lokvis/schema';
-import { Icon } from '@lokvis/ui-core';
+import { FOCUS_RING, Icon, Input } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 
 export interface AssetPanelProps {
@@ -127,7 +127,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  }}
  >
  {/* Header */}
- <div className="flex items-center justify-between px-3 h-10 shrink-0 border-b border-[var(--lokvis-border)]">
+ <div className="flex items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] shrink-0 border-b border-[var(--lokvis-border)]">
  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
  Assets
  </span>
@@ -200,23 +200,20 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  ))}
  </div>
  {/* 搜索框:m4 文案改为与实际过滤行为一致(按 format/mimeType) */}
- <div className="relative">
- <Icon
- size={11}
- className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[var(--lokvis-fg-subtle)] pointer-events-none"
- >
- <circle cx="10" cy="10" r="6" />
- <path d="m20 20-5-5" />
- </Icon>
- <input
- type="text"
+ <Input
+ size="sm"
  value={searchQuery}
  onChange={(e) => setSearchQuery(e.target.value)}
  placeholder="Filter by type..."
  aria-label="Filter assets by format"
- className="w-full rounded bg-[var(--lokvis-surface-muted)] py-1 pl-6 pr-1.5 text-[10px] text-[var(--lokvis-fg-muted)] placeholder:text-[var(--lokvis-fg-subtle)] hover:bg-[var(--lokvis-border)]/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--lokvis-primary)]/40"
+ className="bg-[var(--lokvis-surface-muted)] hover:bg-[var(--lokvis-border)]/50"
+ leadingIcon={
+ <Icon size={11}>
+ <circle cx="10" cy="10" r="6" />
+ <path d="m20 20-5-5" />
+ </Icon>
+ }
  />
- </div>
  </div>
  )}
 
@@ -250,7 +247,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  selectAsset(asset.id);
  }
  }}
- className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-primary)]/50 ${
+ className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-all ${FOCUS_RING} ${
  selected
  ? 'bg-[var(--lokvis-primary)]/10 ring-1 ring-[var(--lokvis-primary)]/40'
  : 'hover:bg-[var(--lokvis-surface)]'

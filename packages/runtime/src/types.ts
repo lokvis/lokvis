@@ -214,6 +214,14 @@ export interface LokvisRuntime {
   capabilities(): Promise<Capability[]>;
   /** 检查能力是否可用 */
   hasCapability(name: string): Promise<boolean>;
+  /**
+   * 检查能力是否仅有 stub 实现(无可用引擎)。
+   *
+   * UI 层据此为 stub-only 能力显示 "Coming Soon" 标记(A7),
+   * 避免用户选择后在工作流执行阶段才收到 stub error。
+   * 返回 true 表示该能力已声明但仅有占位实现,resolve() 会跳过。
+   */
+  isStubOnly(name: string): Promise<boolean>;
 
   // ─── MCP 暴露(见 docs/AI生态冲击调整方案.md §6) ─────
   /**

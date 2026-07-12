@@ -9,6 +9,8 @@ head: []
 
 Plugins are the only way to add capabilities to Lokvis. A plugin declares capabilities and registers their implementations during install.
 
+> **Repository scope ([ADR-012](https://github.com/lokvis/lokvis/blob/dev/docs/adr/012-%E5%95%86%E4%B8%9A%E8%B5%84%E4%BA%A7%E8%BF%81%E5%87%BA.md))**: the open-source (MIT) repo ships only `apps/docs/` (docs site) and `apps/playground/` (SDK/Runtime/Plugin demo). The commercial Workspace SPA and SEO tool pages have been migrated to the closed-source `lokvis-cloud` repo. Validate your plugins in `apps/playground/`.
+
 ## Anatomy of a Plugin
 
 ```typescript
@@ -71,10 +73,12 @@ lokvis plugin create my-plugin
 
 ## Official Plugins
 
-- `@lokvis/plugin-image` — 8 image capabilities (Canvas engine)
-- `@lokvis/plugin-video` — 7 video capabilities (ffmpeg.wasm, stub)
-- `@lokvis/plugin-pdf` — 7 PDF capabilities (pdf-lib, stub)
-- `@lokvis/plugin-dev` — developer tools (real impl)
+- `@lokvis/plugin-image` — 9 image capabilities (Canvas + createImageBitmap, real)
+- `@lokvis/plugin-video` — 7 video capabilities (ffmpeg.wasm planned, stub)
+- `@lokvis/plugin-pdf` — 7 PDF capabilities (pdf-lib planned, stub)
+- `@lokvis/plugin-dev` — 4 developer tools (built-in, real)
+
+Stub engines follow a uniform convention: `version` includes `'stub'`, operations throw `not implemented in stub`, and `CapabilityRegistry.resolve()` auto-skips them. The UI surfaces a "Coming Soon" badge for stub-only capabilities so users are not surprised at execution time.
 
 ## Plugin SDK vs MCP Server
 

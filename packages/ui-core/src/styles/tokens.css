@@ -47,21 +47,13 @@
   --lokvis-radius-lg: 0.75rem;      /* 12px */
   --lokvis-radius-full: 9999px;
 
-  /* ── 阴影 ───────────────────────────────────── */
-  --lokvis-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --lokvis-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --lokvis-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-
-  /* ── 动效 ───────────────────────────────────── */
-  --lokvis-duration: 150ms;
-  --lokvis-ease: cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* ── 字体 ───────────────────────────────────── */
-  --lokvis-font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --lokvis-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-
   /* ── Overlay(Dialog 遮罩)──────────────────── */
   --lokvis-overlay: rgb(0 0 0 / 0.5);
+
+  /* ── Scrim(图像/媒体上的半透明暗层)──────── */
+  /* 用于 before/after 标签、元数据徽标等叠在图片上的元素,
+     不随主题变化(图片本身明暗独立于 app 主题)。 */
+  --lokvis-scrim: rgb(0 0 0 / 0.6);
 
   /* ── 间距(8pt 栅格)──────────────────────── */
   --lokvis-space-1: 0.25rem;   /* 4px */
@@ -80,7 +72,6 @@
   --lokvis-text-sm: 0.8125rem;  /* 13px */
   --lokvis-text-base: 0.875rem; /* 14px */
   --lokvis-text-lg: 1rem;       /* 16px */
-  --lokvis-leading: 1.5;
 
   /* ── Elevation(分层阴影)────────────────── */
   --lokvis-elevation-1: 0 1px 2px rgb(0 0 0 / 0.04);
@@ -92,9 +83,6 @@
   --lokvis-panel-header-h: 2.5rem;   /* 40px */
   --lokvis-toolbar-h: 3rem;          /* 48px */
   --lokvis-statusbar-h: 1.75rem;     /* 28px */
-
-  /* ── 交互态 ───────────────────────────────── */
-  --lokvis-focus-ring: 0 0 0 2px var(--lokvis-bg), 0 0 0 4px var(--lokvis-primary);
 }
 
 /* 暗色模式:.dark 类(Tailwind v4 默认) */
@@ -208,4 +196,5 @@
   --shadow-lokvis-1: var(--lokvis-elevation-1);
   --shadow-lokvis-2: var(--lokvis-elevation-2);
   --shadow-lokvis-3: var(--lokvis-elevation-3);
+  --shadow-lokvis-overlay: var(--lokvis-elevation-overlay);
 }

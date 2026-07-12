@@ -112,6 +112,8 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  return (
  <div
  ref={containerRef}
+ role="group"
+ aria-label="前后对比滑块"
  className={`relative select-none overflow-hidden rounded-lg ring-1 ring-[var(--lokvis-border)]/50 ${className}`}
  onMouseDown={handleMouseDown}
  onTouchStart={handleTouchStart}
@@ -139,10 +141,10 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  </div>
 
  {/* before/after 标签 */}
- <span className="absolute top-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-[var(--lokvis-primary-fg)]">
+ <span className="absolute top-2 left-2 rounded bg-[var(--lokvis-scrim)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--lokvis-primary-fg)]">
  Before
  </span>
- <span className="absolute top-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-[var(--lokvis-primary-fg)]">
+ <span className="absolute top-2 right-2 rounded bg-[var(--lokvis-scrim)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--lokvis-primary-fg)]">
  After
  </span>
 
@@ -158,7 +160,7 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  tabIndex={0}
  onKeyDown={handleKeyDown}
  >
- <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-[var(--lokvis-surface)] shadow-md" />
+ <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-1)]" />
  <div className="absolute top-1/2 left-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-2)] ring-1 ring-[var(--lokvis-border)]">
  <Icon size={14} className="text-[var(--lokvis-fg-muted)]">
  <path d="M9 5l-5 7 5 7M15 5l5 7-5 7" />
@@ -170,12 +172,12 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  {(beforeAsset || afterAsset) && (
  <div className="absolute bottom-2 inset-x-2 flex justify-between text-[10px] text-[var(--lokvis-primary-fg)]">
  {beforeAsset?.metadata.dimensions && (
- <span className="rounded bg-black/60 px-1.5 py-0.5">
+ <span className="rounded bg-[var(--lokvis-scrim)] px-1.5 py-0.5">
  {beforeAsset.metadata.dimensions.width}×{beforeAsset.metadata.dimensions.height}
  </span>
  )}
  {afterAsset?.metadata.dimensions && (
- <span className="rounded bg-black/60 px-1.5 py-0.5">
+ <span className="rounded bg-[var(--lokvis-scrim)] px-1.5 py-0.5">
  {afterAsset.metadata.dimensions.width}×{afterAsset.metadata.dimensions.height}
  </span>
  )}

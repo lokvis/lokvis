@@ -39,7 +39,7 @@
  */
 
 import * as React from 'react';
-import { Icon } from '@lokvis/ui-core';
+import { ConfirmDialog, Icon } from '@lokvis/ui-core';
 import { useLokvis, type UseLokvisOptions } from '../hooks/useLokvis.js';
 import { useBreakpoints } from '../hooks/useMediaQuery.js';
 import { Toolbar } from './Toolbar.js';
@@ -56,6 +56,7 @@ import { DownloadPanel } from './DownloadPanel.js';
 import { CommandPalette, useCommandPalette } from './CommandPalette.js';
 import { GlobalDropzone } from './GlobalDropzone.js';
 import { ThemeToggle } from './ThemeToggle.js';
+import { ErrorBoundary } from './ErrorBoundary.js';
 import { useShareLink } from '../hooks/useShareLink.js';
 import { useWorkspaceStore } from '../store/index.js';
 
@@ -139,27 +140,29 @@ export function Workspace({
 
  // W11.5: 从 URL ?workflow= 参数加载分享工作流(runtime 就绪后执行一次)
  // 保护:若用户已通过其它路径(如 localStorage 恢复或手动添加)有 nodes,
- // 不静默替换 —— 用 confirm 让用户显式选择,避免丢失未保存工作。
+ // 不静默替换 —— 用 ConfirmDialog 让用户显式选择,避免丢失未保存工作。
  // 注:不用 useWorkspaceStore 订阅 nodes.length 做 effect 依赖
  // (review 反馈:那样 nodesLength 变化会触发 effect 重跑,而 ref 已 true
  // 时重跑无意义,且语义上 effect 只应在 status 切换时跑一次)。
  // 改用 getState() 在体内读取最新值,既不订阅也不进 deps。
  const { loadFromCurrentUrl } = useShareLink();
  const shareLoadedRef = React.useRef(false);
+ // 待确认的分享链接替换(nodes>0 时需用户确认才替换)
+ const [shareConfirmOpen, setShareConfirmOpen] = React.useState(false);
+ const [shareConfirmNodes, setShareConfirmNodes] = React.useState(0);
  React.useEffect(() => {
  if (enableShareLink && !shareLoadedRef.current && status !== 'initializing' && status !== 'error') {
  shareLoadedRef.current = true;
- // 仅在 URL 含 ?workflow= 参数时才提示(避免无谓 confirm 弹窗)
+ // 仅在 URL 含 ?workflow= 参数时才提示(避免无谓弹窗)
  const hasShareParam = typeof window !== 'undefined'
  && new URLSearchParams(window.location.search).has('workflow');
  if (!hasShareParam) return;
  // 读取当前 nodes 长度(最新值,非订阅快照)
  const currentNodesLength = useWorkspaceStore.getState().nodes.length;
  if (currentNodesLength > 0) {
- const ok = window.confirm(
- `检测到分享工作流链接,但当前已有 ${currentNodesLength} 个节点。是否替换为分享的工作流?`
- );
- if (!ok) return;
+ setShareConfirmNodes(currentNodesLength);
+ setShareConfirmOpen(true);
+ return;
  }
  loadFromCurrentUrl();
  }
@@ -278,6 +281,9 @@ export function Workspace({
  );
 
  return (
+ // D6: ErrorBoundary 捕获子组件渲染异常,避免整个 workspace 白屏。
+ // useLokvis 异常不在本组件树内(早于本 return),由消费方在外层包裹处理。
+ <ErrorBoundary>
  <div className={`flex h-full flex-col bg-[var(--lokvis-surface)] ${className}`}>
  {/* Top: Toolbar */}
  <Toolbar title={title} rightExtra={toolbarRight} />
@@ -349,6 +355,21 @@ export function Workspace({
 
  {/* Bottom: StatusBar */}
  {showStatusBar && <StatusBar />}
+
+ {/* W11.5 分享链接替换确认(替代 window.confirm) */}
+ <ConfirmDialog
+ open={shareConfirmOpen}
+ title="加载分享工作流"
+ message={`检测到分享工作流链接,但当前已有 ${shareConfirmNodes} 个节点。是否替换为分享的工作流?`}
+ confirmText="替换"
+ variant="danger"
+ onConfirm={() => {
+ setShareConfirmOpen(false);
+ loadFromCurrentUrl();
+ }}
+ onClose={() => setShareConfirmOpen(false)}
+ />
  </div>
+ </ErrorBoundary>
  );
 }

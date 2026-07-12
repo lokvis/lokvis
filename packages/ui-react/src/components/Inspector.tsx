@@ -6,8 +6,9 @@
  */
 
 import * as React from 'react';
-import { Icon } from '@lokvis/ui-core';
+import { Icon, Input } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
+import { filterCapabilities } from '../utils.js';
 import { ParamForm } from './ParamForm.js';
 import { ExifPanel } from './ExifPanel.js';
 
@@ -20,6 +21,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  const nodes = useWorkspaceStore((s) => s.nodes);
  const selectedNodeId = useWorkspaceStore((s) => s.selectedNodeId);
  const capabilityMap = useWorkspaceStore((s) => s.capabilityMap);
+ const stubCapabilities = useWorkspaceStore((s) => s.stubCapabilities);
  const addNode = useWorkspaceStore((s) => s.addNode);
  const updateNodeParams = useWorkspaceStore((s) => s.updateNodeParams);
 
@@ -27,11 +29,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  const [filter, setFilter] = React.useState('');
  const [configureOpen, setConfigureOpen] = React.useState(true);
 
- const filtered = capabilities.filter(
- (c) =>
- c.name.toLowerCase().includes(filter.toLowerCase()) ||
- c.description.toLowerCase().includes(filter.toLowerCase())
- );
+ const filtered = filterCapabilities(capabilities, filter);
 
  // 按域分组
  const grouped = React.useMemo(() => {
@@ -59,7 +57,9 @@ export function Inspector({ className = '' }: InspectorProps) {
  <button
  type="button"
  onClick={() => setConfigureOpen(!configureOpen)}
- className="flex w-full items-center justify-between px-3 h-10 text-left transition-colors hover:bg-[var(--lokvis-surface)]"
+ aria-expanded={configureOpen}
+ aria-controls={`configure-panel-${selectedNode.id}`}
+ className="flex w-full items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] text-left transition-colors hover:bg-[var(--lokvis-surface)]"
  >
  <div className="flex items-center gap-2">
  <Icon size={12} className={`text-[var(--lokvis-fg-subtle)] transition-transform ${configureOpen ? 'rotate-90' : ''}`}><path d="m9 5 7 7-7 7" /></Icon>
@@ -70,7 +70,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  </span>
  </button>
  {configureOpen && (
- <div className="px-3 pb-3 max-h-60 overflow-y-auto">
+ <div id={`configure-panel-${selectedNode.id}`} className="px-3 pb-3 max-h-60 overflow-y-auto">
  <ParamForm
  capability={capabilityMap[selectedNode.capability]!}
  values={selectedNode.params}
@@ -83,7 +83,7 @@ export function Inspector({ className = '' }: InspectorProps) {
 
  {/* Capabilities section */}
  <div className="flex flex-1 flex-col overflow-hidden">
- <div className="flex items-center justify-between px-3 h-10 shrink-0 border-b border-[var(--lokvis-border)]">
+ <div className="flex items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] shrink-0 border-b border-[var(--lokvis-border)]">
  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
  Capabilities
  </span>
@@ -92,16 +92,15 @@ export function Inspector({ className = '' }: InspectorProps) {
 
  {/* Search */}
  <div className="px-2 py-2 border-b border-[var(--lokvis-border)]">
- <div className="relative">
- <Icon size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--lokvis-fg-subtle)]"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>
- <input
- type="text"
+ <Input
+ size="sm"
  placeholder="Search capabilities..."
  value={filter}
  onChange={(e) => setFilter(e.target.value)}
- className="w-full rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] py-1 pl-7 pr-2 text-[11px] placeholder:text-[var(--lokvis-fg-subtle)] focus:border-[var(--lokvis-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--lokvis-primary)]/40"
+ leadingIcon={
+ <Icon size={12}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>
+ }
  />
- </div>
  </div>
 
  {/* Capability list */}
@@ -123,11 +122,14 @@ export function Inspector({ className = '' }: InspectorProps) {
  <ul className="space-y-0.5">
  {caps.map((cap) => {
  const isInPipeline = nodes.some((n) => n.capability === cap.name);
+ // A7: stub-only 能力显示 "Coming Soon" 标记(无可用引擎)
+ const isStubOnly = stubCapabilities.has(cap.name);
  return (
  <li key={cap.name}>
  <button
  type="button"
  onClick={() => addNode(cap.name)}
+ title={isStubOnly ? 'Coming soon — no engine installed yet' : undefined}
  className={`group w-full rounded-md px-2 py-1.5 text-left transition-all ${
  isInPipeline
  ? 'bg-[var(--lokvis-primary)]/5 ring-1 ring-[var(--lokvis-primary)]/40'
@@ -135,7 +137,12 @@ export function Inspector({ className = '' }: InspectorProps) {
  }`}
  >
  <div className="flex items-center justify-between gap-2">
- <span className="truncate font-mono text-[11px] font-medium">{cap.name}</span>
+ <span className={`truncate font-mono text-[11px] font-medium ${isStubOnly ? 'text-[var(--lokvis-fg-muted)]' : ''}`}>{cap.name}</span>
+ {isStubOnly ? (
+ <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-medium uppercase bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]">
+ Soon
+ </span>
+ ) : (
  <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-medium uppercase ${
  cap.performance === 'fast'
  ? 'bg-[var(--lokvis-success)]/15 text-[var(--lokvis-success)]'
@@ -145,6 +152,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  }`}>
  {cap.performance}
  </span>
+ )}
  </div>
  <p className="mt-0.5 truncate text-[10px] text-[var(--lokvis-fg-muted)]">{cap.description}</p>
  </button>

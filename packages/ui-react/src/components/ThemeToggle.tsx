@@ -85,7 +85,7 @@ export function ThemeToggle({ className = '', showLabel = false }: ThemeTogglePr
  {menuOpen && (
  <div
  role="menu"
- className="absolute right-0 top-full z-50 mt-1 w-32 overflow-hidden rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] py-1 shadow-lg"
+ className="absolute right-0 top-full z-50 mt-1 w-32 overflow-hidden rounded-md border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] py-1 shadow-[var(--lokvis-elevation-2)]"
  >
  {(['light', 'dark', null] as Array<ThemeMode | null>).map((mode) => {
  const isActive = theme === mode;

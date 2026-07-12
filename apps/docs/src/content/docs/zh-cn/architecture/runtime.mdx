@@ -191,7 +191,7 @@ Year 1 仅支持线性工作流（无分支、循环、条件或并行）。执�
 
 `onEvict(entry)` 是资产回收钩子：Runtime 注册一个回调，为被驱逐条目的每个输出调用 `assetStore.remove(assetId)`，从而防止 OPFS 泄漏。`onChanged(workflowId, entries, cursor)` 会在 EventBus 上触发 `history:changed`，并触发 `persistHistory`（W7.2）。
 
-**LRU 32。** Runtime 将 `historyStacks` 上限设为 `MAX_CONCURRENT_WORKFLOW_STACKS = 32`。超过上限时，最旧的栈（按 ES2015 规范，Map 的插入顺序）被 `reset()` 并删除。当前工作流绝不会成为受害者，因为 `enforceHistoryStacksLimit()` 在 `getOrCreateHistoryStack` 插入新条目之前运行。
+**LRU 32。** Runtime 将 `historyStacks` 上限设为 `MAX_CONCURRENT_WORKFLOW_STACKS = 32`。超过上限时，最旧的栈（按 ES2015 规范，Map 的插入顺序）被 `reset()` 并删除。当前工作流绝不会成为受害者：`enforceHistoryStacksLimit(currentWorkflowId)` 显式跳过正在运行的工作流 id，这在 `appendHistory` 模式下至关重要——此时当前栈在限额检查之前已存在于 Map 中。
 
 **IDB 持久化。** 当 `enableIndexedDB` 为真时，`createHistoryStore()` 返回一个基于 IDB 的存储。`persistHistory(workflowId)` 快照 `{ entries, cursor, initialInputs, currentOutputs, updatedAt }`。`currentOutputs` 派生自快照（cursor 为 `-1` 时取 `initialInputs`，否则取 `entries[cursor].outputs`）—— 而非取自 `currentOutputsMap` —— 因为 `onChanged` 在 `append`/`undo`/`redo`/`jumpTo` 内同步触发，先于 Map 更新。
 

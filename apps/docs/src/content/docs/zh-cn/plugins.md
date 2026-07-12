@@ -9,6 +9,8 @@ head: []
 
 插件是为 Lokvis 添加能力的唯一方式。插件在安装期间声明能力并注册其实现。
 
+> **仓库范围([ADR-012](https://github.com/lokvis/lokvis/blob/dev/docs/adr/012-%E5%95%86%E4%B8%9A%E8%B5%84%E4%BA%A7%E8%BF%81%E5%87%BA.md))**:开源仓库(MIT)仅发布 `apps/docs/`(文档站)与 `apps/playground/`(SDK/Runtime/Plugin demo)。商业化 Workspace SPA、SEO 工具页等已迁出至闭源 `lokvis-cloud` 仓库。请在 `apps/playground/` 中验证自有插件。
+
 ## 插件结构
 
 ```typescript
@@ -71,10 +73,12 @@ lokvis plugin create my-plugin
 
 ## 官方插件
 
-- `@lokvis/plugin-image` — 8 个图像能力(Canvas 引擎)
-- `@lokvis/plugin-video` — 7 个视频能力(ffmpeg.wasm,stub)
-- `@lokvis/plugin-pdf` — 7 个 PDF 能力(pdf-lib,stub)
-- `@lokvis/plugin-dev` — 开发者工具(真实实现)
+- `@lokvis/plugin-image` — 9 个图像能力(Canvas + createImageBitmap,真实实现)
+- `@lokvis/plugin-video` — 7 个视频能力(ffmpeg.wasm 计划中,stub)
+- `@lokvis/plugin-pdf` — 7 个 PDF 能力(pdf-lib 计划中,stub)
+- `@lokvis/plugin-dev` — 4 个开发者工具(内置实现,真实实现)
+
+stub 引擎遵循统一约定:`version` 含 `'stub'` 标识,操作抛 `not implemented in stub`,`CapabilityRegistry.resolve()` 自动跳过。UI 层会为 stub-only 能力显示 "Coming Soon" 标记,避免用户执行时才报错。
 
 ## Plugin SDK 与 MCP Server 对比
 
