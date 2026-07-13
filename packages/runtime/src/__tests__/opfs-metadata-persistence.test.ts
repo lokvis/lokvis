@@ -17,63 +17,8 @@ import {
   OpfsMetadataDatabase,
 } from '../opfs-asset-store.js';
 import type { AssetStore } from '../asset-store.js';
-
-// ─── Fake OPFS(与 opfs-asset-store.test.ts 同构) ───────────────
-
-class FakeFileHandle {
-  private blob: Blob | null = null;
-  async createWritable(): Promise<{
-    write: (data: Blob) => Promise<void>;
-    close: () => Promise<void>;
-  }> {
-    return {
-      write: async (data) => {
-        this.blob = data;
-      },
-      close: async () => {},
-    };
-  }
-  async getFile(): Promise<Blob> {
-    if (!this.blob) throw new Error('File not found');
-    return this.blob;
-  }
-}
-
-class FakeDirHandle {
-  private files = new Map<string, FakeFileHandle>();
-  private dirs = new Map<string, FakeDirHandle>();
-
-  async getDirectoryHandle(
-    name: string,
-    opts?: { create?: boolean }
-  ): Promise<FakeDirHandle> {
-    let d = this.dirs.get(name);
-    if (!d) {
-      if (!opts?.create) throw new Error(`Directory not found: ${name}`);
-      d = new FakeDirHandle();
-      this.dirs.set(name, d);
-    }
-    return d;
-  }
-
-  async getFileHandle(
-    name: string,
-    opts?: { create?: boolean }
-  ): Promise<FakeFileHandle> {
-    let f = this.files.get(name);
-    if (!f) {
-      if (!opts?.create) throw new Error(`File not found: ${name}`);
-      f = new FakeFileHandle();
-      this.files.set(name, f);
-    }
-    return f;
-  }
-
-  async removeEntry(name: string): Promise<void> {
-    this.files.delete(name);
-    this.dirs.delete(name);
-  }
-}
+// W2.1:共享 OPFS fake(原为本文件内联,与 opfs-asset-store.test.ts 重复)
+import { FakeDirHandle } from '../test-utils/fakes.js';
 
 // ─── fake-indexeddb 全局管理(还原 Node 干净环境) ───────────────
 

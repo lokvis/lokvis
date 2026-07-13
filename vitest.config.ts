@@ -48,6 +48,7 @@ export default defineConfig({
       // 排除:测试文件、barrel index、纯类型文件、stub/未测试包
       exclude: [
         'packages/**/src/__tests__/**',
+        'packages/**/src/test-utils/**',
         'packages/**/src/**/index.ts',
         'packages/**/src/**/types.ts',
         // ui-core 的样式文件不计入覆盖率
