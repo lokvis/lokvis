@@ -103,13 +103,13 @@ export const lamejsEngine: AudioEngineAdapter = {
     throw new Error('lamejsEngine.transcode not implemented in stub');
   },
   async trim() {
-    throw new Error('lamejsEngine cannot trim (encoder-only)');
+    throw new Error('lamejsEngine.trim not implemented in stub');
   },
   async normalize() {
-    throw new Error('lamejsEngine cannot normalize (encoder-only)');
+    throw new Error('lamejsEngine.normalize not implemented in stub');
   },
   async merge() {
-    throw new Error('lamejsEngine cannot merge (encoder-only)');
+    throw new Error('lamejsEngine.merge not implemented in stub');
   },
 };
 
