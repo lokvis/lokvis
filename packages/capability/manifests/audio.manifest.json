@@ -26,6 +26,17 @@
       "batchable": true
     },
     {
+      "action": "denoise",
+      "description": "Reduce background noise from audio",
+      "inputTypes": ["audio"],
+      "outputTypes": ["audio"],
+      "params": [
+        { "name": "strength", "type": "number", "min": 0, "max": 1, "default": 0.5, "description": "Denoise strength (0=none, 1=aggressive)" }
+      ],
+      "performance": "slow",
+      "batchable": true
+    },
+    {
       "action": "merge",
       "description": "Merge multiple audio clips into one",
       "inputTypes": ["audio"],

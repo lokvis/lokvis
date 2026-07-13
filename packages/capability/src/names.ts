@@ -49,6 +49,9 @@ export const CAPABILITY_NAMES = {
   VIDEO_EXTRACT_AUDIO: 'video.extract-audio',
   VIDEO_TO_GIF: 'video.to-gif',
   VIDEO_SCREENSHOT: 'video.screenshot',
+  VIDEO_RESIZE: 'video.resize',
+  VIDEO_CROP: 'video.crop',
+  VIDEO_NORMALIZE_AUDIO: 'video.normalize-audio',
 
   // Audio
   AUDIO_TRIM: 'audio.trim',
@@ -65,6 +68,7 @@ export const CAPABILITY_NAMES = {
   PDF_WATERMARK: 'pdf.watermark',
   PDF_OCR: 'pdf.ocr',
   PDF_SIGN: 'pdf.sign',
+  PDF_ADD_PAGE_NUMBERS: 'pdf.add-page-numbers',
 
   // AI
   AI_GENERATE_WORKFLOW: 'ai.generate-workflow',

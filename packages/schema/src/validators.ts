@@ -55,14 +55,17 @@ export const assetMetadataSchema = z.object({
 
 export const workflowNodeSchema = z.object({
   id: z.string(),
-  type: z.enum(['load', 'transform', 'export']),
-  // capability 仅 transform 节点必填;load/export 可不填
+  type: z.enum(['load', 'transform', 'export', 'fan-out']),
+  // capability 仅 transform 节点必填;load/export/fan-out 可不填
   capability: z.string().optional(),
   params: z.record(z.unknown()).optional(),
   label: z.string().optional(),
 }).refine(
   (node) => node.type !== 'transform' || (typeof node.capability === 'string' && node.capability.length > 0),
   { message: 'transform 节点必须指定 capability' }
+).refine(
+  (node) => node.type !== 'fan-out' || node.capability === undefined,
+  { message: 'fan-out 节点不能指定 capability（fan-out 是结构节点，不引用能力）' }
 );
 
 export const workflowEdgeSchema = z.object({
@@ -242,6 +245,27 @@ export function validateWorkflow(data: unknown, options?: ValidateWorkflowOption
     }
   }
 
+  // 4b. Phase 2: fan-out 节点结构校验
+  //     fan-out 节点必须有 ≥2 条出边(否则无并行意义);
+  //     capability 已由 workflowNodeSchema.refine 禁止,此处不重复。
+  if (errors.length === 0) {
+    const outDegree = new Map<string, number>();
+    for (const node of wf.nodes) outDegree.set(node.id, 0);
+    for (const edge of wf.edges) {
+      outDegree.set(edge.from, (outDegree.get(edge.from) ?? 0) + 1);
+    }
+    for (const node of wf.nodes) {
+      if (node.type !== 'fan-out') continue;
+      const outDeg = outDegree.get(node.id) ?? 0;
+      if (outDeg < 2) {
+        errors.push(
+          `fan-out node "${node.id}" must have at least 2 outgoing edges ` +
+            `(found ${outDeg}); fan-out with fewer than 2 branches has no parallel meaning.`
+        );
+      }
+    }
+  }
+
   // 5. W10.2: capability 兼容性校验(可选,仅在 resolveCapability 提供时)
   //    检查相邻节点(通过 edge 连接)的 outputTypes 与下一节点的 inputTypes 是否有交集。
   //    - 线性链:edge.from → edge.to,from 节点的 outputTypes 与 to 节点的 inputTypes 交集为空则报错
@@ -296,22 +320,29 @@ function validateCapabilityCompatibility(
     return cap;
   };
 
-  // 5a. 输入节点(入度 0)的 inputTypes 与 workflow.inputs.type 兼容
+  // 5a. 全节点 unknown capability 检测(transform + input + output)
+  //     修复 W14.5:原实现仅检查入度 0 节点,transform 节点的 unknown capability
+  //     在 5b 边检查中被 `if (!fromCap || !toCap) continue` 静默跳过,
+  //     导致 seed #8 audio.* 未注册时 validateWorkflow 仍返回 success。
+  //     现统一遍历所有带 capability 的节点,未注册即显式报错,避免运行时才暴露。
+  //     resolveCapability 未提供时 getCap 始终返回 undefined —— 但外层仅在
+  //     options.resolveCapability 提供时进入本函数,故无需额外兜底。
+  for (const node of wf.nodes) {
+    if (!node.capability) continue;
+    const cap = getCap(node);
+    if (!cap) {
+      errors.push(
+        `Node "${node.id}" references unknown capability "${node.capability}". ` +
+          `Capability is not registered in the registry.`
+      );
+    }
+  }
+
+  // 5b. 输入节点(入度 0)的 inputTypes 与 workflow.inputs.type 兼容
   for (const node of wf.nodes) {
     if ((inDegree.get(node.id) ?? 0) > 0) continue;
     const cap = getCap(node);
-    // 未注册的 capability 不静默跳过:在 schema 层显式报错,避免用户得到"校验通过"
-    // 的假象,运行时才报错。resolveCapability 未提供时(getCap 始终返回 undefined)
-    // 整个 capability 兼容性校验跳过(向后兼容,见 5d 兜底)。
-    if (!cap) {
-      if (node.capability) {
-        errors.push(
-          `Node "${node.id}" references unknown capability "${node.capability}". ` +
-            `Capability is not registered in the registry.`
-        );
-      }
-      continue;
-    }
+    if (!cap) continue; // 5a 已报告未注册 capability,此处不重复
     const inputTypeMatches = cap.inputTypes.includes(wf.inputs.type);
     if (!inputTypeMatches) {
       errors.push(
@@ -321,7 +352,7 @@ function validateCapabilityCompatibility(
     }
   }
 
-  // 5b. 相邻节点:from 的 outputTypes 与 to 的 inputTypes 必须有交集
+  // 5c. 相邻节点:from 的 outputTypes 与 to 的 inputTypes 必须有交集
   for (const edge of wf.edges) {
     const fromNode = wf.nodes.find((n) => n.id === edge.from);
     const toNode = wf.nodes.find((n) => n.id === edge.to);
@@ -339,7 +370,7 @@ function validateCapabilityCompatibility(
     }
   }
 
-  // 5c. 输出节点(出度 0)的 outputTypes 与 workflow.outputs.type 兼容
+  // 5d. 输出节点(出度 0)的 outputTypes 与 workflow.outputs.type 兼容
   //     (archive 类型输出允许任意类型,用于打包下载场景)
   for (const node of wf.nodes) {
     if ((outDegree.get(node.id) ?? 0) > 0) continue;

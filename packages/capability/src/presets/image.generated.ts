@@ -71,7 +71,7 @@ export const IMAGE_CONVERT: Capability = {
       name: 'format',
       type: 'enum',
       required: true,
-      values: ['png', 'jpeg', 'webp', 'avif', 'gif'],
+      values: ['png', 'jpeg', 'webp', 'avif', 'gif', 'ico'],
     },
     { name: 'quality', type: 'number', default: 90, min: 0, max: 100 },
   ],
@@ -126,7 +126,12 @@ export const IMAGE_WATERMARK: Capability = {
   outputTypes: ['image'],
   params: [
     { name: 'text', type: 'string', required: false, description: 'Text watermark' },
-    { name: 'image', type: 'file', required: false, description: 'Image watermark (data URL)' },
+    {
+      name: 'imagePath',
+      type: 'file',
+      required: false,
+      description: 'Image watermark (data URL or http(s) URL)',
+    },
     {
       name: 'position',
       type: 'enum',

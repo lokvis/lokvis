@@ -191,6 +191,90 @@ export const VIDEO_SCREENSHOT: Capability = {
   batchable: true,
 };
 
+export const VIDEO_RESIZE: Capability = {
+  name: 'video.resize',
+  description: 'Resize video to specified dimensions',
+  inputTypes: ['video'],
+  outputTypes: ['video'],
+  params: [
+    {
+      name: 'width',
+      type: 'number',
+      required: false,
+      min: 1,
+      description: 'Target width in pixels',
+    },
+    {
+      name: 'height',
+      type: 'number',
+      required: false,
+      min: 1,
+      description: 'Target height in pixels',
+    },
+    {
+      name: 'fit',
+      type: 'enum',
+      default: 'cover',
+      values: ['cover', 'contain', 'fill', 'inside', 'outside'],
+      description: 'Fit strategy when aspect ratio differs',
+    },
+    { name: 'maintainAspectRatio', type: 'boolean', default: true },
+  ],
+  performance: 'medium',
+  batchable: true,
+};
+
+export const VIDEO_CROP: Capability = {
+  name: 'video.crop',
+  description: 'Crop video to a rectangular region',
+  inputTypes: ['video'],
+  outputTypes: ['video'],
+  params: [
+    { name: 'x', type: 'number', required: true, min: 0, description: 'Region x offset in pixels' },
+    { name: 'y', type: 'number', required: true, min: 0, description: 'Region y offset in pixels' },
+    {
+      name: 'width',
+      type: 'number',
+      required: true,
+      min: 1,
+      description: 'Region width in pixels',
+    },
+    {
+      name: 'height',
+      type: 'number',
+      required: true,
+      min: 1,
+      description: 'Region height in pixels',
+    },
+    {
+      name: 'aspectRatio',
+      type: 'string',
+      required: false,
+      description: 'Target aspect ratio (e.g. 16:9)',
+    },
+  ],
+  performance: 'medium',
+  batchable: true,
+};
+
+export const VIDEO_NORMALIZE_AUDIO: Capability = {
+  name: 'video.normalize-audio',
+  description: 'Normalize the audio track of a video to a target loudness',
+  inputTypes: ['video'],
+  outputTypes: ['video'],
+  params: [
+    {
+      name: 'targetLUFS',
+      type: 'number',
+      default: -23,
+      description: 'Target loudness in LUFS (EBU R128, e.g. -23 for broadcast)',
+    },
+    { name: 'peak', type: 'number', default: -1, description: 'True peak ceiling in dBTP' },
+  ],
+  performance: 'slow',
+  batchable: true,
+};
+
 /** 所有内置 video 能力预设(由 codegen 从 manifest 生成) */
 export const VIDEO_CAPABILITIES: Capability[] = [
   VIDEO_COMPRESS,
@@ -200,4 +284,7 @@ export const VIDEO_CAPABILITIES: Capability[] = [
   VIDEO_EXTRACT_AUDIO,
   VIDEO_TO_GIF,
   VIDEO_SCREENSHOT,
+  VIDEO_RESIZE,
+  VIDEO_CROP,
+  VIDEO_NORMALIZE_AUDIO,
 ];
