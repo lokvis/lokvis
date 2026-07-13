@@ -54,6 +54,14 @@ export interface GenerateWorkflowParams {
   contextAssetIds?: string[];
 }
 
+/** AI 工作流优化参数 */
+export interface OptimizeWorkflowParams {
+  /** 待优化的 workflow（对象或 JSON 字符串） */
+  workflow: unknown;
+  /** 优化目标提示（可选） */
+  prompt?: string;
+}
+
 /** OCR 结果 */
 export interface OcrResult {
   text: string;
@@ -79,6 +87,8 @@ export interface AiEngineAdapter {
   caption(blob: Blob, params: Record<string, any>): Promise<CaptionResult>;
   removeBackground(blob: Blob, params: Record<string, any>): Promise<Blob>;
   generateWorkflow(params: Record<string, any>): Promise<unknown>;
+  /** 优化已有 workflow（cloud-proxy 引擎承载） */
+  optimizeWorkflow(params: Record<string, any>): Promise<unknown>;
 }
 
 /** transformers.js 引擎占位实现（本地推理） */
@@ -99,7 +109,14 @@ export const transformersEngine: AiEngineAdapter = {
     throw new Error('transformersEngine.removeBackground not implemented in stub');
   },
   async generateWorkflow() {
-    throw new Error('transformersEngine cannot generateWorkflow (use cloud-proxy)');
+    throw new Error(
+      'transformersEngine.generateWorkflow not implemented in stub (use cloud-proxy)'
+    );
+  },
+  async optimizeWorkflow() {
+    throw new Error(
+      'transformersEngine.optimizeWorkflow not implemented in stub (use cloud-proxy)'
+    );
   },
 };
 
@@ -122,7 +139,14 @@ export const cloudProxyEngine: AiEngineAdapter = {
     throw new Error('cloudProxyEngine.removeBackground not implemented in stub');
   },
   async generateWorkflow() {
-    throw new Error('cloudProxyEngine.generateWorkflow requires lokvis-cloud');
+    throw new Error(
+      'cloudProxyEngine.generateWorkflow not implemented in stub (requires lokvis-cloud)'
+    );
+  },
+  async optimizeWorkflow() {
+    throw new Error(
+      'cloudProxyEngine.optimizeWorkflow not implemented in stub (requires lokvis-cloud)'
+    );
   },
 };
 
