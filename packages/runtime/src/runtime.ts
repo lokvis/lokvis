@@ -20,10 +20,10 @@ import type {
   PluginContext,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
-import { validateWorkflow } from '@lokvis/schema';
 import type {
   LokvisRuntime,
   PluginInstallEntry,
+  RunOptions,
   RuntimeConfig,
   RuntimeStatus,
   ToMcpManifestOptions,
@@ -37,7 +37,6 @@ import {
 } from './asset-store.js';
 import { CapabilityRegistry } from './capability-registry.js';
 import { WorkflowExecutor } from './executor.js';
-import { MAX_WORKFLOW_STEPS } from './workflow-builder.js';
 import {
   createHistoryStore,
   type HistoryStore,
@@ -50,6 +49,7 @@ import {
 } from './managers/quota-manager.js';
 import { AssetManager } from './managers/asset-manager.js';
 import { HistoryManager } from './managers/history-manager.js';
+import { WorkflowCoordinator } from './managers/workflow-coordinator.js';
 // QuotaExceededError 仅作 re-export,保持 `@lokvis/runtime` 的对外导出路径不变
 // (SDK / 测试 / 集成代码均从 runtime 包入口导入该错误类型)
 export { QuotaExceededError } from './managers/quota-manager.js';
@@ -62,7 +62,6 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   readonly eventBus: EventBus;
 
   private config: Required<Omit<RuntimeConfig, 'assetStore' | 'historyStore' | 'historyStoreOptions'>>;
-  private _status: RuntimeStatus = 'idle';
   /**
    * AssetStore 实例。类型为 QuotaAwareAssetStore —— 由 wrapAssetStoreWithQuota
    * 返回(在构造函数中无条件包裹,即使是注入的 assetStore 也会被包装以提供配额校验)。
@@ -91,6 +90,12 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
    * 同时通过 deps 注入 HistoryManager。
    */
   private historyManager: HistoryManager;
+  /**
+   * WorkflowCoordinator:工作流执行协调器(W1.4 抽取)。
+   * 持有 status 状态机,封装 run / cancel / pause / resume / disposeWorkflow。
+   * Runtime 通过 getter 委托,不再直接持有 _status 字段。
+   */
+  private workflowCoordinator: WorkflowCoordinator;
   /**
    * 历史持久化存储(W7.2)。undefined 时退化为仅内存历史(刷新后丢失)。
    * 由 createRuntime 在 enableIndexedDB 时自动创建,或通过 config 注入。
@@ -175,6 +180,16 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       enableLog: this.config.enableLog,
     });
 
+    // WorkflowCoordinator:工作流执行协调器(W1.4)。持有 status 状态机,
+    // 封装 run / cancel / pause / resume / disposeWorkflow。executor 与
+    // historyManager 必须先于本字段实例化(deps 注入)。
+    this.workflowCoordinator = new WorkflowCoordinator({
+      executor: this.executor,
+      capabilityRegistry: this.capabilityRegistry,
+      eventBus: this.eventBus,
+      historyManager: this.historyManager,
+    });
+
     // W3.3 MemoryGuard:追踪中间结果占用,达到 high 阈值时建议 OPFS 溢出。
     // BatchProcessor 据此动态收缩并发槽位(W6.1)。
     this.memoryGuard = new MemoryGuard({
@@ -193,7 +208,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   }
 
   get status(): RuntimeStatus {
-    return this._status;
+    return this.workflowCoordinator.status;
   }
 
   get isPro(): boolean {
@@ -204,119 +219,37 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     return this.batchProcessor;
   }
 
-  // ─── 工作流执行 ──────────────────────────────────────
+  // ─── 工作流执行(委托 WorkflowCoordinator) ──────────────
 
   async run(
     workflow: Workflow,
     inputs: AssetId[] | Asset[],
-    options?: import('./types.js').RunOptions
+    options?: RunOptions
   ): Promise<WorkflowResult> {
-    this._status = 'running';
-
-    // Schema 层校验：在 executor.execute 之前调用 validateWorkflow，
-    // 让结构问题（保留字哨兵 __input__、悬挂 edge、自环、重复 id、真环）
-    // 在入口处暴露，错误信息精准（如 "Edge from __input__ references a
-    // reserved sentinel id"），而不是被 executor 拓扑排序误判为含糊的 "cycle"。
-    // 三层防御的第 3 层（前两层：executor 防御性校验 + 单元测试覆盖）。
-    //
-    // W10.2/W10.3 增强:
-    //   - resolveCapability 回调注入 capability 兼容性校验(相邻节点
-    //     outputTypes 与 inputTypes 必须有交集;输入/输出节点类型与
-    //     workflow.inputs/outputs.type 兼容)
-    //   - maxSteps: 5(由 MAX_WORKFLOW_STEPS 常量定义,M1 MVP 约束)
-    const validation = validateWorkflow(workflow, {
-      maxSteps: MAX_WORKFLOW_STEPS,
-      resolveCapability: (name) => {
-        const cap = this.capabilityRegistry.get(name);
-        if (!cap) return undefined;
-        return {
-          inputTypes: cap.inputTypes,
-          outputTypes: cap.outputTypes,
-        };
-      },
-    });
-    if (!validation.success) {
-      this._status = 'error';
-      const error = validation.error.issues
-        .map((i) => i.message)
-        .join('; ');
-      const result: WorkflowResult = {
-        workflowId: workflow.id,
-        outputs: [],
-        duration: 0,
-        status: 'failed',
-        error,
-      };
-      this.eventBus.emit({
-        type: 'workflow:completed',
-        workflowId: workflow.id,
-        result,
-      });
-      return result;
-    }
-
-    // 历史栈管理(委托 HistoryManager):
-    // - 默认:每次 run() 重置历史(重跑语义),并通过 onEvict 回收旧 outputs 资产
-    // - appendHistory:true:保留已有历史栈,支持跨次 undo/redo 链(如连续滤镜)
-    const inputIds = await this.collectInputAssetIds(inputs);
-    this.historyManager.prepareForRun(
-      workflow.id,
-      inputIds,
-      options?.appendHistory ?? false
-    );
-
-    try {
-      const result = await this.executor.execute(workflow, inputs);
-      this._status = result.status === 'failed' ? 'error' : 'idle';
-      // 成功完成后,记录最终输出为当前
-      if (result.status === 'completed') {
-        this.historyManager.recordRunResult(workflow.id, result.outputs);
-      }
-      return result;
-    } catch (error) {
-      this._status = 'error';
-      throw error;
-    }
+    return this.workflowCoordinator.run(workflow, inputs, options);
   }
 
   async cancel(workflowId: string): Promise<void> {
-    return this.executor.cancel(workflowId);
+    return this.workflowCoordinator.cancel(workflowId);
   }
 
   async pause(workflowId: string): Promise<void> {
-    return this.executor.pause(workflowId);
+    return this.workflowCoordinator.pause(workflowId);
   }
 
   async resume(workflowId: string): Promise<void> {
-    return this.executor.resume(workflowId);
+    return this.workflowCoordinator.resume(workflowId);
   }
 
   /**
    * 销毁指定工作流的运行时状态（W2.8 内存治理）。
    *
-   * 调用时机：
-   *   - ui-react 卸载 Workspace 组件时
-   *   - 用户主动关闭工作流标签页时
-   *
-   * 行为：
-   *   - 调用 stack.reset() 触发 onEvict → assetStore.remove 回收历史 outputs 资产
-   *   - 从 historyStacks / initialInputsMap / currentOutputsMap 三 Map 中删除 entry
-   *   - 调用 executor.cancel 取消运行中的执行（若有）
-   *
-   * 修复 review 报告：原实现无清理入口,Workflow 组件卸载后 Map 中残留 entry,
-   * 长会话累积导致内存与 OPFS 空间双泄漏。
+   * 委托 WorkflowCoordinator:cancel 运行中执行 → historyManager.disposeHistory
+   * (reset 触发 onEvict → assetStore.remove 回收历史 outputs 资产)。
+   * 调用时机:ui-react 卸载 Workspace 组件 / 用户关闭工作流标签页。
    */
   async disposeWorkflow(workflowId: string): Promise<void> {
-    await this.cancel(workflowId).catch((err) => {
-      // 工作流可能未在运行(常见情况,不抛错);其他真实错误(Worker 崩溃 /
-      // executor 异常)只 warn 不阻断 dispose 流程,避免清理路径被卡住
-      console.warn(
-        `[lokvis] disposeWorkflow: cancel(${workflowId}) failed:`,
-        err
-      );
-    });
-    // 历史栈清理委托 HistoryManager(reset 触发 onEvict → assetStore.remove 回收资产)
-    this.historyManager.disposeHistory(workflowId);
+    return this.workflowCoordinator.disposeWorkflow(workflowId);
   }
 
   // ─── 历史与撤销(委托 HistoryManager) ──────────────────
@@ -496,19 +429,6 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   /** 获取工作流当前输出 AssetId（公开 API，供 UI / MCP 查询） */
   async getCurrentOutputs(workflowId: string): Promise<AssetId[]> {
     return this._getCurrentOutputs(workflowId);
-  }
-
-  // ─── 私有:工作流辅助 ──────────────────────────────
-
-  /** 将输入归一化为 AssetId[]（run() 入参可为 AssetId[] 或 Asset[]） */
-  private async collectInputAssetIds(
-    inputs: AssetId[] | Asset[]
-  ): Promise<AssetId[]> {
-    if (inputs.length === 0) return [];
-    if (typeof inputs[0] === 'string') {
-      return inputs as AssetId[];
-    }
-    return (inputs as Asset[]).map((a) => a.id);
   }
 
   /**
