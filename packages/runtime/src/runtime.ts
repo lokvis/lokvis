@@ -13,7 +13,6 @@ import type {
   CapabilityParamType,
   ExifData,
   HistoryEntry,
-  LokvisEvent,
   McpManifest,
   McpToolManifest,
   MetadataReader,
@@ -34,13 +33,11 @@ import { createEventBus } from './event-bus.js';
 import {
   createAssetStore,
   createMemoryAssetStore,
-  generateId,
   type AssetStore,
 } from './asset-store.js';
 import { CapabilityRegistry } from './capability-registry.js';
 import { WorkflowExecutor } from './executor.js';
 import { MAX_WORKFLOW_STEPS } from './workflow-builder.js';
-import { HistoryStack, type HistoryStackConfig } from './history.js';
 import {
   createHistoryStore,
   type HistoryStore,
@@ -52,26 +49,12 @@ import {
   type QuotaAwareAssetStore,
 } from './managers/quota-manager.js';
 import { AssetManager } from './managers/asset-manager.js';
+import { HistoryManager } from './managers/history-manager.js';
 // QuotaExceededError 仅作 re-export,保持 `@lokvis/runtime` 的对外导出路径不变
 // (SDK / 测试 / 集成代码均从 runtime 包入口导入该错误类型)
 export { QuotaExceededError } from './managers/quota-manager.js';
 
 export const RUNTIME_VERSION = '0.1.0';
-
-/** 默认历史记录上限 */
-const DEFAULT_MAX_HISTORY = 10;
-
-/**
- * 同时持有的工作流历史栈上限（W2.8 内存治理）。
- *
- * 修复 review 报告：原实现 historyStacks 是无限增长 Map，每次 run() 都加入新
- * workflow.id（ui-react buildLinearWorkflow 用 `wf_${Date.now()}` 每次唯一），
- * 长会话累积导致 Map 引用的 AssetId 无法回收 → 内存泄漏。
- *
- * 32 是经验值：覆盖用户常见使用（多 tab 切换 + undo 范围），超限按 FIFO
- * 清理最旧 stack（reset 触发 onEvict → assetStore.remove 回收资产）。
- */
-const MAX_CONCURRENT_WORKFLOW_STACKS = 32;
 
 /** Runtime 实现类 */
 export class LokvisRuntimeImpl implements LokvisRuntime {
@@ -100,39 +83,19 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   private memoryGuard: MemoryGuard;
   private batchProcessor: BatchProcessor;
   /**
-   * 每个工作流独立的 HistoryStack。
-   * W7.2 起,栈快照(entries + cursor)连同 initialInputs / currentOutputs
-   * 通过 historyStore 持久化到 IndexedDB,刷新后可恢复。
+   * HistoryManager:历史栈管理封装(W1.3 抽取)。
+   * 持有 historyStacks / initialInputs / currentOutputs / 持久化守卫等状态,
+   * 内部订阅 node:finished 自动 append;run()/disposeWorkflow() 通过
+   * prepareForRun / recordRunResult / disposeHistory 协调。
+   * historyStore 由 Runtime 持有(供 createRuntime 工厂语义清晰),
+   * 同时通过 deps 注入 HistoryManager。
    */
-  private historyStacks = new Map<string, HistoryStack>();
-  /** 记录每个工作流的初始输入 AssetId(undo 回到初始时使用) */
-  private initialInputsMap = new Map<string, AssetId[]>();
-  /** 记录每个工作流当前的输出 AssetId(undo/redo 后切换"当前") */
-  private currentOutputsMap = new Map<string, AssetId[]>();
+  private historyManager: HistoryManager;
   /**
    * 历史持久化存储(W7.2)。undefined 时退化为仅内存历史(刷新后丢失)。
    * 由 createRuntime 在 enableIndexedDB 时自动创建,或通过 config 注入。
    */
   private historyStore: HistoryStore | undefined;
-  /**
-   * 加载持久化历史快照期间的守卫标志。
-   * restore() 会触发 onChanged → persistHistory,此时跳过写回,
-   * 避免把刚读出的数据又重复写入(冗余 IO + 潜在覆盖竞态)。
-   */
-  private isLoadingHistory = false;
-  /**
-   * 加载期间被 onChanged 标记为"dirty"的工作流 ID 集合(W7.2 review 修复)。
-   *
-   * 原实现:isLoadingHistory 期间所有 persistHistory 调用直接 return,
-   * 若加载期间有其他来源(run / undo / 外部事件)触发 onChanged,
-   * 这些变更会被永久丢弃(加载结束后不会重发 persist)。
-   *
-   * 现策略:加载期间被跳过的 persistHistory 把 workflowId 加入此 Set,
-   * loadPersistedHistory 结束后逐个补 persist,确保不丢变更。
-   * (restore() 自身触发的 onChanged 也加入,但其内容与刚读出的相同,
-   *  补 persist 仅多一次等价写回,幂等无害。)
-   */
-  private dirtyDuringLoad = new Set<string>();
 
   /**
    * 元数据读取器注册表(W7.3/7.4 长期方案:MetadataReader 依赖反转)。
@@ -195,6 +158,14 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     // 历史退化为仅内存模式(与 W2 行为一致)。
     this.historyStore = config.historyStore;
 
+    // HistoryManager:历史栈管理封装(W1.3)。内部订阅 node:finished 自动 append,
+    // 持有 historyStacks / initialInputs / currentOutputs / 持久化守卫等状态。
+    this.historyManager = new HistoryManager({
+      eventBus: this.eventBus,
+      assetStore: this.assetStore,
+      historyStore: this.historyStore,
+    });
+
     this.capabilityRegistry = new CapabilityRegistry(this.config.engineStrategy);
 
     this.executor = new WorkflowExecutor({
@@ -218,11 +189,6 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       eventBus: this.eventBus,
       isPro: this.config.isPro,
       memoryGuard: this.memoryGuard,
-    });
-
-    // 监听 node:finished 事件,自动 append 到 HistoryStack
-    this.eventBus.on('node:finished', (event) => {
-      this.recordHistoryFromNodeEvent(event as Extract<LokvisEvent, { type: 'node:finished' }>);
     });
   }
 
@@ -289,32 +255,22 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       return result;
     }
 
-    // 历史栈管理：
+    // 历史栈管理(委托 HistoryManager):
     // - 默认:每次 run() 重置历史(重跑语义),并通过 onEvict 回收旧 outputs 资产
     // - appendHistory:true:保留已有历史栈,支持跨次 undo/redo 链(如连续滤镜)
     const inputIds = await this.collectInputAssetIds(inputs);
-    if (options?.appendHistory && this.historyStacks.has(workflow.id)) {
-      // 追加模式:保留历史栈与 currentOutputs,仅确保初始输入已记录
-      if (!this.initialInputsMap.has(workflow.id)) {
-        this.initialInputsMap.set(workflow.id, inputIds);
-      }
-    } else {
-      // 重置模式(默认):丢弃旧历史,重新初始化
-      const existingStack = this.historyStacks.get(workflow.id);
-      if (existingStack) {
-        existingStack.reset();
-      }
-      this.initialInputsMap.set(workflow.id, inputIds);
-      this.currentOutputsMap.set(workflow.id, inputIds);
-    }
-    this.enforceHistoryStacksLimit(workflow.id);
+    this.historyManager.prepareForRun(
+      workflow.id,
+      inputIds,
+      options?.appendHistory ?? false
+    );
 
     try {
       const result = await this.executor.execute(workflow, inputs);
       this._status = result.status === 'failed' ? 'error' : 'idle';
       // 成功完成后,记录最终输出为当前
-      if (result.status === 'completed' && result.outputs.length > 0) {
-        this.currentOutputsMap.set(workflow.id, result.outputs);
+      if (result.status === 'completed') {
+        this.historyManager.recordRunResult(workflow.id, result.outputs);
       }
       return result;
     } catch (error) {
@@ -359,66 +315,32 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
         err
       );
     });
-    const stack = this.historyStacks.get(workflowId);
-    if (stack) {
-      stack.reset();
-      this.historyStacks.delete(workflowId);
-    }
-    this.initialInputsMap.delete(workflowId);
-    this.currentOutputsMap.delete(workflowId);
+    // 历史栈清理委托 HistoryManager(reset 触发 onEvict → assetStore.remove 回收资产)
+    this.historyManager.disposeHistory(workflowId);
   }
 
-  // ─── 历史与撤销 ──────────────────────────────────────
+  // ─── 历史与撤销(委托 HistoryManager) ──────────────────
 
   async history(workflowId: string): Promise<HistoryEntry[]> {
-    // 避免对从未运行过的工作流创建空栈:先查 Map,无则直接返回空数组
-    return this.historyStacks.get(workflowId)?.list() ?? [];
+    return this.historyManager.history(workflowId);
   }
 
   async getHistoryState(
     workflowId: string
   ): Promise<{ entries: HistoryEntry[]; cursor: number }> {
-    const stack = this.historyStacks.get(workflowId);
-    if (!stack) return { entries: [], cursor: -1 };
-    const snap = stack.snapshot();
-    return { entries: snap.entries, cursor: snap.cursor };
+    return this.historyManager.getHistoryState(workflowId);
   }
 
   async undo(workflowId: string): Promise<void> {
-    const stack = this.getOrCreateHistoryStack(workflowId);
-    const result = stack.undo();
-    if (result === undefined) return; // 无可 undo
-
-    // 更新当前输出:
-    //   - null 表示回到初始状态,使用 initialInputs
-    //   - entry 表示回退到该条目的 outputs
-    const newCurrent = result === null
-      ? (this.initialInputsMap.get(workflowId) ?? [])
-      : result.outputs;
-    this.currentOutputsMap.set(workflowId, newCurrent);
-    // history:changed 事件由 stack 的 onChanged 回调统一发射,避免双发
+    return this.historyManager.undo(workflowId);
   }
 
   async redo(workflowId: string): Promise<void> {
-    const stack = this.getOrCreateHistoryStack(workflowId);
-    const entry = stack.redo();
-    if (entry === undefined) return; // 无可 redo
-
-    this.currentOutputsMap.set(workflowId, entry.outputs);
-    // history:changed 事件由 stack 的 onChanged 回调统一发射,避免双发
+    return this.historyManager.redo(workflowId);
   }
 
   async jumpTo(workflowId: string, index: number): Promise<void> {
-    const stack = this.getOrCreateHistoryStack(workflowId);
-    const result = stack.jumpTo(index);
-    if (result === undefined) return; // 越界或游标未变,无操作
-
-    // 同 undo/redo:更新当前输出
-    const newCurrent = result === null
-      ? (this.initialInputsMap.get(workflowId) ?? [])
-      : result.outputs;
-    this.currentOutputsMap.set(workflowId, newCurrent);
-    // history:changed 事件由 stack 的 onChanged 回调统一发射
+    return this.historyManager.jumpTo(workflowId, index);
   }
 
   // ─── Asset 管理(委托给 AssetManager) ─────────────────
@@ -568,7 +490,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
 
   /** 获取工作流当前输出 AssetId（undo/redo 后的"当前"状态,内部用） */
   _getCurrentOutputs(workflowId: string): AssetId[] {
-    return this.currentOutputsMap.get(workflowId) ?? [];
+    return this.historyManager.getCurrentOutputs(workflowId);
   }
 
   /** 获取工作流当前输出 AssetId（公开 API，供 UI / MCP 查询） */
@@ -576,80 +498,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     return this._getCurrentOutputs(workflowId);
   }
 
-  // ─── 私有：历史栈管理 ──────────────────────────────
-
-  /**
-   * LRU 上限清理：historyStacks 超过 MAX_CONCURRENT_WORKFLOW_STACKS 时
-   * 按 FIFO 删除最旧 stack（reset 触发 onEvict → assetStore.remove 回收资产）。
-   *
-   * Map 的迭代顺序是插入顺序（ES2015+ 规范），所以第一个 entry 即最旧。
-   *
-   * 注意：appendHistory 模式下，当前 run() 的工作流栈在调用本方法前已存在于
-   * Map 中（保留旧历史），必须跳过它，否则 FIFO 首位时会被误删，导致本应保留的
-   * undo/redo 历史被回收。重置模式下当前栈已被 reset()，删除也无害，但统一跳过
-   * 可避免边界问题。
-   *
-   * @param currentWorkflowId 当前 run() 的工作流 id，清理时跳过
-   */
-  private enforceHistoryStacksLimit(currentWorkflowId: string): void {
-    while (this.historyStacks.size >= MAX_CONCURRENT_WORKFLOW_STACKS) {
-      // 取最旧 workflowId（Map 第一个 key），跳过当前工作流
-      let oldestId = this.historyStacks.keys().next().value;
-      if (oldestId === undefined) break;
-      if (oldestId === currentWorkflowId) {
-        // 当前工作流是最旧 entry：取第二个，没有则退出
-        const iter = this.historyStacks.keys();
-        iter.next(); // 跳过第一个
-        oldestId = iter.next().value;
-        if (oldestId === undefined) break;
-      }
-      const stack = this.historyStacks.get(oldestId);
-      if (stack) {
-        // reset 触发 onEvict，回收历史 outputs 资产
-        stack.reset();
-      }
-      this.historyStacks.delete(oldestId);
-      this.initialInputsMap.delete(oldestId);
-      this.currentOutputsMap.delete(oldestId);
-    }
-  }
-
-  /** 获取或创建工作流对应的 HistoryStack */
-  private getOrCreateHistoryStack(workflowId: string): HistoryStack {
-    let stack = this.historyStacks.get(workflowId);
-    if (!stack) {
-      const stackConfig: Partial<HistoryStackConfig> = {
-        maxEntries: DEFAULT_MAX_HISTORY,
-        onEvict: (entry) => {
-          // 淘汰条目时清理其 outputs 资产(避免 OPFS 泄漏)
-          // 注意:此时条目已从栈中移除,且 undo 不会再回到它
-          for (const assetId of entry.outputs) {
-            // 非阻塞清理:资产不存在是常见情况(可能已被 removeAsset 删除);
-            // 其他真实错误(OPFS/IDB 故障)只 warn 不抛,避免污染调用栈
-            this.assetStore.remove(assetId).catch((err) => {
-              console.warn(
-                `[lokvis] onEvict: remove(${assetId}) failed:`,
-                err
-              );
-            });
-          }
-        },
-        onChanged: (wfId, entries, currentIndex) => {
-          this.eventBus.emit({
-            type: 'history:changed',
-            workflowId: wfId,
-            entries,
-            currentIndex,
-          });
-          // W7.2:持久化快照到 IndexedDB(加载期间跳过,避免冗余写回)
-          void this.persistHistory(wfId);
-        },
-      };
-      stack = new HistoryStack(workflowId, stackConfig);
-      this.historyStacks.set(workflowId, stack);
-    }
-    return stack;
-  }
+  // ─── 私有:工作流辅助 ──────────────────────────────
 
   /** 将输入归一化为 AssetId[]（run() 入参可为 AssetId[] 或 Asset[]） */
   private async collectInputAssetIds(
@@ -662,134 +511,14 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     return (inputs as Asset[]).map((a) => a.id);
   }
 
-  /** 监听 node:finished 事件,自动 append 到对应工作流的 HistoryStack */
-  private recordHistoryFromNodeEvent(
-    event: Extract<LokvisEvent, { type: 'node:finished' }>
-  ): void {
-    if (!event.outputs || event.outputs.length === 0) return;
-
-    const stack = this.getOrCreateHistoryStack(event.workflowId);
-    const outputs = event.outputs.map((a) => a.id);
-    const now = Date.now();
-
-    // node 的 inputs = 上一步的 outputs(或初始输入)
-    const inputs = this.currentOutputsMap.get(event.workflowId) ?? [];
-
-    const entry: HistoryEntry = {
-      id: generateId(),
-      workflowId: event.workflowId,
-      nodeId: event.nodeId,
-      capability: event.capability,
-      params: event.params,
-      inputs,
-      outputs,
-      timestamp: now,
-    };
-
-    stack.append(entry);
-    // 更新当前输出为该 node 的 outputs
-    this.currentOutputsMap.set(event.workflowId, outputs);
-  }
-
-  // ─── 私有:历史持久化(W7.2) ────────────────────────
-
   /**
-   * 把指定工作流的当前历史状态快照写入 historyStore。
+   * 从 historyStore 预加载所有持久化的历史快照,恢复到内存(委托 HistoryManager)。
    *
-   * 时序修复:currentOutputs 从 stack snapshot 派生(cursor === -1 用
-   * initialInputs,否则用 entries[cursor].outputs),而非读 currentOutputsMap。
-   * 原因:onChanged 在 undo/redo/jumpTo/run 内部同步触发时,map 尚未更新,
-   * 会读到旧值(例如 run 后 append 触发 onChanged,但 currentOutputsMap 在
-   * append 返回后才 set)。
-   *
-   * 竞态安全:多个 fire-and-forget save 的 IDB readwrite 事务由 IndexedDB
-   * 引擎按发起顺序串行化(同 object store 不重叠),无需应用层加链。
-   *
-   * - entries 为空时改为 delete,避免残留空记录(reset/clear 后自然清理)
-   * - 加载期间(isLoadingHistory=true)跳过写回,但把 workflowId 加入
-   *   dirtyDuringLoad,loadPersistedHistory 结束后补 persist(避免丢变更)
-   */
-  private async persistHistory(workflowId: string): Promise<void> {
-    if (!this.historyStore) return;
-    if (this.isLoadingHistory) {
-      this.dirtyDuringLoad.add(workflowId);
-      return;
-    }
-    // fire-and-forget 调用方用 `void this.persistHistory(...)`,故内部必须
-    // try/catch,否则 IDB 故障(数据库关闭 / quota exceeded)会变成 unhandled
-    // promise rejection。历史持久化是非关键路径,失败只 warn 不抛。
-    try {
-      const stack = this.historyStacks.get(workflowId);
-      // 栈已从内存移除(disposeWorkflow / enforceHistoryStacksLimit 的 reset+delete
-      // 后异步到达此处)→ 删除持久化记录,避免孤儿数据跨会话残留
-      if (!stack) {
-        await this.historyStore.delete(workflowId);
-        return;
-      }
-      const { entries, cursor } = stack.snapshot();
-      if (entries.length === 0) {
-        await this.historyStore.delete(workflowId);
-        return;
-      }
-      // 从 snapshot 派生 currentOutputs,而非读 currentOutputsMap —— 后者在
-      // onChanged 触发时尚未更新(见方法文档注释)
-      const initialInputs = this.initialInputsMap.get(workflowId) ?? [];
-      const currentOutputs = cursor === -1
-        ? initialInputs
-        : (entries[cursor]?.outputs ?? initialInputs);
-      await this.historyStore.save({
-        workflowId,
-        entries,
-        cursor,
-        initialInputs,
-        currentOutputs,
-        updatedAt: Date.now(),
-      });
-    } catch (err) {
-      console.warn(
-        `[lokvis] persistHistory failed for workflow ${workflowId}:`,
-        err
-      );
-    }
-  }
-
-  /**
-   * 从 historyStore 预加载所有持久化的历史快照,恢复到内存。
-   *
-   * 由 createRuntime 工厂在构造完 impl 后调用一次。加载期间置 isLoadingHistory
-   * 守卫,使 restore() 触发的 onChanged → persistHistory 跳过冗余写回;
-   * 但被跳过的 workflowId 记入 dirtyDuringLoad,加载结束后补 persist,
-   * 避免加载期间其他来源(run / undo / 外部事件)的变更被永久丢弃。
-   *
-   * 注意:restore 会 emit history:changed 事件,但此时 UI 尚未订阅
-   * (runtime-slice.init 在 createRuntime resolve 后才订阅),故无副作用。
-   *
-   * 非 LokvisRuntime 接口的一部分,仅为 impl 的初始化钩子(工厂调用)。
+   * 由 createRuntime 工厂在构造完 impl 后调用一次。非 LokvisRuntime 接口的
+   * 一部分,仅为 impl 的初始化钩子(工厂调用)。
    */
   async loadPersistedHistory(): Promise<void> {
-    if (!this.historyStore) return;
-    let records: Awaited<ReturnType<HistoryStore['loadAll']>> = [];
-    this.isLoadingHistory = true;
-    try {
-      records = await this.historyStore.loadAll();
-      for (const record of records) {
-        // 跳过空记录(理论上 save 已删除,双重防御)
-        if (record.entries.length === 0) continue;
-        const stack = this.getOrCreateHistoryStack(record.workflowId);
-        stack.restore({ entries: record.entries, cursor: record.cursor });
-        this.initialInputsMap.set(record.workflowId, record.initialInputs);
-        this.currentOutputsMap.set(record.workflowId, record.currentOutputs);
-      }
-    } finally {
-      this.isLoadingHistory = false;
-      // 加载期间被跳过的 persist 补发:逐个 await 保证顺序
-      // 复制一份避免补 persist 过程中新触发 onChanged → dirtyDuringLoad 死循环
-      const pending = [...this.dirtyDuringLoad];
-      this.dirtyDuringLoad.clear();
-      for (const wfId of pending) {
-        await this.persistHistory(wfId);
-      }
-    }
+    return this.historyManager.loadPersistedHistory();
   }
 }
 
