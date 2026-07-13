@@ -51,6 +51,7 @@ import {
   wrapAssetStoreWithQuota,
   type QuotaAwareAssetStore,
 } from './managers/quota-manager.js';
+import { AssetManager } from './managers/asset-manager.js';
 // QuotaExceededError 仅作 re-export,保持 `@lokvis/runtime` 的对外导出路径不变
 // (SDK / 测试 / 集成代码均从 runtime 包入口导入该错误类型)
 export { QuotaExceededError } from './managers/quota-manager.js';
@@ -87,6 +88,13 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
    * 因此所有路径下 this.assetStore 都是 QuotaAwareAssetStore。
    */
   private assetStore: QuotaAwareAssetStore;
+  /**
+   * AssetManager:资产操作封装(import/get/export/remove/list/exif/usage)。
+   * 由 RuntimeImpl 在构造函数中创建,所有资产方法委托给它。
+   * metadataReaders 由 Runtime 持有(供 _registerMetadataReader 写入),
+   * 通过引用共享给 AssetManager(Plugin 注册后立即可见)。
+   */
+  private assetManager: AssetManager;
   private capabilityRegistry: CapabilityRegistry;
   private executor: WorkflowExecutor;
   private memoryGuard: MemoryGuard;
@@ -172,6 +180,15 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     }
     const rawStore = config.assetStore ?? createMemoryAssetStore();
     this.assetStore = wrapAssetStoreWithQuota(rawStore, this.config.storageQuota);
+
+    // AssetManager:资产操作封装。metadataReaders 由 Runtime 持有,
+    // Plugin 通过 _registerMetadataReader 写入后,AssetManager 通过引用立即可见
+    this.assetManager = new AssetManager({
+      assetStore: this.assetStore,
+      eventBus: this.eventBus,
+      metadataReaders: this.metadataReaders,
+      storageQuota: this.config.storageQuota,
+    });
 
     // W7.2 历史持久化:优先用注入的 historyStore;否则在 createRuntime 工厂中
     // 由 createHistoryStore 自动创建并注入。直接 new Impl 时为 undefined,
@@ -404,130 +421,34 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     // history:changed 事件由 stack 的 onChanged 回调统一发射
   }
 
-  // ─── Asset 管理 ──────────────────────────────────────
+  // ─── Asset 管理(委托给 AssetManager) ─────────────────
 
   async importAsset(source: AssetSource): Promise<AssetId> {
-    // 修复 review 报告：原实现直接透传 source 给 assetStore.import，
-    // 但 MemoryAssetStore/OpfsAssetStore/IdbAssetStore 的 extractBlobFromSource
-    // 仅支持 file/blob 两种 kind，url/opfs 会抛 "not supported"。
-    // 这里在 runtime 层兜底处理 url（fetch → blob），opfs 暂不支持（OPFS
-    // 路径访问需要 filesystem access permission，未来单独实现）
-    let effectiveSource = source;
-    if (source.kind === 'url') {
-      // 超时保护:防止慢响应或挂起的 URL 无限期阻塞 import。
-      // 30s 覆盖绝大多数正常图片下载;超时后 abort 并抛明确错误。
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30_000);
-      try {
-        const resp = await fetch(source.url, { signal: controller.signal });
-        if (!resp.ok) {
-          throw new Error(`Failed to fetch asset from ${source.url}: ${resp.status} ${resp.statusText}`);
-        }
-        const blob = await resp.blob();
-        const name = source.url.split('/').pop()?.split('?')[0] || 'asset';
-        effectiveSource = { kind: 'blob', blob, name };
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          throw new Error(`Failed to fetch asset from ${source.url}: timed out after 30s`);
-        }
-        throw err;
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } else if (source.kind === 'opfs') {
-      throw new Error(
-        "AssetSource kind 'opfs' is not yet supported by importAsset; " +
-          'use the OPFS-aware AssetStore directly or convert to blob first'
-      );
-    }
-
-    const asset = await this.assetStore.import(effectiveSource);
-    this.eventBus.emit({
-      type: 'asset:imported',
-      assetId: asset.id,
-      metadata: asset.metadata,
-    });
-    return asset.id;
+    return this.assetManager.importAsset(source);
   }
 
   async getAsset(id: AssetId): Promise<Asset> {
-    const asset = await this.assetStore.get(id);
-    if (!asset) throw new Error(`Asset not found: ${id}`);
-    return asset;
+    return this.assetManager.getAsset(id);
   }
 
   async exportAsset(id: AssetId, format?: string): Promise<Blob> {
-    const asset = await this.getAsset(id);
-    const blob = await this.assetStore.getBlob(asset.blob);
-    // OPFS 存储后端用 .bin 扩展名存储,读取时 fileHandle.getFile() 返回的
-    // File.type 可能为空字符串或 'application/octet-stream'(浏览器对未知扩展名
-    // 的默认兜底 MIME)。这两种情况都会导致 Object URL 的 Content-Type 退化,
-    // 下载时文件扩展名变成 .octet-stream。
-    // 用 asset metadata 的 mimeType 补全 Blob type(IDB/Memory 后端不受影响)。
-    const OPFS_FALLBACK_MIME = 'application/octet-stream';
-    const mimeType =
-      !blob.type || blob.type === OPFS_FALLBACK_MIME
-        ? asset.metadata.mimeType
-        : blob.type;
-    // 关键:用 arrayBuffer() 显式读取数据到内存,再构造新 Blob。
-    // 不能用 new Blob([blob]) —— 浏览器实现中它可能延迟引用底层 OPFS 文件,
-    // WatermarkBatchTool 在 export 后立即 removeAsset 删除 OPFS 文件,
-    // 导致后续 downloadBlob 读取悬空引用失败("check internet connection")。
-    // arrayBuffer() 立即拉取数据,确保返回的 Blob 完全独立于底层存储。
-    const buffer = await blob.arrayBuffer();
-    const exported = new Blob([buffer], { type: mimeType });
-    this.eventBus.emit({
-      type: 'export:completed',
-      assetId: id,
-      format: format ?? asset.metadata.format,
-      size: blob.size,
-    });
-    return exported;
+    return this.assetManager.exportAsset(id, format);
   }
 
-  /**
-   * 读取 image 资产的 EXIF 元数据(W7.3/7.4 长期方案:MetadataReader 依赖反转)。
-   *
-   * Runtime 持有 plugin-image 通过 ctx.registerMetadataReader('image.read-exif', fn)
-   * 注册的 reader 引用,按名调用。reader 内部调 readExifFromBlob(exifr)。
-   * Plugin 未安装时优雅降级返回 null(不抛错)。
-   *
-   * 架构决策:readExif 是 Blob→ExifData 查询,不符合 Engine 层 Blob↔Blob 纯函数
-   * 约束,也不符合 Capability Asset[]→Asset[] 契约,故走 MetadataReader 机制,
-   * 不进 engine-image、不走 Capability execute。
-   */
   async readAssetExif(id: AssetId): Promise<ExifData | null> {
-    const asset = await this.getAsset(id);
-    if (asset.type !== 'image') return null;
-    const reader = this.metadataReaders.get('image.read-exif');
-    if (!reader) return null; // Plugin 未安装,优雅降级
-    return reader(asset) as Promise<ExifData | null>;
+    return this.assetManager.readAssetExif(id);
   }
 
   async removeAsset(id: AssetId): Promise<void> {
-    await this.assetStore.remove(id);
-    this.eventBus.emit({ type: 'asset:removed', assetId: id });
+    return this.assetManager.removeAsset(id);
   }
 
   async listAssets(): Promise<Asset[]> {
-    return this.assetStore.list();
+    return this.assetManager.listAssets();
   }
 
   async getStorageUsage(): Promise<{ usage: number; quota: number }> {
-    // m6 优化:优先用配额包装器内部维护的 usage(O(1),import/create/remove
-    // 时增量更新),避免每次 O(n) 全量 listAssets 影响 StatusBar 刷新。
-    // 包装器未就绪(ensureInit 未完成)返回 -1 时,fallback 到 listAssets
-    // 实时计算(source of truth,与 W6.4 富元数据一致)。
-    //
-    // 类型说明:assetStore 字段类型为 QuotaAwareAssetStore(含 _getQuotaUsage),
-    // 由 wrapAssetStoreWithQuota 返回。无需重新断言 —— 类型信息未丢失。
-    const cached = this.assetStore._getQuotaUsage();
-    if (cached >= 0) {
-      return { usage: cached, quota: this.config.storageQuota };
-    }
-    const all = await this.assetStore.list();
-    const usage = all.reduce((sum, a) => sum + a.metadata.size, 0);
-    return { usage, quota: this.config.storageQuota };
+    return this.assetManager.getStorageUsage();
   }
 
   // ─── 能力查询 ────────────────────────────────────────
