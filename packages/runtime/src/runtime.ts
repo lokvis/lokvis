@@ -334,8 +334,13 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
    * 长会话累积导致内存与 OPFS 空间双泄漏。
    */
   async disposeWorkflow(workflowId: string): Promise<void> {
-    await this.cancel(workflowId).catch(() => {
-      /* 工作流可能未在运行 */
+    await this.cancel(workflowId).catch((err) => {
+      // 工作流可能未在运行(常见情况,不抛错);其他真实错误(Worker 崩溃 /
+      // executor 异常)只 warn 不阻断 dispose 流程,避免清理路径被卡住
+      console.warn(
+        `[lokvis] disposeWorkflow: cancel(${workflowId}) failed:`,
+        err
+      );
     });
     const stack = this.historyStacks.get(workflowId);
     if (stack) {
@@ -698,8 +703,14 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
           // 淘汰条目时清理其 outputs 资产(避免 OPFS 泄漏)
           // 注意:此时条目已从栈中移除,且 undo 不会再回到它
           for (const assetId of entry.outputs) {
-            // 静默移除,忽略不存在的情况
-            this.assetStore.remove(assetId).catch(() => {});
+            // 非阻塞清理:资产不存在是常见情况(可能已被 removeAsset 删除);
+            // 其他真实错误(OPFS/IDB 故障)只 warn 不抛,避免污染调用栈
+            this.assetStore.remove(assetId).catch((err) => {
+              console.warn(
+                `[lokvis] onEvict: remove(${assetId}) failed:`,
+                err
+              );
+            });
           }
         },
         onChanged: (wfId, entries, currentIndex) => {

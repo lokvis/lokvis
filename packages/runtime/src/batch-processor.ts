@@ -426,8 +426,12 @@ export class BatchProcessor {
             )
           )
         );
-        void this.cancel(jobId).catch(() => {
-          // cancel 失败不阻断:调用方已收到超时错误
+        void this.cancel(jobId).catch((err) => {
+          // cancel 失败不阻断:调用方已收到超时错误;真实错误只 warn 不抛
+          console.warn(
+            `[lokvis] BatchProcessor: cancel(${jobId}) after timeout failed:`,
+            err
+          );
         });
       }, timeoutMs);
     });
@@ -535,7 +539,12 @@ export class BatchProcessor {
       if (job.cancelled) {
         item.status = 'cancelled';
         // 清理刚导入的 input,避免孤儿资产(cancel 期间产出的 input 不应残留)
-        void this.runtime.removeAsset(inputAssetId).catch(() => {});
+        void this.runtime.removeAsset(inputAssetId).catch((err) => {
+          console.warn(
+            `[lokvis] BatchProcessor: cleanup input(${inputAssetId}) on cancel failed:`,
+            err
+          );
+        });
         return;
       }
 
@@ -588,7 +597,12 @@ export class BatchProcessor {
         // 清理本次导入的 input asset,避免重试重新 import 时旧 input 成为孤儿
         // (Blocker 修复:maxRetries=3 全失败原本会累积 3 个孤儿 input)
         if (inputAssetId !== undefined) {
-          void this.runtime.removeAsset(inputAssetId).catch(() => {});
+          void this.runtime.removeAsset(inputAssetId).catch((err) => {
+            console.warn(
+              `[lokvis] BatchProcessor: cleanup input(${inputAssetId}) on retry failed:`,
+              err
+            );
+          });
         }
       } else {
         item.status = 'failed';
@@ -597,7 +611,12 @@ export class BatchProcessor {
         // M4:最终失败时清理已导入的 input asset,避免批量失败累积孤儿资产
         // 占用 OPFS/IDB 空间并污染 listAssets / StatusBar 配额
         if (inputAssetId !== undefined) {
-          void this.runtime.removeAsset(inputAssetId).catch(() => {});
+          void this.runtime.removeAsset(inputAssetId).catch((err) => {
+            console.warn(
+              `[lokvis] BatchProcessor: cleanup input(${inputAssetId}) on final fail failed:`,
+              err
+            );
+          });
         }
         this.emit({
           type: 'batch:item:failed',
