@@ -8,13 +8,11 @@
  * - transform.ts:       几何变换(resize / crop / rotate / flip)
  * - encode.ts:          编码与格式(compress / convert / setBackground)
  * - watermark.ts:       水印(文字 / 图片)
+ * - filters.ts:         简单滤镜(grayscale / invert / sepia / blur)
  * - compress-target.ts: 目标体积压缩(二分查找)
  * - png-metadata.ts:    PNG 物理分辨率(DPI)嵌入 / 读取 pHYs chunk(W8.4)
  * - utils.ts:           共享工具(inferFormat / computeTargetSize / throwIfAborted)
  * - tiles.ts:           大图分片(splitIntoTiles / mergeChunks / isDownscale)(W3.2)
- *
- * 预留位(W7 实现时填入):
- * - filters.ts:         简单滤镜(黑白/棕褐/模糊)
  *
  * 注:EXIF 元数据读取未放本层 —— readExif 是 Blob→ExifData 查询,不符合
  * AGENTS.md 规定的 Engine 层 Blob↔Blob 纯函数约束。实现位于 Capability 层

@@ -23,6 +23,7 @@ import {
   flip,
   watermark,
   setBackground,
+  filter,
 } from './operations/index.js';
 import { canvasEngine, detectFormatSupport } from './canvas-engine.js';
 import type {
@@ -30,6 +31,7 @@ import type {
   CompressParams,
   ConvertParams,
   CropParams,
+  FilterParams,
   FlipParams,
   ResizeParams,
   RotateParams,
@@ -100,7 +102,8 @@ interface ImageRequestParams {
     | RotateParams
     | FlipParams
     | WatermarkParams
-    | BackgroundParams;
+    | BackgroundParams
+    | FilterParams;
 }
 
 /** 探测结果(不含 ImageBitmap,便于结构化克隆回传) */
@@ -126,6 +129,7 @@ const METHODS: Record<
   'image.watermark': (p, signal) => watermark(p.input, (p.options ?? {}) as WatermarkParams, signal),
   'image.background': (p, signal) =>
     setBackground(p.input, (p.options ?? {}) as BackgroundParams, signal),
+  'image.filter': (p, signal) => filter(p.input, (p.options ?? {}) as FilterParams, signal),
 };
 
 /** 列出本 Worker 支持的方法名 */
