@@ -37,8 +37,6 @@ export const CAPABILITY_NAMES = {
   IMAGE_FLIP: 'image.flip',
   IMAGE_WATERMARK: 'image.watermark',
   IMAGE_BACKGROUND: 'image.background',
-  IMAGE_RENAME: 'image.rename',
-  IMAGE_METADATA: 'image.metadata',
   IMAGE_FILTER: 'image.filter',
 
   // Video
@@ -53,7 +51,6 @@ export const CAPABILITY_NAMES = {
   // Audio
   AUDIO_TRIM: 'audio.trim',
   AUDIO_NORMALIZE: 'audio.normalize',
-  AUDIO_DENOISE: 'audio.denoise',
   AUDIO_TRANSCODE: 'audio.transcode',
   AUDIO_MERGE: 'audio.merge',
 
