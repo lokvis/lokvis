@@ -10,6 +10,7 @@
 |------|------|------|------|
 | [ADR-011](./011-mcp-server.md) | 新增 `@lokvis/mcp-server` 包 | Accepted | 2026-07-01（Proposed）/ 2026-07-04（Accepted） |
 | [ADR-012](./012-商业资产迁出.md) | 商业化资产迁出至 lokvis-cloud | Accepted | 2026-07-02 |
+| [ADR-013](./013-capability-manifest.md) | Capability Manifest 与 Codegen | Proposed | 2026-07-13 |
 | [ADR-O1](./O1-mcp-server定位.md) | lokvis-open 作为 MCP 能力提供方 | Proposed | 2026-07-01 |
 | [ADR-O2](./O2-plugin-sdk降级.md) | Plugin SDK 降级为兼容层 | Proposed | 2026-07-01 |
 | [ADR-O3](./O3-engine-ai定位.md) | engine-ai 定位为 AI 辅助 workflow 设计 | Proposed | 2026-07-01 |
