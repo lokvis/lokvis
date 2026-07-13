@@ -102,7 +102,7 @@ describe('runWorkflow', () => {
       const wfPath = join(tmpDir, 'wf.json');
       await writeFile(wfPath, 'null', 'utf-8');
       await expect(runWorkflow(wfPath, [])).rejects.toThrow(
-        'Workflow must be a JSON object'
+        /Invalid workflow: Expected object, received null/
       );
     });
 
@@ -110,7 +110,7 @@ describe('runWorkflow', () => {
       const wfPath = join(tmpDir, 'wf.json');
       await writeFile(wfPath, '42', 'utf-8');
       await expect(runWorkflow(wfPath, [])).rejects.toThrow(
-        'Workflow must be a JSON object'
+        /Invalid workflow: Expected object, received number/
       );
     });
   });
@@ -126,28 +126,28 @@ describe('runWorkflow', () => {
       const wf = makeWorkflow() as unknown as Record<string, unknown>;
       delete wf.id;
       const p = await writeWorkflow(wf);
-      await expect(runWorkflow(p, [])).rejects.toThrow('Workflow.id must be string');
+      await expect(runWorkflow(p, [])).rejects.toThrow(/Invalid workflow: id: Required/);
     });
 
     it('缺少 name 应抛错', async () => {
       const wf = makeWorkflow() as unknown as Record<string, unknown>;
       delete wf.name;
       const p = await writeWorkflow(wf);
-      await expect(runWorkflow(p, [])).rejects.toThrow('Workflow.name must be string');
+      await expect(runWorkflow(p, [])).rejects.toThrow(/Invalid workflow: name: Required/);
     });
 
     it('缺少 nodes 应抛错', async () => {
       const wf = makeWorkflow() as unknown as Record<string, unknown>;
       delete wf.nodes;
       const p = await writeWorkflow(wf);
-      await expect(runWorkflow(p, [])).rejects.toThrow('Workflow.nodes must be array');
+      await expect(runWorkflow(p, [])).rejects.toThrow(/Invalid workflow: nodes: Required/);
     });
 
     it('缺少 edges 应抛错', async () => {
       const wf = makeWorkflow() as unknown as Record<string, unknown>;
       delete wf.edges;
       const p = await writeWorkflow(wf);
-      await expect(runWorkflow(p, [])).rejects.toThrow('Workflow.edges must be array');
+      await expect(runWorkflow(p, [])).rejects.toThrow(/Invalid workflow: edges: Required/);
     });
 
     it('node 缺少 id 应抛错', async () => {
@@ -156,17 +156,17 @@ describe('runWorkflow', () => {
         nodes: [{ capability: 'image.resize' }],
       });
       await expect(runWorkflow(p, [])).rejects.toThrow(
-        'Each node must have id and capability'
+        /Invalid workflow: nodes\.0\.id: Required/
       );
     });
 
-    it('node 缺少 capability 应抛错', async () => {
+    it('transform 节点缺少 capability 应抛错', async () => {
       const p = await writeWorkflow({
         ...makeWorkflow(),
-        nodes: [{ id: 'n1' }],
+        nodes: [{ id: 'n1', type: 'transform' }],
       });
       await expect(runWorkflow(p, [])).rejects.toThrow(
-        'Each node must have id and capability'
+        /transform 节点必须指定 capability/
       );
     });
   });

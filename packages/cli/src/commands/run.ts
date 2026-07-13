@@ -12,6 +12,7 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createLokvis } from '@lokvis/sdk';
+import { validateWorkflow } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { PluginLoadEntry } from '@lokvis/sdk';
 
@@ -31,16 +32,29 @@ export async function runWorkflow(
   }
 
   const content = await readFile(absPath, 'utf-8');
-  let workflow: Workflow;
+  let raw: unknown;
   try {
-    workflow = JSON.parse(content);
+    raw = JSON.parse(content);
   } catch (err) {
     throw new Error(
       `Invalid workflow JSON: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 
-  validateWorkflow(workflow);
+  // 委托 @lokvis/schema 的 zod 校验器(含形状 + 保留字 + 唯一性 + DAG 检查),
+  // 不再在 CLI 侧手写 typeof 系列校验 —— 那会与 schema 校验规则漂移。
+  const parsed = validateWorkflow(raw);
+  if (!parsed.success) {
+    const formatted = parsed.error.issues
+      .map((issue) =>
+        issue.path.length > 0
+          ? `${issue.path.join('.')}: ${issue.message}`
+          : issue.message
+      )
+      .join('; ');
+    throw new Error(`Invalid workflow: ${formatted}`);
+  }
+  const workflow: Workflow = parsed.data;
 
   const runtime = await createLokvis({
     enableOpfs: false,
@@ -65,21 +79,4 @@ export async function runWorkflow(
 
   const result = await runtime.run(workflow, inputIds);
   return result;
-}
-
-/** 简单校验工作流结构 */
-function validateWorkflow(wf: unknown): asserts wf is Workflow {
-  if (typeof wf !== 'object' || wf === null) {
-    throw new Error('Workflow must be a JSON object');
-  }
-  const w = wf as Record<string, unknown>;
-  if (typeof w.id !== 'string') throw new Error('Workflow.id must be string');
-  if (typeof w.name !== 'string') throw new Error('Workflow.name must be string');
-  if (!Array.isArray(w.nodes)) throw new Error('Workflow.nodes must be array');
-  if (!Array.isArray(w.edges)) throw new Error('Workflow.edges must be array');
-  for (const node of w.nodes as Array<Record<string, unknown>>) {
-    if (typeof node.id !== 'string' || typeof node.capability !== 'string') {
-      throw new Error('Each node must have id and capability');
-    }
-  }
 }
