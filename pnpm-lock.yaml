@@ -358,6 +358,25 @@ importers:
         specifier: ^5.6.0
         version: 5.9.3
 
+  packages/plugin-audio:
+    dependencies:
+      '@lokvis/capability':
+        specifier: workspace:*
+        version: link:../capability
+      '@lokvis/engine-audio':
+        specifier: workspace:*
+        version: link:../engine-audio
+      '@lokvis/plugin-sdk':
+        specifier: workspace:*
+        version: link:../plugin-sdk
+      '@lokvis/schema':
+        specifier: workspace:*
+        version: link:../schema
+    devDependencies:
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
   packages/plugin-dev:
     dependencies:
       '@lokvis/capability':
