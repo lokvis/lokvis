@@ -83,15 +83,11 @@ describe('CAPABILITY_NAMES', () => {
   it('应包含 PDF 核心能力', () => {
     expect(CAPABILITY_NAMES.PDF_MERGE).toBe('pdf.merge');
     expect(CAPABILITY_NAMES.PDF_SPLIT).toBe('pdf.split');
-    expect(CAPABILITY_NAMES.PDF_ADD_PAGE_NUMBERS).toBe('pdf.add-page-numbers');
   });
 
   it('应包含视频核心能力', () => {
     expect(CAPABILITY_NAMES.VIDEO_COMPRESS).toBe('video.compress');
     expect(CAPABILITY_NAMES.VIDEO_TRIM).toBe('video.trim');
-    expect(CAPABILITY_NAMES.VIDEO_RESIZE).toBe('video.resize');
-    expect(CAPABILITY_NAMES.VIDEO_CROP).toBe('video.crop');
-    expect(CAPABILITY_NAMES.VIDEO_NORMALIZE_AUDIO).toBe('video.normalize-audio');
   });
 
   it('应包含 AI 能力', () => {

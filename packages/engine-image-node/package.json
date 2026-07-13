@@ -1,7 +1,7 @@
 {
-  "name": "@lokvis/plugin-image",
-  "version": "0.2.2",
-  "description": "Lokvis Image Tools Plugin - resize / compress / convert / crop / rotate / flip / watermark / background",
+  "name": "@lokvis/engine-image-node",
+  "version": "0.1.0",
+  "description": "Lokvis Image Engine for Node.js - 基于 sharp 的服务端图像处理引擎(MCP Server / 离线批处理用)",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -12,10 +12,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./node": {
-      "types": "./dist/node-plugin.d.ts",
-      "import": "./dist/node-plugin.js"
     }
   },
   "files": [
@@ -31,18 +27,22 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@lokvis/schema": "workspace:*",
-    "@lokvis/plugin-sdk": "workspace:*",
-    "@lokvis/capability": "workspace:*",
-    "@lokvis/engine-image": "workspace:*",
-    "@lokvis/engine-image-node": "workspace:*",
-    "exifr": "^7.1.3"
+    "@lokvis/schema": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.6.0"
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "sharp": "^0.33.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "peerDependencies": {
+    "sharp": "^0.33.0"
   },
   "publishConfig": {
     "access": "public",
@@ -51,6 +51,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/lokvis/lokvis.git",
-    "directory": "packages/plugin-image"
+    "directory": "packages/engine-image-node"
   }
 }

@@ -11,7 +11,7 @@ import { inferFormat, throwIfAborted } from './utils.js';
 /**
  * 校验图片水印 URL 是否安全（防 SSRF）。
  *
- * 修复 review 报告：原实现直接 `await fetch(params.imagePath)`，攻击者可传任意 URL
+ * 修复 review 报告：原实现直接 `await fetch(params.image)`，攻击者可传任意 URL
  * 让服务端发起请求，可能扫描内网（127.0.0.1 / 169.254.169.254 云元数据 / 私有网段）。
  *
  * 校验规则：
@@ -51,7 +51,7 @@ export async function watermark(
 ): Promise<Blob> {
   const {
     text,
-    imagePath: imageUrl,
+    image: imageUrl,
     position,
     opacity,
     fontSize,

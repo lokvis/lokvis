@@ -1,15 +1,14 @@
 /**
  * Lokvis Workflow Schema
  *
- * Phase 1 仅支持 Linear Workflow（线性工作流）。
- * Phase 2（W14.5+）新增 fan-out 节点,支持一个输入分流到多个并行子链。
- * 不支持：Loop / Condition（Year 3）。
+ * 第一年只支持 Linear Workflow（线性工作流）。
+ * 不支持：Branch / Loop / Condition / Parallel。
  */
 
 import type { AssetType } from './asset.js';
 
 /** Workflow 节点类型 */
-export type NodeType = 'load' | 'transform' | 'export' | 'fan-out';
+export type NodeType = 'load' | 'transform' | 'export';
 
 /** Workflow 节点定义 */
 export interface WorkflowNode {
@@ -19,8 +18,7 @@ export interface WorkflowNode {
   type: NodeType;
   /**
    * 引用的能力名，如 `image.resize`。
-   * 仅 `type === 'transform'` 时必填;load/export/fan-out 节点可不填。
-   * fan-out 是结构节点,不引用能力,仅表示分流到多个并行子链。
+   * 仅 `type === 'transform'` 时必填;load/export 节点可不填。
    */
   capability?: string;
   /** 能力参数 */

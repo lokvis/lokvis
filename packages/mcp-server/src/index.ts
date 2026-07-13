@@ -29,9 +29,21 @@ export type {
   LokvisMcpServer,
   LokvisMcpOptions,
   LokvisMcpTransport,
+  LokvisMcpDomain,
   McpToolHandler,
   McpResourceHandler,
   McpPromptHandler,
+  McpToolResult,
+  McpResourceResult,
+  McpPromptResult,
 } from './server.js';
+export { McpServerAdapter } from './mcp-server-adapter.js';
+export { NodeAssetStore } from './node-asset-store.js';
+export {
+  imageResize,
+  imageCompress,
+  imageConvert,
+  getImageToolRegistrations,
+} from './tools/image.js';
 export { ToolRouter } from './router.js';
 export type { NodeEngineAdapter } from './router.js';

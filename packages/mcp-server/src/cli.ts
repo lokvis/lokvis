@@ -8,8 +8,6 @@
  *   LOKVIS_WORKDIR - 工作目录(Node 模式资产读写根路径)
  *   LOKVIS_DOMAINS - 启用的能力域,逗号分隔(默认 'image')
  *   LOKVIS_MODE    - 运行模式 'stdio'(默认) | 'sse'
- *
- * 状态:Phase 2 骨架。实际启动逻辑在 Phase 2 W9-W10 实现。
  */
 
 import { createLokvisMcpServer } from './server.js';
@@ -21,16 +19,24 @@ async function main(): Promise<void> {
     | undefined;
   const mode = (process.env.LOKVIS_MODE as 'stdio' | 'sse' | undefined) ?? 'stdio';
 
-  const { manifest } = await createLokvisMcpServer({
+  const { server, manifest } = await createLokvisMcpServer({
     workdir,
     domains,
     mode,
   });
 
-  // Phase 2 W9-W10:启动实际 MCP transport
   console.error(`[lokvis-mcp] Manifest ready: ${manifest.tools.length} tools`);
-  console.error(`[lokvis-mcp] Server start (stdio mode) — Phase 2 W9-W10 实现实际传输`);
-  console.error('[lokvis-mcp] 当前为骨架,不响应 MCP 请求');
+  console.error(`[lokvis-mcp] Registered tools: ${server.getRegisteredToolNames().join(', ')}`);
+  console.error(`[lokvis-mcp] Starting server (mode: ${mode})...`);
+
+  // stdio 模式:启动后阻塞直到 stdin 关闭(客户端断开)
+  if (mode === 'stdio') {
+    await server.start();
+    console.error('[lokvis-mcp] Server stopped');
+  } else {
+    console.error(`[lokvis-mcp] SSE mode not yet implemented (M2.3)`);
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {

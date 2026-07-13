@@ -49,7 +49,7 @@
         {
           "name": "format",
           "type": "enum",
-          "values": ["png", "jpeg", "webp", "avif", "gif", "ico"],
+          "values": ["png", "jpeg", "webp", "avif", "gif"],
           "required": true
         },
         { "name": "quality", "type": "number", "min": 0, "max": 100, "default": 90 }
@@ -106,7 +106,7 @@
       "outputTypes": ["image"],
       "params": [
         { "name": "text", "type": "string", "required": false, "description": "Text watermark" },
-        { "name": "imagePath", "type": "file", "required": false, "description": "Image watermark (data URL or http(s) URL)" },
+        { "name": "image", "type": "file", "required": false, "description": "Image watermark (data URL)" },
         {
           "name": "position",
           "type": "enum",
