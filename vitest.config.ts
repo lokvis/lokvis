@@ -44,6 +44,9 @@ export default defineConfig({
         'packages/plugin-image/src/**/*.ts',
         // W4.6 后 ui-core 已有 @testing-library/react 单测,纳入覆盖率统计
         'packages/ui-core/src/**/*.{ts,tsx}',
+        // W6.3 后 cli / plugin-sdk 已补齐单测,纳入覆盖率统计
+        'packages/cli/src/**/*.ts',
+        'packages/plugin-sdk/src/**/*.ts',
       ],
       // 排除:测试文件、barrel index、纯类型文件、stub/未测试包
       exclude: [
@@ -62,9 +65,7 @@ export default defineConfig({
         'packages/plugin-video/**',
         'packages/plugin-dev/**',
         // 尚无测试的包(测试在后续周次补齐后纳入)
-        'packages/cli/**',
         'packages/sdk/**',
-        'packages/plugin-sdk/**',
         'packages/ui-react/**',
         'packages/examples/**',
         'apps/**',
