@@ -12,6 +12,9 @@ import { createLokvis } from '@lokvis/sdk';
 import { McpServerAdapter } from './mcp-server-adapter.js';
 import { NodeAssetStore } from './node-asset-store.js';
 import { getImageToolRegistrations } from './tools/image.js';
+import { BrowserBridge } from './browser-bridge.js';
+import { ImageNodeEngineAdapter } from './node-engine-adapter.js';
+import { ToolRouter } from './router.js';
 
 /**
  * 能力域(决定注册哪些 tools)。
@@ -116,6 +119,12 @@ export interface LokvisMcpOptions {
   mode?: 'stdio' | 'sse';
   /** SSE 模式的端口(仅 mode='sse' 时生效,默认 3001) */
   port?: number;
+  /**
+   * BrowserBridge 监听端口(混合架构 E)。
+   * 提供时启动 WebSocket server,浏览器可连接并接管 tool 调用(完整能力);
+   * 未提供时仅走 Node engine 降级路径(基础能力)。
+   */
+  bridgePort?: number;
   /** Runtime 配置(透传给 createLokvis) */
   runtime?: RuntimeConfig;
   /** 注入自定义 transport 工厂(测试用),默认创建 StdioServerTransport */
@@ -143,8 +152,18 @@ export async function createLokvisMcpServer(
   runtime: LokvisRuntime;
   /** MCP manifest(描述当前可暴露的能力) */
   manifest: McpManifest;
+  /** BrowserBridge(若 bridgePort 提供,已启动;否则为未启动实例) */
+  bridge: BrowserBridge;
+  /** ToolRouter(image tool 调用经此路由:浏览器优先 → Node 降级) */
+  router: ToolRouter;
 }> {
-  const { workdir, domains = ['image'], runtime: runtimeConfig, transportFactory } = options;
+  const {
+    workdir,
+    domains = ['image'],
+    runtime: runtimeConfig,
+    transportFactory,
+    bridgePort,
+  } = options;
 
   // 如果 workdir 提供,创建 NodeAssetStore 注入 runtime
   let resolvedRuntimeConfig: RuntimeConfig = { ...runtimeConfig };
@@ -170,13 +189,33 @@ export async function createLokvisMcpServer(
     transportFactory
   );
 
-  // 按 domains 注册 tools
-  if (domains.includes('image')) {
-    const imageTools = getImageToolRegistrations();
-    for (const tool of imageTools) {
-      server.registerTool(tool.name, tool.description, tool.inputSchema, tool.handler);
-    }
+  // BrowserBridge(混合架构 E):若提供 bridgePort 则启动,等待浏览器连接
+  const bridge = new BrowserBridge({ port: bridgePort ?? 0 });
+  if (bridgePort !== undefined) {
+    await bridge.start();
   }
 
-  return { server, runtime, manifest };
+  // NodeEngineAdapter:image 域用 sharp tool handler 支撑降级路径
+  const imageRegistrations = domains.includes('image')
+    ? getImageToolRegistrations()
+    : [];
+  const nodeEngine = new ImageNodeEngineAdapter(imageRegistrations);
+
+  // ToolRouter:浏览器优先(完整能力)→ Node 降级(基础能力)
+  const router = new ToolRouter(bridge, nodeEngine);
+
+  // 按 domains 注册 tools(handler 经 ToolRouter 路由)
+  for (const tool of imageRegistrations) {
+    server.registerTool(
+      tool.name,
+      tool.description,
+      tool.inputSchema,
+      async (params) => {
+        const result = await router.execute(tool.name, params);
+        return result as McpToolResult;
+      }
+    );
+  }
+
+  return { server, runtime, manifest, bridge, router };
 }

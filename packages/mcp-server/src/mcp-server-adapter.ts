@@ -29,6 +29,7 @@ import type {
   McpResourceHandler,
   McpPromptHandler,
 } from './server.js';
+import { LokvisSseServer } from './sse-transport.js';
 
 /** 内部 tool 注册记录 */
 interface RegisteredTool {
@@ -217,6 +218,18 @@ export class McpServerAdapter implements LokvisMcpServer {
       ? this.transportFactory()
       : new StdioServerTransport();
     await this.server.connect(this.transport);
+  }
+
+  /**
+   * 以 SSE 模式启动:在指定端口监听 HTTP,暴露 /sse + /messages 端点。
+   *
+   * 与 start()(stdio 阻塞)互斥;调用方选择其中一种。
+   * 返回 LokvisSseServer 供调用方 close()。
+   */
+  async startSse(port: number): Promise<LokvisSseServer> {
+    const sse = new LokvisSseServer(this.server, { port });
+    await sse.start();
+    return sse;
   }
 
   async close(): Promise<void> {

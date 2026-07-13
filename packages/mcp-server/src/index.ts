@@ -47,3 +47,9 @@ export {
 } from './tools/image.js';
 export { ToolRouter } from './router.js';
 export type { NodeEngineAdapter } from './router.js';
+export { ImageNodeEngineAdapter } from './node-engine-adapter.js';
+export type { ToolRegistration } from './node-engine-adapter.js';
+export { BrowserBridge } from './browser-bridge.js';
+export type { BrowserBridgeOptions, BridgeToolResult } from './browser-bridge.js';
+export { LokvisSseServer } from './sse-transport.js';
+export type { LokvisSseServerOptions } from './sse-transport.js';

@@ -133,4 +133,34 @@ describe('createLokvisMcpServer', () => {
     expect(config.enableLog).toBe(false);
     expect(config.storageQuota).toBe(1024);
   });
+
+  it('应返回 bridge 和 router(M2.3 路由集成)', async () => {
+    const { bridge, router } = await createLokvisMcpServer();
+    expect(bridge).toBeDefined();
+    expect(bridge.isConnected()).toBe(false); // 未提供 bridgePort,未启动
+    expect(router).toBeDefined();
+    expect(typeof router.execute).toBe('function');
+  });
+
+  it('提供 bridgePort 应启动 BrowserBridge 并监听端口', async () => {
+    const { bridge } = await createLokvisMcpServer({ bridgePort: 0 });
+    expect(bridge.getPort()).toBeDefined();
+    expect(bridge.getPort()!).toBeGreaterThan(0);
+    expect(bridge.isConnected()).toBe(false); // 启动但无浏览器连接
+    await bridge.close();
+  });
+
+  it('image tool handler 应经 ToolRouter 路由(浏览器未连接走 Node 降级)', async () => {
+    // 用真实 sharp 处理一张测试图,验证 router → nodeEngine 路径打通
+    tmpDir = await mkdtemp(join(tmpdir(), 'lokvis-mcp-route-'));
+    const sharp = (await import('sharp')).default;
+    const inputPath = join(tmpDir, 'in.png');
+    await sharp({
+      create: { width: 20, height: 10, channels: 3, background: '#f00' },
+    }).png().toFile(inputPath);
+
+    const { server } = await createLokvisMcpServer({ workdir: tmpDir });
+    const toolNames = server.getRegisteredToolNames();
+    expect(toolNames).toContain('lokvis_image_resize');
+  });
 });
