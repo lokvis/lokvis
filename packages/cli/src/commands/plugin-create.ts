@@ -14,13 +14,26 @@ export interface CreatePluginOptions {
   description?: string;
 }
 
+/**
+ * 名称格式校验:支持两种形式
+ * - 普通名:`my-plugin`(lowercase kebab-case)
+ * - scoped 名:`@scope/name`(npm scoped package)
+ *
+ * 注意:此前版本用 `^[a-z0-9-]+$` 校验,会拒绝所有 scoped 名,
+ * 导致下方 `name.startsWith('@')` 分支成为不可达死代码。
+ * 现放宽到 scoped 形式以支持用户自定义命名空间。
+ */
+const NAME_PATTERN = /^@?[a-z0-9-]+(?:\/[a-z0-9-]+)?$/;
+
 export async function createPlugin(
   name: string,
   targetDir?: string,
   options: CreatePluginOptions = {}
 ): Promise<string> {
-  if (!/^[a-z0-9-]+$/.test(name)) {
-    throw new Error('Plugin name must be lowercase kebab-case (a-z, 0-9, -)');
+  if (!NAME_PATTERN.test(name)) {
+    throw new Error(
+      'Plugin name must be lowercase kebab-case (a-z, 0-9, -) or scoped (@scope/name)'
+    );
   }
 
   const dir = resolve(process.cwd(), targetDir ?? name);

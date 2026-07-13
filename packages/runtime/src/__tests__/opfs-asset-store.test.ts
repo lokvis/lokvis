@@ -20,65 +20,10 @@ import {
   createMemoryAssetStore,
 } from '../asset-store.js';
 import { isIdbSupported } from '../idb-asset-store.js';
+// W2.1:共享 OPFS fake(原为本文件内联,与 opfs-metadata-persistence.test.ts 重复)
+import { FakeDirHandle } from '../test-utils/fakes.js';
 
 // ─── Fake OPFS ─────────────────────────────────────────────────
-
-/** 内存模拟的 OPFS 文件句柄 */
-class FakeFileHandle {
-  private blob: Blob | null = null;
-  async createWritable(): Promise<{
-    write: (data: Blob) => Promise<void>;
-    close: () => Promise<void>;
-  }> {
-    return {
-      write: async (data) => {
-        this.blob = data;
-      },
-      close: async () => {},
-    };
-  }
-  async getFile(): Promise<Blob> {
-    if (!this.blob) throw new Error('File not found');
-    return this.blob;
-  }
-}
-
-/** 内存模拟的 OPFS 目录句柄 */
-class FakeDirHandle {
-  private files = new Map<string, FakeFileHandle>();
-  private dirs = new Map<string, FakeDirHandle>();
-
-  async getDirectoryHandle(
-    name: string,
-    opts?: { create?: boolean }
-  ): Promise<FakeDirHandle> {
-    let d = this.dirs.get(name);
-    if (!d) {
-      if (!opts?.create) throw new Error(`Directory not found: ${name}`);
-      d = new FakeDirHandle();
-      this.dirs.set(name, d);
-    }
-    return d;
-  }
-
-  async getFileHandle(
-    name: string,
-    opts?: { create?: boolean }
-  ): Promise<FakeFileHandle> {
-    let f = this.files.get(name);
-    if (!f) {
-      if (!opts?.create) throw new Error(`File not found: ${name}`);
-      f = new FakeFileHandle();
-      this.files.set(name, f);
-    }
-    return f;
-  }
-
-  async removeEntry(name: string): Promise<void> {
-    this.files.delete(name);
-    this.dirs.delete(name);
-  }
-}
 
 /** 构造注入 rootHandle 的 OPFS store */
 async function makeOpfsStore(root?: FakeDirHandle) {

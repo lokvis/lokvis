@@ -8,6 +8,8 @@ import {
   IMAGE_CAPABILITIES,
   PDF_CAPABILITIES,
   VIDEO_CAPABILITIES,
+  AUDIO_CAPABILITIES,
+  AI_CAPABILITIES,
   ASSET_CAPABILITIES,
   DEVELOPER_CAPABILITIES,
   BUILTIN_CAPABILITIES,
@@ -21,6 +23,10 @@ import {
   PDF_SPLIT,
   VIDEO_COMPRESS,
   VIDEO_TRIM,
+  AUDIO_TRIM,
+  AUDIO_TRANSCODE,
+  AI_OCR,
+  AI_GENERATE_WORKFLOW,
 } from '../presets/index.js';
 import { domainOf } from '../names.js';
 
@@ -108,6 +114,44 @@ describe('视频能力预设', () => {
   });
 });
 
+describe('音频能力预设', () => {
+  it('AUDIO_TRIM 的 start/end 参数应为必填', () => {
+    const start = AUDIO_TRIM.params.find((p) => p.name === 'start');
+    const end = AUDIO_TRIM.params.find((p) => p.name === 'end');
+    expect(start?.required).toBe(true);
+    expect(end?.required).toBe(true);
+  });
+
+  it('AUDIO_TRANSCODE 的 format 参数应为必填 enum', () => {
+    const format = AUDIO_TRANSCODE.params.find((p) => p.name === 'format');
+    expect(format?.required).toBe(true);
+    expect(format?.type).toBe('enum');
+    expect(format?.values?.length).toBeGreaterThan(0);
+  });
+
+  it('AUDIO_CAPABILITIES 应包含 4 个能力', () => {
+    expect(AUDIO_CAPABILITIES).toHaveLength(4);
+  });
+});
+
+describe('AI 能力预设', () => {
+  it('AI_OCR 应接受 image 与 pdf 输入,输出 text', () => {
+    expect(AI_OCR.inputTypes).toEqual(['image', 'pdf']);
+    expect(AI_OCR.outputTypes).toEqual(['text']);
+  });
+
+  it('AI_GENERATE_WORKFLOW 的 inputTypes 应为空(不接受 Asset 输入)', () => {
+    expect(AI_GENERATE_WORKFLOW.inputTypes).toEqual([]);
+    expect(AI_GENERATE_WORKFLOW.outputTypes).toEqual(['data']);
+    const prompt = AI_GENERATE_WORKFLOW.params.find((p) => p.name === 'prompt');
+    expect(prompt?.required).toBe(true);
+  });
+
+  it('AI_CAPABILITIES 应包含 5 个能力', () => {
+    expect(AI_CAPABILITIES).toHaveLength(5);
+  });
+});
+
 describe('内置能力集合', () => {
   it('ASSET_CAPABILITIES 应包含 rename 与 archive', () => {
     const names = ASSET_CAPABILITIES.map((c) => c.name);
@@ -125,6 +169,8 @@ describe('内置能力集合', () => {
       IMAGE_CAPABILITIES.length +
         PDF_CAPABILITIES.length +
         VIDEO_CAPABILITIES.length +
+        AUDIO_CAPABILITIES.length +
+        AI_CAPABILITIES.length +
         ASSET_CAPABILITIES.length +
         DEVELOPER_CAPABILITIES.length
     );

@@ -7,6 +7,10 @@
  * 注意:engine-video 当前为占位实现,所有方法均抛出 "not implemented"。
  * merge / extract-audio / to-gif 三个能力在 engine-video 中尚无对应方法,
  * 这里直接抛错,待引擎实现后再切换为对应方法调用。
+ *
+ * 能力声明(VIDEO_CAPABILITIES)由 codegen 从 manifests/video.manifest.json 生成,
+ * 见 packages/capability/src/presets/video.generated.ts。本文件只负责 impl 绑定
+ * (capability name → engine + operation)。
  */
 
 import type { PluginContext, CapabilityImplementation } from '@lokvis/schema';
@@ -19,9 +23,9 @@ export type VideoOperation = (
   params: Record<string, unknown>
 ) => Promise<Blob>;
 
-/** 视频能力实现项 */
-export interface VideoCapabilityEntry {
-  /** 对应 Capability 名 */
+/** 视频能力实现绑定项(capability name → engine + operation) */
+export interface VideoOperationEntry {
+  /** 对应 Capability 名(与 generated 声明的 name 字段关联) */
   capability: string;
   /** 引擎名 */
   engine: string;
@@ -58,8 +62,8 @@ const toGifOp: VideoOperation = async () => {
   throw new Error('video.to-gif not implemented in engine-video stub');
 };
 
-/** 全部视频能力实现项 */
-export const VIDEO_CAPABILITY_ENTRIES: VideoCapabilityEntry[] = [
+/** 全部视频能力实现绑定(operation → engine 映射,能力声明由 generated 提供) */
+export const VIDEO_OPERATION_ENTRIES: VideoOperationEntry[] = [
   { capability: 'video.compress',         engine: 'ffmpeg-wasm', operation: compressOp },
   { capability: 'video.transcode',        engine: 'ffmpeg-wasm', operation: transcodeOp },
   { capability: 'video.trim',             engine: 'ffmpeg-wasm', operation: trimOp },
@@ -79,7 +83,7 @@ const isStub = ffmpegEngine.version.includes('stub');
 export function buildVideoCapabilityImplementations(
   ctx: PluginContext
 ): CapabilityImplementation[] {
-  return VIDEO_CAPABILITY_ENTRIES.map((entry) =>
+  return VIDEO_OPERATION_ENTRIES.map((entry) =>
     createBlobCapabilityImpl(
       {
         capability: entry.capability,

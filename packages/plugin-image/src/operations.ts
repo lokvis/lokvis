@@ -6,6 +6,10 @@
  *
  * 工厂封装了"取 blob → 调 operation → 派生 metadata → createAsset → 进度/取消"
  * 五步样板,本文件只需提供 operation 函数与 isStub 检测。
+ *
+ * 能力声明(IMAGE_CAPABILITIES)由 codegen 从 manifests/image.manifest.json 生成,
+ * 见 packages/capability/src/presets/image.generated.ts。本文件只负责 impl 绑定
+ * (capability name → engine + operation)。
  */
 
 import type { PluginContext } from '@lokvis/schema';
@@ -31,9 +35,9 @@ export type ImageOperation = (
   signal?: AbortSignal
 ) => Promise<Blob>;
 
-/** 图像能力实现项 */
-export interface ImageCapabilityEntry {
-  /** 对应 Capability 名 */
+/** 图像能力实现绑定项(capability name → engine + operation) */
+export interface ImageOperationEntry {
+  /** 对应 Capability 名(与 generated 声明的 name 字段关联) */
   capability: string;
   /** 引擎名 */
   engine: string;
@@ -54,8 +58,8 @@ const watermarkOp: ImageOperation = (blob, params, signal) => opWatermark(blob, 
 const backgroundOp: ImageOperation = (blob, params, signal) => opSetBackground(blob, params, signal);
 const filterOp: ImageOperation = (blob, params, signal) => opFilter(blob, params, signal);
 
-/** 全部图像能力实现项 */
-export const IMAGE_CAPABILITY_ENTRIES: ImageCapabilityEntry[] = [
+/** 全部图像能力实现绑定(operation → engine 映射,能力声明由 generated 提供) */
+export const IMAGE_OPERATION_ENTRIES: ImageOperationEntry[] = [
   { capability: 'image.resize',      engine: 'canvas', operation: resizeOp },
   { capability: 'image.compress',    engine: 'canvas', operation: compressOp },
   { capability: 'image.convert',     engine: 'canvas', operation: convertOp },
@@ -77,7 +81,7 @@ const isStub = canvasEngine.version.includes('stub');
 export function buildImageCapabilityImplementations(
   ctx: PluginContext
 ): CapabilityImplementation[] {
-  return IMAGE_CAPABILITY_ENTRIES.map((entry) =>
+  return IMAGE_OPERATION_ENTRIES.map((entry) =>
     createBlobCapabilityImpl(
       {
         capability: entry.capability,

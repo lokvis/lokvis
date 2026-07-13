@@ -14,5 +14,5 @@
 export { pdfToolsPlugin as default, pdfToolsPlugin } from './plugin.js';
 export {
   buildPdfCapabilityImplementations,
-  type PdfCapabilityEntry,
+  type PdfOperationEntry,
 } from './operations.js';

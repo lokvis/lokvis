@@ -1,7 +1,7 @@
 # ADR-O1：lokvis-open 作为 MCP 能力提供方
 
-- **状态**：Proposed
-- **日期**：2026-07-01
+- **状态**：Accepted
+- **日期**：2026-07-01（Proposed）/ 2026-07-13（Accepted）
 - **来源**：[AI 生态冲击调整方案](../AI生态冲击调整方案.md) §1.3
 
 ---
@@ -50,3 +50,19 @@ lokvis-open 作为 MCP 能力提供方，通过 `@lokvis/mcp-server` 包将 Runt
 - 新增 `@lokvis/mcp-server` 包
 - Plugin SDK 降级（见 [ADR-O2](./O2-plugin-sdk降级.md)）
 - 营销从"替代 AI"转向"增强 AI"
+
+---
+
+## 2026-07 review（Accepted 依据）
+
+决策已落地，代码与 ADR 完全一致：
+
+| 决策项 | ADR 承诺 | 实际代码状态 | 一致性 |
+|--------|---------|-------------|--------|
+| `@lokvis/mcp-server` 包 | 核心新包 | `packages/mcp-server/`（v0.2.2），含 `cli.ts` / `index.ts` / `router.ts` / `server.ts` 实装 | ✅ |
+| MCP 能力提供方定位 | 把本地能力包装为 MCP server | `server.ts` 暴露 Runtime 能力，`router.ts` 实现工具路由 | ✅ |
+| AI 客户端集成 | 供 AI 调用 | `examples/claude-desktop.md` + `examples/cursor.md` 集成示例 | ✅ |
+| 测试覆盖 | — | `__tests__/router.test.ts` | ✅ |
+| 与 ADR-011 一致 | — | ADR-011（`@lokvis/mcp-server` 包）已于 2026-07-04 Accepted，本 ADR 与其定位一致 | ✅ |
+
+**结论**：决策方向正确，包已建立并具备基础实装。Phase 2（M2.1-M2.4）将完成 stdio 传输 + NodeAssetStore + Node Engine Adapter + 端到端验证，本 ADR 标记为 Accepted。

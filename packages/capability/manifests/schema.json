@@ -1,0 +1,160 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://lokvis.dev/schemas/capability-manifest.schema.json",
+  "title": "Capability Manifest",
+  "description": "Lokvis 能力清单格式。每个 manifest 文件描述一个域(domain)的全部能力声明,作为 codegen 的输入,生成 TypeScript Capability 预设与 CapabilityName 联合类型。",
+  "type": "object",
+  "required": ["domain", "capabilities"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema 引用(编辑器自动补全用)"
+    },
+    "domain": {
+      "type": "string",
+      "description": "能力域,与 AssetType 对齐或为横切域(asset/ai/developer)",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "examples": ["image", "video", "audio", "pdf", "ai", "asset", "developer"]
+    },
+    "capabilities": {
+      "type": "array",
+      "description": "该域的全部能力声明",
+      "items": { "$ref": "#/definitions/capability" },
+      "minItems": 1
+    }
+  },
+  "definitions": {
+    "capability": {
+      "type": "object",
+      "description": "单个能力声明。完整能力名为 `${domain}.${action}`",
+      "required": ["action", "description", "inputTypes", "outputTypes", "params", "performance"],
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "type": "string",
+          "description": "动作名,与 domain 拼接为完整能力名(如 resize → image.resize)",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "examples": ["resize", "compress", "trim", "merge", "generate-workflow"]
+        },
+        "description": {
+          "type": "string",
+          "description": "人类可读的能力描述",
+          "minLength": 1
+        },
+        "inputTypes": {
+          "type": "array",
+          "description": "接受的输入 Asset 类型。空数组表示不接受 Asset 输入(如 ai.generate-workflow)",
+          "items": { "$ref": "#/definitions/assetType" },
+          "uniqueItems": true
+        },
+        "outputTypes": {
+          "type": "array",
+          "description": "产出的输出 Asset 类型",
+          "items": { "$ref": "#/definitions/assetType" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "params": {
+          "type": "array",
+          "description": "参数 Schema 列表",
+          "items": { "$ref": "#/definitions/param" }
+        },
+        "performance": {
+          "type": "string",
+          "description": "性能预估等级,用于 UI 提示与调度优化",
+          "enum": ["fast", "medium", "slow"]
+        },
+        "batchable": {
+          "type": "boolean",
+          "description": "是否支持批量处理(一次处理多个 Asset)",
+          "default": true
+        },
+        "mcpExposure": {
+          "type": "string",
+          "description": "MCP 暴露配置",
+          "enum": ["public", "private", "batch-only"],
+          "default": "public"
+        },
+        "mcpToolName": {
+          "type": "string",
+          "description": "MCP tool 名称覆盖。默认为 lokvis_${domain}_${action}(点分转下划线)"
+        }
+      }
+    },
+    "param": {
+      "type": "object",
+      "description": "能力参数定义",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "参数名",
+          "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+        },
+        "type": {
+          "type": "string",
+          "description": "参数类型",
+          "enum": ["number", "string", "boolean", "enum", "color", "file", "array", "object"]
+        },
+        "description": {
+          "type": "string",
+          "description": "参数描述"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "是否必填",
+          "default": false
+        },
+        "default": {
+          "description": "默认值(类型由 type 字段决定)"
+        },
+        "min": {
+          "type": "number",
+          "description": "最小值(type=number 时生效)"
+        },
+        "max": {
+          "type": "number",
+          "description": "最大值(type=number 时生效)"
+        },
+        "values": {
+          "type": "array",
+          "description": "可选值列表(type=enum 时必填)",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "items": {
+          "type": "string",
+          "description": "数组元素类型(type=array 时生效)",
+          "enum": ["number", "string", "boolean", "enum", "color", "file", "array", "object"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "enum" } },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["values"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "array" } },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["items"]
+          }
+        }
+      ]
+    },
+    "assetType": {
+      "type": "string",
+      "description": "Asset 类型枚举",
+      "enum": ["image", "video", "audio", "pdf", "text", "data", "unknown"]
+    }
+  }
+}

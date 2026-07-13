@@ -17,7 +17,7 @@
 export { imageToolsPlugin as default, imageToolsPlugin, EXIF_READER_NAME } from './plugin.js';
 export {
   buildImageCapabilityImplementations,
-  type ImageCapabilityEntry,
+  type ImageOperationEntry,
 } from './operations.js';
 export { readExifFromBlob } from './exif-reader.js';
 // Engine 预加载桥接（review fix：UI 通过 Capability 层访问 Engine 懒加载工具，避免跨层引用）

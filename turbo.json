@@ -4,6 +4,14 @@
   "globalEnv": ["NODE_ENV"],
   "concurrency": "23",
   "tasks": {
+    "codegen": {
+      "dependsOn": [],
+      "outputs": [
+        "packages/schema/src/**/*.generated.ts",
+        "packages/capability/src/**/*.generated.ts"
+      ],
+      "cache": false
+    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "build/**"],

@@ -1,0 +1,78 @@
+/**
+ * Plugin Context Factory(W1.6 从 runtime.ts 抽取)
+ *
+ * 构造受限 PluginContext,供 Runtime.installPlugin() 使用。Plugin 只看到
+ * 受限 Runtime API(getAsset/importAsset/getAssetBlob/createAsset/
+ * listCapabilities + eventBus + 注册器 + log),看不到 React/Redux/Cloud。
+ *
+ * registerMetadataReader 转发给 runtime._registerMetadataReader(依赖反转:
+ * Plugin 提供实现,Runtime 持有引用)。
+ *
+ * 错误契约:getAsset 在资产不存在时抛 plain Error,message 以 "Asset not found"
+ * 开头。SDK 的 fromLokvisError 据此模式匹配转换为 AssetNotFoundError。
+ */
+
+import type {
+  EventBus, MetadataReader, PanelDefinition, PluginContext,
+} from '@lokvis/schema';
+import type { AssetStore } from './asset-store.js';
+import type { CapabilityRegistry } from './capability-registry.js';
+
+/**
+ * createPluginContext 需要从 Runtime 拿到的最小依赖。
+ * 避免直接依赖 LokvisRuntimeImpl(循环引用)。
+ */
+export interface PluginContextRuntimeDeps {
+  eventBus: EventBus;
+  assetStore: AssetStore;
+  capabilityRegistry: CapabilityRegistry;
+  registerMetadataReader(name: string, reader: MetadataReader): void;
+}
+
+/** 构造受限 PluginContext(供 Runtime.installPlugin 调用)。 */
+export function createPluginContext(
+  pluginName: string,
+  deps: PluginContextRuntimeDeps
+): PluginContext {
+  const { assetStore, capabilityRegistry } = deps;
+  return {
+    runtime: {
+      getAsset: async (id) => {
+        const asset = await assetStore.get(id);
+        if (!asset) throw new Error(`Asset not found: ${id}`);
+        return asset;
+      },
+      importAsset: async (file) => {
+        // PluginContext.importAsset 接受 File | Blob,统一转为 AssetSource
+        if (file instanceof File) {
+          const asset = await assetStore.import({ kind: 'file', file });
+          return asset.id;
+        }
+        const asset = await assetStore.import({
+          kind: 'blob', blob: file, name: `blob_${Date.now()}`,
+        });
+        return asset.id;
+      },
+      getAssetBlob: (asset) => assetStore.getBlob(asset.blob),
+      createAsset: (blob, metadata, type) =>
+        assetStore.create(blob, metadata, type),
+      listCapabilities: async () => capabilityRegistry.list(),
+    },
+    eventBus: deps.eventBus,
+    registerCapability: (impl) =>
+      capabilityRegistry.registerImplementation(impl),
+    registerMetadataReader: <T>(name: string, reader: MetadataReader<T>) => {
+      deps.registerMetadataReader(name, reader as MetadataReader);
+    },
+    registerPanel: (panel: PanelDefinition) => {
+      // Panel 注册由 UI 层处理,这里仅记录日志
+      void panel;
+    },
+    log: (level, message) => {
+      const prefix = `[${pluginName}]`;
+      if (level === 'error') console.error(`${prefix} ${message}`);
+      else if (level === 'warn') console.warn(`${prefix} ${message}`);
+      else console.log(`${prefix} ${message}`);
+    },
+  };
+}

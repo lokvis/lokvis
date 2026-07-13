@@ -14,5 +14,5 @@
 export { videoToolsPlugin as default, videoToolsPlugin } from './plugin.js';
 export {
   buildVideoCapabilityImplementations,
-  type VideoCapabilityEntry,
+  type VideoOperationEntry,
 } from './operations.js';
