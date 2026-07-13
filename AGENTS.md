@@ -43,14 +43,18 @@ Plugin 层（plugin-image / plugin-pdf / plugin-video）的操作包装函数中
 当 Engine 适配器为占位实现（`version` 包含 `'stub'`）时：
 
 1. Plugin 层在 `buildXxxCapabilityImplementations()` 中读取 `engine.version.includes('stub')`
-2. 通过 `createBlobCapabilityImpl({ isStub })` / `wrapMergeOrSplitImplementation({ isStub })`
-   把布尔值传给工厂，工厂据此设置 `CapabilityImplementation.status = 'stub'`
+2. 通过 plugin-sdk 的三个工厂把布尔值传给实现，工厂据此设置
+   `CapabilityImplementation.status = 'stub'`：
+   - `createBlobCapabilityImpl({ isStub })` — 1→1（single）
+   - `createMergeCapabilityImpl({ isStub })` — N→1（merge）
+   - `createSplitCapabilityImpl({ isStub })` — 1→N（split）
 3. `CapabilityRegistry.resolve()` 自动跳过 stub 实现
 4. Executor 在 stub-only 时给出明确错误提示
 
-注意：不存在名为 `wrapAsImplementation()` 的函数。stub 标识由各 plugin
-的 `buildXxxCapabilityImplementations()` 一次性计算，并经工厂传给实现，
-避免在多个包装点重复检测。
+注意：stub 标识由各 plugin 的 `buildXxxCapabilityImplementations()`
+一次性计算，并经工厂传给实现，避免在多个包装点重复检测。
+不存在 `wrapAsImplementation()` / `wrapMergeOrSplitImplementation()`
+等泛化包装函数 —— 形态分发由各 plugin 用 entries + kind 字段自行驱动。
 
 新增 Engine 包时，确保 stub 实现：
 - `version` 字段包含 `'stub'` 标识
@@ -93,6 +97,9 @@ EventBus 的 `emit()` 中对 `anyHandlers` 迭代：
 - 中文测试描述
 - 浏览器 API（Canvas / OPFS / IndexedDB）使用 fake 实现
 - 核心包（runtime / schema / capability / engine-image）需要测试覆盖
+- 各 plugin-* 包（plugin-image / plugin-video / plugin-pdf / plugin-audio / plugin-ai）
+  均需 `__tests__/plugin.test.ts` 覆盖：插件常量、installer 注册数、
+  `buildXxxCapabilityImplementations` 返回数、stub status、execute 抛错
 - 覆盖率目标：lines 60%+，branches 75%+
 
 ## 常用命令
