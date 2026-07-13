@@ -13,8 +13,6 @@ import type {
   HistoryEntry,
   McpManifest,
   MetadataReader,
-  PanelDefinition,
-  PluginContext,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type {
@@ -48,6 +46,7 @@ import { AssetManager } from './managers/asset-manager.js';
 import { HistoryManager } from './managers/history-manager.js';
 import { WorkflowCoordinator } from './managers/workflow-coordinator.js';
 import { toMcpManifest as buildMcpManifest } from './managers/mcp-manifest-builder.js';
+import { createPluginContext } from './plugin-context.js';
 // QuotaExceededError 仅作 re-export,保持 `@lokvis/runtime` 的对外导出路径不变
 // (SDK / 测试 / 集成代码均从 runtime 包入口导入该错误类型)
 export { QuotaExceededError } from './managers/quota-manager.js';
@@ -355,7 +354,13 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     for (const capability of plugin.config.capabilities) {
       this.capabilityRegistry.registerCapability(capability);
     }
-    const ctx = createPluginContext(plugin.config.name, this);
+    const ctx = createPluginContext(plugin.config.name, {
+      eventBus: this.eventBus,
+      assetStore: this.assetStore,
+      capabilityRegistry: this.capabilityRegistry,
+      registerMetadataReader: (name, reader) =>
+        this._registerMetadataReader(name, reader),
+    });
     await plugin.install(ctx);
     this.eventBus.emit({
       type: 'plugin:loaded',
@@ -429,68 +434,4 @@ export async function createRuntime(
   // 预加载持久化的历史快照(跨会话恢复 undo/redo 链)
   await impl.loadPersistedHistory();
   return impl;
-}
-
-/**
- * 构造受限 PluginContext(模块级 helper,供 installPlugin 使用)。
- *
- * Plugin 只看到受限的 Runtime API:
- * - getAsset / importAsset / getAssetBlob / createAsset / listCapabilities
- * - 看不到 React / Redux / Cloud
- *
- * registerMetadataReader 把读取函数转发给 runtime._registerMetadataReader
- * (依赖反转:Plugin 提供实现,Runtime 持有引用)。
- *
- * 错误契约:getAsset 在资产不存在时抛 plain Error,message 以 "Asset not found"
- * 开头。SDK 的 fromLokvisError 据此模式匹配转换为 AssetNotFoundError,
- * 保持 SDK 消费者的错误类型契约不变。
- */
-function createPluginContext(
-  pluginName: string,
-  runtime: LokvisRuntimeImpl
-): PluginContext {
-  const assetStore = runtime._getAssetStore();
-  const capabilityRegistry = runtime._getCapabilityRegistry();
-  return {
-    runtime: {
-      getAsset: async (id) => {
-        const asset = await assetStore.get(id);
-        if (!asset) throw new Error(`Asset not found: ${id}`);
-        return asset;
-      },
-      importAsset: async (file) => {
-        // PluginContext.importAsset 接受 File | Blob,统一转为 AssetSource
-        if (file instanceof File) {
-          const asset = await assetStore.import({ kind: 'file', file });
-          return asset.id;
-        }
-        const asset = await assetStore.import({
-          kind: 'blob',
-          blob: file,
-          name: `blob_${Date.now()}`,
-        });
-        return asset.id;
-      },
-      getAssetBlob: (asset) => assetStore.getBlob(asset.blob),
-      createAsset: (blob, metadata, type) =>
-        assetStore.create(blob, metadata, type),
-      listCapabilities: async () => capabilityRegistry.list(),
-    },
-    eventBus: runtime.eventBus,
-    registerCapability: (impl) =>
-      capabilityRegistry.registerImplementation(impl),
-    registerMetadataReader: <T>(name: string, reader: MetadataReader<T>) => {
-      runtime._registerMetadataReader(name, reader as MetadataReader);
-    },
-    registerPanel: (panel: PanelDefinition) => {
-      // Panel 注册由 UI 层处理,这里仅记录日志
-      void panel;
-    },
-    log: (level, message) => {
-      const prefix = `[${pluginName}]`;
-      if (level === 'error') console.error(`${prefix} ${message}`);
-      else if (level === 'warn') console.warn(`${prefix} ${message}`);
-      else console.log(`${prefix} ${message}`);
-    },
-  };
 }
