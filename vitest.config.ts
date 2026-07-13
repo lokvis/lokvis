@@ -47,6 +47,10 @@ export default defineConfig({
         // W6.3 后 cli / plugin-sdk 已补齐单测,纳入覆盖率统计
         'packages/cli/src/**/*.ts',
         'packages/plugin-sdk/src/**/*.ts',
+        // M2.1 后 mcp-server 已补齐单测,纳入覆盖率统计
+        'packages/mcp-server/src/**/*.ts',
+        // M2.2 后 engine-image-node 已补齐单测,纳入覆盖率统计
+        'packages/engine-image-node/src/**/*.ts',
       ],
       // 排除:测试文件、barrel index、纯类型文件、stub/未测试包
       exclude: [

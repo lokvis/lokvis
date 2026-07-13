@@ -34,25 +34,6 @@ export const AUDIO_NORMALIZE: Capability = {
   batchable: true,
 };
 
-export const AUDIO_DENOISE: Capability = {
-  name: 'audio.denoise',
-  description: 'Reduce background noise from audio',
-  inputTypes: ['audio'],
-  outputTypes: ['audio'],
-  params: [
-    {
-      name: 'strength',
-      type: 'number',
-      default: 0.5,
-      min: 0,
-      max: 1,
-      description: 'Denoise strength (0=none, 1=aggressive)',
-    },
-  ],
-  performance: 'slow',
-  batchable: true,
-};
-
 export const AUDIO_MERGE: Capability = {
   name: 'audio.merge',
   description: 'Merge multiple audio clips into one',
@@ -100,7 +81,6 @@ export const AUDIO_TRANSCODE: Capability = {
 export const AUDIO_CAPABILITIES: Capability[] = [
   AUDIO_TRIM,
   AUDIO_NORMALIZE,
-  AUDIO_DENOISE,
   AUDIO_MERGE,
   AUDIO_TRANSCODE,
 ];

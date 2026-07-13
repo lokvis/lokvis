@@ -21,7 +21,6 @@ export type BuiltinCapabilityName =
   | 'ai.optimize-workflow'
   | 'audio.trim'
   | 'audio.normalize'
-  | 'audio.denoise'
   | 'audio.merge'
   | 'audio.transcode'
   | 'image.resize'
@@ -40,17 +39,13 @@ export type BuiltinCapabilityName =
   | 'pdf.watermark'
   | 'pdf.ocr'
   | 'pdf.sign'
-  | 'pdf.add-page-numbers'
   | 'video.compress'
   | 'video.transcode'
   | 'video.trim'
   | 'video.merge'
   | 'video.extract-audio'
   | 'video.to-gif'
-  | 'video.screenshot'
-  | 'video.resize'
-  | 'video.crop'
-  | 'video.normalize-audio';
+  | 'video.screenshot';
 
 /** 全部内置能力名常量数组(运行时校验 / 枚举用) */
 export const BUILTIN_CAPABILITY_NAMES: readonly BuiltinCapabilityName[] = [
@@ -61,7 +56,6 @@ export const BUILTIN_CAPABILITY_NAMES: readonly BuiltinCapabilityName[] = [
   'ai.optimize-workflow',
   'audio.trim',
   'audio.normalize',
-  'audio.denoise',
   'audio.merge',
   'audio.transcode',
   'image.resize',
@@ -80,7 +74,6 @@ export const BUILTIN_CAPABILITY_NAMES: readonly BuiltinCapabilityName[] = [
   'pdf.watermark',
   'pdf.ocr',
   'pdf.sign',
-  'pdf.add-page-numbers',
   'video.compress',
   'video.transcode',
   'video.trim',
@@ -88,7 +81,4 @@ export const BUILTIN_CAPABILITY_NAMES: readonly BuiltinCapabilityName[] = [
   'video.extract-audio',
   'video.to-gif',
   'video.screenshot',
-  'video.resize',
-  'video.crop',
-  'video.normalize-audio',
 ];

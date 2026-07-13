@@ -74,7 +74,7 @@ export interface FlipParams {
 /** 水印参数 */
 export interface WatermarkParams {
   text?: string;
-  imagePath?: string; // data URL or http(s) URL (SSRF-guarded)
+  image?: string; // data URL
   position?: WatermarkPosition;
   opacity?: number; // 0-1
   fontSize?: number;

@@ -1,14 +1,20 @@
 /**
  * MCP server 核心接口与工厂。
  *
- * 注意:本文件定义抽象层,不直接依赖 @modelcontextprotocol/sdk。
- * 实际 MCP server 启动逻辑在 Phase 2 W1-W2 实现时引入 SDK。
- * 这样骨架可在无 MCP SDK 依赖的情况下 typecheck 通过。
+ * 使用 @modelcontextprotocol/sdk 的 low-level Server API 实现,
+ * 通过 McpServerAdapter 适配到 LokvisMcpServer 接口。
+ * tool handler 使用 raw JSON schema 定义 inputSchema(无需 Zod)。
  */
 
 import type { LokvisRuntime, RuntimeConfig } from '@lokvis/sdk';
 import type { McpManifest } from '@lokvis/schema';
 import { createLokvis } from '@lokvis/sdk';
+import { McpServerAdapter } from './mcp-server-adapter.js';
+import { NodeAssetStore } from './node-asset-store.js';
+import { getImageToolRegistrations } from './tools/image.js';
+import { BrowserBridge } from './browser-bridge.js';
+import { ImageNodeEngineAdapter } from './node-engine-adapter.js';
+import { ToolRouter } from './router.js';
 
 /**
  * 能力域(决定注册哪些 tools)。
@@ -113,45 +119,103 @@ export interface LokvisMcpOptions {
   mode?: 'stdio' | 'sse';
   /** SSE 模式的端口(仅 mode='sse' 时生效,默认 3001) */
   port?: number;
+  /**
+   * BrowserBridge 监听端口(混合架构 E)。
+   * 提供时启动 WebSocket server,浏览器可连接并接管 tool 调用(完整能力);
+   * 未提供时仅走 Node engine 降级路径(基础能力)。
+   */
+  bridgePort?: number;
   /** Runtime 配置(透传给 createLokvis) */
   runtime?: RuntimeConfig;
+  /** 注入自定义 transport 工厂(测试用),默认创建 StdioServerTransport */
+  transportFactory?: () => import('@modelcontextprotocol/sdk/shared/transport.js').Transport;
 }
 
 /**
  * 创建 Lokvis MCP server。
  *
  * 流程:
- * 1. 创建 Lokvis Runtime(通过 createLokvis)
- * 2. 创建 MCP server 实例(实际 SDK 适配)
- * 3. 按 domains 注册 image / pdf / workflow 等 tools
- * 4. 注册 capabilities / workflows resource
- * 5. 注册 prompt 模板(optimize-for-web 等)
- * 6. 启动传输(stdio / SSE)
+ * 1. 创建 NodeAssetStore(如果 workdir 提供)并注入 RuntimeConfig
+ * 2. 创建 Lokvis Runtime(通过 createLokvis)
+ * 3. 创建 McpServerAdapter(包装 @modelcontextprotocol/sdk Server)
+ * 4. 按 domains 注册 image / pdf / workflow 等 tools
+ * 5. 返回 server + runtime + manifest(transport 启动由调用方触发)
  *
- * 注:当前为 Phase 2 骨架,仅返回 Runtime 与 manifest,不实际启动 server。
- * tool 注册与 transport 启动在 Phase 2 W5-W10 实现。
+ * tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/\./g, '_')}`
  */
 export async function createLokvisMcpServer(
   options: LokvisMcpOptions = {}
 ): Promise<{
-  /** MCP server 实例(Phase 2 W1-W2 实现) */
-  server: LokvisMcpServer | null;
+  /** MCP server 实例(已注册 tools,但尚未启动 transport) */
+  server: McpServerAdapter;
   /** 已创建的 Lokvis Runtime */
   runtime: LokvisRuntime;
   /** MCP manifest(描述当前可暴露的能力) */
   manifest: McpManifest;
+  /** BrowserBridge(若 bridgePort 提供,已启动;否则为未启动实例) */
+  bridge: BrowserBridge;
+  /** ToolRouter(image tool 调用经此路由:浏览器优先 → Node 降级) */
+  router: ToolRouter;
 }> {
-  // TODO Phase 2: 用 options.workdir 创建 NodeAssetStore 注入 runtime,
-  //   使 Node 降级模式可读写本地文件(当前 runtime 使用默认内存/OPFS store,
-  //   workdir 仅在 CLI 层接收,尚未真正生效)。
-  const runtime = await createLokvis(options.runtime);
+  const {
+    workdir,
+    domains = ['image'],
+    runtime: runtimeConfig,
+    transportFactory,
+    bridgePort,
+  } = options;
+
+  // 如果 workdir 提供,创建 NodeAssetStore 注入 runtime
+  let resolvedRuntimeConfig: RuntimeConfig = { ...runtimeConfig };
+  if (workdir) {
+    const assetStore = new NodeAssetStore(workdir);
+    await assetStore.init();
+    // Node 模式不启用 OPFS/IndexedDB(浏览器专属)
+    resolvedRuntimeConfig = {
+      ...resolvedRuntimeConfig,
+      enableOpfs: false,
+      enableIndexedDB: false,
+      assetStore,
+    };
+  }
+
+  const runtime = await createLokvis(resolvedRuntimeConfig);
   const manifest = runtime.toMcpManifest();
 
-  // Phase 2 W1-W2:创建实际 MCP server 并注册 tools
-  // const server = new McpServer({ name: 'lokvis', version: '0.1.0' });
-  // registerImageTools(server, runtime);
-  // registerWorkflowTools(server, runtime);
-  const server = null;
+  // 创建 MCP server adapter
+  const server = new McpServerAdapter(
+    manifest.serverName,
+    manifest.version,
+    transportFactory
+  );
 
-  return { server, runtime, manifest };
+  // BrowserBridge(混合架构 E):若提供 bridgePort 则启动,等待浏览器连接
+  const bridge = new BrowserBridge({ port: bridgePort ?? 0 });
+  if (bridgePort !== undefined) {
+    await bridge.start();
+  }
+
+  // NodeEngineAdapter:image 域用 sharp tool handler 支撑降级路径
+  const imageRegistrations = domains.includes('image')
+    ? getImageToolRegistrations()
+    : [];
+  const nodeEngine = new ImageNodeEngineAdapter(imageRegistrations);
+
+  // ToolRouter:浏览器优先(完整能力)→ Node 降级(基础能力)
+  const router = new ToolRouter(bridge, nodeEngine);
+
+  // 按 domains 注册 tools(handler 经 ToolRouter 路由)
+  for (const tool of imageRegistrations) {
+    server.registerTool(
+      tool.name,
+      tool.description,
+      tool.inputSchema,
+      async (params) => {
+        const result = await router.execute(tool.name, params);
+        return result as McpToolResult;
+      }
+    );
+  }
+
+  return { server, runtime, manifest, bridge, router };
 }
