@@ -1,0 +1,50 @@
+{
+  "name": "@lokvis/plugin-audio",
+  "version": "0.1.0",
+  "description": "Lokvis Audio Tools Plugin - trim / normalize / merge / transcode",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__",
+    "!**/*.test.ts",
+    "!**/*.test.tsx",
+    "!**/*.spec.ts",
+    "!**/*.spec.tsx"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@lokvis/schema": "workspace:*",
+    "@lokvis/plugin-sdk": "workspace:*",
+    "@lokvis/capability": "workspace:*",
+    "@lokvis/engine-audio": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lokvis/lokvis.git",
+    "directory": "packages/plugin-audio"
+  }
+}

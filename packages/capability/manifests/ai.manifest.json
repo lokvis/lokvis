@@ -1,0 +1,78 @@
+{
+  "$schema": "./schema.json",
+  "domain": "ai",
+  "capabilities": [
+    {
+      "action": "ocr",
+      "description": "Extract text from image or PDF using OCR",
+      "inputTypes": ["image", "pdf"],
+      "outputTypes": ["text"],
+      "params": [
+        { "name": "language", "type": "string", "required": false, "description": "OCR language code (e.g. eng, chi)" },
+        {
+          "name": "format",
+          "type": "enum",
+          "values": ["text", "json", "structured"],
+          "default": "text",
+          "description": "Output format of OCR result"
+        }
+      ],
+      "performance": "slow",
+      "batchable": true
+    },
+    {
+      "action": "caption",
+      "description": "Generate a text caption for an image",
+      "inputTypes": ["image"],
+      "outputTypes": ["text"],
+      "params": [
+        { "name": "maxTokens", "type": "number", "required": false, "min": 1, "description": "Max tokens for generated caption" },
+        { "name": "language", "type": "string", "required": false, "description": "Caption language" }
+      ],
+      "performance": "slow",
+      "batchable": true
+    },
+    {
+      "action": "background-remove",
+      "description": "Remove background from image, producing a transparent PNG/WebP",
+      "inputTypes": ["image"],
+      "outputTypes": ["image"],
+      "params": [
+        {
+          "name": "format",
+          "type": "enum",
+          "values": ["png", "webp"],
+          "default": "png",
+          "description": "Output image format (transparent)"
+        }
+      ],
+      "performance": "slow",
+      "batchable": true
+    },
+    {
+      "action": "generate-workflow",
+      "description": "Generate a workflow from a natural-language prompt",
+      "inputTypes": [],
+      "outputTypes": ["data"],
+      "params": [
+        { "name": "prompt", "type": "string", "required": true, "description": "Natural-language description of the desired workflow" },
+        { "name": "contextAssetIds", "type": "array", "items": "string", "required": false, "description": "Optional context asset IDs" }
+      ],
+      "performance": "slow",
+      "batchable": false,
+      "mcpExposure": "public"
+    },
+    {
+      "action": "optimize-workflow",
+      "description": "Optimize an existing workflow for performance or cost",
+      "inputTypes": ["data"],
+      "outputTypes": ["data"],
+      "params": [
+        { "name": "workflow", "type": "object", "required": true, "description": "Workflow definition to optimize" }
+      ],
+      "performance": "slow",
+      "batchable": false,
+      "mcpExposure": "public"
+    }
+  ]
+}

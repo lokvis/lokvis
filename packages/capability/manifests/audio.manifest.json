@@ -1,0 +1,75 @@
+{
+  "$schema": "./schema.json",
+  "domain": "audio",
+  "capabilities": [
+    {
+      "action": "trim",
+      "description": "Trim audio to a time range",
+      "inputTypes": ["audio"],
+      "outputTypes": ["audio"],
+      "params": [
+        { "name": "start", "type": "number", "required": true, "min": 0, "description": "Start time in seconds" },
+        { "name": "end", "type": "number", "required": true, "min": 0, "description": "End time in seconds" }
+      ],
+      "performance": "medium",
+      "batchable": true
+    },
+    {
+      "action": "normalize",
+      "description": "Normalize audio loudness to a target level",
+      "inputTypes": ["audio"],
+      "outputTypes": ["audio"],
+      "params": [
+        { "name": "level", "type": "number", "required": false, "description": "Target loudness in dB" }
+      ],
+      "performance": "medium",
+      "batchable": true
+    },
+    {
+      "action": "denoise",
+      "description": "Reduce background noise from audio",
+      "inputTypes": ["audio"],
+      "outputTypes": ["audio"],
+      "params": [
+        { "name": "strength", "type": "number", "min": 0, "max": 1, "default": 0.5, "description": "Denoise strength (0=none, 1=aggressive)" }
+      ],
+      "performance": "slow",
+      "batchable": true
+    },
+    {
+      "action": "merge",
+      "description": "Merge multiple audio clips into one",
+      "inputTypes": ["audio"],
+      "outputTypes": ["audio"],
+      "params": [
+        {
+          "name": "format",
+          "type": "enum",
+          "values": ["mp3", "wav", "ogg", "aac"],
+          "default": "mp3",
+          "description": "Output audio format"
+        }
+      ],
+      "performance": "slow",
+      "batchable": false
+    },
+    {
+      "action": "transcode",
+      "description": "Transcode audio to another format / codec",
+      "inputTypes": ["audio"],
+      "outputTypes": ["audio"],
+      "params": [
+        {
+          "name": "format",
+          "type": "enum",
+          "values": ["mp3", "wav", "ogg", "aac"],
+          "required": true,
+          "description": "Target audio format"
+        },
+        { "name": "bitrate", "type": "number", "required": false, "min": 0, "description": "Target bitrate in bps" }
+      ],
+      "performance": "slow",
+      "batchable": true
+    }
+  ]
+}

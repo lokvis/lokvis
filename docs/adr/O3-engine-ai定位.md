@@ -1,7 +1,7 @@
 # ADR-O3：engine-ai 定位为 AI 辅助 workflow 设计
 
-- **状态**：Proposed
-- **日期**：2026-07-01
+- **状态**：Accepted
+- **日期**：2026-07-01（Proposed）/ 2026-07-13（Accepted）
 - **来源**：[AI 生态冲击调整方案](../AI生态冲击调整方案.md) §5
 
 ---
@@ -69,3 +69,20 @@ engine-ai 的 `generate-workflow` / `optimize-workflow` 定位为"**AI 辅助设
 - engine-ai 代码不修改，仅文档更新
 - Phase 2 实现 cloudProxyEngine 接口
 - 营销突出"AI 辅助设计 + 确定性执行"
+
+---
+
+## 2026-07 review（Accepted 依据）
+
+决策已落地，代码与 ADR 完全一致：
+
+| 决策项 | ADR 承诺 | 实际代码状态 | 一致性 |
+|--------|---------|-------------|--------|
+| AI 只设计不执行 | 生成的 workflow 由 Runtime 确定性执行 | `engine-ai/src/index.ts` 头注释明确"AI 辅助 workflow 设计，不替代确定性执行"；`generateWorkflow` 返回 workflow 结构，执行仍由 Runtime 完成 | ✅ |
+| 本地 AI 优先 | transformersEngine 浏览器内运行 | `transformersEngine`（version `0.0.0-stub`）声明 `supportedCapabilities: ['ai.ocr', 'ai.caption', 'ai.background-remove']`，`isSupported()` 检查 WebAssembly | ✅ |
+| 云端 AI 可选 | cloudProxyEngine 接 lokvis-cloud | `cloudProxyEngine`（version `0.0.0-stub`）声明 `supportedCapabilities: ['ai.generate-workflow', 'ai.optimize-workflow']`，`isSupported()` 返回 false（需登录态） | ✅ |
+| Phase 1 stub 占位 | 所有方法抛 Not Implemented | 两个引擎所有方法均抛 `not implemented in stub`，符合 AGENTS.md stub 约定 | ✅ |
+| W3.2 plugin-ai 桥接 | — | `packages/plugin-ai/` 已建立，桥接 engine-ai 到 capability 层（ocr/caption/background-remove 走 transformersEngine，generate-workflow 走 cloudProxyEngine），各 entry 按所属引擎独立计算 isStub | ✅ |
+| Open Core 边界 | cloud-proxy 实现属 lokvis-cloud | 头注释明确"本包只定义接口与 transformers.js 占位；实际 cloud-proxy 实现属于 lokvis-cloud，不在本仓库" | ✅ |
+
+**结论**：engine-ai 的"AI 辅助设计 + 确定性执行"定位在代码中完整体现，双引擎（transformersEngine 本地 + cloudProxyEngine 云端）stub 占位就绪，plugin-ai 桥接完成。Phase 2 将实装 cloudProxyEngine 接口 + transformersEngine OCR，本 ADR 标记为 Accepted。

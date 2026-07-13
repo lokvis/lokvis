@@ -9,6 +9,7 @@ import {
   PDF_CAPABILITIES,
   VIDEO_CAPABILITIES,
   AUDIO_CAPABILITIES,
+  AI_CAPABILITIES,
   ASSET_CAPABILITIES,
   DEVELOPER_CAPABILITIES,
   BUILTIN_CAPABILITIES,
@@ -32,7 +33,6 @@ import {
   AUDIO_DENOISE,
   AUDIO_TRANSCODE,
   AUDIO_MERGE,
-  AI_CAPABILITIES,
   AI_GENERATE_WORKFLOW,
   AI_OPTIMIZE_WORKFLOW,
   AI_CAPTION,
@@ -264,9 +264,9 @@ describe('AI 能力预设', () => {
     );
   });
 
-  it('AI_GENERATE_WORKFLOW 应接收 data 输入并声明 prompt 必填参数', () => {
+  it('AI_GENERATE_WORKFLOW 不接受 Asset 输入,声明 prompt 必填参数并输出 data', () => {
     expect(AI_GENERATE_WORKFLOW.name).toBe('ai.generate-workflow');
-    expect(AI_GENERATE_WORKFLOW.inputTypes).toContain('data');
+    expect(AI_GENERATE_WORKFLOW.inputTypes).toEqual([]);
     expect(AI_GENERATE_WORKFLOW.outputTypes).toContain('data');
     expect(AI_GENERATE_WORKFLOW.performance).toBe('slow');
     const prompt = AI_GENERATE_WORKFLOW.params.find((p) => p.name === 'prompt');
@@ -274,12 +274,13 @@ describe('AI 能力预设', () => {
     expect(prompt?.required).toBe(true);
   });
 
-  it('AI_OPTIMIZE_WORKFLOW 应声明 prompt 参数', () => {
+  it('AI_OPTIMIZE_WORKFLOW 应接收 data 输入并声明 workflow 必填参数', () => {
     expect(AI_OPTIMIZE_WORKFLOW.name).toBe('ai.optimize-workflow');
     expect(AI_OPTIMIZE_WORKFLOW.inputTypes).toContain('data');
     expect(AI_OPTIMIZE_WORKFLOW.outputTypes).toContain('data');
-    const prompt = AI_OPTIMIZE_WORKFLOW.params.find((p) => p.name === 'prompt');
-    expect(prompt?.type).toBe('string');
+    const workflow = AI_OPTIMIZE_WORKFLOW.params.find((p) => p.name === 'workflow');
+    expect(workflow?.type).toBe('object');
+    expect(workflow?.required).toBe(true);
   });
 
   it('AI_CAPTION 应接收 image 输入并输出 text', () => {

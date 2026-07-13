@@ -5,8 +5,6 @@
  * 所有图像操作接收 Blob 输入，返回 Blob 输出（解码 → 处理 → 编码）。
  */
 
-import type { AssetType } from '@lokvis/schema';
-
 /** 引擎名标识 */
 export type ImageEngineName = 'canvas' | 'squoosh' | 'webcodecs' | 'imagemagick';
 
@@ -198,6 +196,3 @@ export interface StreamingImageEngineAdapter extends ImageEngineAdapter {
     quality?: number
   ): Promise<Blob>;
 }
-
-/** 资产类型别名（避免直接 import AssetType 的循环依赖） */
-export type { AssetType };
