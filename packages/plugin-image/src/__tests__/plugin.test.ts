@@ -28,7 +28,7 @@ vi.mock('@lokvis/engine-image', () => ({
 // 在 vi.mock 之后导入被测模块
 const { imageToolsPlugin, PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_ENGINE } =
   await import('../plugin.js');
-const { buildImageCapabilityImplementations, IMAGE_CAPABILITY_ENTRIES } =
+const { buildImageCapabilityImplementations, IMAGE_OPERATION_ENTRIES } =
   await import('../operations.js');
 
 /** 创建一个 Mock 的 PluginContext */
@@ -170,16 +170,16 @@ describe('imageToolsPlugin install', () => {
 });
 
 describe('buildImageCapabilityImplementations', () => {
-  it('IMAGE_CAPABILITY_ENTRIES 应有 9 个条目', () => {
-    expect(IMAGE_CAPABILITY_ENTRIES).toHaveLength(9);
+  it('IMAGE_OPERATION_ENTRIES 应有 9 个条目', () => {
+    expect(IMAGE_OPERATION_ENTRIES).toHaveLength(9);
   });
 
   it('每个条目的 engine 应为 canvas', () => {
-    expect(IMAGE_CAPABILITY_ENTRIES.every((e) => e.engine === 'canvas')).toBe(true);
+    expect(IMAGE_OPERATION_ENTRIES.every((e) => e.engine === 'canvas')).toBe(true);
   });
 
   it('每个条目都应有 operation 函数', () => {
-    expect(IMAGE_CAPABILITY_ENTRIES.every((e) => typeof e.operation === 'function')).toBe(true);
+    expect(IMAGE_OPERATION_ENTRIES.every((e) => typeof e.operation === 'function')).toBe(true);
   });
 
   it('生成的实现 execute 在空输入时应抛错', async () => {

@@ -12,6 +12,10 @@
  *
  * 注意:当前 engine-pdf 为占位实现,所有方法都会抛出异常,
  * 因此 plugin-pdf 的各操作在运行时也会抛出 —— 这是有意为之的 stub 行为。
+ *
+ * 能力声明(PDF_CAPABILITIES)由 codegen 从 manifests/pdf.manifest.json 生成,
+ * 见 packages/capability/src/presets/pdf.generated.ts。本文件只负责 impl 绑定
+ * (capability name → engine + kind + outputType + operation)。
  */
 
 import { getPdfEngine } from '@lokvis/engine-pdf';
@@ -48,9 +52,9 @@ export type SplitPdfOperation = (
   params: Record<string, unknown>
 ) => Promise<Blob[]>;
 
-/** PDF 能力实现项 */
-export interface PdfCapabilityEntry {
-  /** 对应 Capability 名 */
+/** PDF 能力实现绑定项 */
+export interface PdfOperationEntry {
+  /** 对应 Capability 名(与 generated 声明的 name 字段关联) */
   capability: string;
   /** 引擎名 */
   engine: string;
@@ -91,8 +95,8 @@ const signOp: SinglePdfOperation = async () => {
   throw new Error('pdf.sign 暂未实现:engine-pdf 未提供 sign() 方法');
 };
 
-/** 全部 PDF 能力实现项 */
-export const PDF_CAPABILITY_ENTRIES: PdfCapabilityEntry[] = [
+/** 全部 PDF 能力实现绑定(operation → engine + kind + outputType 映射,能力声明由 generated 提供) */
+export const PDF_OPERATION_ENTRIES: PdfOperationEntry[] = [
   { capability: 'pdf.merge',     engine: 'pdf-lib', kind: 'merge',  outputType: 'pdf',  operation: mergeOp },
   { capability: 'pdf.split',     engine: 'pdf-lib', kind: 'split',  outputType: 'data', operation: splitOp },
   { capability: 'pdf.compress',  engine: 'pdf-lib', kind: 'single', outputType: 'pdf',  operation: compressOp },
@@ -141,7 +145,7 @@ export function buildPdfCapabilityImplementations(
   // 引擎 stub 标识只检测一次,避免在多处重复读取 engine.version
   const isStub = engine().version.includes('stub');
 
-  return PDF_CAPABILITY_ENTRIES.map((entry) => {
+  return PDF_OPERATION_ENTRIES.map((entry) => {
     const derive = derivePdfMetadata(entry.outputType);
 
     switch (entry.kind) {

@@ -18,6 +18,10 @@
  *
  * 注意:engine-ai 当前为占位实现,所有方法均抛出 "not implemented in stub",
  * 因此 plugin-ai 的各操作在运行时也会抛出 —— 这是有意为之的 stub 行为。
+ *
+ * 能力声明(AI_CAPABILITIES)由 codegen 从 manifests/ai.manifest.json 生成,
+ * 见 packages/capability/src/presets/ai.generated.ts。本文件只负责 impl 绑定,
+ * 因 AI 能力形态异构,buildAiCapabilityImplementations 为手写(不走通用 entries 驱动)。
  */
 
 import {
@@ -37,16 +41,6 @@ export type SingleAiOperation = (
   blob: Blob,
   params: Record<string, unknown>
 ) => Promise<Blob>;
-
-/** AI 能力实现项(元数据:capability → engine 映射 + stub 标识) */
-export interface AiCapabilityEntry {
-  /** 对应 Capability 名 */
-  capability: string;
-  /** 引擎名 */
-  engine: string;
-  /** 是否为 stub 实现(engine.version.includes('stub')) */
-  isStub: boolean;
-}
 
 // ─── 引擎 stub 标识(AGENTS.md 约定:version.includes('stub')) ──
 const transformersIsStub = transformersEngine.version.includes('stub');
@@ -82,15 +76,6 @@ function deriveJsonMetadata(outBlob: Blob): AssetMetadata {
   const format = mimeType.split('/')[1] ?? 'json';
   return { mimeType, size: outBlob.size, format };
 }
-
-/** 全部 AI 能力实现项(列出 engine-ai 的 supportedCapabilities) */
-export const AI_CAPABILITY_ENTRIES: AiCapabilityEntry[] = [
-  { capability: 'ai.ocr',              engine: 'transformers-js', isStub: transformersIsStub },
-  { capability: 'ai.caption',           engine: 'transformers-js', isStub: transformersIsStub },
-  { capability: 'ai.background-remove', engine: 'transformers-js', isStub: transformersIsStub },
-  { capability: 'ai.generate-workflow', engine: 'cloud-proxy',     isStub: cloudProxyIsStub },
-  { capability: 'ai.optimize-workflow', engine: 'cloud-proxy',     isStub: cloudProxyIsStub },
-];
 
 // ─── 自定义实现:generate-workflow / optimize-workflow ──────
 // 这两个能力不接受 Asset 输入,不走 createBlobCapabilityImpl 工厂。
@@ -145,8 +130,11 @@ function createOptimizeWorkflowImpl(isStub: boolean): CapabilityImplementation {
  * 构造所有 AI 能力的 CapabilityImplementation
  * (由 plugin.ts 在 installer 中调用)
  *
- * stub 标识已在 AI_CAPABILITY_ENTRIES 中按引擎一次性计算,
- * 不再在此处重复检测 engine.version。
+ * stub 标识按引擎一次性计算(transformersIsStub / cloudProxyIsStub),
+ * 不再重复检测 engine.version。
+ *
+ * 注:AI 能力形态异构(Blob→text / Blob→image / params→data),
+ * 不走通用 entries 驱动,各实现手写绑定。
  */
 export function buildAiCapabilityImplementations(
   ctx: PluginContext

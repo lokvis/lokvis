@@ -13,6 +13,5 @@
 export { aiToolsPlugin as default, aiToolsPlugin } from './plugin.js';
 export {
   buildAiCapabilityImplementations,
-  type AiCapabilityEntry,
   type SingleAiOperation,
 } from './operations.js';

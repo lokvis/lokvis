@@ -15,6 +15,10 @@
  *
  * 注意:engine-audio 当前为占位实现,所有方法均抛出 "not implemented in stub",
  * 因此 plugin-audio 的各操作在运行时也会抛出 —— 这是有意为之的 stub 行为。
+ *
+ * 能力声明(AUDIO_CAPABILITIES)由 codegen 从 manifests/audio.manifest.json 生成,
+ * 见 packages/capability/src/presets/audio.generated.ts。本文件只负责 impl 绑定
+ * (capability name → engine + kind + outputType + operation + isStub)。
  */
 
 import {
@@ -44,9 +48,9 @@ export type MergeAudioOperation = (
   params: Record<string, unknown>
 ) => Promise<Blob>;
 
-/** 音频能力实现项 */
-export interface AudioCapabilityEntry {
-  /** 对应 Capability 名 */
+/** 音频能力实现绑定项 */
+export interface AudioOperationEntry {
+  /** 对应 Capability 名(与 generated 声明的 name 字段关联) */
   capability: string;
   /** 引擎名 */
   engine: string;
@@ -80,8 +84,8 @@ const mergeOp: MergeAudioOperation = (blobs) => webAudioEngine.merge(blobs);
 const webAudioIsStub = webAudioEngine.version.includes('stub');
 const lamejsIsStub = lamejsEngine.version.includes('stub');
 
-/** 全部音频能力实现项 */
-export const AUDIO_CAPABILITY_ENTRIES: AudioCapabilityEntry[] = [
+/** 全部音频能力实现绑定(operation → engine + kind + outputType + isStub 映射,能力声明由 generated 提供) */
+export const AUDIO_OPERATION_ENTRIES: AudioOperationEntry[] = [
   { capability: 'audio.trim',      engine: 'web-audio', kind: 'single', outputType: 'audio', operation: trimOp,      isStub: webAudioIsStub },
   { capability: 'audio.normalize', engine: 'web-audio', kind: 'single', outputType: 'audio', operation: normalizeOp, isStub: webAudioIsStub },
   { capability: 'audio.merge',     engine: 'web-audio', kind: 'merge',  outputType: 'audio', operation: mergeOp,     isStub: webAudioIsStub },
@@ -99,13 +103,13 @@ function deriveAudioMetadata(outBlob: Blob): AssetMetadata {
  * 构造所有音频能力的 CapabilityImplementation
  * (由 plugin.ts 在 installer 中调用)
  *
- * stub 标识已在 AUDIO_CAPABILITY_ENTRIES 中按引擎一次性计算,
+ * stub 标识已在 AUDIO_OPERATION_ENTRIES 中按引擎一次性计算,
  * 不再在此处重复检测 engine.version。
  */
 export function buildAudioCapabilityImplementations(
   ctx: PluginContext
 ): CapabilityImplementation[] {
-  return AUDIO_CAPABILITY_ENTRIES.map((entry) => {
+  return AUDIO_OPERATION_ENTRIES.map((entry) => {
     switch (entry.kind) {
       case 'merge':
         return createMergeCapabilityImpl(

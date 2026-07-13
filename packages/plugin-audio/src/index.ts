@@ -12,7 +12,7 @@
 export { audioToolsPlugin as default, audioToolsPlugin } from './plugin.js';
 export {
   buildAudioCapabilityImplementations,
-  type AudioCapabilityEntry,
+  type AudioOperationEntry,
   type AudioOperationKind,
   type SingleAudioOperation,
   type MergeAudioOperation,

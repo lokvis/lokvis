@@ -4,21 +4,18 @@
  * 各域能力定义按类型拆分到独立文件,此处统一 re-export,
  * 外部导入路径 `@lokvis/capability` 保持不变。
  *
- * - image.ts:     图像能力(8 个)
- * - pdf.ts:       PDF 能力(7 个)
- * - video.ts:     视频能力(7 个)
- * - audio.ts:     音频能力(4 个)
- * - ai.ts:        AI 能力(5 个)
- * - asset.ts:     Asset 通用能力(2 个)
- * - developer.ts: Developer 工具能力(4 个)
- * - platform.ts:  平台尺寸预设库(W8.1,20+ 平台)
- * - builtin.ts:   BUILTIN_CAPABILITIES 聚合
+ * 迁移状态(W4.3 完成):
+ * - image/pdf/video/audio/ai:由 codegen 从 manifests/*.manifest.json 生成
+ *   (见 packages/capability/manifests/),手写版本已删除
+ * - asset/developer:保留手写(无对应 plugin,无 operation entries)
+ * - platform:平台尺寸预设库(W8.1,20+ 平台)
+ * - builtin:BUILTIN_CAPABILITIES 聚合
  */
-export * from './image.js';
-export * from './pdf.js';
-export * from './video.js';
-export * from './audio.js';
-export * from './ai.js';
+export * from './image.generated.js';
+export * from './pdf.generated.js';
+export * from './video.generated.js';
+export * from './audio.generated.js';
+export * from './ai.generated.js';
 export * from './asset.js';
 export * from './developer.js';
 export * from './platform.js';
