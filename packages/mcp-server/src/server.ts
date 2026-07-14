@@ -12,6 +12,7 @@ import { createLokvis } from '@lokvis/sdk';
 import { McpServerAdapter } from './mcp-server-adapter.js';
 import { NodeAssetStore } from './node-asset-store.js';
 import { getImageToolRegistrations } from './tools/image.js';
+import { getPdfToolRegistrations } from './tools/pdf.js';
 import { BrowserBridge } from './browser-bridge.js';
 import { ImageNodeEngineAdapter } from './node-engine-adapter.js';
 import { ToolRouter } from './router.js';
@@ -193,17 +194,21 @@ export async function createLokvisMcpServer(
     await bridge.start();
   }
 
-  // NodeEngineAdapter:image 域用 sharp tool handler 支撑降级路径
+  // NodeEngineAdapter:image 域用 sharp、pdf 域用 pdf-lib 支撑降级路径
   const imageRegistrations = domains.includes('image')
     ? getImageToolRegistrations()
     : [];
-  const nodeEngine = new ImageNodeEngineAdapter(imageRegistrations);
+  const pdfRegistrations = domains.includes('pdf')
+    ? getPdfToolRegistrations()
+    : [];
+  const allRegistrations = [...imageRegistrations, ...pdfRegistrations];
+  const nodeEngine = new ImageNodeEngineAdapter(allRegistrations);
 
   // ToolRouter:浏览器优先(完整能力)→ Node 降级(基础能力)
   const router = new ToolRouter(bridge, nodeEngine);
 
   // 按 domains 注册 tools(handler 经 ToolRouter 路由)
-  for (const tool of imageRegistrations) {
+  for (const tool of allRegistrations) {
     server.registerTool(
       tool.name,
       tool.description,

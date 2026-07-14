@@ -459,3 +459,122 @@ describe('WorkflowExecutor:节点空输出处理(T6)', () => {
     expect(finished!.outputs).toEqual([]);
   });
 });
+
+describe('WorkflowExecutor:E1 多 target 机制', () => {
+  it('3 个 target 应产出 3 组输出（单链执行 3 次）', async () => {
+    const { executor, registry } = makeSetup();
+    registry.registerCapability(makeCapabilityDecl('cap.resize'));
+    const callCount: string[] = [];
+    registry.registerImplementation({
+      capability: 'cap.resize',
+      engine: 'fake',
+      execute: async (_inputs, params) => {
+        const w = params.width as number;
+        callCount.push(`w${w}`);
+        return [makeAsset(`out-w${w}`)];
+      },
+    });
+    const wf = buildWorkflow(
+      [{ id: 'n-resize', type: 'transform', capability: 'cap.resize', params: { width: 1080 } }],
+      []
+    );
+    wf.outputs.targets = [
+      { name: 'instagram', params: { width: 1080 } },
+      { name: 'twitter', params: { width: 1200 } },
+      { name: 'facebook', params: { width: 630 } },
+    ];
+    const result = await executor.execute(wf, [makeAsset('in')]);
+    expect(result.status).toBe('completed');
+    expect(result.outputs).toEqual(['out-w1080', 'out-w1200', 'out-w630']);
+    expect(callCount).toEqual(['w1080', 'w1200', 'w630']);
+  });
+
+  it('target params 应浅合并到 node params（target 优先）', async () => {
+    const { executor, registry } = makeSetup();
+    registry.registerCapability(makeCapabilityDecl('cap.resize'));
+    const receivedParams: Record<string, unknown>[] = [];
+    registry.registerImplementation({
+      capability: 'cap.resize',
+      engine: 'fake',
+      execute: async (_inputs, params) => {
+        receivedParams.push({ ...params });
+        return [makeAsset('out')];
+      },
+    });
+    // node params 含 width + fit;target 只覆盖 width,fit 应保留
+    const wf = buildWorkflow(
+      [{ id: 'n-resize', type: 'transform', capability: 'cap.resize', params: { width: 1080, fit: 'cover' } }],
+      []
+    );
+    wf.outputs.targets = [
+      { name: 'twitter', params: { width: 1200 } },
+    ];
+    await executor.execute(wf, [makeAsset('in')]);
+    expect(receivedParams).toEqual([{ width: 1200, fit: 'cover' }]);
+  });
+
+  it('无 targets 时等价于单次执行（向后兼容）', async () => {
+    const { executor, registry } = makeSetup();
+    registry.registerCapability(makeCapabilityDecl('cap.a'));
+    registry.registerImplementation(makeFakeImpl('cap.a', 'out'));
+    const wf = buildWorkflow(
+      [{ id: 'n-a', type: 'transform', capability: 'cap.a', params: {} }],
+      []
+    );
+    // 无 targets 字段
+    const result = await executor.execute(wf, [makeAsset('in')]);
+    expect(result.status).toBe('completed');
+    expect(result.outputs).toEqual(['asset-out']);
+  });
+
+  it('空 targets 数组等价于单次执行', async () => {
+    const { executor, registry } = makeSetup();
+    registry.registerCapability(makeCapabilityDecl('cap.a'));
+    registry.registerImplementation(makeFakeImpl('cap.a', 'out'));
+    const wf = buildWorkflow(
+      [{ id: 'n-a', type: 'transform', capability: 'cap.a', params: {} }],
+      []
+    );
+    wf.outputs.targets = [];
+    const result = await executor.execute(wf, [makeAsset('in')]);
+    expect(result.status).toBe('completed');
+    expect(result.outputs).toEqual(['asset-out']);
+  });
+
+  it('多 target 多节点链：每个 target 独立走完整链', async () => {
+    const { executor, registry } = makeSetup();
+    registry.registerCapability(makeCapabilityDecl('cap.resize'));
+    registry.registerCapability(makeCapabilityDecl('cap.compress'));
+    const resizeCalls: number[] = [];
+    registry.registerImplementation({
+      capability: 'cap.resize',
+      engine: 'fake',
+      execute: async (inputs, params) => {
+        resizeCalls.push(params.width as number);
+        return inputs; // 透传
+      },
+    });
+    registry.registerImplementation({
+      capability: 'cap.compress',
+      engine: 'fake',
+      execute: async (inputs) => {
+        return [makeAsset(`compressed-${inputs[0]?.id ?? 'unknown'}`)];
+      },
+    });
+    const wf = buildWorkflow(
+      [
+        { id: 'n-resize', type: 'transform', capability: 'cap.resize', params: { width: 1080 } },
+        { id: 'n-compress', type: 'transform', capability: 'cap.compress', params: { quality: 85 } },
+      ],
+      [{ from: 'n-resize', to: 'n-compress' }]
+    );
+    wf.outputs.targets = [
+      { name: 'ig', params: { width: 1080 } },
+      { name: 'tw', params: { width: 1200 } },
+    ];
+    const result = await executor.execute(wf, [makeAsset('in')]);
+    expect(result.status).toBe('completed');
+    expect(resizeCalls).toEqual([1080, 1200]);
+    expect(result.outputs).toHaveLength(2);
+  });
+});

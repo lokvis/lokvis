@@ -45,6 +45,11 @@ export {
   imageConvert,
   getImageToolRegistrations,
 } from './tools/image.js';
+export {
+  pdfMerge,
+  pdfCompress,
+  getPdfToolRegistrations,
+} from './tools/pdf.js';
 export { ToolRouter } from './router.js';
 export type { NodeEngineAdapter } from './router.js';
 export { ImageNodeEngineAdapter } from './node-engine-adapter.js';
@@ -53,3 +58,7 @@ export { BrowserBridge } from './browser-bridge.js';
 export type { BrowserBridgeOptions, BridgeToolResult } from './browser-bridge.js';
 export { LokvisSseServer } from './sse-transport.js';
 export type { LokvisSseServerOptions } from './sse-transport.js';
+export { McpAuthenticator, isValidApiKeyFormat } from './auth.js';
+export type { AuthenticatedUser, AuthResult } from './auth.js';
+export { McpBilling } from './billing.js';
+export type { BillingCheckResult } from './billing.js';

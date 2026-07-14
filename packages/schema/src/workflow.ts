@@ -44,10 +44,33 @@ export interface WorkflowInput {
   accept?: string[];
 }
 
+/**
+ * Workflow 输出 target（E1：多 target 机制）。
+ *
+ * 一个线性 Workflow 可通过 targets 定义多个输出端口,
+ * 每个 target 的 params 会浅合并到链上每个 transform 节点的 params 中
+ * （target params 优先),从而用单条链产出多个不同尺寸/参数的文件。
+ *
+ * 典型场景：社交媒体多平台图适配（一条 resize→compress→convert 链,
+ * 5 个 target 分别覆盖 width/height 产出 5 个尺寸）。
+ */
+export interface OutputTarget {
+  /** target 名称（如 "instagram"、"twitter"），同一 outputs 内不可重复 */
+  name: string;
+  /** 参数覆盖（浅合并到每个 transform 节点的 params） */
+  params?: Record<string, unknown>;
+}
+
 /** Workflow 输出定义 */
 export interface WorkflowOutput {
   type: AssetType | 'archive';
   format?: string;
+  /**
+   * 多 target 输出（E1）。
+   * 存在且非空时,runtime 为每个 target 独立执行一次 transform 链,
+   * 产出 len(targets) 个文件。所有 target 共享同一 output type/format。
+   */
+  targets?: OutputTarget[];
 }
 
 /** Workflow 作者信息 */

@@ -4,16 +4,16 @@
 
 Lokvis 是"AI 时代的本地处理引擎"。这个包把浏览器内的本地文件处理能力(WASM/Canvas/OPFS)包装为 MCP(Model Context Protocol)server,让 AI Agent 能安全、免费、批量地处理本地文件——文件不上传,隐私不泄露。
 
-## 状态:Phase 2 P0(骨架已就绪,实现进行中)
+## 状态:Phase 1(C 组已完成,5 个 tool 可用)
 
 当前仓库提供:
 
 - `createLokvisMcpServer()` 工厂与 `LokvisMcpOptions` 配置接口(见 `src/index.ts`)
-- `LokvisMcpTransport` 抽象传输层接口(stdio / SSE)
-- `ToolRouter` 路由逻辑骨架(浏览器优先,Node 降级)
-- `LokvisMcpServer` 接口定义(server 注册 tools/resources/prompts 的契约)
-
-实际 MCP server 启动、tool 实现(image compress/resize/batch)、Claude Desktop 集成测试将在 Phase 2 W3-W12 完成(见 `docs/AI生态冲击调整方案.md` §3.12)。
+- `LokvisMcpTransport` 抽象传输层接口(stdio / SSE 双模式)
+- `ToolRouter` 路由逻辑(浏览器优先,Node 降级)
+- 5 个已实现的 tool(3 image + 2 pdf)
+- `McpAuthenticator` API Key 鉴权(可选)
+- `McpBilling` plan 级别配额控制(cloud AI tool 用)
 
 ## 架构(混合模式 E,推荐)
 
@@ -76,15 +76,15 @@ npx @lokvis/mcp-server
 }
 ```
 
-## 可用 Tools(Phase 2 完成后)
+## 可用 Tools
 
 | Tool | 描述 | 示例 |
 |---|---|---|
-| `lokvis_compress_image` | 本地压缩图片(目标大小/质量/格式) | "Compress image.jpg to <100KB" |
-| `lokvis_resize_image` | 本地调整尺寸(预设/自定义) | "Resize to 1920x1080" |
-| `lokvis_convert_image` | 格式转换(WebP/AVIF/PNG/JPEG) | "Convert PNG to WebP" |
-| `lokvis_batch_process` | 批量处理(最多 100 文件) | "Compress all images in /photos" |
-| `lokvis_run_workflow` | 执行已保存的 workflow | "Run my web-optimize workflow" |
+| `lokvis_image_compress` | 本地压缩图片(质量/格式) | "Compress image.jpg to 80% quality" |
+| `lokvis_image_resize` | 本地调整尺寸(宽高/缩放策略) | "Resize image.png to 800px width" |
+| `lokvis_image_convert` | 格式转换(JPEG/PNG/WebP/AVIF) | "Convert PNG to WebP" |
+| `lokvis_pdf_merge` | 合并多个 PDF 文件 | "Merge report.pdf and appendix.pdf" |
+| `lokvis_pdf_compress` | 压缩 PDF(对象流压缩) | "Compress large.pdf to reduce size" |
 
 ## 运行模式
 

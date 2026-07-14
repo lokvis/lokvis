@@ -68,7 +68,12 @@ export const canvasEngine: ImageEngineAdapter = {
     format: ImageOutputFormat,
     quality = 90
   ): Promise<Blob> {
-    const mime = MIME_BY_FORMAT[format] ?? 'image/png';
+    const mime = MIME_BY_FORMAT[format];
+    if (!mime) {
+      throw new Error(
+        `Unsupported image format: '${format}'. Supported formats: ${Object.keys(MIME_BY_FORMAT).join(', ')}.`
+      );
+    }
     const q = Math.min(1, Math.max(0, quality / 100));
 
     if (canvas instanceof OffscreenCanvas) {

@@ -84,6 +84,21 @@
       ],
       "performance": "medium",
       "batchable": true
+    },
+    {
+      "action": "add-page-numbers",
+      "description": "Add page numbers to a PDF document",
+      "inputTypes": ["pdf"],
+      "outputTypes": ["pdf"],
+      "params": [
+        { "name": "position", "type": "enum", "values": ["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"], "default": "bottom-center", "description": "Position of page numbers" },
+        { "name": "format", "type": "string", "default": "{n}", "description": "Page number format template ({n} = page number, {total} = total pages)" },
+        { "name": "startFrom", "type": "number", "min": 1, "default": 1, "description": "Starting page number" },
+        { "name": "fontSize", "type": "number", "min": 1, "default": 12, "description": "Font size in points" },
+        { "name": "color", "type": "color", "default": "#000000", "description": "Text color" }
+      ],
+      "performance": "fast",
+      "batchable": false
     }
   ]
 }

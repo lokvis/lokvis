@@ -5,14 +5,17 @@
  * 由 `npx @lokvis/mcp-server` 调用,启动 MCP server。
  *
  * 环境变量:
- *   LOKVIS_WORKDIR     - 工作目录(Node 模式资产读写根路径)
- *   LOKVIS_DOMAINS     - 启用的能力域,逗号分隔(默认 'image')
- *   LOKVIS_MODE        - 运行模式 'stdio'(默认) | 'sse'
- *   LOKVIS_PORT        - SSE 模式监听端口(默认 3001)
- *   LOKVIS_BRIDGE_PORT - BrowserBridge 端口(混合架构 E,浏览器可连接接管 tool 调用)
+ *   LOKVIS_WORKDIR      - 工作目录(Node 模式资产读写根路径)
+ *   LOKVIS_DOMAINS      - 启用的能力域,逗号分隔(默认 'image,pdf')
+ *   LOKVIS_MODE         - 运行模式 'stdio'(默认) | 'sse'
+ *   LOKVIS_PORT         - SSE 模式监听端口(默认 3001)
+ *   LOKVIS_BRIDGE_PORT  - BrowserBridge 端口(混合架构 E,浏览器可连接接管 tool 调用)
+ *   LOKVIS_API_KEY      - API Key(可选;未提供时仅本地 tool 可用,cloud AI tool 不可用)
+ *   LOKVIS_API_BASE_URL - cloud API 地址(默认 https://api.lokvis.com)
  */
 
 import { createLokvisMcpServer } from './server.js';
+import { McpAuthenticator } from './auth.js';
 
 async function main(): Promise<void> {
   const workdir = process.env.LOKVIS_WORKDIR;
@@ -23,6 +26,25 @@ async function main(): Promise<void> {
   const port = Number(process.env.LOKVIS_PORT ?? 3001);
   const bridgePortEnv = process.env.LOKVIS_BRIDGE_PORT;
   const bridgePort = bridgePortEnv ? Number(bridgePortEnv) : undefined;
+
+  // 鉴权(可选):验证 API Key,获取用户 plan
+  // 计费模块(McpBilling)在 cloud AI tool 接入时启用,本地 tool 无需计费
+  const apiKey = process.env.LOKVIS_API_KEY;
+  const apiBaseUrl = process.env.LOKVIS_API_BASE_URL;
+  const authenticator = new McpAuthenticator({ apiKey, apiBaseUrl });
+
+  // 启动时验证 API Key(如果提供)
+  if (apiKey) {
+    const authResult = await authenticator.verify();
+    if (authResult.authenticated) {
+      console.error(`[lokvis-mcp] Authenticated as ${authResult.user!.email} (plan: ${authResult.user!.plan})`);
+    } else {
+      console.error(`[lokvis-mcp] API key validation failed: ${authResult.error}`);
+      console.error('[lokvis-mcp] Running in local-only mode (cloud AI tools disabled)');
+    }
+  } else {
+    console.error('[lokvis-mcp] No API key provided, running in local-only mode');
+  }
 
   const { server, manifest, bridge } = await createLokvisMcpServer({
     workdir,

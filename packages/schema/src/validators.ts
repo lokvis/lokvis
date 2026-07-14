@@ -70,6 +70,12 @@ export const workflowEdgeSchema = z.object({
   to: z.string(),
 });
 
+/** E1: 多 target 输出定义 */
+export const outputTargetSchema = z.object({
+  name: z.string(),
+  params: z.record(z.unknown()).optional(),
+});
+
 export const workflowSchema = z.object({
   $schema: z.string().optional(),
   id: z.string(),
@@ -90,6 +96,7 @@ export const workflowSchema = z.object({
   outputs: z.object({
     type: workflowOutputTypeSchema,
     format: z.string().optional(),
+    targets: z.array(outputTargetSchema).optional(),
   }),
   official: z.boolean().optional(),
   createdAt: z.number().optional(),
@@ -242,6 +249,17 @@ export function validateWorkflow(data: unknown, options?: ValidateWorkflowOption
     }
   }
 
+  // 4b. E1: 多 target 名称唯一性校验
+  if (wf.outputs.targets && wf.outputs.targets.length > 0) {
+    const seenTargetNames = new Set<string>();
+    for (const target of wf.outputs.targets) {
+      if (seenTargetNames.has(target.name)) {
+        errors.push(`Duplicate output target name: "${target.name}". Target names must be unique.`);
+      }
+      seenTargetNames.add(target.name);
+    }
+  }
+
   // 5. W10.2: capability 兼容性校验(可选,仅在 resolveCapability 提供时)
   //    检查相邻节点(通过 edge 连接)的 outputTypes 与下一节点的 inputTypes 是否有交集。
   //    - 线性链:edge.from → edge.to,from 节点的 outputTypes 与 to 节点的 inputTypes 交集为空则报错
@@ -296,22 +314,31 @@ function validateCapabilityCompatibility(
     return cap;
   };
 
-  // 5a. 输入节点(入度 0)的 inputTypes 与 workflow.inputs.type 兼容
+  // 5a. 全节点 capability 注册校验(transform + input + output 均覆盖)
+  //     B4 修复:原实现仅检查入度 0 节点,transform 节点的 unknown capability
+  //     在 5b 边检查中被静默跳过(`!fromCap || !toCap` continue),导致用户得到
+  //     "校验通过"假象,运行时才报错。现拆分为两步:
+  //     - 5a:全节点 unknown capability 检查(不区分入度)
+  //     - 5a-in:输入节点 inputTypes 与 workflow.inputs.type 兼容性检查
+  for (const node of wf.nodes) {
+    if (!node.capability) continue;
+    const cap = getCap(node);
+    // 未注册的 capability 不静默跳过:在 schema 层显式报错
+    // resolveCapability 未提供时(getCap 始终返回 undefined)
+    // 整个 capability 兼容性校验跳过(由 validateWorkflow 的 if 守卫保证)
+    if (!cap) {
+      errors.push(
+        `Node "${node.id}" references unknown capability "${node.capability}". ` +
+          `Capability is not registered in the registry.`
+      );
+    }
+  }
+
+  // 5a-in. 输入节点(入度 0)的 inputTypes 与 workflow.inputs.type 兼容
   for (const node of wf.nodes) {
     if ((inDegree.get(node.id) ?? 0) > 0) continue;
     const cap = getCap(node);
-    // 未注册的 capability 不静默跳过:在 schema 层显式报错,避免用户得到"校验通过"
-    // 的假象,运行时才报错。resolveCapability 未提供时(getCap 始终返回 undefined)
-    // 整个 capability 兼容性校验跳过(向后兼容,见 5d 兜底)。
-    if (!cap) {
-      if (node.capability) {
-        errors.push(
-          `Node "${node.id}" references unknown capability "${node.capability}". ` +
-            `Capability is not registered in the registry.`
-        );
-      }
-      continue;
-    }
+    if (!cap) continue; // 5a 已报告未注册 capability,此处不重复
     const inputTypeMatches = cap.inputTypes.includes(wf.inputs.type);
     if (!inputTypeMatches) {
       errors.push(

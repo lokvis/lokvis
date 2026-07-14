@@ -384,6 +384,54 @@ describe('W10.2 capability 兼容性校验', () => {
     }
   });
 
+  it('B4: 未注册 capability 在非输入节点(transform,入度>0)也应报错', () => {
+    // 原实现仅检查入度 0 节点,n2(入度 1)的 unknown.cap 在 5b 边检查中被
+    // `!fromCap || !toCap` continue 静默跳过。B4 修复后 5a 全节点覆盖。
+    const result = validateWorkflow(linearWf('image.resize', 'unknown.cap'), {
+      resolveCapability: resolveCap,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => /unknown capability "unknown\.cap"/.test(i.message)))
+        .toBe(true);
+    }
+  });
+
+  it('B4 验收: seed #8 audio.denoise 未注册时应失败并报告 unknown capability', () => {
+    // 验收标准:seed #8 在 audio preset 未注册时,
+    // validateWorkflow(wf, { resolveCapability }) 应返回失败并报告 "unknown capability: audio.denoise"
+    const audioDenoiseWf = {
+      ...validWorkflow,
+      nodes: [
+        { id: 'n1', type: 'transform' as const, capability: 'asset.import', params: {} },
+        { id: 'n2', type: 'transform' as const, capability: 'audio.denoise', params: { level: 0.5 } },
+        { id: 'n3', type: 'transform' as const, capability: 'asset.export', params: {} },
+      ],
+      edges: [
+        { from: 'n1', to: 'n2' },
+        { from: 'n2', to: 'n3' },
+      ],
+      inputs: { type: 'audio', multiple: false },
+      outputs: { type: 'audio' },
+    };
+    // resolveCapability 不注册 audio.denoise(模拟 audio preset 未注册)
+    const partialResolve = (name: string) => {
+      const map: Record<string, { inputTypes: string[]; outputTypes: string[] }> = {
+        'asset.import': { inputTypes: ['audio'], outputTypes: ['audio'] },
+        'asset.export': { inputTypes: ['audio'], outputTypes: ['audio'] },
+      };
+      return map[name];
+    };
+    const result = validateWorkflow(audioDenoiseWf, {
+      resolveCapability: partialResolve,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => /unknown capability "audio\.denoise"/.test(i.message)))
+        .toBe(true);
+    }
+  });
+
   it('resolveCapability 未提供时应跳过兼容性校验(向后兼容)', () => {
     const result = validateWorkflow(linearWf('image.resize', 'video.to-frames'));
     expect(result.success).toBe(true);
@@ -466,5 +514,69 @@ describe('W10 枚举 schema 校验', () => {
       outputs: { type: 'invalid-output' },
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('E1 多 target 输出校验', () => {
+  it('合法 targets 应通过校验', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      outputs: {
+        type: 'image',
+        format: 'jpeg',
+        targets: [
+          { name: 'instagram', params: { width: 1080, height: 1080 } },
+          { name: 'twitter', params: { width: 1200, height: 675 } },
+        ],
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('targets 无 params 也应通过', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      outputs: {
+        type: 'image',
+        targets: [{ name: 'default' }, { name: 'alt' }],
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('重复 target name 应失败', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      outputs: {
+        type: 'image',
+        targets: [
+          { name: 'instagram', params: { width: 1080 } },
+          { name: 'instagram', params: { width: 1200 } },
+        ],
+      },
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.message.includes('Duplicate output target name'))).toBe(true);
+    }
+  });
+
+  it('target 缺少 name 应失败（Zod 形状校验）', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      outputs: {
+        type: 'image',
+        targets: [{ params: { width: 1080 } } as unknown as { name: string }],
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('空 targets 数组应通过（等价于无 targets）', () => {
+    const result = validateWorkflow({
+      ...validWorkflow,
+      outputs: { type: 'image', targets: [] },
+    });
+    expect(result.success).toBe(true);
   });
 });

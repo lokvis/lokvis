@@ -198,65 +198,94 @@ export class WorkflowExecutor {
       // 过滤掉 load 和 export 节点（load 由输入处理，export 由结果处理）
       const transformNodes = sortedNodes.filter((n) => n.type === 'transform');
 
-      // 依次执行每个 transform 节点
-      for (const node of transformNodes) {
-        // 暂停则挂起,等待 resume/cancel 唤醒(Promise resolver,无轮询)
-        if (state.status === 'paused') {
-          await this.waitForResume(workflowId);
-        }
-        // 唤醒后或每轮起始,若已被取消立即跳出(避免执行多余节点)
-        if (state.status === 'cancelled') {
-          break;
-        }
+      // E1: 多 target 机制
+      // targets 存在且非空时,为每个 target 独立执行一次 transform 链,
+      // target.params 浅合并到每个节点的 params（target 优先）。
+      // 无 targets 时等价于单次执行（targetParams = undefined）。
+      const targets = workflow.outputs.targets;
+      const targetParamSets: (Record<string, unknown> | undefined)[] =
+        targets && targets.length > 0
+          ? targets.map((t) => t.params)
+          : [undefined];
 
-        state.currentNodeId = node.id;
-        const nodeStart = Date.now();
+      // 保存原始输入资产,每个 target 执行前重置
+      const inputAssets = [...currentAssets];
+      const allOutputs: Asset[] = [];
 
-        this.config.eventBus.emit({
-          type: 'node:started',
-          workflowId,
-          nodeId: node.id,
-          inputs: currentAssets,
-        });
+      for (const targetParams of targetParamSets) {
+        // 每个 target 开始前重置为原始输入
+        currentAssets = [...inputAssets];
 
-        // 解析能力实现(transform 节点必须有 capability)
-        const capability = node.capability;
-        if (!capability) {
-          throw new Error(`Transform node "${node.id}" has no capability`);
-        }
-        const impl = this.config.capabilityRegistry.resolve(capability);
-        if (!impl) {
-          if (this.config.capabilityRegistry.isStubOnly(capability)) {
-            throw new Error(
-              `Capability "${capability}" is not yet available (only stub engine registered). Install a real engine plugin to use this capability.`
-            );
+        // 依次执行每个 transform 节点
+        for (const node of transformNodes) {
+          // 暂停则挂起,等待 resume/cancel 唤醒(Promise resolver,无轮询)
+          if (state.status === 'paused') {
+            await this.waitForResume(workflowId);
           }
-          throw new Error(`No implementation registered for capability "${capability}"`);
+          // 唤醒后或每轮起始,若已被取消立即跳出(避免执行多余节点)
+          if (state.status === 'cancelled') {
+            break;
+          }
+
+          state.currentNodeId = node.id;
+          const nodeStart = Date.now();
+
+          this.config.eventBus.emit({
+            type: 'node:started',
+            workflowId,
+            nodeId: node.id,
+            inputs: currentAssets,
+          });
+
+          // 解析能力实现(transform 节点必须有 capability)
+          const capability = node.capability;
+          if (!capability) {
+            throw new Error(`Transform node "${node.id}" has no capability`);
+          }
+          const impl = this.config.capabilityRegistry.resolve(capability);
+          if (!impl) {
+            if (this.config.capabilityRegistry.isStubOnly(capability)) {
+              throw new Error(
+                `Capability "${capability}" is not yet available (only stub engine registered). Install a real engine plugin to use this capability.`
+              );
+            }
+            throw new Error(`No implementation registered for capability "${capability}"`);
+          }
+
+          // E1: target params 覆盖 node params（浅合并,target 优先）
+          const mergedParams = targetParams
+            ? { ...(node.params ?? {}), ...targetParams }
+            : (node.params ?? {});
+
+          // 执行能力
+          const ctx = createExecutionContext(
+            workflowId,
+            node.id,
+            abortController.signal
+          );
+          const outputs = await impl.execute(currentAssets, mergedParams, ctx);
+          currentAssets = outputs;
+
+          this.config.eventBus.emit({
+            type: 'node:finished',
+            workflowId,
+            nodeId: node.id,
+            capability,
+            params: mergedParams,
+            outputs: currentAssets,
+            duration: Date.now() - nodeStart,
+          });
         }
 
-        // 执行能力
-        const ctx = createExecutionContext(
-          workflowId,
-          node.id,
-          abortController.signal
-        );
-        const outputs = await impl.execute(currentAssets, node.params ?? {}, ctx);
-        currentAssets = outputs;
+        // 收集当前 target 的输出（cancelled 时也保留已完成的节点输出）
+        allOutputs.push(...currentAssets);
 
-        this.config.eventBus.emit({
-          type: 'node:finished',
-          workflowId,
-          nodeId: node.id,
-          capability,
-          params: node.params ?? {},
-          outputs: currentAssets,
-          duration: Date.now() - nodeStart,
-        });
+        if (state.status === 'cancelled') break;
       }
 
       const result: WorkflowResult = {
         workflowId,
-        outputs: currentAssets.map((a) => a.id),
+        outputs: allOutputs.map((a) => a.id),
         duration: Date.now() - startTime,
         status: state.status === 'cancelled' ? 'cancelled' : 'completed',
       };

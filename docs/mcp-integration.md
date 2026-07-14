@@ -115,11 +115,33 @@ npx @lokvis/mcp-server
 
 | Tool | 说明 | 示例 prompt |
 |------|------|-------------|
-| `lokvis_compress_image` | 本地压缩图片 | "Compress image.jpg to under 100KB" |
-| `lokvis_resize_image` | 调整尺寸 | "Resize to 1920x1080" |
-| `lokvis_convert_image` | 格式转换 | "Convert PNG to WebP" |
-| `lokvis_batch_process` | 批量处理（最多 100 文件） | "Compress all images in /photos" |
-| `lokvis_run_workflow` | 执行已保存的 workflow | "Run my web-optimize workflow" |
+| `lokvis_image_compress` | 本地压缩图片（质量/格式） | "Compress image.jpg to 80% quality" |
+| `lokvis_image_resize` | 调整尺寸（宽高/缩放策略） | "Resize image.png to 800px width" |
+| `lokvis_image_convert` | 格式转换（JPEG/PNG/WebP/AVIF） | "Convert PNG to WebP" |
+| `lokvis_pdf_merge` | 合并多个 PDF 文件 | "Merge report.pdf and appendix.pdf" |
+| `lokvis_pdf_compress` | 压缩 PDF（对象流压缩） | "Compress large.pdf to reduce size" |
+
+### 鉴权（可选）
+
+设置 `LOKVIS_API_KEY` 环境变量可启用 cloud AI tool（未来扩展）。本地 tool（image/pdf）无需鉴权即可使用。
+
+```json
+{
+  "mcpServers": {
+    "lokvis": {
+      "command": "npx",
+      "args": ["-y", "@lokvis/mcp-server"],
+      "env": {
+        "LOKVIS_WORKDIR": "/Users/you/Documents",
+        "LOKVIS_DOMAINS": "image,pdf",
+        "LOKVIS_API_KEY": "lk_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+API Key 可在 https://app.lokvis.com/settings/api-keys 创建。
 
 ---
 
