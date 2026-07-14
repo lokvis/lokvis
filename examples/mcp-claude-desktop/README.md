@@ -2,7 +2,7 @@
 
 This example shows how to configure Claude Desktop to use Lokvis's local file-processing capabilities via the Model Context Protocol.
 
-> **Status:** Phase 2. The `@lokvis/mcp-server` package skeleton is in this repo; Claude Desktop integration testing happens in Phase 2 W9-W10. See [`docs/AI生态冲击调整方案.md`](../../docs/AI生态冲击调整方案.md) §9.1.
+> **Status:** Phase 2 M2.4. End-to-end verified against the `@lokvis/mcp-server` package. See [`demo/test-prompts.md`](./demo/test-prompts.md) and the [Phase 2 blog post](../../docs/blog/2026-07-15-mcp-first-local-tools.md) for the verified demo workflow.
 
 ## Prerequisites
 
@@ -46,11 +46,11 @@ Open [`demo/test-prompts.md`](./demo/test-prompts.md) and paste each prompt into
 
 See [`demo/test-prompts.md`](./demo/test-prompts.md) for the full list:
 
-1. **"Compress this image to under 100KB"** → `lokvis_compress_image`
-2. **"Resize all images in /photos to 1920px width"** → `lokvis_batch_process` (resize)
-3. **"Convert image.png to WebP"** → `lokvis_convert_image`
-4. **"Add watermark 'Confidential' to bottom-right"** → `lokvis_watermark_image` *(Phase 2 计划,尚未实现)*
-5. **"Run my web-optimize workflow on this image"** → `lokvis_run_workflow`
+1. **"Compress this image to under 100KB"** → `lokvis_image_compress`
+2. **"Resize all images in /photos to 1920px width"** → `lokvis_image_resize` (per file)
+3. **"Convert image.png to WebP"** → `lokvis_image_convert`
+4. **"Add watermark 'Confidential' to bottom-right"** → `lokvis_image_watermark` *(Phase 2 计划,尚未实现)*
+5. **"Run my web-optimize workflow on this image"** → `lokvis_run_workflow` *(Phase 2 计划,尚未实现)*
 
 ## Demo image
 

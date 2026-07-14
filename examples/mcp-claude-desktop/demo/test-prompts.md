@@ -8,33 +8,31 @@ Drop `sample-image.jpg` into the chat or reference a path inside `LOKVIS_WORKDIR
 
 > Compress this image to under 100KB.
 
-Expected tool call: `lokvis_compress_image` with `target_size_kb: 100`.
+Expected tool call: `lokvis_image_compress` with `quality: 80` (then re-run with lower quality if the result is still >100KB). The current tool exposes `quality` rather than `target_size_kb`; let Claude iterate quality until the output is under 100KB.
 
 ## 2. Batch resize
 
 > Resize all images in /Users/me/photos to 1920px width, maintaining aspect ratio.
 
-Expected tool call: `lokvis_batch_process` with `operation: "resize"`, `params: { width: 1920, maintain_aspect: true }`, `output_dir: "/Users/me/photos/resized"`.
+Expected tool calls: `lokvis_image_resize` per file, with `width: 1920` and the default `fit: "cover"` (or `fit: "inside"` to avoid cropping).
 
 ## 3. Convert format
 
 > Convert image.png to WebP.
 
-Expected tool call: `lokvis_convert_image` with `output_format: "webp"`.
+Expected tool call: `lokvis_image_convert` with `format: "webp"`.
 
 ## 4. Watermark
 
 > Add a "Confidential" watermark to the bottom-right of report.png. Make it semi-transparent.
 
-Expected tool call: `lokvis_watermark_image` with `text: "Confidential"`, `position: "bottom-right"`, `opacity: 0.5`.
-
-> **Note:** `lokvis_watermark_image` is a Phase 2 planned tool (not yet implemented in the current skeleton). Skip this prompt until Phase 2 W5-W6.
+Expected tool call: `lokvis_image_watermark` *(Phase 2 planned; not yet exposed as an MCP tool — the underlying `image.watermark` capability is implemented in `engine-image` / `engine-image-node` and registered in `plugin-image`, but the MCP tool wrapper is pending).*
 
 ## 5. Run a workflow
 
 > Run my "web-optimize" workflow on hero.png.
 
-Expected tool call: `lokvis_run_workflow` with `workflow_id: "web-optimize"`, `input_path: "hero.png"`.
+Expected tool call: `lokvis_run_workflow` *(Phase 2 planned; not yet exposed as an MCP tool).*
 
 ## Verification
 

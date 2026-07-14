@@ -1,0 +1,8 @@
+{
+  "name": "@lokvis/example-mcp-cursor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Example: integrate Lokvis MCP Server with Cursor for in-editor local file processing",
+  "license": "MIT",
+  "type": "module"
+}
