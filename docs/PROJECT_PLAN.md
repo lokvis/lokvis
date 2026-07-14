@@ -1,6 +1,6 @@
 # lokvis-open 项目规划与任务拆分
 
-> 基于 `docs/whitepaper/` 白皮书(00/03/04/06/07)对 **lokvis-open 开源仓库**的独立规划。
+> 基于 `docs/business/` 白皮书(00/03/04/06/07)对 **lokvis-open 开源仓库**的独立规划。
 > 覆盖 Phase 1(2026.07–2026.12)Image Workspace MVP 全周期,按 **小时级** 拆分。
 > 团队假设:1 名全栈(主)+ 兼职设计(月 20h),与白皮书 07 §2.5 一致。
 >
@@ -695,4 +695,4 @@
 - **Phase 3(2027.07-2028.06)**:Marketplace、Audio/AI Workspace、国际化、MCP SSE 模式
 - **Phase 4(2028.07-2029.06)**:桌面版(Tauri)、Developer Workspace(`plugin-dev`)、CLI 正式、公共 API
 
-详见 `docs/whitepaper/07-路线图与里程碑.md` 与 [AI生态冲击调整方案.md](./AI生态冲击调整方案.md)。
+详见 `docs/business/07-路线图与里程碑.md` 与 [AI生态冲击调整方案.md](./AI生态冲击调整方案.md)。

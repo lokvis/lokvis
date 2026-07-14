@@ -178,41 +178,21 @@ image engine 需要 `SharedArrayBuffer`，要求页面有 `Cross-Origin-Opener-P
 
 ---
 
-## §8 PWA 图标生成（部署前必做）
+## §8 PWA 图标
 
-`manifest.webmanifest` 引用了 4 个图标，其中 PNG 图标暂未提交到仓库（`public/` 目录只有 `icon.svg`）。
-**首次部署前必须手动生成 3 个 PNG 文件**，否则 Chrome 会报 console warning（不阻塞 SW 注册和核心 PWA 功能，但安装到桌面时图标缺失）。
+`manifest.webmanifest` 引用 4 个图标，均已提交到 `apps/playground/public/`：
 
-### 8.1 需要生成的文件
-
-| 文件名 | 尺寸 | purpose | 说明 |
+| 文件名 | 尺寸 | purpose | 状态 |
 |---|---|---|---|
-| `icon-192.png` | 192×192 | any | 标准 PWA 图标（home screen） |
-| `icon-512.png` | 512×512 | any | 高分辨率 PWA 图标（splash screen） |
-| `icon-maskable-512.png` | 512×512 | maskable | Android 自适应图标（需 safe zone padding） |
+| `icon.svg` | 矢量 | any | ✅ 已提交 |
+| `icon-192.png` | 192×192 | any | ✅ 已提交 |
+| `icon-512.png` | 512×512 | any | ✅ 已提交 |
+| `icon-maskable-512.png` | 512×512 | maskable | ✅ 已提交 |
 
-文件名必须严格匹配上表，放到 `apps/playground/public/` 目录。
+### 重新生成（仅品牌更新时需要）
 
-### 8.2 生成方法（任选其一）
+如品牌图标更新，需重新生成 3 个 PNG。仓库 `package.json` 已包含 `sharp` 依赖：
 
-**方法 A：Figma / Sketch 导出**
-1. 打开 `apps/playground/public/icon.svg`（◆ 品牌色 indigo→purple 渐变）
-2. 分别导出 192×192、512×512 PNG（背景不透明，用 `#09090b`）
-3. maskable 版本：在 512×512 画布外加 10% padding（safe zone），即把图标内容缩到中心 80% 区域，外围填充 `#09090b`
-4. 文件名按上表命名，放到 `apps/playground/public/`
-
-**方法 B：`npx @squoosh/cli` 命令行**
-```bash
-cd apps/playground/public
-# 192×192
-npx @squoosh/cli --resize '{width:192,height:192}' --png '{}' icon.svg -o icon-192.png
-# 512×512
-npx @squoosh/cli --resize '{width:512,height:512}' --png '{}' icon.svg -o icon-512.png
-# maskable 需手动加 padding，建议用方法 A 或 sharp 脚本
-```
-
-**方法 C：临时 sharp 脚本**
-仓库 `package.json` 已包含 `sharp` 依赖，可写一次性脚本：
 ```js
 // scripts/gen-icons.mjs（用完即删，不入库）
 import sharp from 'sharp';
@@ -228,9 +208,9 @@ await sharp({ create: { width: 512, height: 512, channels: 4, background: '#0909
   .png().toFile('public/icon-maskable-512.png');
 ```
 
-### 8.3 验证
+### 验证
 
-生成后访问 `https://playground.lokvis.dev/manifest.webmanifest` 确认 JSON 有效；
+访问 `https://playground.lokvis.dev/manifest.webmanifest` 确认 JSON 有效；
 Chrome DevTools → Application → Manifest 应显示所有图标无 warning。
 Lighthouse PWA 审计应通过 "Installable" 检查。
 

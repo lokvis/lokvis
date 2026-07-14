@@ -113,13 +113,36 @@ npx @lokvis/mcp-server
 
 ## 可用 Tools
 
+### 能力 Tool（对应单一 capability）
+
 | Tool | 说明 | 示例 prompt |
 |------|------|-------------|
 | `lokvis_image_compress` | 本地压缩图片（质量/格式） | "Compress image.jpg to 80% quality" |
 | `lokvis_image_resize` | 调整尺寸（宽高/缩放策略） | "Resize image.png to 800px width" |
 | `lokvis_image_convert` | 格式转换（JPEG/PNG/WebP/AVIF） | "Convert PNG to WebP" |
+| `lokvis_image_crop` | 裁剪（x/y/width/height） | "Crop image to 200x200 from top-left" |
+| `lokvis_image_watermark` | 水印（文字/位置/透明度） | "Add '© 2026' watermark to bottom-right" |
 | `lokvis_pdf_merge` | 合并多个 PDF 文件 | "Merge report.pdf and appendix.pdf" |
 | `lokvis_pdf_compress` | 压缩 PDF（对象流压缩） | "Compress large.pdf to reduce size" |
+
+> Tool 清单由 `runtime.toMcpManifest()` 自动生成，新增 capability 自动可见。命名约定：`lokvis_<domain>_<verb>`。
+
+### 元 Tool（Runtime 级别操作）
+
+这些 Tool 不对应单一 capability，而是 Runtime 级别操作：
+
+| Tool | 说明 | 关键参数 |
+|------|------|---------|
+| `lokvis_run_workflow` | 执行完整工作流（多节点链） | `workflow`（Workflow JSON）、`inputAssetIds`（string[]） |
+| `lokvis_get_asset` | 获取资产元数据（不返回二进制） | `assetId` |
+| `lokvis_export_asset` | 导出资产为指定格式，返回本地文件路径 | `assetId`、`format`、`quality` |
+| `lokvis_undo` / `lokvis_redo` | 历史栈操作 | `workflowId` |
+| `lokvis_cancel` | 取消运行中的工作流 | `workflowId` |
+
+**设计要点**：
+- `lokvis_run_workflow` 是核心 Tool：AI 可构造完整 workflow（含多节点）一次执行
+- 单 capability Tool 是便捷快捷方式，内部等价于单节点 workflow
+- 二进制数据不通过 MCP 返回（避免阻塞 LLM 上下文）；改为返回 assetId + 本地文件路径
 
 ### 鉴权（可选）
 
@@ -147,12 +170,34 @@ API Key 可在 https://app.lokvis.com/settings/api-keys 创建。
 
 ## Resources
 
-MCP server 还暴露两个 MCP Resources：
+MCP server 暴露以下 MCP Resources：
 
-| URI | 说明 |
-|-----|------|
-| `lokvis://capabilities` | 所有可用能力的 JSON 列表 |
-| `lokvis://workflows` | 已保存 workflow 的 JSON 列表 |
+| URI | 说明 | MIME |
+|-----|------|------|
+| `lokvis://capabilities` | 所有可用能力的 JSON 列表（含 params JSON Schema） | application/json |
+| `lokvis://workflows` | 已保存 workflow 的 JSON 列表（本地槽位） | application/json |
+| `lokvis://asset/{id}/metadata` | 单个资产的元数据 | application/json |
+| `lokvis://asset/{id}/thumbnail` | 缩略图 data URI | image/png |
+
+**资源读取策略**：
+- `lokvis://capabilities` 返回完整能力清单，供 AI 理解参数
+- `lokvis://workflows` 返回本地保存的工作流槽位，供 AI 推荐复用
+- 缩略图以 data URI 返回，避免文件系统访问；大图只返回 metadata
+
+---
+
+## Prompts（预定义提示模板）
+
+MCP Prompts 是预定义的提示模板，AI 客户端可调用：
+
+| Prompt | 说明 | 参数 |
+|--------|------|------|
+| `lokvis_optimize_for_web` | "优化这张图片用于网页" | `assetId`、`targetWidth`（默认 1920） |
+| `lokvis_batch_social_resize` | "批量调整尺寸为社媒规格" | `assetIds[]`、`platform`（instagram/twitter/...） |
+| `lokvis_add_watermark` | "给图片加水印" | `assetId`、`text`、`position` |
+| `lokvis_compress_to_size` | "压缩到目标体积" | `assetId`、`targetKB` |
+
+Prompt 模板返回自然语言 + 结构化 workflow JSON，AI 可直接调用 `lokvis_run_workflow` 执行，或调整参数后执行。
 
 ---
 
@@ -177,6 +222,33 @@ MCP server 还暴露两个 MCP Resources：
 | 浏览器 Tab 被恶意页面控制 | WebSocket 仅接受 `lokvis.app` origin |
 | AI 调用危险操作 | 危险 tool 需用户在浏览器确认 |
 | Node 降级 `sharp` RCE | 成熟库 + Zod 校验参数 |
+| 路径逃逸 | `lokvis_export_asset` 仅写入用户指定目录，禁止系统路径 |
+
+---
+
+## 设计决策（W12.8 评审）
+
+> 2026-07-04 W12.8 评审通过，5 个开放问题全部决议。详见 [ADR-011](./adr/011-mcp-server.md)。
+
+| # | 问题 | 决议 | 理由 |
+|---|------|------|------|
+| 1 | asset 传递方式 | **显式 `inputAssetIds`** | 隐式"当前选中资产"会造成状态耦合；显式传递符合 MCP 无状态约定 |
+| 2 | workflow JSON 校验 | **强制 `validateWorkflow()` + 结构化错误** | 校验失败返回 `isError: true` + 修复建议，而非让 executor 抛运行时异常 |
+| 3 | 历史栈共享 | **不共享，每个 stdio 进程独立 Runtime** | 避免跨会话状态污染，与"每个 MCP 连接独立进程"部署模型一致 |
+| 4 | Pro 门控 | **尊重 `isPro`，batch 免费限 10 文件** | 门控在 Runtime 层而非 MCP 层，与 UI/CLI 一致 |
+| 5 | 错误信息语言 | **英文** | MCP 客户端国际化友好，AI 可基于英文错误自主修复；中文保留在 description/prompts |
+
+---
+
+## open MCP vs cloud MCP
+
+| 维度 | open MCP（stdio/SSE） | cloud MCP（HTTP） |
+|------|----------------------|-------------------|
+| 运行位置 | 用户本地 | cloud 服务器 |
+| 文件处理 | 本地引擎（Canvas/WASM/sharp） | cloud 引擎（服务器侧） |
+| 收费 | 免费 | Pro 订阅 |
+| 能力范围 | 全部 capability | 子集（cloud 支持的） |
+| Phase | Phase 2（已实现 stdio + SSE） | Phase 2.5+ |
 
 ---
 
@@ -229,4 +301,4 @@ packages/mcp-server/
 
 ---
 
-*本文档整合自 `apps/docs/src/content/docs/mcp.mdx` 与 AI 调整方案 §3。*
+*本文档整合自 `apps/docs/src/content/docs/mcp.mdx`、AI 调整方案 §3 及原 `mcp-design-draft.md`（W12.8 评审通过的接口设计草案，已合并于此）。*

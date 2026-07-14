@@ -939,6 +939,8 @@ export function workflowToAiInstruction(workflow: Workflow): WorkflowAiInstructi
 
 ### 8.1 apps/web 营销页面调整
 
+> **⚠️ 已废弃（ADR-012）**：apps/web 已于 2026-07-02 整体迁出至 lokvis-cloud 仓库（ADR-012 + M0.5.7.1）。本节中的 `apps/web` 路径均指迁出前的历史位置，实际落地在 `lokvis-cloud/apps/web`。本节保留作为历史决策记录。
+
 #### 8.1.1 首页 Hero 文案调整
 
 **原文案**（`apps/web/src/pages/index.astro`）：

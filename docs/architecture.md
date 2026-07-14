@@ -247,4 +247,4 @@ Phase 4（2028 H2 - 2029 H1）
 
 ---
 
-*本文档整合自 `apps/docs/src/content/docs/architecture.mdx` 与 `docs/whitepaper/04-技术架构设计.md`。*
+*本文档整合自 `apps/docs/src/content/docs/architecture.mdx` 与 `docs/business/04-技术架构设计.md`。*
