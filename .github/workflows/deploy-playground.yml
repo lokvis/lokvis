@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: '22'
+  NODE_VERSION: '24'
   PNPM_VERSION: '9.12.0'
 
 # 部署不取消进行中的旧运行——避免半成品上线（旧部署可能正在写 production）。
