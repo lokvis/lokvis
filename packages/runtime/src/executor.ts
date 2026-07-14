@@ -253,8 +253,9 @@ export class WorkflowExecutor {
           }
 
           // E1: target params 覆盖 node params（浅合并,target 优先）
+          // 注：展开 undefined 是 no-op,无需 ?? {} fallback（oxlint no-empty-fallback-in-spread）
           const mergedParams = targetParams
-            ? { ...(node.params ?? {}), ...targetParams }
+            ? { ...node.params, ...targetParams }
             : (node.params ?? {});
 
           // 执行能力
