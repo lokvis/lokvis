@@ -14,9 +14,9 @@
 |------|---------|---------|---------|---------|---------|--------|
 | **Phase 1** (W1-W24) | ~90 | ~65 | ~18 | 4 | 3 | 72% |
 | **Phase 1.5** (架构优化) | 21 | 21 | 0 | 0 | 0 | 100% |
-| **Phase 2** (MCP/Engine/Workflow) | 9 | 5 | 1 | 0 | 3 | 56% |
+| **Phase 2** (MCP/Engine/Workflow) | 9 | 6 | 0 | 0 | 3 | 67% |
 | **技术债务** | 16 | 9 | 7 | — | — | 56% |
-| **合计** | ~136 | ~100 | ~19 | 4 | 6 | 74% |
+| **合计** | ~136 | ~101 | ~18 | 4 | 6 | 75% |
 
 ---
 
@@ -138,7 +138,7 @@
 | M2.1 stdio 传输 + NodeAssetStore | ✅ | 72 测试，覆盖率 88.99% |
 | M2.2 engine-image-node + sharp | ✅ | 45 新测试，Node 端真实图片处理 |
 | M2.3 SSE + BrowserBridge + ToolRouter | ✅ | 22 新测试，端到端验证通过 |
-| **M2.4 Claude Desktop / Cursor 端到端验证** | ⬜ **待办** | 录 2 个 demo + 写 1 篇 blog post |
+| **M2.4 Claude Desktop / Cursor 端到端验证** | ✅ **完成** | 可复现 e2e 脚本 + Cursor 示例 + blog post |
 
 ### 轨道 B：Engine 实装
 
@@ -191,17 +191,17 @@
 
 ### 立即可推进
 
-1. **M2.4** — Claude Desktop / Cursor 端到端验证 + demo + blog（M2.3 已就绪）
-2. **Phase 1 W17-W20** — SDK 公开 + 文档完善 + CLI 最小版（M5 主线）
-
-### 短期启动
-
-3. **B1 + B2 并行** — PDF 与 Video 引擎实装，解锁 Phase 2 Workspace
+1. **Phase 1 W17-W20** — SDK 公开 + 文档完善 + CLI 最小版（M5 主线）
+2. **B1 + B2 并行** — PDF 与 Video 引擎实装，解锁 Phase 2 Workspace
 
 ### 中期推进
 
-4. **Phase 1 W21-W24** — 性能优化 + 开源发布 + Product Hunt
-5. **B3** — Audio 引擎（依赖 B2 ffmpeg 基础设施）
+3. **Phase 1 W21-W24** — 性能优化 + 开源发布 + Product Hunt
+4. **B3** — Audio 引擎（依赖 B2 ffmpeg 基础设施）
+
+### 已完成（最近）
+
+- ✅ **M2.4**（2026-07-15）— Claude Desktop / Cursor 端到端验证 + 可复现 demo + blog post（详见 [blog](./blog/2026-07-15-mcp-first-local-tools.md)）
 
 ---
 
