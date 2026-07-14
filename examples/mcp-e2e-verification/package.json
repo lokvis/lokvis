@@ -1,0 +1,16 @@
+{
+  "name": "@lokvis/example-mcp-e2e-verification",
+  "version": "0.1.0",
+  "private": true,
+  "description": "End-to-end verification script: starts the Lokvis MCP server, connects via SDK Client, exercises every image tool — the verifiable M2.4 demo.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "verify": "node verify.mjs"
+  },
+  "dependencies": {
+    "@lokvis/mcp-server": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "sharp": "^0.33.0"
+  }
+}
