@@ -110,18 +110,32 @@ function createGenerateWorkflowImpl(
 }
 
 /**
- * ai.optimize-workflow 实现:engine-ai 尚未提供 optimizeWorkflow 方法,
- * 运行时直接抛出明确错误(与 plugin-video 处理缺失引擎方法的模式一致)。
+ * ai.optimize-workflow 实现:从 params.workflow 优化已有 workflow,
+ * 输出为 data 类型 Asset(优化后的 workflow JSON)。
+ *
+ * A4 已在 engine-ai 补齐 cloudProxyEngine.optimizeWorkflow 方法,
+ * 此处委托引擎而非直接抛错。
  */
-function createOptimizeWorkflowImpl(isStub: boolean): CapabilityImplementation {
+function createOptimizeWorkflowImpl(
+  isStub: boolean,
+  ctx: PluginContext
+): CapabilityImplementation {
   return {
     capability: 'ai.optimize-workflow',
     engine: 'cloud-proxy',
     status: isStub ? 'stub' : 'stable',
-    async execute() {
-      throw new Error(
-        'ai.optimize-workflow not implemented in engine-ai stub'
+    async execute(_inputs, params, execCtx) {
+      execCtx.onProgress?.(0.1, 'Optimizing workflow');
+      const workflow = await cloudProxyEngine.optimizeWorkflow(params);
+      const json = JSON.stringify(workflow, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const outAsset = await ctx.runtime.createAsset(
+        blob,
+        deriveJsonMetadata(blob),
+        'data'
       );
+      execCtx.onProgress?.(1, 'Done');
+      return [outAsset];
     },
   };
 }
@@ -178,7 +192,7 @@ export function buildAiCapabilityImplementations(
     ),
     // ④ ai.generate-workflow — params→data(无 Asset 输入)
     createGenerateWorkflowImpl(cloudProxyIsStub, ctx),
-    // ⑤ ai.optimize-workflow — engine-ai 尚未提供方法
-    createOptimizeWorkflowImpl(cloudProxyIsStub),
+    // ⑤ ai.optimize-workflow — params→data(委托 cloudProxyEngine.optimizeWorkflow)
+    createOptimizeWorkflowImpl(cloudProxyIsStub, ctx),
   ];
 }

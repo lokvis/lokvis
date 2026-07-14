@@ -51,6 +51,26 @@ export interface PdfCompressParams {
   level?: number; // 0-9
 }
 
+/** PDF OCR 参数 */
+export interface PdfOcrParams {
+  /** 识别语言（如 'chi_sim'、'eng'） */
+  language?: string;
+  /** 指定页码（默认所有页） */
+  pageNumbers?: number[];
+}
+
+/** PDF 数字签名参数 */
+export interface PdfSignParams {
+  /** 签名证书（PKCS#12 Blob 或路径） */
+  certificate: Blob | string;
+  /** 证书密码 */
+  password: string;
+  /** 签名原因（写入 Signature 词典） */
+  reason?: string;
+  /** 签名位置 [x, y, width, height]（PDF 坐标系，单位 pt） */
+  rect?: [number, number, number, number];
+}
+
 /** 解码后的 PDF 元数据 */
 export interface DecodedPdf {
   pages: number;
@@ -74,6 +94,10 @@ export interface PdfEngineAdapter {
   rotate(blob: Blob, params: Record<string, any>): Promise<Blob>;
   watermark(blob: Blob, params: Record<string, any>): Promise<Blob>;
   compress(blob: Blob, params: Record<string, any>): Promise<Blob>;
+  /** OCR 识别（pdf.js 引擎承载，输出 text/plain Blob） */
+  ocr(blob: Blob, params: Record<string, any>): Promise<Blob>;
+  /** 数字签名（pdf-lib 引擎承载） */
+  sign(blob: Blob, params: Record<string, any>): Promise<Blob>;
 }
 
 /** pdf-lib 引擎占位实现 */
@@ -86,6 +110,7 @@ export const pdfLibEngine: PdfEngineAdapter = {
     'pdf.compress',
     'pdf.rotate',
     'pdf.watermark',
+    'pdf.sign',
   ],
   async isSupported() {
     return true; // 纯 JS，无环境依赖
@@ -108,6 +133,12 @@ export const pdfLibEngine: PdfEngineAdapter = {
   async compress() {
     throw new Error('pdfLibEngine.compress not implemented in stub');
   },
+  async ocr() {
+    throw new Error('pdfLibEngine.ocr not implemented in stub');
+  },
+  async sign() {
+    throw new Error('pdfLibEngine.sign not implemented in stub');
+  },
 };
 
 /** pdf.js 引擎占位实现（仅渲染，无写入） */
@@ -122,19 +153,25 @@ export const pdfjsEngine: PdfEngineAdapter = {
     throw new Error('pdfjsEngine.decode not implemented in stub');
   },
   async merge() {
-    throw new Error('pdfjsEngine cannot merge (read-only engine)');
+    throw new Error('pdfjsEngine.merge not implemented in stub');
   },
   async split() {
-    throw new Error('pdfjsEngine cannot split (read-only engine)');
+    throw new Error('pdfjsEngine.split not implemented in stub');
   },
   async rotate() {
-    throw new Error('pdfjsEngine cannot rotate (read-only engine)');
+    throw new Error('pdfjsEngine.rotate not implemented in stub');
   },
   async watermark() {
-    throw new Error('pdfjsEngine cannot watermark (read-only engine)');
+    throw new Error('pdfjsEngine.watermark not implemented in stub');
   },
   async compress() {
-    throw new Error('pdfjsEngine cannot compress (read-only engine)');
+    throw new Error('pdfjsEngine.compress not implemented in stub');
+  },
+  async ocr() {
+    throw new Error('pdfjsEngine.ocr not implemented in stub');
+  },
+  async sign() {
+    throw new Error('pdfjsEngine.sign not implemented in stub');
   },
 };
 

@@ -47,13 +47,14 @@ function flush(): Promise<void> {
 }
 
 describe('listImageWorkerMethods / dispatchImageMethod', () => {
-  it('应列出 8 个图像操作方法(与 canvas engine 能力对齐)', () => {
+  it('应列出 9 个图像操作方法(与 canvas engine 能力对齐)', () => {
     const methods = listImageWorkerMethods();
-    expect(methods).toHaveLength(8);
+    expect(methods).toHaveLength(9);
     expect(methods).toContain('image.resize');
     expect(methods).toContain('image.compress');
     expect(methods).toContain('image.watermark');
     expect(methods).toContain('image.background');
+    expect(methods).toContain('image.filter');
   });
 
   it('未知方法应抛错', async () => {
@@ -65,6 +66,12 @@ describe('listImageWorkerMethods / dispatchImageMethod', () => {
   it('已知方法但缺少 input Blob 应抛错', async () => {
     await expect(
       dispatchImageMethod('image.resize', { options: { width: 10 } })
+    ).rejects.toThrow(/requires params\.input/);
+  });
+
+  it('image.filter 已注册到 Worker 方法表(缺少 input 应抛 input 错误而非 Unknown)', async () => {
+    await expect(
+      dispatchImageMethod('image.filter', { options: { preset: 'grayscale' } })
     ).rejects.toThrow(/requires params\.input/);
   });
 

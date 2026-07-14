@@ -44,6 +44,27 @@ export interface VideoCompressParams {
   scale?: number; // 缩放比例 0-1
 }
 
+/** 视频合并参数（N→1） */
+export interface VideoMergeParams {
+  format?: VideoOutputFormat;
+  /** 合并过渡（可选，Phase 2 扩展） */
+  transition?: 'none' | 'fade' | 'cut';
+}
+
+/** 音频提取参数 */
+export interface VideoExtractAudioParams {
+  format?: 'mp3' | 'aac' | 'wav';
+  bitrate?: number;
+}
+
+/** GIF 转换参数 */
+export interface VideoToGifParams {
+  start?: number; // 秒
+  end?: number; // 秒
+  fps?: number;
+  width?: number; // 输出宽度（像素）
+}
+
 /** 解码后的视频帧信息 */
 export interface DecodedVideo {
   width: number;
@@ -66,6 +87,12 @@ export interface VideoEngineAdapter {
   compress(blob: Blob, params: Record<string, any>): Promise<Blob>;
   trim(blob: Blob, params: Record<string, any>): Promise<Blob>;
   screenshot(blob: Blob, params: Record<string, any>): Promise<Blob>;
+  /** 合并多个视频（N→1） */
+  merge(blobs: Blob[], params: Record<string, any>): Promise<Blob>;
+  /** 从视频中提取音频轨 */
+  extractAudio(blob: Blob, params: Record<string, any>): Promise<Blob>;
+  /** 将视频（片段）转换为 GIF */
+  toGif(blob: Blob, params: Record<string, any>): Promise<Blob>;
 }
 
 /** ffmpeg.wasm 引擎占位实现 */
@@ -100,6 +127,15 @@ export const ffmpegEngine: VideoEngineAdapter = {
   async screenshot() {
     throw new Error('ffmpegEngine.screenshot not implemented in stub');
   },
+  async merge() {
+    throw new Error('ffmpegEngine.merge not implemented in stub');
+  },
+  async extractAudio() {
+    throw new Error('ffmpegEngine.extractAudio not implemented in stub');
+  },
+  async toGif() {
+    throw new Error('ffmpegEngine.toGif not implemented in stub');
+  },
 };
 
 /** WebCodecs 引擎占位实现 */
@@ -124,6 +160,15 @@ export const webcodecsEngine: VideoEngineAdapter = {
   },
   async screenshot() {
     throw new Error('webcodecsEngine.screenshot not implemented in stub');
+  },
+  async merge() {
+    throw new Error('webcodecsEngine.merge not implemented in stub');
+  },
+  async extractAudio() {
+    throw new Error('webcodecsEngine.extractAudio not implemented in stub');
+  },
+  async toGif() {
+    throw new Error('webcodecsEngine.toGif not implemented in stub');
   },
 };
 

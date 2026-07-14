@@ -113,8 +113,6 @@ export interface LokvisMcpOptions {
   workdir?: string;
   /** 启用的能力域,默认 ['image'] */
   domains?: LokvisMcpDomain[];
-  /** 是否启用 workflow 执行 tool(lokvis_run_workflow) */
-  enableWorkflow?: boolean;
   /** 运行模式 */
   mode?: 'stdio' | 'sse';
   /** SSE 模式的端口(仅 mode='sse' 时生效,默认 3001) */
@@ -138,7 +136,7 @@ export interface LokvisMcpOptions {
  * 1. 创建 NodeAssetStore(如果 workdir 提供)并注入 RuntimeConfig
  * 2. 创建 Lokvis Runtime(通过 createLokvis)
  * 3. 创建 McpServerAdapter(包装 @modelcontextprotocol/sdk Server)
- * 4. 按 domains 注册 image / pdf / workflow 等 tools
+ * 4. 按 domains 注册 image / pdf 等 tools(workflow 执行 tool 留待 Phase 2)
  * 5. 返回 server + runtime + manifest(transport 启动由调用方触发)
  *
  * tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/\./g, '_')}`

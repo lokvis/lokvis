@@ -86,14 +86,11 @@ const rotateOp: SinglePdfOperation = (blob, params) =>
 const watermarkOp: SinglePdfOperation = (blob, params) =>
   engine().watermark(blob, params);
 
-// OCR / SIGN:engine-pdf 暂未提供对应方法,运行时直接抛出
-const ocrOp: SinglePdfOperation = async () => {
-  throw new Error('pdf.ocr 暂未实现:engine-pdf 未提供 ocr() 方法');
-};
+const ocrOp: SinglePdfOperation = (blob, params) =>
+  engine().ocr(blob, params);
 
-const signOp: SinglePdfOperation = async () => {
-  throw new Error('pdf.sign 暂未实现:engine-pdf 未提供 sign() 方法');
-};
+const signOp: SinglePdfOperation = (blob, params) =>
+  engine().sign(blob, params);
 
 /** 全部 PDF 能力实现绑定(operation → engine + kind + outputType 映射,能力声明由 generated 提供) */
 export const PDF_OPERATION_ENTRIES: PdfOperationEntry[] = [

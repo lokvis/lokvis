@@ -1,25 +1,43 @@
 /**
  * Video Capability 实现
  *
- * 通过 plugin-sdk 的 createBlobCapabilityImpl 工厂把 engine-video 的
- * Blob↔Blob 操作包装为 CapabilityImplementation:Asset[] + params → Asset[]
+ * 通过 plugin-sdk 的 createBlobCapabilityImpl / createMergeCapabilityImpl 工厂
+ * 把 engine-video 的 Blob↔Blob 操作包装为 CapabilityImplementation:
+ * Asset[] + params → Asset[]
  *
- * 注意:engine-video 当前为占位实现,所有方法均抛出 "not implemented"。
- * merge / extract-audio / to-gif 三个能力在 engine-video 中尚无对应方法,
- * 这里直接抛错,待引擎实现后再切换为对应方法调用。
+ * 两种形态:
+ * - single(1→1):compress / transcode / trim / extract-audio / to-gif / screenshot
+ * - merge(N→1):video.merge
+ *
+ * 注意:engine-video 当前为占位实现,所有方法均抛出 "not implemented in stub",
+ * 因此 plugin-video 的各操作在运行时也会抛出 —— 这是有意为之的 stub 行为。
  *
  * 能力声明(VIDEO_CAPABILITIES)由 codegen 从 manifests/video.manifest.json 生成,
  * 见 packages/capability/src/presets/video.generated.ts。本文件只负责 impl 绑定
  * (capability name → engine + operation)。
  */
 
-import type { PluginContext, CapabilityImplementation } from '@lokvis/schema';
-import { createBlobCapabilityImpl } from '@lokvis/plugin-sdk';
+import type {
+  AssetMetadata,
+  AssetType,
+  CapabilityImplementation,
+  PluginContext,
+} from '@lokvis/schema';
+import {
+  createBlobCapabilityImpl,
+  createMergeCapabilityImpl,
+} from '@lokvis/plugin-sdk';
 import { ffmpegEngine } from '@lokvis/engine-video';
 
-/** Capability 名 → 操作函数的映射类型 */
+/** 单输入 → 单输出操作(1→1) */
 export type VideoOperation = (
   blob: Blob,
+  params: Record<string, unknown>
+) => Promise<Blob>;
+
+/** 多输入 → 单输出操作(N→1,merge) */
+export type MergeVideoOperation = (
+  blobs: Blob[],
   params: Record<string, unknown>
 ) => Promise<Blob>;
 
@@ -48,26 +66,21 @@ const trimOp: VideoOperation = (blob, params) =>
 const screenshotOp: VideoOperation = (blob, params) =>
   ffmpegEngine.screenshot(blob, params);
 
-// engine-video 暂未提供以下三个方法,这里直接抛错,
-// 待引擎实现后再切换为对应方法调用。
-const mergeOp: VideoOperation = async () => {
-  throw new Error('video.merge not implemented in engine-video stub');
-};
+const extractAudioOp: VideoOperation = (blob, params) =>
+  ffmpegEngine.extractAudio(blob, params);
 
-const extractAudioOp: VideoOperation = async () => {
-  throw new Error('video.extract-audio not implemented in engine-video stub');
-};
+const toGifOp: VideoOperation = (blob, params) =>
+  ffmpegEngine.toGif(blob, params);
 
-const toGifOp: VideoOperation = async () => {
-  throw new Error('video.to-gif not implemented in engine-video stub');
-};
+/** video.merge:N→1,委托 ffmpegEngine.merge */
+const mergeOp: MergeVideoOperation = (blobs, params) =>
+  ffmpegEngine.merge(blobs, params);
 
-/** 全部视频能力实现绑定(operation → engine 映射,能力声明由 generated 提供) */
+/** 1→1 能力实现绑定(merge 单独走 createMergeCapabilityImpl) */
 export const VIDEO_OPERATION_ENTRIES: VideoOperationEntry[] = [
   { capability: 'video.compress',         engine: 'ffmpeg-wasm', operation: compressOp },
   { capability: 'video.transcode',        engine: 'ffmpeg-wasm', operation: transcodeOp },
   { capability: 'video.trim',             engine: 'ffmpeg-wasm', operation: trimOp },
-  { capability: 'video.merge',            engine: 'ffmpeg-wasm', operation: mergeOp },
   { capability: 'video.extract-audio',    engine: 'ffmpeg-wasm', operation: extractAudioOp },
   { capability: 'video.to-gif',           engine: 'ffmpeg-wasm', operation: toGifOp },
   { capability: 'video.screenshot',       engine: 'ffmpeg-wasm', operation: screenshotOp },
@@ -76,14 +89,27 @@ export const VIDEO_OPERATION_ENTRIES: VideoOperationEntry[] = [
 /** engine-video stub 检测(AGENTS.md 约定:version.includes('stub')) */
 const isStub = ffmpegEngine.version.includes('stub');
 
+/** 从输出 Blob 派生 video 类型 Asset 元数据(不传播 dimensions,需解码才能获得) */
+function deriveVideoMetadata(outBlob: Blob): AssetMetadata {
+  const mimeType = outBlob.type || 'video/mp4';
+  const format = mimeType.split('/')[1] ?? 'mp4';
+  return { mimeType, size: outBlob.size, format };
+}
+
+/** video.merge 输出类型(GIF 走 to-gif,merge 通常是视频格式) */
+const MERGE_OUTPUT_TYPE: AssetType = 'video';
+
 /**
  * 构造所有视频能力的 CapabilityImplementation
  * (由 plugin.ts 在 installer 中调用)
+ *
+ * stub 标识在此一次性完成(AGENTS.md 约定:version.includes('stub')),
+ * 不再在 merge 包装函数中重复检测。
  */
 export function buildVideoCapabilityImplementations(
   ctx: PluginContext
 ): CapabilityImplementation[] {
-  return VIDEO_OPERATION_ENTRIES.map((entry) =>
+  const singleImpls = VIDEO_OPERATION_ENTRIES.map((entry) =>
     createBlobCapabilityImpl(
       {
         capability: entry.capability,
@@ -95,4 +121,19 @@ export function buildVideoCapabilityImplementations(
       ctx
     )
   );
+
+  // merge 是 N→1 形态,单独走 createMergeCapabilityImpl
+  const mergeImpl = createMergeCapabilityImpl(
+    {
+      capability: 'video.merge',
+      engine: 'ffmpeg-wasm',
+      outputType: MERGE_OUTPUT_TYPE,
+      operation: mergeOp,
+      isStub,
+      deriveMetadata: deriveVideoMetadata,
+    },
+    ctx
+  );
+
+  return [...singleImpls, mergeImpl];
 }
