@@ -3,9 +3,13 @@ import starlight from '@astrojs/starlight';
 import starlightTypeDoc from 'starlight-typedoc';
 
 // https://astro.build/config
+// 部署到独立子域名 docs.lokvis.dev(Cloudflare Pages 项目 lokvis-docs)。
+// 此前为 lokvis.com/docs 子路径(site: lokvis.com, base: /docs),
+// 现改为根域部署:site: https://docs.lokvis.dev, base: '/'。
+// 详见 apps/docs/DEPLOY.md。
 export default defineConfig({
-  site: 'https://lokvis.com',
-  base: '/docs',
+  site: 'https://docs.lokvis.dev',
+  base: '/',
 
   integrations: [
     starlight({

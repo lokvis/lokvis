@@ -1,0 +1,61 @@
+name: Deploy Docs
+
+# 部署 Lokvis 文档站到 Cloudflare Pages(docs.lokvis.dev)。
+# 触发条件:push 到 dev 分支且 apps/docs/** 有变更,或手动 workflow_dispatch。
+#
+# 生产域名 docs.lokvis.dev 在 Cloudflare Pages dashboard 配置 custom domain,
+# 不在 workflow 里——本 workflow 只负责把 apps/docs/dist 推到 Pages 项目
+# `lokvis-docs`,custom domain / DNS / HTTPS 证书均在 Cloudflare 控制台配置。
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'apps/docs/**'
+      - 'packages/*/src/**'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '24'
+  PNPM_VERSION: '9.12.0'
+
+# 部署不取消进行中的旧运行——避免半成品上线。
+concurrency:
+  group: deploy-docs
+  cancel-in-progress: false
+
+jobs:
+  deploy-docs:
+    name: Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    if: github.repository == 'lokvis/lokvis'
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 全量构建:docs 的 TypeDoc API Reference 依赖 @lokvis/* 子包的 dist 产物。
+      - name: Build
+        run: pnpm build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/docs/dist --project-name=lokvis-docs --branch=${{ github.ref_name }}
