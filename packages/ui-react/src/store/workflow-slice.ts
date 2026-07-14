@@ -6,10 +6,11 @@
  * - 工作流执行(run):构建线性 Workflow → 调用 runtime.run → 更新节点状态
  * - 清空(clearWorkflow)
  *
- * run() 内部依赖 buildLinearWorkflow(本地工具)把节点序列构建为 Workflow 定义。
+ * run() 内部依赖 buildLinearWorkflow(@lokvis/workflow)把节点序列构建为 Workflow 定义。
  */
 import type { StateCreator } from 'zustand';
-import type { Asset, AssetType, Workflow, WorkflowCategory, WorkflowEdge, WorkflowNode } from '@lokvis/schema';
+import type { Asset } from '@lokvis/schema';
+import { buildLinearWorkflow } from '@lokvis/workflow';
 import type { WorkspaceNode } from '../types.js';
 import type { WorkspaceStore, WorkspaceState, WorkspaceActions } from './types.js';
 import { genNodeId, MAX_WORKFLOW_STEPS } from './types.js';
@@ -302,59 +303,3 @@ export const createWorkflowSlice: StateCreator<
     set({ lastOutputIds: [], selectedOutputId: null });
   },
 });
-
-/**
- * AssetType → WorkflowCategory 映射。
- *
- * AssetType 的 'text' / 'unknown' 无对应 WorkflowCategory,归入 'other';
- * 其余类型('image' | 'video' | 'audio' | 'pdf' | 'data')与 WorkflowCategory 同名直接复用。
- */
-function assetTypeToCategory(type: AssetType): WorkflowCategory {
-  switch (type) {
-    case 'image':
-    case 'video':
-    case 'audio':
-    case 'pdf':
-    case 'data':
-      return type;
-    case 'text':
-    case 'unknown':
-      return 'other';
-  }
-}
-
-/** 把工作台节点序列构建为线性 Workflow */
-function buildLinearWorkflow(nodes: WorkspaceNode[], inputType: AssetType): Workflow {
-  if (nodes.length === 0) {
-    throw new Error('Workflow is empty');
-  }
-  const workflowNodes: WorkflowNode[] = nodes.map((n) => ({
-    id: n.id,
-    type: 'transform' as const,
-    capability: n.capability,
-    params: n.params,
-  }));
-  const edges: WorkflowEdge[] = [];
-  for (let i = 0; i < workflowNodes.length - 1; i++) {
-    const fromNode = workflowNodes[i];
-    const toNode = workflowNodes[i + 1];
-    if (!fromNode || !toNode) continue;
-    edges.push({ from: fromNode.id, to: toNode.id });
-  }
-  return {
-    $schema: 'https://lokvis.dev/schemas/workflow.json',
-    id: `wf_${Date.now().toString(36)}`,
-    name: 'Workspace Workflow',
-    version: '1.0.0',
-    description: 'Workspace linear workflow',
-    author: { id: 'local', name: 'Local User' },
-    category: assetTypeToCategory(inputType),
-    tags: [],
-    nodes: workflowNodes,
-    edges,
-    inputs: { type: inputType, multiple: true },
-    outputs: { type: inputType },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-}

@@ -9,12 +9,8 @@
  * - 线性 edges 自动生成
  */
 import { describe, it, expect } from 'vitest';
-import {
-  WorkflowBuilder,
-  workflowToBuilder,
-  MAX_WORKFLOW_STEPS,
-} from '../workflow-builder.js';
-import { validateWorkflow } from '@lokvis/schema';
+import { WorkflowBuilder, workflowToBuilder } from '../workflow-builder.js';
+import { MAX_WORKFLOW_STEPS, validateWorkflow } from '@lokvis/schema';
 
 describe('WorkflowBuilder', () => {
   describe('链式 API', () => {

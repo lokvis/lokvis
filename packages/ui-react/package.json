@@ -41,6 +41,7 @@
     "@lokvis/sdk": "workspace:*",
     "@lokvis/ui-core": "workspace:*",
     "@lokvis/capability": "workspace:*",
+    "@lokvis/workflow": "workspace:*",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

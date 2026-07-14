@@ -11,11 +11,10 @@
 
 import type { Asset, AssetId } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
-import { validateWorkflow } from '@lokvis/schema';
+import { validateWorkflow, MAX_WORKFLOW_STEPS } from '@lokvis/schema';
 import type { EventBus } from '@lokvis/schema';
 import type { WorkflowExecutor } from '../executor.js';
 import type { CapabilityRegistry } from '../capability-registry.js';
-import { MAX_WORKFLOW_STEPS } from '../workflow-builder.js';
 import type { HistoryManager } from './history-manager.js';
 import type { RunOptions, RuntimeStatus } from '../types.js';
 

@@ -10,6 +10,15 @@ import type { AssetType } from './asset.js';
 /** Workflow 节点类型 */
 export type NodeType = 'load' | 'transform' | 'export';
 
+/**
+ * 工作流最大节点数(M1 MVP 约束)。
+ *
+ * 定义在 schema 层(与 validateWorkflow 的 maxSteps option 同源),
+ * 供 @lokvis/workflow(WorkflowBuilder)与 @lokvis/runtime(WorkflowCoordinator)
+ * 共同消费,避免常量跨包分裂。
+ */
+export const MAX_WORKFLOW_STEPS = 5;
+
 /** Workflow 节点定义 */
 export interface WorkflowNode {
   /** 节点唯一 ID */

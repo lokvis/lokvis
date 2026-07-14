@@ -1,7 +1,7 @@
 {
-  "name": "@lokvis/runtime",
-  "version": "0.4.0",
-  "description": "Lokvis Runtime - Browser-local workflow execution engine",
+  "name": "@lokvis/workflow",
+  "version": "0.1.0",
+  "description": "Lokvis Workflow - Linear workflow builder and construction utilities",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -30,13 +30,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@lokvis/schema": "workspace:*",
-    "@lokvis/workflow": "workspace:*",
-    "dexie": "^4.0.10",
-    "mitt": "^3.0.1"
+    "@lokvis/schema": "workspace:*"
   },
   "devDependencies": {
-    "fake-indexeddb": "^6.0.0",
     "typescript": "^5.6.0"
   },
   "publishConfig": {
@@ -46,6 +42,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/lokvis/lokvis.git",
-    "directory": "packages/runtime"
+    "directory": "packages/workflow"
   }
 }

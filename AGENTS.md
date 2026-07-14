@@ -10,9 +10,12 @@ AI 编码助手在修改本项目代码时应遵循的约定。
 UI → Workflow → Runtime → Capability → Engine
 ```
 
-- **Engine** 层只暴露 Blob ↔ Blob 的纯函数操作，不感知 Asset/Workflow
+- **UI** 层（@lokvis/ui-react）渲染 Workspace，依赖 @lokvis/workflow + @lokvis/runtime + @lokvis/sdk
+- **Workflow** 层（@lokvis/workflow）提供线性工作流构造工具（WorkflowBuilder / buildLinearWorkflow），仅依赖 @lokvis/schema
+- **Runtime** 层（@lokvis/runtime）调度 Capability 执行工作流，不直接依赖任何 Engine 包。runtime 通过 re-export 间接暴露 WorkflowBuilder 保持 API 兼容
 - **Capability** 层（plugin-*）负责 Asset ↔ Blob 转换，是 Engine 与 Runtime 的桥梁
-- **Runtime** 层调度 Capability，不直接依赖任何 Engine 包
+- **Engine** 层只暴露 Blob ↔ Blob 的纯函数操作，不感知 Asset/Workflow
+- **Schema** 层（@lokvis/schema）是最底层稳定核心：类型定义 + 校验器 + 业务约束常量（如 MAX_WORKFLOW_STEPS），所有层均可依赖
 
 ## 类型安全
 

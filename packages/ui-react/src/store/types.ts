@@ -147,16 +147,9 @@ export interface WorkspaceActions {
 
 export type WorkspaceStore = WorkspaceState & WorkspaceActions;
 
-/**
- * 工作流最大节点数(M1 MVP 约束)。
- *
- * UI 层独立定义此常量而非 import runtime 包的 MAX_WORKFLOW_STEPS,
- * 因为 ui-react → runtime 的方向依赖违反五层架构约束(UI → Workflow → Runtime)。
- * 两层各自维护同值常量,通过测试 + 文档约定保持同步
- * (runtime 测试断言 MAX_WORKFLOW_STEPS === 5,UI 层此常量也为 5)。
- * 调整上限时需同步修改两处 + 相关注释。
- */
-export const MAX_WORKFLOW_STEPS = 5;
+// C1: MAX_WORKFLOW_STEPS 已统一到 @lokvis/schema(与 validateWorkflow 同源)。
+// 此处 re-export 保持 store/index.ts 的 `export { MAX_WORKFLOW_STEPS }` 不破坏。
+export { MAX_WORKFLOW_STEPS } from '@lokvis/schema';
 
 /** 生成节点 ID */
 export function genNodeId(): string {

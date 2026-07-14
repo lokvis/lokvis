@@ -536,6 +536,9 @@ importers:
       '@lokvis/schema':
         specifier: workspace:*
         version: link:../schema
+      '@lokvis/workflow':
+        specifier: workspace:*
+        version: link:../workflow
       dexie:
         specifier: ^4.0.10
         version: 4.4.4
@@ -627,6 +630,9 @@ importers:
       '@lokvis/ui-core':
         specifier: workspace:*
         version: link:../ui-core
+      '@lokvis/workflow':
+        specifier: workspace:*
+        version: link:../workflow
       react:
         specifier: ^19.0.0
         version: 19.2.7
@@ -643,6 +649,16 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.2.3(@types/react@19.2.17)
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
+  packages/workflow:
+    dependencies:
+      '@lokvis/schema':
+        specifier: workspace:*
+        version: link:../schema
+    devDependencies:
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
