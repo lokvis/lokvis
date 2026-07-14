@@ -31,7 +31,6 @@
   },
   "dependencies": {
     "@lokvis/schema": "workspace:*",
-    "@lokvis/workflow": "workspace:*",
     "dexie": "^4.0.10",
     "mitt": "^3.0.1"
   },

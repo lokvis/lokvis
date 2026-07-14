@@ -6,8 +6,6 @@
  * 架构位置:UI → Workflow → Runtime → Capability → Engine
  * 依赖方向:@lokvis/workflow 依赖 @lokvis/schema(类型 + 校验常量),
  * 不依赖 @lokvis/runtime(执行器属于 Runtime 层)。
- *
- * @lokvis/runtime 通过 re-export 间接暴露 WorkflowBuilder,保持公共 API 兼容。
  */
 
 export * from './workflow-builder.js';

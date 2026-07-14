@@ -147,10 +147,6 @@ export interface WorkspaceActions {
 
 export type WorkspaceStore = WorkspaceState & WorkspaceActions;
 
-// C1: MAX_WORKFLOW_STEPS 已统一到 @lokvis/schema(与 validateWorkflow 同源)。
-// 此处 re-export 保持 store/index.ts 的 `export { MAX_WORKFLOW_STEPS }` 不破坏。
-export { MAX_WORKFLOW_STEPS } from '@lokvis/schema';
-
 /** 生成节点 ID */
 export function genNodeId(): string {
   return `node_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;

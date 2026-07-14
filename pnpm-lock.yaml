@@ -536,9 +536,6 @@ importers:
       '@lokvis/schema':
         specifier: workspace:*
         version: link:../schema
-      '@lokvis/workflow':
-        specifier: workspace:*
-        version: link:../workflow
       dexie:
         specifier: ^4.0.10
         version: 4.4.4

@@ -9,11 +9,11 @@
  * run() 内部依赖 buildLinearWorkflow(@lokvis/workflow)把节点序列构建为 Workflow 定义。
  */
 import type { StateCreator } from 'zustand';
-import type { Asset } from '@lokvis/schema';
+import { MAX_WORKFLOW_STEPS, type Asset } from '@lokvis/schema';
 import { buildLinearWorkflow } from '@lokvis/workflow';
 import type { WorkspaceNode } from '../types.js';
 import type { WorkspaceStore, WorkspaceState, WorkspaceActions } from './types.js';
-import { genNodeId, MAX_WORKFLOW_STEPS } from './types.js';
+import { genNodeId } from './types.js';
 
 export interface WorkflowSlice
   extends Pick<WorkspaceState, 'nodes' | 'selectedNodeId' | 'lastOutputIds' | 'selectedOutputId' | 'currentRunId'>,
@@ -47,7 +47,7 @@ export const createWorkflowSlice: StateCreator<
   currentRunId: null,
 
   addNode(capability) {
-    // W10.1/W10.3: 节点数上限(与 runtime MAX_WORKFLOW_STEPS 对齐,UI 层独立常量)
+    // W10.1/W10.3: 节点数上限(MAX_WORKFLOW_STEPS,单一源 @lokvis/schema)
     if (get().nodes.length >= MAX_WORKFLOW_STEPS) {
       get().setError(`工作流最多 ${MAX_WORKFLOW_STEPS} 个节点(M1 MVP 限制),请先删除不需要的节点`);
       return;
