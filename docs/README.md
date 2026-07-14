@@ -42,6 +42,12 @@
 | [W16.6 Bug 预检](./reports/W16.6-bug-fix-precheck.md) | Bug 预检（含待收集 Alpha 反馈） |
 | [归档报告](./reports/archive/) | 已完成的里程碑验收与历史诊断快照 |
 
+### Blog & 叙事
+
+| 文档 | 说明 |
+|------|------|
+| [MCP-first:让 AI 客户端就地处理本地文件](./blog/2026-07-15-mcp-first-local-tools.md) | Phase 2 M2.4 blog post — MCP-first 战略叙事 + 端到端验证结果 |
+
 ### 商业与战略（白皮书）
 
 | 文档 | 说明 |
@@ -96,6 +102,8 @@ lokvis-open/docs/
 │   ├── 05-商业模式与收入预测.md
 │   ├── 06-风险评估与应对.md
 │   └── 07-路线图与里程碑.md       # ⚠️ Phase 2 已被 roadmap.md 更新
+├── blog/                          # Blog & 叙事
+│   └── 2026-07-15-mcp-first-local-tools.md  # Phase 2 M2.4
 ├── adr/                           # 架构决策记录
 │   ├── README.md
 │   ├── 011-mcp-server.md
