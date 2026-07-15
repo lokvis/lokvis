@@ -95,8 +95,8 @@ function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null;
 }
 
-const VALID_FIT_STRATEGIES = ['cover', 'contain', 'fill', 'inside', 'outside'];
-const VALID_FORMATS = ['png', 'jpeg', 'webp'];
+const VALID_FIT_STRATEGIES: readonly PlatformFitStrategy[] = ['cover', 'contain', 'fill', 'inside', 'outside'];
+const VALID_FORMATS: readonly PlatformRecommendedFormat[] = ['png', 'jpeg', 'webp'];
 
 /** 从 localStorage 读取自定义预设。
  * 容错:JSON 解析失败 / 非数组 / 字段缺失时返回空数组。
@@ -110,7 +110,7 @@ export function readCustomPresetsFromStorage(): CustomSizePreset[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     // 字段白名单过滤(防御损坏数据)
-    return parsed.filter((it): it is CustomSizePreset => {
+    const result = parsed.filter((it): it is CustomSizePreset => {
       if (!isRecord(it)) return false;
       if (
         typeof it.id !== 'string' ||
@@ -123,19 +123,25 @@ export function readCustomPresetsFromStorage(): CustomSizePreset[] {
       ) {
         return false;
       }
+      // id 必须以 custom. 前缀开头,与内置 PLATFORM_PRESETS 隔离
+      if (!it.id.startsWith('custom.')) return false;
       // fit 必须是合法值
-      if (!VALID_FIT_STRATEGIES.includes(it.fit as string)) {
+      if (!VALID_FIT_STRATEGIES.includes(it.fit as PlatformFitStrategy)) {
         return false;
       }
       // format 可选,若有则必须是合法值
-      if (it.format !== undefined && !VALID_FORMATS.includes(it.format as string)) {
+      if (it.format !== undefined && !VALID_FORMATS.includes(it.format as PlatformRecommendedFormat)) {
         return false;
       }
       // width / height 必须为正整数
       if (it.width <= 0 || it.height <= 0) return false;
       return true;
     });
+    // 按 updatedAt 降序(最新在前),与接口契约一致
+    result.sort((a, b) => b.updatedAt - a.updatedAt);
+    return result;
   } catch {
+    console.warn('[lokvis] Failed to read custom presets from storage');
     return [];
   }
 }
@@ -251,7 +257,10 @@ export function useCustomPresets(isPro = false): UseCustomPresetsResult {
   const remove = useCallback((id: string) => {
     const current = readCustomPresetsFromStorage();
     const next = current.filter((p) => p.id !== id);
-    writeCustomPresetsToStorage(next);
+    const ok = writeCustomPresetsToStorage(next);
+    if (!ok) {
+      console.warn('[lokvis] Failed to persist custom presets removal');
+    }
     setPresets(next);
   }, []);
 

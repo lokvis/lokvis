@@ -116,10 +116,11 @@ describe('playground/share', () => {
   });
 
   describe('buildShareUrl', () => {
+    let originalLocation: Location | undefined;
+
     beforeEach(() => {
-      // mock location:jsdom 默认 location,但本测试套件环境为 node,
-      // 所以注入 stub。Vitest 在 node 环境下没有 location 全局,需手动注入。
-      // 用 Object.defineProperty 因为 location 是只读的。
+      // 保存原 location(Node 环境下为 undefined,jsdom 下有值)
+      originalLocation = (globalThis as { location?: Location }).location;
       const stub = {
         origin: 'https://playground.lokvis.dev',
         pathname: '/en/',
@@ -132,7 +133,17 @@ describe('playground/share', () => {
     });
 
     afterEach(() => {
-      // 不还原 —— 后续测试可继续覆盖写入
+      // 还原 location 到测试前状态,避免跨套件状态泄漏
+      if (originalLocation !== undefined) {
+        Object.defineProperty(globalThis, 'location', {
+          value: originalLocation,
+          writable: true,
+          configurable: true,
+        });
+      } else {
+        // Node 环境无 location,删除 stub 即可
+        delete (globalThis as { location?: unknown }).location;
+      }
       vi.restoreAllMocks();
     });
 

@@ -22,7 +22,7 @@ W17.6: examples 接 cloud auth — `useLokvis` / `<Workspace>` 支持 `auth` 透
 - **Guest**(cloud 游客):`auth: { session: jwt, isPro: false }` → 显式标记游客
 
 侧边栏新增 Auth Mode 切换器(仅演示用,真实集成中 auth 由宿主应用 auth context 决定)。
-切换时通过 `key={authMode}` remount Workspace(因 `useLokvis` 只在挂载时初始化一次)。
+`useLokvis` 通过 `JSON.stringify(auth)` 监听 auth 内容变化,自动重新初始化 Runtime(无需 key remount)。
 
 README 重写,新增 "Cloud auth integration (W17.6)" 章节:
 - 3 种 auth 模式对比表(isPro / batch / concurrency / slots / presets)

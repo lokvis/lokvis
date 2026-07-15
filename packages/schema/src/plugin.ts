@@ -163,9 +163,11 @@ export interface PluginContext {
    *
    * Plugin 据此在调用受限 API 前主动断言:
    *   ctx.sandbox.assertNetworkAllowed('loading manifest');
-   * Runtime 在 installPlugin() / capability execute() 期间也会应用
-   * network guard(monkey-patch fetch/XHR/WebSocket/EventSource),
-   * 声明 network:none 时这些 API 调用立即抛 NetworkGuardError。
+   *
+   * Runtime 在 installPlugin() 期间应用 network guard
+   * (monkey-patch fetch/XHR/WebSocket/EventSource),声明
+   * network:none 时这些 API 调用立即抛 NetworkGuardError。
+   * capability execute() 路径不自动应用守卫 —— plugin 应主动自检。
    */
   readonly sandbox: PluginPermissionSandbox;
   /** 日志 */

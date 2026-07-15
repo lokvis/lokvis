@@ -164,7 +164,7 @@ describe('useCustomPresets 纯函数(W17.5)', () => {
 
   // ─── read + write 往返 ───────────────────────────────
   describe('write → read 往返一致性', () => {
-    it('写入后读取还原原始数据', () => {
+    it('写入后读取还原原始数据(按 updatedAt 降序)', () => {
       const original: CustomSizePreset[] = [
         {
           id: 'custom.1', name: '方形', width: 1080, height: 1080,
@@ -177,7 +177,27 @@ describe('useCustomPresets 纯函数(W17.5)', () => {
       ];
       writeCustomPresetsToStorage(original);
       const read = readCustomPresetsFromStorage();
-      expect(read).toEqual(original);
+      // readCustomPresetsFromStorage 按 updatedAt 降序排序(最新在前)
+      // original 中 custom.2 (updatedAt:400) 在 custom.1 (updatedAt:200) 之前
+      expect(read).toEqual([original[1], original[0]]);
+    });
+
+    it('过滤非 custom. 前缀的 id(命名空间隔离)', () => {
+      const mixed: CustomSizePreset[] = [
+        {
+          id: 'youtube.standard', name: 'YT', width: 1920, height: 1080,
+          fit: 'contain', createdAt: 100, updatedAt: 200,
+        },
+        {
+          id: 'custom.valid', name: 'Valid', width: 1080, height: 1080,
+          fit: 'cover', createdAt: 300, updatedAt: 400,
+        },
+      ];
+      writeCustomPresetsToStorage(mixed);
+      const read = readCustomPresetsFromStorage();
+      // youtube.standard 应被过滤,只保留 custom.valid
+      expect(read).toHaveLength(1);
+      expect(read[0]!.id).toBe('custom.valid');
     });
   });
 

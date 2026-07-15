@@ -6,9 +6,9 @@ including **cloud auth integration** (W17.6) for Pro tier unlocking.
 ## Files
 
 - `App.tsx` — host app layout that renders `<Workspace />` from `@lokvis/ui-react`
-  - Demonstrates 3 auth modes: `free` (local only) / `pro` (cloud session JWT) / `guest` (cloud but free)
+  - Demonstrates 3 auth modes: `free` (local only) / `pro` (cloud session) / `guest` (cloud but free)
   - Sidebar includes an auth mode switcher for interactive demo
-  - Uses `key={authMode}` to remount Workspace when auth changes (since `useLokvis` initializes once on mount)
+  - `useLokvis` monitors `auth` via `JSON.stringify` and re-initializes Runtime on change (no `key` remount needed)
 - `main.tsx` — React entry point rendering `App` into `#root`
 
 ## How to run

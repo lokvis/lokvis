@@ -100,6 +100,30 @@ describe('createLokvis auth 钩子(W17.3) → isPro 推导(W17.8)', () => {
     });
     expect(rt.isPro).toBe(true);
   });
+
+  it('auth.isPro=false 覆盖 RuntimeConfig.isPro=true → isPro === false(游客 override)', async () => {
+    // 边界:本地默认 Pro,但 cloud 显式标记游客,auth 胜出
+    const rt = await createLokvis({
+      isPro: true,
+      auth: { isPro: false },
+    });
+    expect(rt.isPro).toBe(false);
+  });
+
+  it('auth: {} 空对象 → isPro === false(无 session/token/isPro)', async () => {
+    const rt = await createLokvis({ auth: {} });
+    expect(rt.isPro).toBe(false);
+  });
+
+  it('auth: { session: undefined, token: undefined } → isPro === false', async () => {
+    const rt = await createLokvis({ auth: { session: undefined, token: undefined } });
+    expect(rt.isPro).toBe(false);
+  });
+
+  it('auth.session 为空白串 → isPro === false(trim 守卫)', async () => {
+    const rt = await createLokvis({ auth: { session: '   ' } });
+    expect(rt.isPro).toBe(false);
+  });
 });
 
 describe('Pro 门控行为:BatchProcessor 受 isPro 约束', () => {

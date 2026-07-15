@@ -99,17 +99,25 @@ async function installPlugin(
 /**
  * 根据 `auth` 推导 `isPro`(W17.3)。
  *
- * 规则:
- * 1. 未传 `auth`:保持 free(`isPro = false`)
- * 2. `auth.isPro` 显式定义:以其为准(允许 cloud 标记游客 session)
- * 3. 否则:`session` 或 `token` 非空 → `isPro = true`
+ * 规则(优先级从高到低):
+ * 1. `auth.isPro` 显式设置(boolean,含 false)→ 以它为准,覆盖一切
+ *    (允许 cloud 标记游客 session;也覆盖 RuntimeConfig.isPro)
+ * 2. `auth.session` / `auth.token` 非空(trim 后)→ `isPro = true`(presence 推导)
+ * 3. 否则:fallback 到 `RuntimeConfig.isPro`(若调用方显式传入)
+ * 4. 都未设置 → `isPro = false`
  *
  * 不做 token 形态/签名校验 —— cloud 网关负责鉴权,SDK 只接收结果。
  */
-function resolveIsPro(auth: LokvisAuthSession | undefined): boolean {
-  if (!auth) return false;
+function resolveIsPro(
+  auth: LokvisAuthSession | undefined,
+  fallback?: boolean
+): boolean {
+  if (!auth) return fallback ?? false;
   if (auth.isPro !== undefined) return auth.isPro;
-  return Boolean(auth.session || auth.token);
+  const hasSession = Boolean(auth.session?.trim());
+  const hasToken = Boolean(auth.token?.trim());
+  if (hasSession || hasToken) return true;
+  return fallback ?? false;
 }
 
 /**
@@ -142,15 +150,13 @@ function resolveIsPro(auth: LokvisAuthSession | undefined): boolean {
 export async function createLokvis(
   options: CreateLokvisOptions = {}
 ): Promise<LokvisRuntime> {
-  const { plugins = [], auth, ...runtimeConfig } = options;
+  const { plugins = [], auth, isPro: configIsPro, ...rest } = options;
 
-  // W17.3:据 auth 推导 isPro,与 RuntimeConfig.isPro 取或
-  // (cloud 显式 auth.isPro 优先;否则若 session/token 存在则置 true)
-  if (resolveIsPro(auth)) {
-    runtimeConfig.isPro = true;
-  }
+  // W17.3:据 auth 推导 isPro(auth.isPro 优先,覆盖 RuntimeConfig.isPro;
+  // 否则 presence 推导;都未设置则 fallback 到 configIsPro)
+  const resolvedIsPro = resolveIsPro(auth, configIsPro);
 
-  const runtime = await createRuntime(runtimeConfig);
+  const runtime = await createRuntime({ ...rest, isPro: resolvedIsPro });
 
   // 预加载插件(委托 runtime.installPlugin,无需 instanceof 具体类)
   for (const plugin of plugins) {

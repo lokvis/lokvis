@@ -33,8 +33,6 @@ interface LogEntry {
   type: 'log' | 'error' | 'event';
 }
 
-let logIdCounter = 0;
-
 export function Playground() {
   return (
     <ErrorBoundary>
@@ -55,8 +53,15 @@ function PlaygroundContent() {
   const [lastDurationMs, setLastDurationMs] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const logIdRef = useRef(0);
   const codeRef = useRef(code);
   codeRef.current = code;
+  const runningRef = useRef(running);
+  runningRef.current = running;
+
+  const addLog = useCallback((text: string, type: LogEntry['type'] = 'log') => {
+    setOutput((prev) => [...prev, { id: logIdRef.current++, text, type }]);
+  }, []);
 
   // Bootstrap runtime once
   useEffect(() => {
@@ -104,14 +109,12 @@ function PlaygroundContent() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runtime, running]);
-
-  const addLog = useCallback((text: string, type: LogEntry['type'] = 'log') => {
-    setOutput((prev) => [...prev, { id: ++logIdCounter, text, type }]);
-  }, []);
+  }, [runtime]);
 
   async function handleRun() {
-    if (!runtime) return;
+    // runningRef 防止并发重入:避免第二次 handleRun 在第一次 finally 前
+    // 覆盖 console.log,导致 restore 错版本污染全局 console
+    if (!runtime || runningRef.current) return;
     setRunning(true);
     setOutput([]);
 
@@ -145,13 +148,17 @@ function PlaygroundContent() {
       console.error = originalError;
       const duration = Math.round(performance.now() - start);
       setLastDurationMs(duration);
-      setOutput(
-        logs.map((text, i) => ({
-          id: i,
+      // 合并本地收集的 logs 与运行期间通过 addLog 收集的 event 条目
+      const existingEvents = output.filter((e) => e.type === 'event');
+      const merged = [
+        ...existingEvents,
+        ...logs.map((text) => ({
+          id: logIdRef.current++,
           text,
-          type: text.startsWith('[error]') ? 'error' : text.startsWith('[event]') ? 'event' : 'log',
+          type: text.startsWith('[error]') ? ('error' as const) : text.startsWith('[event]') ? ('event' as const) : ('log' as const),
         })),
-      );
+      ];
+      setOutput(merged);
       setRunning(false);
     }
   }
