@@ -397,7 +397,7 @@
 | 19.3 | API Reference 自动生成(从 tsdoc) | P0 | 6h | ✅ | starlight-typedoc 修复(tsconfig.typedoc.json 补全 @lokvis/workflow paths + include);10 包 200+ API 页自动生成 |
 | 19.4 | Guides:嵌入 SDK / 写第一个插件 / 自定义 Workspace / CLI 自动化 | P0 | 8h | ✅ | 4 个 guide 已存在(embed-sdk 182L / write-first-plugin 335L / custom-workspace 249L / cli-automation 233L),中英两版各 999 行 |
 | 19.5 | Architecture 深度文:Runtime/Engine/Capability/Plugin 四层 | P0 | 4h | ✅ | docs(四层深度文已存在;本次补强:修复 architecture.mdx 断链 whitepaper/→business/(中英两版);新增"四层协作"综述章节串联四层请求流+单向依赖+深度文档链接(中英两版)) |
-| 19.6 | 交互式 Playground 增强:可编辑代码 + 实时运行 | P1 | 8h | ⬜ | apps/playground |
+| 19.6 | 交互式 Playground 增强:可编辑代码 + 实时运行 | P1 | 8h | ✅ | apps/playground(snippet 选择器 5 例 + localStorage 持久化 + URL hash 分享 #code=base64 + Cmd/Ctrl+Enter 快捷键 + 运行耗时显示 + 重置/复制/分享按钮 + i18n 9 key;提取 share.ts + snippets.ts 纯函数 + 30 单测) |
 | 19.7 | 搜索功能(Pagefind) | P0 | 2h | ✅ | docs(Starlight 0.33+ 内置 Pagefind) |
 | 19.8 | 缓冲 | P0 | 4h | ⬜ | — |
 | **19.9** | **新增 MCP Integration 文档页**(`apps/docs/src/content/docs/mcp.mdx` + sidebar 注册) | **P0** | 4h | ✅ | docs |
