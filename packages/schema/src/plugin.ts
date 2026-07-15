@@ -48,6 +48,35 @@ export interface PluginConfig {
   permissions?: PluginPermission[];
 }
 
+/**
+ * Plugin 权限沙箱契约(由 runtime 实现)。
+ *
+ * Plugin 通过 `ctx.sandbox` 访问自身权限声明,在调用受限 API 前主动断言:
+ *   ctx.sandbox.assertNetworkAllowed('loading model manifest');
+ * 若声明 network:none,断言立即抛 PluginPermissionError;否则 no-op。
+ *
+ * 实现见 @lokvis/runtime 的 PluginPermissionSandbox 类。schema 仅定义契约
+ * (依赖反转:runtime 依赖 schema,而非反之)。
+ */
+export interface PluginPermissionSandbox {
+  /** 插件名(便于错误信息定位) */
+  readonly pluginName: string;
+  /** 声明的权限集合(只读) */
+  readonly declared: ReadonlySet<PluginPermission>;
+  /** 是否声明了指定权限 */
+  has(perm: PluginPermission): boolean;
+  /**
+   * 断言网络调用允许(声明 network:none 时抛错)。
+   * Plugin 在调用 fetch / XHR 等前可主动调用。
+   */
+  assertNetworkAllowed(reason: string): void;
+  /**
+   * 断言文件系统访问允许(声明未含对应 filesystem:* 时抛错)。
+   * @param scope 'opfs'(OPFS 根目录)或 'local'(任意本地文件系统)
+   */
+  assertFilesystemAllowed(scope: 'opfs' | 'local', reason: string): void;
+}
+
 /** Panel 定义（UI 扩展点） */
 export interface PanelDefinition {
   id: string;
@@ -129,6 +158,16 @@ export interface PluginContext {
   registerMetadataReader<T>(name: string, reader: MetadataReader<T>): void;
   /** 注册 UI Panel */
   registerPanel(panel: PanelDefinition): void;
+  /**
+   * 权限沙箱(W18.6)。
+   *
+   * Plugin 据此在调用受限 API 前主动断言:
+   *   ctx.sandbox.assertNetworkAllowed('loading manifest');
+   * Runtime 在 installPlugin() / capability execute() 期间也会应用
+   * network guard(monkey-patch fetch/XHR/WebSocket/EventSource),
+   * 声明 network:none 时这些 API 调用立即抛 NetworkGuardError。
+   */
+  readonly sandbox: PluginPermissionSandbox;
   /** 日志 */
   log(level: 'info' | 'warn' | 'error', message: string): void;
 }

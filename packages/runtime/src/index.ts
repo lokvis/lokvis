@@ -19,6 +19,8 @@ export * from './history-store.js';
 export * from './memory-guard.js';
 export * from './degradation.js';
 export * from './batch-processor.js';
+export * from './plugin-permissions.js';
+export * from './plugin-context.js';
 export * from './runtime.js';
 
 export { RUNTIME_VERSION } from './runtime.js';
