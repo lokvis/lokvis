@@ -92,8 +92,8 @@ describe('PDF 能力预设', () => {
     expect(PDF_SPLIT.outputTypes).toEqual(['data']);
   });
 
-  it('PDF_CAPABILITIES 应包含 8 个能力', () => {
-    expect(PDF_CAPABILITIES).toHaveLength(8);
+  it('PDF_CAPABILITIES 应包含 7 个能力', () => {
+    expect(PDF_CAPABILITIES).toHaveLength(7);
   });
 });
 
@@ -129,8 +129,8 @@ describe('音频能力预设', () => {
     expect(format?.values?.length).toBeGreaterThan(0);
   });
 
-  it('AUDIO_CAPABILITIES 应包含 5 个能力', () => {
-    expect(AUDIO_CAPABILITIES).toHaveLength(5);
+  it('AUDIO_CAPABILITIES 应包含 4 个能力', () => {
+    expect(AUDIO_CAPABILITIES).toHaveLength(4);
   });
 });
 

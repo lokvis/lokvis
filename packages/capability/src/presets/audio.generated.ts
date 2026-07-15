@@ -77,31 +77,10 @@ export const AUDIO_TRANSCODE: Capability = {
   batchable: true,
 };
 
-export const AUDIO_DENOISE: Capability = {
-  name: 'audio.denoise',
-  description: 'Remove noise from audio recordings',
-  inputTypes: ['audio'],
-  outputTypes: ['audio'],
-  params: [
-    {
-      name: 'level',
-      type: 'number',
-      required: false,
-      default: 0.5,
-      min: 0,
-      max: 1,
-      description: 'Denoise intensity (0=light, 1=aggressive)',
-    },
-  ],
-  performance: 'slow',
-  batchable: true,
-};
-
 /** 所有内置 audio 能力预设(由 codegen 从 manifest 生成) */
 export const AUDIO_CAPABILITIES: Capability[] = [
   AUDIO_TRIM,
   AUDIO_NORMALIZE,
   AUDIO_MERGE,
   AUDIO_TRANSCODE,
-  AUDIO_DENOISE,
 ];

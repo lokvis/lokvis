@@ -23,7 +23,6 @@ export type BuiltinCapabilityName =
   | 'audio.normalize'
   | 'audio.merge'
   | 'audio.transcode'
-  | 'audio.denoise'
   | 'image.resize'
   | 'image.compress'
   | 'image.convert'
@@ -40,7 +39,6 @@ export type BuiltinCapabilityName =
   | 'pdf.watermark'
   | 'pdf.ocr'
   | 'pdf.sign'
-  | 'pdf.add-page-numbers'
   | 'video.compress'
   | 'video.transcode'
   | 'video.trim'
@@ -60,7 +58,6 @@ export const BUILTIN_CAPABILITY_NAMES: readonly BuiltinCapabilityName[] = [
   'audio.normalize',
   'audio.merge',
   'audio.transcode',
-  'audio.denoise',
   'image.resize',
   'image.compress',
   'image.convert',
@@ -77,7 +74,6 @@ export const BUILTIN_CAPABILITY_NAMES: readonly BuiltinCapabilityName[] = [
   'pdf.watermark',
   'pdf.ocr',
   'pdf.sign',
-  'pdf.add-page-numbers',
   'video.compress',
   'video.transcode',
   'video.trim',
