@@ -5,8 +5,9 @@
 ## Status: Alpha
 
 Plugin SDK is in **Alpha**. The API surface (`definePlugin`, capability factories,
-`PluginContext`) is stable, but the permission model is partially enforced
-(`network:none` is active; other permissions are advisory). See
+`PluginContext`) is stable, and the permission model is **enforced** as of W18.6
+(`network:none` blocks `fetch`/`XHR`/`WebSocket`/`EventSource` via runtime sandbox;
+`filesystem` is asserted at API boundaries). See
 [Architecture → Plugin SDK](https://lokvis.dev/architecture/plugin) for the
 full deep dive.
 
