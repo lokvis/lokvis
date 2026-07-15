@@ -8,8 +8,10 @@
  *
  * 详见 docs/AI生态冲击调整方案.md §3.5。
  *
- * 状态:Phase 2 骨架。BrowserBridge 与 NodeEngineAdapter 的具体实现
- * 在 Phase 2 W3-W4 完成。
+ * 实装状态(2026-07-15):BrowserBridge(WebSocket)、NodeEngineAdapter
+ * (sharp + pdf-lib)、ToolRouter 路由逻辑均已实装。当前 image/pdf tool
+ * 直接经 NodeEngineAdapter 调用 sharp/pdf-lib,未经 runtime capability
+ * 系统(见 TD-1.3 / TD-1.4,Phase 2 W7-W8 改造)。
  */
 
 /**

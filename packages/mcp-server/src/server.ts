@@ -19,7 +19,8 @@ import { ToolRouter } from './router.js';
 
 /**
  * 能力域(决定注册哪些 tools)。
- * 当前仅 'image' 在 Phase 2 W5-W6 实现;其余为占位。
+ * 当前 'image' 与 'pdf' 已实装(各 3/2 个 tool);'video'/'audio'/'ai' 为占位
+ * (待对应 engine 实装后补 tool handler)。
  */
 export type LokvisMcpDomain = 'image' | 'pdf' | 'video' | 'audio' | 'ai';
 
