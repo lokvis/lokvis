@@ -366,15 +366,15 @@
 |---|---|---|---|---|---|
 | 17.1 | SDK 发布到 npm(`@lokvis/sdk` 0.1.0),CI 自动发布 | P0 | 4h | ⬜ | npm |
 | 17.2 | SDK 类型导出审查,`d.ts` 完整 | P0 | 4h | ⬜ | build |
-| 17.3 | `createLokvis({auth?})` 钩子:接收 cloud 注入的 session/token | P0 | 4h | ⬜ | sdk |
+| 17.3 | `createLokvis({auth?})` 钩子:接收 cloud 注入的 session/token | P0 | 4h | ✅ | `LokvisAuthSession` 接口 + `resolveIsPro()` 推导(session/token presence → isPro,显式 isPro 覆盖优先) |
 | 17.4 | `runtime.isPro` 标志:影响 batch 上限/workflow 槽位/预设数 | P0 | 4h | ⬜ | runtime |
 | 17.5 | Pro 功能门控:批量无限制/无限 workflow/高级预设 | P0 | 4h | ⬜ | runtime |
 | 17.6 | examples 升级:embedding 示例接 cloud auth | P1 | 6h | ⬜ | examples |
-| 17.7 | SDK CHANGELOG + 迁移指南 | P0 | 4h | ⬜ | docs |
-| 17.8 | 单测:Pro 门控逻辑 | P0 | 4h | ⬜ | tests |
+| 17.7 | SDK CHANGELOG + 迁移指南 | P0 | 4h | ✅ | changeset(minor bump @lokvis/sdk)+ README "Cloud auth & Pro gate" 章节 |
+| 17.8 | 单测:Pro 门控逻辑 | P0 | 4h | ✅ | `auth-pro-gate.test.ts`(11 用例):不传 auth/显式覆盖/presence 推导/BatchProcessor free vs Pro 边界 |
 | 17.9 | 缓冲 | P0 | 6h | ⬜ | — |
 | **17.10** | **首页新增"AI 做不到的 6 件事"对比 section**(批量/大文件/隐私/确定性/离线/参数) | **P0** | 4h | ⛔ 废弃 | 已迁至 cloud `apps/web`（ADR-012） |
-| **17.11** | **ToolLayout "Why use Lokvis?" 增加 vs AI 文案**(上传/响应/tokens/离线) | **P0** | 2h | ⬜ | ToolLayout 更新 |
+| **17.11** | **ToolLayout "Why use Lokvis?" 增加 vs AI 文案**(上传/响应/tokens/离线) | **P0** | 2h | ✅ | 13 个 `whylokvis.*` i18n key(en+zh)+ ToolLayout 底部 4 张响应式对比卡片 |
 
 ### W18 · Plugin SDK Alpha + 示例插件(40h)
 
@@ -385,7 +385,7 @@
 | 18.3 | 示例插件:`plugin-grayscale`(教学用) | P1 | 6h | ✅ | `examples/plugin-grayscale`(`grayscalePlugin()` 注册 `image.grayscale` 能力,自包含 canvas 灰度化 operation,3 种算法 luminance/average/lightness;13 测试覆盖常量/installer/factory/stub status/execute/算法;README 含 30 秒速览 + 与官方 plugin-image 对比表) |
 | 18.4 | 示例插件:`plugin-batch-watermark`(实用) | ⏭️延后 | 8h | ⬜ | 改为 MCP tool 实现(Phase 2) |
 | 18.5 | Plugin 脚手架:`pnpm create @lokvis/plugin` | ⏭️延后 | 6h | ⬜ | 优先 `npx @lokvis/mcp-server`(Phase 2) |
-| 18.6 | Plugin 权限沙箱:network:none 强制、filesystem 限制 | P0 | 6h | ⬜ | runtime |
+| 18.6 | Plugin 权限沙箱:network:none 强制、filesystem 限制 | P0 | 6h | ✅ | `PluginPermissionSandbox` 类(schema 接口 + runtime 实现)+ `installPlugin()` 自动应用 network guard(monkey-patch fetch/XHR/WebSocket/EventSource)+ 25 单测 + 8 plugin test mock 更新 + changeset |
 | 18.7 | 缓冲 | P1 | 4h | ⬜ | — |
 
 ### W19 · 开发者文档站(40h)
