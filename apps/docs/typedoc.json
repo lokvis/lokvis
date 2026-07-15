@@ -4,6 +4,7 @@
   "entryPoints": [
     "../../packages/schema/src/index.ts",
     "../../packages/runtime/src/index.ts",
+    "../../packages/workflow/src/index.ts",
     "../../packages/sdk/src/index.ts",
     "../../packages/capability/src/index.ts",
     "../../packages/plugin-sdk/src/index.ts",
