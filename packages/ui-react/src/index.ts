@@ -31,6 +31,7 @@ export { useLokvis, type UseLokvisOptions, type UseLokvisResult } from './hooks/
 export { useTheme, type UseThemeResult, type ThemeMode } from './hooks/useTheme.js';
 export { useMediaQuery, useBreakpoints, type Breakpoints } from './hooks/useMediaQuery.js';
 export { useWorkflows, FREE_WORKFLOW_LIMIT, PRO_WORKFLOW_LIMIT, type UseWorkflowsResult, type WorkflowSlot, type SaveWorkflowInput } from './hooks/useWorkflows.js';
+export { useCustomPresets, FREE_PRESET_LIMIT, PRO_PRESET_LIMIT, readCustomPresetsFromStorage, writeCustomPresetsToStorage, genCustomPresetId, type UseCustomPresetsResult, type CustomSizePreset, type SavePresetInput } from './hooks/useCustomPresets.js';
 export { useDebouncedRun, type UseDebouncedRunOptions, type UseDebouncedRunResult } from './hooks/useDebouncedRun.js';
 export { useShareLink, type UseShareLinkResult, encodeWorkflowForShare, decodeWorkflowFromShare } from './hooks/useShareLink.js';
 export { useWorkspaceStore, type WorkspaceState, type WorkspaceActions } from './store/index.js';
