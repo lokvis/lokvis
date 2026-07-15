@@ -257,27 +257,64 @@ type MetadataReader<T = unknown> = (asset: Asset) => Promise<T | null>;
 
 这让 `runtime.capabilities()` 可以展示由 stub 支撑的能力（用户能看到 Phase 2 即将到来的内容），同时阻止误调用。
 
-## Alpha 权限告示
+## 权限模型(W18.6 强制)
 
-`PluginConfig.permissions` 已声明，但在 Alpha Runtime 中**尚未强制**。字符串联合涵盖：
+`PluginConfig.permissions` 声明插件的访问需求。自 W18.6 起,
+**`network:none` 已通过 `PluginPermissionSandbox` 主动强制**;其余权限仍为
+告示性声明。字符串联合涵盖:
 
-| 权限 | 预期含义 |
+| 权限 | 含义 | 强制状态(W18.6) |
+| --- | --- | --- |
+| `asset:read` | 从 AssetStore 读取资产 | 告示(总是授予) |
+| `asset:write` | 创建 / 修改 / 删除资产 | 告示(总是授予) |
+| `network:none` | 无网络访问 | **已强制** — monkey-patch fetch/XHR/WebSocket/EventSource |
+| `network:limited` | 从配置的允许列表抓取 | 告示(尚无 allowlist) |
+| `network:full` | 不受限网络 | 告示(无限制) |
+| `filesystem:opfs` | 直接 OPFS 访问 | 告示(尚无直接 FS API) |
+| `filesystem:local` | 原生文件系统访问 | 告示(尚无直接 FS API) |
+
+### `network:none` 强制机制
+
+`installPlugin()` 运行时,Runtime 从 `plugin.config.permissions` 创建
+`PluginPermissionSandbox` 实例,并在 `plugin.install(ctx)` 前调用
+`applyNetworkGuard()`。若插件声明了 `network:none`,守卫会 monkey-patch
+四个全局网络 API:
+
+- `fetch()` → 抛出 `NetworkGuardError`
+- `XMLHttpRequest.prototype.open()` → 抛出 `NetworkGuardError`
+- `new WebSocket(url)` → 抛出 `NetworkGuardError`
+- `new EventSource(url)` → 抛出 `NetworkGuardError`
+
+`install()` 返回(或抛错)后,守卫恢复原始实现。这是**尽力而为**的守卫:
+覆盖 `install()` 同步窗口,但 install 后异步调度的回调(如 `setTimeout`)
+无法拦截。插件作者应在任何网络 API 调用前主动调用
+`ctx.sandbox.assertNetworkAllowed('reason')`。
+
+### 通过 `ctx.sandbox` 主动断言
+
+`PluginContext` 暴露 `sandbox` 字段(类型 `PluginPermissionSandbox`),
+插件可在执行受限操作前自检:
+
+```typescript
+export default definePlugin({
+  name: 'my-plugin',
+  permissions: ['asset:read', 'asset:write', 'network:limited'],
+  // ...
+}, (ctx) => {
+  ctx.sandbox.assertNetworkAllowed('loading model manifest');
+  ctx.sandbox.assertFilesystemAllowed('opfs', 'writing cache');
+  // ...
+});
+```
+
+| 方法 | 抛错条件 |
 | --- | --- |
-| `asset:read` | 从 AssetStore 读取资产 |
-| `asset:write` | 创建 / 修改 / 删除资产 |
-| `network:none` | 无网络访问（离线插件的默认） |
-| `network:limited` | 从配置的允许列表抓取 |
-| `network:full` | 不受限网络 |
-| `filesystem:opfs` | 直接 OPFS 访问（绕过 AssetStore 抽象） |
-| `filesystem:local` | 原生文件系统访问（File System Access API） |
+| `has(perm)` | (不抛错 — 返回 boolean) |
+| `assertNetworkAllowed(reason)` | 插件声明了 `network:none` |
+| `assertFilesystemAllowed(scope, reason)` | 插件未声明 `filesystem:${scope}` |
 
-在 Alpha 中：
-
-- `asset:read` / `asset:write` **总是授予** —— `PluginContext.runtime` 无条件暴露相关方法。
-- `network:*` **未强制** —— 插件可自由 `fetch()`。宿主应用应在嵌入层应用 CSP 规则。
-- `filesystem:*` **未强制** —— 插件目前没有直接的文件系统 API，但该权限为未来扩展预留。
-
-此告示的存在是为了让插件作者现在就声明意图，使 Lokvis 日后强制时不破坏 manifest 契约。Phase 2 在插件沙箱落地后将接入实际强制。
+后续阶段将为 `network:limited`(allowlist)、`filesystem:*`(OPFS/local API 守卫)
+和 `asset:*`(能力级访问)接入完整强制。
 
 ## Panels
 
