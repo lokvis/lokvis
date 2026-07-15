@@ -210,6 +210,9 @@ importers:
       '@lokvis/plugin-image':
         specifier: workspace:*
         version: link:../../packages/plugin-image
+      '@lokvis/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@lokvis/ui-react':
         specifier: workspace:*
         version: link:../../packages/ui-react

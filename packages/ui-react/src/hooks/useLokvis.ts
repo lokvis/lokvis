@@ -14,12 +14,20 @@
  *   return <Workspace />;
  * }
  * ```
+ *
+ * @example 接 cloud session(W17.6)
+ * ```tsx
+ * const { runtime } = useLokvis({
+ *   plugins: [imageToolsPlugin()],
+ *   auth: { session: cloudJwt }, // → isPro: true,批量/槽位无上限
+ * });
+ * ```
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime, RuntimeConfig } from '@lokvis/runtime';
-import type { PluginLoadEntry } from '@lokvis/sdk';
+import type { LokvisAuthSession, PluginLoadEntry } from '@lokvis/sdk';
 import { useWorkspaceStore } from '../store/index.js';
 
 export interface UseLokvisOptions extends RuntimeConfig {
@@ -27,6 +35,16 @@ export interface UseLokvisOptions extends RuntimeConfig {
   plugins?: PluginLoadEntry[];
   /** 是否在挂载时自动初始化（默认 true） */
   autoInit?: boolean;
+  /**
+   * Cloud 注入的认证信息(W17.3 / W17.6)。
+   *
+   * 透传到 `createLokvis({ auth })`,SDK 据 presence 推导 `isPro`:
+   * - 传入非空 `session` 或 `token` 且未显式 `isPro: false` → Pro 模式
+   * - 不传 `auth`:保持 free 模式
+   *
+   * 详见 `@lokvis/sdk` 的 `LokvisAuthSession` 与 `resolveIsPro()` 文档。
+   */
+  auth?: LokvisAuthSession;
 }
 
 export interface UseLokvisResult {
@@ -36,7 +54,7 @@ export interface UseLokvisResult {
 }
 
 export function useLokvis(options: UseLokvisOptions = {}): UseLokvisResult {
-  const { plugins = [], autoInit = true, ...runtimeConfig } = options;
+  const { plugins = [], autoInit = true, auth, ...runtimeConfig } = options;
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
   const [status, setStatus] = useState<UseLokvisResult['status']>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +73,7 @@ export function useLokvis(options: UseLokvisOptions = {}): UseLokvisResult {
         const rt = await createLokvis({
           ...runtimeConfig,
           plugins,
+          auth,
         });
         if (cancelled) return;
         setRuntime(rt);

@@ -13,6 +13,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "@lokvis/ui-react": "workspace:*",
+    "@lokvis/sdk": "workspace:*",
     "@lokvis/plugin-image": "workspace:*"
   },
   "devDependencies": {
