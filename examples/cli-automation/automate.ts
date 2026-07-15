@@ -1,94 +1,102 @@
 /**
- * CLI 自动化示例
+ * CLI 自动化示例(W20.6)
  *
- * 演示如何在 Node.js 脚本中编程式调用 @lokvis/cli：
- * 1. 列出内置能力（runCLI(['capabilities'])）
- * 2. 构造一个 Workflow 并做结构校验
+ * 演示如何在 Node.js / CI 脚本中编程式调用 @lokvis/cli:
+ * 1. 列出内置能力(runCLI(['capabilities']))
+ * 2. 真实跑 image.resize:用 sharp 生成测试图 → runWorkflow resize → 验证输出
  *
- * 限制说明：Lokvis Runtime 设计为浏览器优先，图像能力
- * （resize / compress / convert 等）依赖 Canvas 与 createImageBitmap，
- * 在 Node.js 中不可用。因此 `runCLI(['run', ...])` 在 Node 中只能
- * 执行不依赖浏览器 API 的能力（如 asset.rename）。
- * 本脚本只做能力查询与工作流校验，不实际执行图像处理。
+ * Node 端图像能力:自 M2.2 起,@lokvis/cli 的 run 命令默认注入
+ * imageToolsPluginNode(sharp 引擎),让 image.resize / compress / convert /
+ * crop / watermark 在 Node 中真实可执行(无需浏览器 Canvas)。
+ *
+ * 运行:
+ *   pnpm --filter @lokvis/example-cli-automation start
+ *   # 或
+ *   npx tsx examples/cli-automation/automate.ts
  */
-import { runCLI } from '@lokvis/cli';
-import type { Workflow } from '@lokvis/schema';
+import { runCLI, runWorkflow } from '@lokvis/cli';
+import { writeFile, readFile, mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import sharp from 'sharp';
 
-/** 演示用的工作流定义 */
-const sampleWorkflow: Workflow = {
+/** 构造一个最小 resize workflow(load/export 节点省略,executor 直接把输入喂给 transform) */
+const resizeWorkflow = {
   id: 'ci-resize-workflow',
   version: '1.0.0',
   name: 'CI Resize',
-  description: 'A sample workflow used to validate schema in CI.',
+  description: 'Resize image to 1280x720 (cover fit) for OG preview',
   author: { id: 'ci', name: 'CLI Automation' },
   category: 'image',
   tags: ['resize', 'ci'],
   nodes: [
-    { id: 'n-load', type: 'load', capability: 'asset.load' },
     {
       id: 'n-resize',
-      type: 'transform',
+      type: 'transform' as const,
       capability: 'image.resize',
       params: { width: 1280, height: 720, fit: 'cover' },
       label: 'Resize',
     },
-    { id: 'n-export', type: 'export', capability: 'asset.export' },
   ],
-  edges: [
-    { from: 'n-load', to: 'n-resize' },
-    { from: 'n-resize', to: 'n-export' },
-  ],
-  inputs: { type: 'image', multiple: false, accept: ['image/*'] },
-  outputs: { type: 'image', format: 'png' },
+  edges: [],
+  inputs: { type: 'image' as const, multiple: false, accept: ['image/*'] },
+  outputs: { type: 'image' as const, format: 'png' },
 };
 
-/**
- * 与 @lokvis/cli 内部 validateWorkflow 一致的结构校验。
- * 在 CI 中可用此函数在「不执行」的前提下检查工作流 JSON 是否合法。
- */
-function validateWorkflow(wf: unknown): { ok: boolean; error?: string } {
-  if (typeof wf !== 'object' || wf === null) {
-    return { ok: false, error: 'Workflow must be an object' };
-  }
-  const w = wf as Record<string, unknown>;
-  if (typeof w.id !== 'string') return { ok: false, error: 'Workflow.id must be string' };
-  if (typeof w.name !== 'string') return { ok: false, error: 'Workflow.name must be string' };
-  if (!Array.isArray(w.nodes)) return { ok: false, error: 'Workflow.nodes must be array' };
-  if (!Array.isArray(w.edges)) return { ok: false, error: 'Workflow.edges must be array' };
-  for (const node of w.nodes as Array<Record<string, unknown>>) {
-    if (typeof node.id !== 'string' || typeof node.capability !== 'string') {
-      return { ok: false, error: 'Each node must have id and capability' };
-    }
-  }
-  return { ok: true };
-}
-
 async function main(): Promise<void> {
-  console.log('=== 1. 列出内置能力（runCLI capabilities） ===');
-  // runCLI 直接写入 process.stdout，这里复用同一入口
+  console.log('=== 1. 列出内置能力(runCLI capabilities) ===');
+  // runCLI 直接写入 process.stdout,这里复用同一入口
   await runCLI(['capabilities']);
   console.log();
 
-  console.log('=== 2. 校验工作流结构 ===');
-  const result = validateWorkflow(sampleWorkflow);
-  if (result.ok) {
-    console.log(`✓ Workflow "${sampleWorkflow.id}" 校验通过`);
-  } else {
-    console.error(`✗ 校验失败：${result.error}`);
+  console.log('=== 2. 真实跑 image.resize(sharp 引擎) ===');
+  // 准备工作目录
+  const workDir = join(tmpdir(), 'lokvis-cli-automation');
+  await mkdir(workDir, { recursive: true });
+
+  // 用 sharp 生成 1920x1080 测试图(模拟原始素材)
+  const inputPath = join(workDir, 'input.png');
+  const inputBuf = await sharp({
+    create: { width: 1920, height: 1080, channels: 3, background: '#3366cc' },
+  })
+    .png()
+    .toBuffer();
+  await writeFile(inputPath, inputBuf);
+  console.log(`✓ 生成测试图: ${inputPath} (1920x1080 PNG)`);
+
+  // 写 workflow JSON
+  const wfPath = join(workDir, 'resize.json');
+  await writeFile(wfPath, JSON.stringify(resizeWorkflow, null, 2), 'utf-8');
+
+  // 调用 runWorkflow 真实跑 resize(默认注入 imageToolsPluginNode / sharp 引擎)
+  const outputPath = join(workDir, 'output.png');
+  console.log(`→ runWorkflow('${wfPath}', ['${inputPath}'], { output: '${outputPath}' })`);
+  const result = await runWorkflow(wfPath, [inputPath], { output: outputPath });
+
+  if (result.status !== 'completed') {
+    console.error(`✗ 工作流执行失败: status=${result.status}, error=${result.error ?? '(no error)'}`);
     process.exitCode = 1;
     return;
   }
+  console.log(`✓ 工作流执行完成: status=${result.status}, duration=${result.duration}ms, outputs=${result.outputs.length}`);
+
+  // 验证输出文件
+  if (!existsSync(outputPath)) {
+    console.error(`✗ 输出文件未生成: ${outputPath}`);
+    process.exitCode = 1;
+    return;
+  }
+  const outBuf = await readFile(outputPath);
+  const meta = await sharp(outBuf).metadata();
+  console.log(`✓ 输出文件: ${outputPath} (${meta.width}x${meta.height} ${meta.format}, ${outBuf.length} bytes)`);
+  console.log(`  resize 行为验证:1920x1080 → ${meta.width}x${meta.height}(fit=cover,目标 1280x720)`);
   console.log();
 
-  console.log('=== 3. 关于在 Node 中运行工作流 ===');
-  // 若尝试 runCLI(['run', './workflow.json', './input.png'])，CLI 会：
-  //   - 校验工作流 JSON 结构（通过）
-  //   - 调用 runtime.run() 执行
-  //   - engine-image 需要 Canvas / createImageBitmap → 在 Node 中抛错
-  // 因此 CI 场景建议仅用于：能力查询、工作流校验，
-  // 或 asset.rename 这类不依赖浏览器 API 的能力。
-  console.log('图像能力（image.resize 等）依赖浏览器 Canvas，无法在 Node 中执行。');
-  console.log('CI 中建议仅做能力查询与工作流校验。');
+  console.log('=== 3. CI 场景提示 ===');
+  console.log('在 GitHub Actions / GitLab CI 中,把上述 runWorkflow 调用嵌入');
+  console.log('脚本即可实现:素材上传 → 自动 resize → 输出制品归档。');
+  console.log('参考 .github/workflows/resize-ci.yml 查看 GitHub Actions 示例。');
 }
 
 main().catch((err) => {

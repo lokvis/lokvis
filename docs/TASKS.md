@@ -12,11 +12,11 @@
 
 | 阶段 | 总任务数 | ✅ 完成 | ⬜ 待办 | ⛔ 废弃 | ⏭️ 延后 | 完成率 |
 |------|---------|---------|---------|---------|---------|--------|
-| **Phase 1** (W1-W24) | ~90 | ~70 | ~13 | 4 | 3 | 78% |
+| **Phase 1** (W1-W24) | ~90 | ~71 | ~12 | 4 | 3 | 79% |
 | **Phase 1.5** (架构优化) | 21 | 21 | 0 | 0 | 0 | 100% |
 | **Phase 2** (MCP/Engine/Workflow) | 9 | 6 | 0 | 0 | 3 | 67% |
 | **技术债务** | 16 | 9 | 7 | — | — | 56% |
-| **合计** | ~136 | ~106 | ~13 | 4 | 6 | 78% |
+| **合计** | ~136 | ~107 | ~12 | 4 | 6 | 79% |
 
 ---
 
@@ -41,7 +41,7 @@
 | M2 | W5-W8 | Image 工具（7 工具 + 批量 + 水印 + 历史 + 预设库 20+） | ✅ 完成 |
 | M3 | W9-W12 | Workspace UI + Workflow Layer（SPA + 拖拽编辑器 + 5 步编排 + Alpha） | ✅ 代码侧完成 |
 | M4 | W13-W16 | npm 发版 + Playground 5 demo + PWA | ✅ 完成 |
-| M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 仅 8/16 完成（19.1/19.7/19.9 提前完成 + 20.1-20.5 W20 CLI 核心 + 集成测试 + README） |
+| M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 仅 9/16 完成（19.1/19.7/19.9 提前完成 + 20.1-20.6 W20 CLI 全部完成） |
 | M6 | W21-W24 | 性能优化 + 跨浏览器测试 + 开源发布 + Product Hunt | ⬜ 全部待开始 |
 
 ### M5/W17-W20 待办明细
@@ -53,7 +53,7 @@
 | 18.1-18.3 plugin-sdk npm + 文档 + 示例插件 | P1 | ⬜ | |
 | 18.6 Plugin 权限沙箱 | P0 | ⬜ | |
 | 19.2-19.6 文档结构 + API Ref + Guides + Architecture + 交互 Playground | P0 | ⬜ | |
-| 20.1-20.6 CLI 最小版（run/capabilities/plugin create） | P1 | 🟡 | 20.1-20.5 已完成(run 默认注入 sharp 引擎 + --input/--output + 真实 resize 集成测试 + README + 帮助文本);20.6 待办 |
+| 20.1-20.6 CLI 最小版（run/capabilities/plugin create） | P1 | ✅ | 20.1-20.6 全部完成(run 默认注入 sharp 引擎 + --input/--output + 真实 resize 集成测试 + README + 帮助文本 + cli-automation 升级 + GitHub Actions 示例) |
 
 ### M6/W21-W24 待办明细
 
@@ -201,6 +201,7 @@
 
 ### 已完成（最近）
 
+- ✅ **W20.6**（2026-07-15）— `examples/cli-automation` 升级:`automate.ts` 移除过时 Node 限制说明,真实跑 image.resize(1920x1080→1280x720 PNG 174ms);新增 `.github/workflows/resize-ci.yml` GitHub Actions CI gate 示例;README 重写。W20 CLI 最小版全部完成。
 - ✅ **W20.5**（2026-07-15）— CLI README 新建(`packages/cli/README.md`):命令清单 + 用法示例 + Node 端 5 真实图像能力表 + 编程式 API + 限制说明;`version.ts` 同步到 0.2.2(原硬编码 0.1.0 与 package.json 不同步);help 文本 W20.1 已更新覆盖 --input/--output。
 - ✅ **W20.4**（2026-07-15）— CLI 集成测试 `packages/cli/src/__tests__/integration/run-resize.integration.test.ts`,3 测试覆盖 resize(200x100→100x50 PNG) + compress(PNG→JPEG) + 无 --output 路径,真实 sharp 引擎端到端跑通,作为持续验证 CLI 端到端可用性的护栏。
 - ✅ **W20.1/20.2/20.3**（2026-07-15）— CLI `run` 命令默认注入 `imageToolsPluginNode`(sharp 引擎),支持 `--input`/`--output` 选项;Node 端真实跑图像工作流端到端验证通过(256x192→64x48 PNG 37ms)。`capabilities` 与 `plugin create` 命令核验通过。

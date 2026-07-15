@@ -1,0 +1,68 @@
+# GitHub Actions 示例:用 @lokvis/cli 跑图像处理 CI gate
+#
+# 这个 workflow 演示如何在 CI 中:
+# 1. 构建 lokvis monorepo(生成 @lokvis/cli 及其依赖的 dist)
+# 2. 跑 examples/cli-automation/automate.ts 真实执行 image.resize
+# 3. 把输出图片作为 artifact 归档
+#
+# 复制到自己仓库的 .github/workflows/ 即可使用。
+# 触发条件、Node 版本、artifact 保留天数可按需调整。
+name: Resize CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # 支持手动触发(便于调试)
+  workflow_dispatch:
+
+jobs:
+  resize:
+    name: Run image.resize via @lokvis/cli
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          # 版本写死,避免依赖 packageManager 字段(若仓库未配置)
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          # pnpm 全局 bin 缓存
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build monorepo
+        # 生成 @lokvis/cli + @lokvis/sdk + @lokvis/runtime + @lokvis/plugin-image 的 dist
+        # runWorkflow 内部 import 这些 dist,所以必须先 build
+        run: pnpm build
+
+      - name: Run automate.ts(image.resize CI gate)
+        # 跑 examples/cli-automation/automate.ts:
+        # - 用 sharp 生成 1920x1080 测试图
+        # - 调用 runWorkflow 真实跑 image.resize(1280x720, fit=cover)
+        # - 验证输出尺寸
+        # 任何一步失败,CI step 失败 → PR 检查红
+        run: pnpm --filter @lokvis/example-cli-automation start
+
+      - name: Upload resized output
+        uses: actions/upload-artifact@v4
+        if: always()  # 即使上一步失败也尝试上传(便于排查)
+        with:
+          name: resized-output
+          # automate.ts 把输出写到 os.tmpdir()/lokvis-cli-automation/output.png
+          # GitHub Actions 的 runner 在 ubuntu 上 tmpdir 是 /tmp
+          path: /tmp/lokvis-cli-automation/output.png
+          if-no-files-found: warn
+          retention-days: 7

@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/example-cli-automation",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "description": "Example: drive @lokvis/cli programmatically in Node.js CI scripts",
   "license": "MIT",
@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@lokvis/cli": "workspace:*",
-    "@lokvis/schema": "workspace:*"
+    "@lokvis/schema": "workspace:*",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

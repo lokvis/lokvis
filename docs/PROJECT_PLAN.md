@@ -412,7 +412,7 @@
 | 20.3 | `lokvis plugin create [name]` 脚手架 | P1 | 4h | ✅ | cli(此前已实装) |
 | 20.4 | CLI 集成测试(真实跑 resize) | P1 | 4h | ✅ | tests(`packages/cli/src/__tests__/integration/run-resize.integration.test.ts`,3 测试覆盖 resize + compress + 无 --output 路径,真实 sharp 引擎端到端跑通) |
 | 20.5 | CLI README + 帮助文本 | P1 | 2h | ✅ | docs(`packages/cli/README.md` 新建:命令清单 + 用法示例 + Node 端 5 真实图像能力表 + 编程式 API + 限制说明;`version.ts` 同步到 0.2.2;help 文本 W20.1 已更新) |
-| 20.6 | `examples/cli-automation` 升级:GitHub Actions 示例 | P1 | 4h | ⬜ | examples |
+| 20.6 | `examples/cli-automation` 升级:GitHub Actions 示例 | P1 | 4h | ✅ | examples(automate.ts 移除过时 Node 限制说明 + 真实跑 resize(1920x1080→1280x720 PNG 174ms);新增 .github/workflows/resize-ci.yml;README 重写) |
 | 20.7 | ~~`plugin-dev` Developer Workspace~~ | **P3** | 0h | ⏭️ | 延后到 Phase 4 |
 | 20.8 | 缓冲(吸收 W17-19 溢出) | P0 | 16h | ⬜ | — |
 
