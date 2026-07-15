@@ -37,14 +37,25 @@ const lokvis = await createLokvis({
 |------|--------|------|
 | `importAsset(source)` | `Promise<AssetId>` | 导入资产 |
 | `getAsset(id)` | `Promise<Asset>` | 获取资产元数据 |
+| `getAssetBlob(asset)` | `Promise<Blob>` | 获取资产 Blob 数据 |
 | `exportAsset(id, format?)` | `Promise<Blob>` | 导出资产 |
 | `removeAsset(id)` | `Promise<void>` | 删除资产（释放配额） |
 | `listAssets()` | `Promise<Asset[]>` | 列出所有资产 |
+| `readAssetExif(assetId)` | `Promise<ExifData \| null>` | 读取资产 EXIF 元数据 |
 | `run(workflow, inputs)` | `Promise<WorkflowResult>` | 执行工作流 |
-| `cancel(workflowId)` | `void` | 取消执行 |
-| `capabilities()` | `Promise<Capability[]>` | 列出已注册能力 |
+| `cancel(workflowId)` | `Promise<void>` | 取消执行 |
+| `pause(workflowId)` | `Promise<void>` | 暂停执行 |
+| `resume(workflowId)` | `Promise<void>` | 恢复执行 |
+| `disposeWorkflow(workflowId)` | `Promise<void>` | 释放工作流（清理历史栈与中间资产） |
 | `undo()` | `Promise<AssetId \| null>` | 撤销上一步 |
 | `redo()` | `Promise<AssetId \| null>` | 重做 |
+| `jumpTo(workflowId, stepId)` | `Promise<AssetId \| null>` | 跳转到历史栈指定步骤 |
+| `history` | `HistorySnapshot` | 当前历史快照 |
+| `getHistoryState(workflowId)` | `HistoryState` | 获取历史状态（cursor / 总数） |
+| `capabilities()` | `Promise<Capability[]>` | 列出已注册能力 |
+| `hasCapability(name)` | `boolean` | 检查能力是否已注册 |
+| `isStubOnly(name)` | `boolean` | 检查能力是否仅有 stub 实现 |
+| `getStorageUsage()` | `StorageUsage` | 获取存储用量（已用 / 配额） |
 | `toMcpManifest()` | `McpManifest` | 生成 MCP server manifest |
 | `eventBus` | `EventBus` | 事件总线（订阅/发布） |
 
@@ -99,15 +110,55 @@ console.log(manifest.resources);
 
 ### 错误体系
 
-```typescript
-import { LokvisError, QuotaExceededError } from '@lokvis/sdk';
+所有错误类均继承自 `LokvisError`，并暴露稳定的 `code` 字段（如 `'ASSET_NOT_FOUND'`、`'STORAGE_QUOTA_EXCEEDED'`）。
 
-// LokvisError — 基类
-// QuotaExceededError — 存储配额超限
-// CapabilityNotFoundError — 能力未注册
-// WorkflowValidationError — workflow JSON 校验失败
-// WorkerCrashedError — Worker 崩溃且重启失败
+```typescript
+import {
+  LokvisError,
+  AssetNotFoundError,
+  AssetImportError,
+  AssetExportError,
+  WorkflowInvalidError,
+  WorkflowCycleError,
+  WorkflowNodeError,
+  CapabilityNotRegisteredError,
+  CapabilityStubOnlyError,
+  StorageQuotaExceededError,
+  StorageOpfsUnavailableError,
+  StorageIdbUnavailableError,
+  WorkerCrashedError,
+  WorkerTimeoutError,
+  WorkerDeadError,
+  WorkerRequestAbortedError,
+  WorkerHandshakeError,
+  DegradationRejectedError,
+  PluginLoadError,
+} from '@lokvis/sdk';
 ```
+
+| 错误类 | code | 触发场景 |
+|-------|------|----------|
+| `LokvisError` | — | 基类，所有 SDK 错误的根 |
+| `AssetNotFoundError` | `ASSET_NOT_FOUND` | 资产 ID 不存在 |
+| `AssetImportError` | `ASSET_IMPORT_FAILED` | 资产导入失败（格式不支持 / IO 错误） |
+| `AssetExportError` | `ASSET_EXPORT_FAILED` | 资产导出失败（格式不支持 / Blob 读取失败） |
+| `WorkflowInvalidError` | `WORKFLOW_INVALID` | workflow JSON 校验失败（形状 / 保留字 / 节点 id） |
+| `WorkflowCycleError` | `WORKFLOW_CYCLE` | workflow 含环 |
+| `WorkflowNodeError` | `WORKFLOW_NODE_ERROR` | 工作流节点执行失败（携带 nodeId / capability） |
+| `CapabilityNotRegisteredError` | `CAPABILITY_NOT_REGISTERED` | 能力未注册（无对应 plugin） |
+| `CapabilityStubOnlyError` | `CAPABILITY_STUB_ONLY` | 能力仅有 stub 实现（需安装真实 engine plugin） |
+| `StorageQuotaExceededError` | `STORAGE_QUOTA_EXCEEDED` | 存储配额超限（携带 usage / quota） |
+| `StorageOpfsUnavailableError` | `STORAGE_OPFS_UNAVAILABLE` | OPFS 不可用（降级到 IndexedDB） |
+| `StorageIdbUnavailableError` | `STORAGE_IDB_UNAVAILABLE` | IndexedDB 不可用（降级到内存） |
+| `WorkerCrashedError` | `WORKER_CRASHED` | Worker 崩溃且重启失败 |
+| `WorkerTimeoutError` | `WORKER_TIMEOUT` | Worker 请求超时 |
+| `WorkerDeadError` | `WORKER_DEAD` | Worker 进入 dead 状态（超过 maxRestarts） |
+| `WorkerRequestAbortedError` | `WORKER_REQUEST_ABORTED` | Worker 请求被取消（AbortController） |
+| `WorkerHandshakeError` | `WORKER_HANDSHAKE` | Worker 握手失败（协议版本不匹配） |
+| `DegradationRejectedError` | `DEGRADATION_REJECTED` | 降级被拒绝（携带引导提示） |
+| `PluginLoadError` | `PLUGIN_LOAD_FAILED` | 插件加载失败（携带 pluginName） |
+
+> **错误转换**：runtime 抛出的内部错误经 `fromLokvisError()` 转换为 SDK 错误类。消费方应优先用 `instanceof XxxError` 或 `err.code === 'XXX'` 判断，而非 message 字符串匹配。
 
 ---
 
