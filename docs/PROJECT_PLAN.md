@@ -380,7 +380,7 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 18.1 | `@lokvis/plugin-sdk` 发布到 npm(0.1.0-alpha) | P1 | 4h | ⬜ | npm |
+| 18.1 | `@lokvis/plugin-sdk` 发布到 npm(0.1.0-alpha) | P1 | 4h | ✅ | npm(发版就绪度报告 docs/reports/W18.1 + changeset minor bump + package.json 元数据补全 author/homepage/bugs/keywords 8 个 + README 状态更新 enforced) |
 | 18.2 | Plugin SDK 文档:Manifest / Context / 权限模型 / 生命周期 | P1 | 6h | ✅ | architecture/plugin.mdx 权限模型从 advisory 更新为 W18.6 enforced + 新增 packages/plugin-sdk/README.md(Quick start + API 表 + PluginContext + 生命周期 + Stub) |
 | 18.3 | 示例插件:`plugin-grayscale`(教学用) | P1 | 6h | ✅ | `examples/plugin-grayscale`(`grayscalePlugin()` 注册 `image.grayscale` 能力,自包含 canvas 灰度化 operation,3 种算法 luminance/average/lightness;13 测试覆盖常量/installer/factory/stub status/execute/算法;README 含 30 秒速览 + 与官方 plugin-image 对比表) |
 | 18.4 | 示例插件:`plugin-batch-watermark`(实用) | ⏭️延后 | 8h | ⬜ | 改为 MCP tool 实现(Phase 2) |
