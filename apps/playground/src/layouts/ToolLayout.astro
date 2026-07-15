@@ -1,6 +1,6 @@
 ---
 /**
- * ToolLayout — 工具页 SEO + 隐私声明 包装层(W8.7 / W8.8)。
+ * ToolLayout — 工具页 SEO + 隐私声明 包装层(W8.7 / W8.8 / W17.11)。
  *
  * 用法:工具页 .astro 用 ToolLayout 替代 PlaygroundLayout,只需传 slug:
  *
@@ -18,11 +18,15 @@
  *
  * W8.8:工具页顶部注入 PrivacyBadge(隐私声明 + 断网验证入口),
  *      让用户在每次使用工具时都能看到"文件未上传"承诺。
+ * W17.11:工具页底部注入 "Why use Lokvis?" 对比卡片(4 张):
+ *      Privacy(upload)/ Speed(response)/ Free(tokens)/ Offline,
+ *      与 AI 对话工具(ChatGPT / Claude / Gemini)对比差异,
+ *      帮助用户在工具页直接看到 Lokvis 与 AI 的取舍。
  */
 import PlaygroundLayout from './PlaygroundLayout.astro';
 import { PrivacyBadge } from '@/components/toolkit/PrivacyBadge';
 import { TOOL_SEO } from '@/components/tools/seo';
-import { getLangFromUrl } from '@/i18n/utils';
+import { getLangFromUrl, t } from '@/i18n/utils';
 
 interface Props {
   /** 工具 slug,对应 TOOL_SEO 的 key,如 'compress' */
@@ -34,6 +38,7 @@ interface Props {
 const { slug, active = `tools/${slug}` } = Astro.props;
 const seo = TOOL_SEO[slug];
 const lang = getLangFromUrl(Astro.url);
+const tr = (key: string) => t(lang, key);
 
 if (!seo) {
   throw new Error(
@@ -47,6 +52,14 @@ const fullTitle = `${seo.title} · Lokvis Playground`;
 const base = import.meta.env.BASE_URL;
 const ogImage = new URL(`${base}og/${slug}.png`, Astro.site).toString();
 const keywords = seo.keywords?.join(', ');
+
+// W17.11: "Why use Lokvis?" 4 张对比卡片(upload / response / tokens / offline)
+const WHY_CARDS = [
+  { titleKey: 'whylokvis.uploadTitle', lokvisKey: 'whylokvis.uploadLokvis', aiKey: 'whylokvis.uploadAi', icon: '🔒' },
+  { titleKey: 'whylokvis.responseTitle', lokvisKey: 'whylokvis.responseLokvis', aiKey: 'whylokvis.responseAi', icon: '⚡' },
+  { titleKey: 'whylokvis.tokensTitle', lokvisKey: 'whylokvis.tokensLokvis', aiKey: 'whylokvis.tokensAi', icon: '💸' },
+  { titleKey: 'whylokvis.offlineTitle', lokvisKey: 'whylokvis.offlineLokvis', aiKey: 'whylokvis.offlineAi', icon: '📡' },
+] as const;
 ---
 <PlaygroundLayout
   title={fullTitle}
@@ -62,4 +75,23 @@ const keywords = seo.keywords?.join(', ');
     <PrivacyBadge client:load lang={lang} />
   </div>
   <slot />
+  {/* W17.11:Why use Lokvis? vs AI 对比卡片(工具页底部) */}
+  <section class="mx-auto w-full max-w-5xl px-4 py-8">
+    <header class="mb-4">
+      <h2 class="text-sm font-semibold text-zinc-200">{tr('whylokvis.title')}</h2>
+      <p class="mt-0.5 text-[11px] text-zinc-500">{tr('whylokvis.subtitle')}</p>
+    </header>
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {WHY_CARDS.map((card) => (
+        <div class="flex flex-col gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+          <div class="flex items-center gap-1.5 text-xs font-medium text-zinc-200">
+            <span aria-hidden>{card.icon}</span>
+            <span>{tr(card.titleKey)}</span>
+          </div>
+          <p class="text-[11px] leading-relaxed text-zinc-400">{tr(card.lokvisKey)}</p>
+          <p class="mt-auto border-t border-zinc-800 pt-1.5 text-[10px] leading-relaxed text-amber-400/80">{tr(card.aiKey)}</p>
+        </div>
+      ))}
+    </div>
+  </section>
 </PlaygroundLayout>
