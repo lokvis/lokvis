@@ -567,6 +567,16 @@ export const ui: Dict = {
   'playground.outputWillAppear': { en: 'Output will appear here', zh: '输出将显示在此处' },
   'playground.runHint': { en: 'Press Run to execute your code', zh: '点击运行执行你的代码' },
   'playground.linesSuffix': { en: ' lines', zh: ' 行' },
+  // W19.6 增强:snippet 选择器 + 持久化 + 分享 + 快捷键
+  'playground.snippet': { en: 'Snippet:', zh: '示例:' },
+  'playground.copy': { en: 'Copy', zh: '复制' },
+  'playground.share': { en: 'Share', zh: '分享' },
+  'playground.reset': { en: 'Reset', zh: '重置' },
+  'playground.modified': { en: 'modified', zh: '已修改' },
+  'playground.copyCodeHint': { en: 'Copy current code to clipboard', zh: '复制当前代码到剪贴板' },
+  'playground.shareHint': { en: 'Copy a shareable URL (with embedded code) to clipboard', zh: '复制可分享的链接(含嵌入代码)到剪贴板' },
+  'playground.resetHint': { en: 'Reset to the original snippet code', zh: '重置为原始 snippet 代码' },
+  'playground.runShortcutHint': { en: 'Run (Ctrl/Cmd + Enter)', zh: '运行 (Ctrl/Cmd + Enter)' },
 };
 
 export type TranslationKey = keyof typeof ui;

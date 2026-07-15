@@ -1,39 +1,31 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime } from '@lokvis/runtime';
-import imageToolsPlugin from '@lokvis/plugin-image';
-import devToolsPlugin from '@lokvis/plugin-dev';
+import { imageToolsPlugin } from '@lokvis/plugin-image';
+import { devToolsPlugin } from '@lokvis/plugin-dev';
 import { CodeEditor } from './CodeEditor';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useLang } from '@/i18n/useLang';
 import { useTranslations } from '@/i18n/utils';
+import { SNIPPETS, DEFAULT_SNIPPET_ID, findSnippet } from './playground/snippets';
+import { extractCodeFromHash, buildShareUrl } from './playground/share';
 
 /**
- * Lokvis Playground
+ * Lokvis Playground(W19.6 增强)
  *
- * A browser-based code playground for trying @lokvis/sdk API.
- * Left: code editor. Right: output console.
+ * Browser-based code playground for trying @lokvis/sdk API.
+ * Left: code editor(CodeMirror 6). Right: output console.
+ *
+ * W19.6 增强点:
+ *  - 示例代码片段选择器(5 个 snippet)
+ *  - localStorage 持久化(代码 + snippetId)
+ *  - URL hash 分享(#code=<base64>)
+ *  - Cmd/Ctrl+Enter 运行快捷键
+ *  - 运行耗时显示 + 重置/复制按钮
  */
 
-const DEFAULT_CODE = `// Lokvis Playground
-// Try the Lokvis SDK in your browser
-
-const lokvis = await createLokvis({
-  plugins: [imageToolsPlugin(), devToolsPlugin()],
-});
-
-// List all registered capabilities
-const caps = await lokvis.capabilities();
-console.log('Registered capabilities:', caps.length);
-
-// List capability names
-caps.forEach(c => console.log('  -', c.name));
-
-// Import a sample image
-// const blob = await fetch('/sample.png').then(r => r.blob());
-// const id = await lokvis.importAsset({ kind: 'blob', blob, name: 'sample.png' });
-// console.log('Asset ID:', id);
-`;
+const STORAGE_KEY_CODE = 'lokvis.playground.code';
+const STORAGE_KEY_SNIPPET = 'lokvis.playground.snippetId';
 
 interface LogEntry {
   id: number;
@@ -55,11 +47,18 @@ function PlaygroundContent() {
   const lang = useLang();
   const t = useTranslations(lang);
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
-  const [code, setCode] = useState(DEFAULT_CODE);
+  const [code, setCode] = useState<string>(() => loadInitialCode());
+  const [snippetId, setSnippetId] = useState<string>(() => loadInitialSnippetId());
   const [output, setOutput] = useState<LogEntry[]>([]);
   const [running, setRunning] = useState(false);
   const [tab, setTab] = useState<'editor' | 'output'>('editor');
+  const [lastDurationMs, setLastDurationMs] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const codeRef = useRef(code);
+  codeRef.current = code;
 
+  // Bootstrap runtime once
   useEffect(() => {
     (async () => {
       try {
@@ -77,6 +76,36 @@ function PlaygroundContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Persist code + snippetId to localStorage (debounced via microtask)
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_CODE, code);
+    } catch {
+      /* quota / disabled — ignore */
+    }
+  }, [code]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_SNIPPET, snippetId);
+    } catch {
+      /* ignore */
+    }
+  }, [snippetId]);
+
+  // Keyboard shortcut: Cmd/Ctrl+Enter to run
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        void handleRun();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runtime, running]);
+
   const addLog = useCallback((text: string, type: LogEntry['type'] = 'log') => {
     setOutput((prev) => [...prev, { id: ++logIdCounter, text, type }]);
   }, []);
@@ -91,21 +120,22 @@ function PlaygroundContent() {
     const logs: string[] = [];
 
     console.log = (...args) => {
-      logs.push(args.map(String).join(' '));
+      logs.push(args.map(stringifyArg).join(' '));
       originalLog(...args);
     };
     console.error = (...args) => {
-      logs.push(`[error] ${args.map(String).join(' ')}`);
+      logs.push(`[error] ${args.map(stringifyArg).join(' ')}`);
       originalError(...args);
     };
 
+    const start = performance.now();
     try {
       const fn = new Function(
         'createLokvis',
         'imageToolsPlugin',
         'devToolsPlugin',
         'lokvis',
-        `"use strict";\nreturn (async () => {\n${code}\n})();`
+        `"use strict";\nreturn (async () => {\n${codeRef.current}\n})();`,
       );
       await fn(createLokvis, imageToolsPlugin, devToolsPlugin, runtime);
     } catch (err) {
@@ -113,17 +143,79 @@ function PlaygroundContent() {
     } finally {
       console.log = originalLog;
       console.error = originalError;
-      setOutput(logs.map((text, i) => ({ id: i, text, type: text.startsWith('[error]') ? 'error' : text.startsWith('[event]') ? 'event' : 'log' })));
+      const duration = Math.round(performance.now() - start);
+      setLastDurationMs(duration);
+      setOutput(
+        logs.map((text, i) => ({
+          id: i,
+          text,
+          type: text.startsWith('[error]') ? 'error' : text.startsWith('[event]') ? 'event' : 'log',
+        })),
+      );
       setRunning(false);
     }
   }
 
+  function handleSnippetChange(id: string) {
+    const snip = findSnippet(id);
+    setSnippetId(snip.id);
+    setCode(snip.code);
+    setOutput([]);
+    setLastDurationMs(null);
+  }
+
+  function handleReset() {
+    const snip = findSnippet(snippetId);
+    setCode(snip.code);
+    setOutput([]);
+    setLastDurationMs(null);
+  }
+
+  async function handleCopyCode() {
+    try {
+      await navigator.clipboard.writeText(codeRef.current);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable — silent */
+    }
+  }
+
+  async function handleShare() {
+    try {
+      const url = buildShareUrl(codeRef.current);
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable — silent */
+    }
+  }
+
+  const isModified = code !== findSnippet(snippetId).code;
+  const currentSnippet = findSnippet(snippetId);
+
   return (
     <div className="flex h-full flex-col">
-      {/* Toolbar（壳已提供品牌条，这里仅保留 Run/Clear 工具栏） */}
-      <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-950/50 px-4 py-2">
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-medium text-zinc-400">{t('playground.editorJs')}</span>
+      {/* Toolbar */}
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 bg-zinc-950/50 px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Snippet selector */}
+          <label className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+            <span>{t('playground.snippet')}</span>
+            <select
+              value={snippetId}
+              onChange={(e) => handleSnippetChange(e.target.value)}
+              className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-zinc-200 focus:border-indigo-500 focus:outline-none"
+            >
+              {SNIPPETS.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {lang === 'zh' ? s.labelZh : s.labelEn}
+                </option>
+              ))}
+            </select>
+          </label>
+
           {runtime && (
             <span className="flex items-center gap-1.5 rounded-full bg-emerald-950 px-2.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-800">
               <span className="relative flex h-1.5 w-1.5">
@@ -133,17 +225,56 @@ function PlaygroundContent() {
               {t('playground.runtimeReady')}
             </span>
           )}
+
+          {lastDurationMs !== null && (
+            <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-mono text-zinc-500">
+              {lastDurationMs}ms
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-1.5">
+          {/* Copy code */}
+          <button
+            onClick={handleCopyCode}
+            title={t('playground.copyCodeHint')}
+            className="rounded-md px-2.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+          >
+            {copied ? '✓' : t('playground.copy')}
+          </button>
+
+          {/* Share URL */}
+          <button
+            onClick={handleShare}
+            title={t('playground.shareHint')}
+            className="rounded-md px-2.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+          >
+            {shareCopied ? '✓' : t('playground.share')}
+          </button>
+
+          {/* Reset */}
+          <button
+            onClick={handleReset}
+            disabled={!isModified}
+            title={t('playground.resetHint')}
+            className="rounded-md px-2.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {t('playground.reset')}
+          </button>
+
+          {/* Clear output */}
           <button
             onClick={() => setOutput([])}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+            className="rounded-md px-2.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
           >
             {t('playground.clear')}
           </button>
+
+          {/* Run */}
           <button
             onClick={handleRun}
             disabled={running || !runtime}
+            title={t('playground.runShortcutHint')}
             className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {running ? (
@@ -160,6 +291,16 @@ function PlaygroundContent() {
           </button>
         </div>
       </header>
+
+      {/* Snippet description (single line) */}
+      <div className="border-b border-zinc-800/50 bg-zinc-950/30 px-4 py-1 text-[10px] text-zinc-600">
+        {lang === 'zh' ? currentSnippet.descZh : currentSnippet.descEn}
+        {isModified && (
+          <span className="ml-2 rounded bg-amber-950 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
+            {t('playground.modified')}
+          </span>
+        )}
+      </div>
 
       {/* Tabs - mobile */}
       <div className="flex border-b border-zinc-800 bg-zinc-950/50 md:hidden">
@@ -241,4 +382,51 @@ function PlaygroundContent() {
       </div>
     </div>
   );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+/** 把任意值转成可读字符串(对象/数组做 JSON 缩进) */
+function stringifyArg(arg: unknown): string {
+  if (typeof arg === 'string') return arg;
+  if (arg instanceof Error) return arg.message;
+  if (arg === undefined) return 'undefined';
+  if (arg === null) return 'null';
+  try {
+    return JSON.stringify(arg, null, 0);
+  } catch {
+    return String(arg);
+  }
+}
+
+/** 加载初始代码:优先 URL hash → localStorage → 默认 snippet */
+function loadInitialCode(): string {
+  // SSR guard — window undefined during Astro build
+  if (typeof window === 'undefined') return findSnippet(DEFAULT_SNIPPET_ID).code;
+
+  // 1. URL hash share link takes precedence
+  const hash = window.location.hash;
+  const fromHash = extractCodeFromHash(hash);
+  if (fromHash) return fromHash;
+
+  // 2. Restored from localStorage
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_CODE);
+    if (saved && saved.trim().length > 0) return saved;
+  } catch {
+    /* localStorage disabled — fall through */
+  }
+
+  // 3. Default snippet
+  return findSnippet(DEFAULT_SNIPPET_ID).code;
+}
+
+/** 加载初始 snippetId:localStorage → 默认 */
+function loadInitialSnippetId(): string {
+  if (typeof window === 'undefined') return DEFAULT_SNIPPET_ID;
+  try {
+    return localStorage.getItem(STORAGE_KEY_SNIPPET) ?? DEFAULT_SNIPPET_ID;
+  } catch {
+    return DEFAULT_SNIPPET_ID;
+  }
 }
