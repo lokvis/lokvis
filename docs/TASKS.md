@@ -12,11 +12,11 @@
 
 | 阶段 | 总任务数 | ✅ 完成 | ⬜ 待办 | ⛔ 废弃 | ⏭️ 延后 | 完成率 |
 |------|---------|---------|---------|---------|---------|--------|
-| **Phase 1** (W1-W24) | ~90 | ~76 | ~7 | 4 | 3 | 84% |
+| **Phase 1** (W1-W24) | ~90 | ~82 | ~1 | 4 | 3 | 91% |
 | **Phase 1.5** (架构优化) | 21 | 21 | 0 | 0 | 0 | 100% |
 | **Phase 2** (MCP/Engine/Workflow) | 9 | 6 | 0 | 0 | 3 | 67% |
 | **技术债务** | 16 | 9 | 7 | — | — | 56% |
-| **合计** | ~136 | ~112 | ~7 | 4 | 6 | 82% |
+| **合计** | ~136 | ~118 | ~1 | 4 | 6 | 87% |
 
 ---
 
@@ -41,18 +41,18 @@
 | M2 | W5-W8 | Image 工具（7 工具 + 批量 + 水印 + 历史 + 预设库 20+） | ✅ 完成 |
 | M3 | W9-W12 | Workspace UI + Workflow Layer（SPA + 拖拽编辑器 + 5 步编排 + Alpha） | ✅ 代码侧完成 |
 | M4 | W13-W16 | npm 发版 + Playground 5 demo + PWA | ✅ 完成 |
-| M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 17/22 完成（17.3/17.7/17.8/17.11 + 18.3/18.6 + 19.1/19.2/19.5/19.7/19.9 + 20.1-20.6 完成;17.1/17.2/17.4-17.6/17.9/18.1/18.2/18.7/19.3/19.4/19.6/19.8 待办） |
+| M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 23/31 完成（17.2/17.3/17.4/17.5/17.7/17.8/17.11 + 18.2/18.3/18.6 + 19.1/19.2/19.3/19.4/19.5/19.7/19.9 + 20.1-20.6 完成;17.1/17.6/17.9/18.1/18.7/19.6/19.8/20.8 待办） |
 | M6 | W21-W24 | 性能优化 + 跨浏览器测试 + 开源发布 + Product Hunt | ⬜ 全部待开始 |
 
 ### M5/W17-W20 待办明细
 
 | 任务 | 优先级 | 状态 | 说明 |
 |------|--------|------|------|
-| 17.1-17.9 SDK 发布 + 类型导出 + auth 钩子 + isPro + examples | P0 | 🟡 | 17.3(auth 钩子+isPro 推导)/17.7(CHANGELOG+迁移指南)/17.8(Pro 门控单测 11 用例)完成;17.1/17.2/17.4-17.6/17.9 待办 |
+| 17.1-17.9 SDK 发布 + 类型导出 + auth 钩子 + isPro + examples | P0 | 🟡 | 17.2(19 个公共类型 re-export)/17.3(auth 钩子+isPro 推导)/17.4(isPro+四环门控)/17.5(useCustomPresets hook)/17.7(CHANGELOG+迁移指南)/17.8(Pro 门控单测 11 用例)完成;17.1/17.6/17.9 待办 |
 | 17.11 ToolLayout vs AI 文案 | P0 | ✅ | 13 个 whylokvis.* i18n key(en+zh)+ ToolLayout 底部 4 张响应式对比卡片 |
-| 18.1-18.3 plugin-sdk npm + 文档 + 示例插件 | P1 | 🟡 | 18.3 完成(plugin-grayscale 教学插件 + 13 测试);18.1/18.2 待办 |
+| 18.1-18.3 plugin-sdk npm + 文档 + 示例插件 | P1 | 🟡 | 18.2(architecture/plugin.mdx + plugin-sdk/README.md)/18.3(plugin-grayscale 教学插件 + 13 测试)完成;18.1 待办 |
 | 18.6 Plugin 权限沙箱 | P0 | ✅ | PluginPermissionSandbox 类(schema 接口+runtime 实现)+ installPlugin 自动应用 network guard + 25 单测 + 8 plugin test mock 更新 + changeset |
-| 19.2-19.6 文档结构 + API Ref + Guides + Architecture + 交互 Playground | P0 | 🟡 | 19.2/19.5 完成(sidebar 六段式重整+四层协作综述);19.1/19.7/19.9 此前完成;19.3/19.4/19.6/19.8 待办 |
+| 19.2-19.6 文档结构 + API Ref + Guides + Architecture + 交互 Playground | P0 | 🟡 | 19.1/19.2/19.5(此前)+ 19.3(starlight-typedoc 修复 10 包 200+ API 页)/19.4(4 guide 已存在)完成;19.6/19.8 待办 |
 | 20.1-20.6 CLI 最小版（run/capabilities/plugin create） | P1 | ✅ | 20.1-20.6 全部完成(run 默认注入 sharp 引擎 + --input/--output + 真实 resize 集成测试 + README + 帮助文本 + cli-automation 升级 + GitHub Actions 示例) |
 
 ### M6/W21-W24 待办明细
@@ -201,6 +201,12 @@
 
 ### 已完成（最近）
 
+- ✅ **W19.3**（2026-07-15）— API Reference 自动生成修复:`tsconfig.typedoc.json` 补全 `@lokvis/workflow` paths 映射和 include 条目;`apps/docs/typedoc.json` 新增 workflow 为第 10 个 entry point;starlight-typedoc 10 包 200+ API 页成功生成。
+- ✅ **W19.4**（2026-07-15）— Guides 核验:4 个 guide 已存在(embed-sdk 182L / write-first-plugin 335L / custom-workspace 249L / cli-automation 233L),中英两版各 999 行。
+- ✅ **W18.2**（2026-07-15）— Plugin SDK 文档:`architecture/plugin.mdx` 权限模型章节从 advisory 更新为 W18.6 enforced(含 7 行权限表 + Enforcement 列 + network guard 子章节 + ctx.sandbox 子章节);中英两版同步;新建 `packages/plugin-sdk/README.md`(Quick start + 3 工厂表 + BlobCapabilityOptions 接口 + PluginContext API 表 + 生命周期时序图 + Stub engine 处理 + 类型 re-export 清单)。
+- ✅ **W17.5**（2026-07-15）— `useCustomPresets` hook(localStorage 持久化 + FREE_PRESET_LIMIT=3 / PRO_PRESET_LIMIT=Infinity + JSON 容错 + 跨 tab storage 事件 + 同 tab SYNC_EVENT 同步 + id 以 `custom.` 前缀与内置 PLATFORM_PRESETS 命名空间隔离;21 单测覆盖读写往返/容错/限制门控/id 生成)。
+- ✅ **W17.4**（2026-07-15）— `runtime.isPro` getter + Pro 门控四环全齐:batch(10/无限)+ concurrency(4/16)+ workflow slots(5/无限)+ presets(3/无限)。
+- ✅ **W17.2**（2026-07-15）— SDK 类型导出审查:补全 19 个公共类型 re-export(RuntimeStatus/RunOptions/AssetSource/EventBus 等)+ changeset。
 - ✅ **W19.2**（2026-07-15）— 文档结构重整为六段式:`astro.config.mjs` sidebar 重组为 Overview / Getting Started / Architecture / Concepts(capabilities+workflows+mcp) / Guides(embed-sdk+write-first-plugin) / Plugins / Examples(custom-workspace+cli-automation) / Reference(sdk+cli+roadmap);中英两版同步;slug 不变不断链;`pnpm --filter @lokvis/docs typecheck` 0 errors。
 - ✅ **W18.3**（2026-07-15）— 示例插件 `plugin-grayscale`(教学用):`examples/plugin-grayscale/`,`grayscalePlugin()` 注册 `image.grayscale` 能力,自包含 canvas 灰度化 operation(decode→逐像素→encode),3 种算法(luminance/average/lightness);13 测试覆盖插件常量/installer 注册数/factory 返回数/stub status/execute 抛错/三种算法 + abort;README 含 30 秒速览 + 算法表 + 与官方 plugin-image 对比表。
 - ✅ **W19.5**（2026-07-15）— Architecture 深度文补强:修复 `architecture.mdx` 断链(`docs/whitepaper/` → `docs/business/`,中英两版);新增"四层协作"综述章节,串联 Runtime/Capability/Plugin/Engine 请求流 + 单向依赖 + 四篇深度文档链接(中英两版)。四层深度文(runtime/engine/capability/plugin)此前已存在且完整。

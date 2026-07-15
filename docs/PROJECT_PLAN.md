@@ -365,10 +365,10 @@
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
 | 17.1 | SDK 发布到 npm(`@lokvis/sdk` 0.1.0),CI 自动发布 | P0 | 4h | ⬜ | npm |
-| 17.2 | SDK 类型导出审查,`d.ts` 完整 | P0 | 4h | ⬜ | build |
+| 17.2 | SDK 类型导出审查,`d.ts` 完整 | P0 | 4h | ✅ | 补全 19 个公共类型 re-export(RuntimeStatus/RunOptions/AssetSource/EventBus 等)+ changeset |
 | 17.3 | `createLokvis({auth?})` 钩子:接收 cloud 注入的 session/token | P0 | 4h | ✅ | `LokvisAuthSession` 接口 + `resolveIsPro()` 推导(session/token presence → isPro,显式 isPro 覆盖优先) |
-| 17.4 | `runtime.isPro` 标志:影响 batch 上限/workflow 槽位/预设数 | P0 | 4h | ⬜ | runtime |
-| 17.5 | Pro 功能门控:批量无限制/无限 workflow/高级预设 | P0 | 4h | ⬜ | runtime |
+| 17.4 | `runtime.isPro` 标志:影响 batch 上限/workflow 槽位/预设数 | P0 | 4h | ✅ | isPro getter + batch(10/无限)+ concurrency(4/16)+ workflow slots(5/无限)+ presets(3/无限)四环全齐 |
+| 17.5 | Pro 功能门控:批量无限制/无限 workflow/高级预设 | P0 | 4h | ✅ | `useCustomPresets` hook(localStorage + FREE_PRESET_LIMIT=3 / PRO_PRESET_LIMIT=Infinity + JSON 容错 + 21 单测) |
 | 17.6 | examples 升级:embedding 示例接 cloud auth | P1 | 6h | ⬜ | examples |
 | 17.7 | SDK CHANGELOG + 迁移指南 | P0 | 4h | ✅ | changeset(minor bump @lokvis/sdk)+ README "Cloud auth & Pro gate" 章节 |
 | 17.8 | 单测:Pro 门控逻辑 | P0 | 4h | ✅ | `auth-pro-gate.test.ts`(11 用例):不传 auth/显式覆盖/presence 推导/BatchProcessor free vs Pro 边界 |
@@ -381,7 +381,7 @@
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
 | 18.1 | `@lokvis/plugin-sdk` 发布到 npm(0.1.0-alpha) | P1 | 4h | ⬜ | npm |
-| 18.2 | Plugin SDK 文档:Manifest / Context / 权限模型 / 生命周期 | P1 | 6h | ⬜ | docs |
+| 18.2 | Plugin SDK 文档:Manifest / Context / 权限模型 / 生命周期 | P1 | 6h | ✅ | architecture/plugin.mdx 权限模型从 advisory 更新为 W18.6 enforced + 新增 packages/plugin-sdk/README.md(Quick start + API 表 + PluginContext + 生命周期 + Stub) |
 | 18.3 | 示例插件:`plugin-grayscale`(教学用) | P1 | 6h | ✅ | `examples/plugin-grayscale`(`grayscalePlugin()` 注册 `image.grayscale` 能力,自包含 canvas 灰度化 operation,3 种算法 luminance/average/lightness;13 测试覆盖常量/installer/factory/stub status/execute/算法;README 含 30 秒速览 + 与官方 plugin-image 对比表) |
 | 18.4 | 示例插件:`plugin-batch-watermark`(实用) | ⏭️延后 | 8h | ⬜ | 改为 MCP tool 实现(Phase 2) |
 | 18.5 | Plugin 脚手架:`pnpm create @lokvis/plugin` | ⏭️延后 | 6h | ⬜ | 优先 `npx @lokvis/mcp-server`(Phase 2) |
@@ -394,8 +394,8 @@
 |---|---|---|---|---|---|
 | 19.1 | `apps/docs` 升级 Starlight 或自建导航 | P0 | 4h | ✅ | docs(已迁移至 Starlight 0.41) |
 | 19.2 | 文档结构:Getting Started / Concepts / API Ref / Guides / Plugins / Examples | P0 | 4h | ✅ | docs(astro.config.mjs sidebar 重整为六段式:Overview / Getting Started / Architecture / Concepts(capabilities+workflows+mcp) / Guides(embed-sdk+write-first-plugin) / Plugins / Examples(custom-workspace+cli-automation) / Reference(sdk+cli+roadmap);中英两版同步;slug 不变不断链) |
-| 19.3 | API Reference 自动生成(从 tsdoc) | P0 | 6h | ⬜ | `docs/api/` |
-| 19.4 | Guides:嵌入 SDK / 写第一个插件 / 自定义 Workspace / CLI 自动化 | P0 | 8h | ⬜ | docs |
+| 19.3 | API Reference 自动生成(从 tsdoc) | P0 | 6h | ✅ | starlight-typedoc 修复(tsconfig.typedoc.json 补全 @lokvis/workflow paths + include);10 包 200+ API 页自动生成 |
+| 19.4 | Guides:嵌入 SDK / 写第一个插件 / 自定义 Workspace / CLI 自动化 | P0 | 8h | ✅ | 4 个 guide 已存在(embed-sdk 182L / write-first-plugin 335L / custom-workspace 249L / cli-automation 233L),中英两版各 999 行 |
 | 19.5 | Architecture 深度文:Runtime/Engine/Capability/Plugin 四层 | P0 | 4h | ✅ | docs(四层深度文已存在;本次补强:修复 architecture.mdx 断链 whitepaper/→business/(中英两版);新增"四层协作"综述章节串联四层请求流+单向依赖+深度文档链接(中英两版)) |
 | 19.6 | 交互式 Playground 增强:可编辑代码 + 实时运行 | P1 | 8h | ⬜ | apps/playground |
 | 19.7 | 搜索功能(Pagefind) | P0 | 2h | ✅ | docs(Starlight 0.33+ 内置 Pagefind) |
