@@ -369,7 +369,7 @@
 | 17.3 | `createLokvis({auth?})` 钩子:接收 cloud 注入的 session/token | P0 | 4h | ✅ | `LokvisAuthSession` 接口 + `resolveIsPro()` 推导(session/token presence → isPro,显式 isPro 覆盖优先) |
 | 17.4 | `runtime.isPro` 标志:影响 batch 上限/workflow 槽位/预设数 | P0 | 4h | ✅ | isPro getter + batch(10/无限)+ concurrency(4/16)+ workflow slots(5/无限)+ presets(3/无限)四环全齐 |
 | 17.5 | Pro 功能门控:批量无限制/无限 workflow/高级预设 | P0 | 4h | ✅ | `useCustomPresets` hook(localStorage + FREE_PRESET_LIMIT=3 / PRO_PRESET_LIMIT=Infinity + JSON 容错 + 21 单测) |
-| 17.6 | examples 升级:embedding 示例接 cloud auth | P1 | 6h | ⬜ | examples |
+| 17.6 | examples 升级:embedding 示例接 cloud auth | P1 | 6h | ✅ | examples(embedding/App.tsx 3 模式切换 free/pro/guest + useLokvis auth 透传 + WorkspaceProps 自动支持 auth prop + README Cloud auth integration 章节 + changeset ui-react minor) |
 | 17.7 | SDK CHANGELOG + 迁移指南 | P0 | 4h | ✅ | changeset(minor bump @lokvis/sdk)+ README "Cloud auth & Pro gate" 章节 |
 | 17.8 | 单测:Pro 门控逻辑 | P0 | 4h | ✅ | `auth-pro-gate.test.ts`(11 用例):不传 auth/显式覆盖/presence 推导/BatchProcessor free vs Pro 边界 |
 | 17.9 | 缓冲 | P0 | 6h | ⬜ | — |

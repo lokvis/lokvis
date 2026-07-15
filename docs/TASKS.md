@@ -12,11 +12,11 @@
 
 | 阶段 | 总任务数 | ✅ 完成 | ⬜ 待办 | ⛔ 废弃 | ⏭️ 延后 | 完成率 |
 |------|---------|---------|---------|---------|---------|--------|
-| **Phase 1** (W1-W24) | ~90 | ~84 | 0 | 4 | 3 | 93% |
+| **Phase 1** (W1-W24) | ~90 | ~85 | 0 | 4 | 3 | 94% |
 | **Phase 1.5** (架构优化) | 21 | 21 | 0 | 0 | 0 | 100% |
 | **Phase 2** (MCP/Engine/Workflow) | 9 | 6 | 0 | 0 | 3 | 67% |
 | **技术债务** | 16 | 9 | 7 | — | — | 56% |
-| **合计** | ~136 | ~120 | 0 | 4 | 6 | 88% |
+| **合计** | ~136 | ~121 | 0 | 4 | 6 | 89% |
 
 ---
 
@@ -41,14 +41,14 @@
 | M2 | W5-W8 | Image 工具（7 工具 + 批量 + 水印 + 历史 + 预设库 20+） | ✅ 完成 |
 | M3 | W9-W12 | Workspace UI + Workflow Layer（SPA + 拖拽编辑器 + 5 步编排 + Alpha） | ✅ 代码侧完成 |
 | M4 | W13-W16 | npm 发版 + Playground 5 demo + PWA | ✅ 完成 |
-| M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 25/31 完成（17.2/17.3/17.4/17.5/17.7/17.8/17.11 + 18.1/18.2/18.3/18.6 + 19.1/19.2/19.3/19.4/19.5/19.6/19.7/19.9 + 20.1-20.6 完成;17.1/17.6/17.9/18.7/19.8/20.8 待办） |
+| M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 26/31 完成（17.2/17.3/17.4/17.5/17.6/17.7/17.8/17.11 + 18.1/18.2/18.3/18.6 + 19.1/19.2/19.3/19.4/19.5/19.6/19.7/19.9 + 20.1-20.6 完成;17.1/17.9/18.7/19.8/20.8 待办） |
 | M6 | W21-W24 | 性能优化 + 跨浏览器测试 + 开源发布 + Product Hunt | ⬜ 全部待开始 |
 
 ### M5/W17-W20 待办明细
 
 | 任务 | 优先级 | 状态 | 说明 |
 |------|--------|------|------|
-| 17.1-17.9 SDK 发布 + 类型导出 + auth 钩子 + isPro + examples | P0 | 🟡 | 17.2(19 个公共类型 re-export)/17.3(auth 钩子+isPro 推导)/17.4(isPro+四环门控)/17.5(useCustomPresets hook)/17.7(CHANGELOG+迁移指南)/17.8(Pro 门控单测 11 用例)完成;17.1/17.6/17.9 待办 |
+| 17.1-17.9 SDK 发布 + 类型导出 + auth 钩子 + isPro + examples | P0 | 🟡 | 17.2(19 个公共类型 re-export)/17.3(auth 钩子+isPro 推导)/17.4(isPro+四环门控)/17.5(useCustomPresets hook)/17.6(embedding 示例接 cloud auth + useLokvis auth 透传)/17.7(CHANGELOG+迁移指南)/17.8(Pro 门控单测 11 用例)完成;17.1/17.9 待办 |
 | 17.11 ToolLayout vs AI 文案 | P0 | ✅ | 13 个 whylokvis.* i18n key(en+zh)+ ToolLayout 底部 4 张响应式对比卡片 |
 | 18.1-18.3 plugin-sdk npm + 文档 + 示例插件 | P1 | 🟡 | 18.1(npm 发版就绪度报告 + changeset minor bump + package.json 元数据补全)/18.2(architecture/plugin.mdx + plugin-sdk/README.md)/18.3(plugin-grayscale 教学插件 + 13 测试)完成 |
 | 18.6 Plugin 权限沙箱 | P0 | ✅ | PluginPermissionSandbox 类(schema 接口+runtime 实现)+ installPlugin 自动应用 network guard + 25 单测 + 8 plugin test mock 更新 + changeset |
@@ -201,6 +201,7 @@
 
 ### 已完成（最近）
 
+- ✅ **W17.6**（2026-07-15）— examples 升级:embedding 示例接 cloud auth:`UseLokvisOptions` 新增 `auth?: LokvisAuthSession` 字段,透传到 `createLokvis({ auth })`,使 `<Workspace auth={...} />` 自动支持 auth prop(WorkspaceProps extends UseLokvisOptions);`examples/embedding/App.tsx` 升级为 3 模式切换(free/pro/guest)+ 侧边栏 Auth Mode 切换器 + `key={authMode}` remount(useLokvis 只在挂载时初始化一次);README 重写新增 "Cloud auth integration" 章节(3 模式对比表 + 真实集成代码 + guest override + API token);changeset `w17-embed-cloud-auth.md` 标记 ui-react minor bump。验证:typecheck 0 errors + 78 test files / 1350 tests passed。
 - ✅ **W18.1**（2026-07-15）— `@lokvis/plugin-sdk` npm 发版准备(Alpha):`package.json` 补全 npm 元数据(author/homepage/bugs.url/keywords 8 个:lokvis/plugin/sdk/image-processing/browser/local-first/capability/runtime);README "Status: Alpha" 章节更新(权限模型从 "partially enforced (advisory)" 改为 "enforced as of W18.6");新建 changeset `w18-plugin-sdk-alpha-release.md`(minor bump 0.2.2 → 0.3.0,说明 W18.1 元数据 + W18.2 文档 + W18.6 sandbox 接口);新建发版就绪度报告 `docs/reports/W18.1-plugin-sdk-npm-release-readiness.md`(6 章:发版范围 / 20 字段检查表 / changeset 状态 / 6 步运维流程 / Go 结论 / 验证记录)。实际 npm publish 由 release.yml 在 `v*` tag 推送时自动执行,运维侧待执行 changeset version + NPM_TOKEN + tag 触发。
 - ✅ **W19.6**（2026-07-15）— 交互式 Playground 增强:`Playground.tsx` 新增 snippet 选择器(5 例:hello/resize/eventbus/factory/batch)+ localStorage 持久化(代码 + snippetId)+ URL hash 分享(`#code=<base64>`,URL-safe base64 + UTF-8 支持)+ Cmd/Ctrl+Enter 运行快捷键 + 运行耗时显示(ms)+ 重置/复制/分享按钮 + snippet 描述行 + modified 徽标;提取 `playground/snippets.ts` 与 `playground/share.ts` 纯函数模块;新增 9 个 i18n key(snippet/copy/share/reset/modified + 4 个 hint)中英两版;30 单测覆盖(16 share encode/decode/extract/buildShareUrl + 14 snippets 字段/查找/默认/fallback)。
 - ✅ **W19.3**（2026-07-15）— API Reference 自动生成修复:`tsconfig.typedoc.json` 补全 `@lokvis/workflow` paths 映射和 include 条目;`apps/docs/typedoc.json` 新增 workflow 为第 10 个 entry point;starlight-typedoc 10 包 200+ API 页成功生成。
