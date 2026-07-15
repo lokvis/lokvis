@@ -8,8 +8,8 @@
  * registerMetadataReader 转发给 runtime._registerMetadataReader(依赖反转:
  * Plugin 提供实现,Runtime 持有引用)。
  *
- * 错误契约:getAsset 在资产不存在时抛 plain Error,message 以 "Asset not found"
- * 开头。SDK 的 fromLokvisError 据此模式匹配转换为 AssetNotFoundError。
+ * 错误契约:getAsset 在资产不存在时抛 AssetNotFoundError,
+ * SDK 的 fromLokvisError 经 instanceof 转换。
  */
 
 import type {
@@ -18,6 +18,7 @@ import type {
 } from '@lokvis/schema';
 import type { AssetStore } from './asset-store.js';
 import type { CapabilityRegistry } from './capability-registry.js';
+import { AssetNotFoundError } from './errors.js';
 
 /**
  * createPluginContext 需要从 Runtime 拿到的最小依赖。
@@ -46,7 +47,7 @@ export function createPluginContext(
     runtime: {
       getAsset: async (id) => {
         const asset = await assetStore.get(id);
-        if (!asset) throw new Error(`Asset not found: ${id}`);
+        if (!asset) throw new AssetNotFoundError(id);
         return asset;
       },
       importAsset: async (file) => {

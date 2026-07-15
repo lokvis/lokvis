@@ -11,6 +11,7 @@
 import type { Asset, AssetId, AssetMetadata, AssetSource, BlobHandle } from '@lokvis/schema';
 import { createOpfsAssetStore, isOpfsSupported } from './opfs-asset-store.js';
 import { createIdbAssetStore, isIdbSupported } from './idb-asset-store.js';
+import { AssetBlobNotFoundError } from './errors.js';
 
 /** Asset 存储接口 */
 export interface AssetStore {
@@ -254,7 +255,7 @@ export function createMemoryAssetStore(): AssetStore {
     async getBlob(handle) {
       const id = parseBlobPath(handle.path, MEMORY_PATH_PREFIX);
       const blob = blobs.get(id);
-      if (!blob) throw new Error(`Blob not found for path: ${handle.path}`);
+      if (!blob) throw new AssetBlobNotFoundError(`Blob not found for path: ${handle.path}`);
       return blob;
     },
 

@@ -15,7 +15,7 @@
 | Phase 2 路线 | 2 项 | 中 | 按 Phase 2 路线推进(TD-1.3/TD-1.4 已清偿,见 TD-C14/TD-C15) |
 | 测试时序依赖 | 2 项 | 中 | 需改生产 API 语义,专项评估 |
 | 静默吞错 | 10 处 | 低 | intentional,需 assetStore 错误类型分层才能根治 |
-| 类型层面 workaround | 1 处 | 低 | 局部小问题,收益低(TD-4.5 已清偿,见 TD-C13) |
+| 类型层面 workaround | 0 处 | 低 | 已全部清偿(TD-4.5 见 TD-C13,TD-4.6 见 TD-C16) |
 | UI ObjectURL 生命周期分散 | 2 处 | 中 | 有防护,重构影响面大 |
 | 事件订阅 cleanup 模式分散 | 3 处 | 低 | 各有特殊点,抽象灵活性下降 |
 | 测试环境 hack | 3 处 | 低 | 合理写法,非债务(记录备查) |
@@ -212,7 +212,7 @@
 
 ## 4. 类型层面 workaround
 
-> **TD-4.1 / TD-4.3 / TD-4.4 / TD-4.5 已清偿**,见「已清偿」章节。本节保留活动债务 TD-4.2(类型强转)与 TD-4.6(message 模式匹配过渡方案)。
+> **TD-4.1 / TD-4.3 / TD-4.4 / TD-4.5 / TD-4.6 已清偿**,见「已清偿」章节。本节保留活动债务 TD-4.2(schema workflow.ts 类型强转)。
 
 ### TD-4.2 schema workflow.ts 强转加字段
 
@@ -224,22 +224,9 @@
 - **为何暂不修**:JSON Schema 动态加字段是合理用法,改动 schema 类型影响面大
 - **触发条件**:重构 workflow schema 类型时
 
-### TD-4.6 sdk errors.ts best-effort message 模式匹配过渡方案
+### TD-4.6 ~~sdk errors.ts best-effort message 模式匹配过渡方案~~(已清偿,见 TD-C16)
 
-- **位置**:`packages/sdk/src/errors.ts:361-389`
-- **代码**:
-  ```ts
-  // 兜底:best-effort message 模式匹配(runtime 未类型化的 Error)
-  // 注意:这是过渡方案,后续 runtime 层应抛类型化错误,届时可移除此层。
-  if (msg.startsWith('Asset not found')) {
-    return new AssetNotFoundError(...);
-  }
-  ```
-- **问题**:runtime 层抛的是 `new Error(message)` 而非类型化错误类,SDK 被迫用 `msg.startsWith(...)` 字符串匹配来恢复类型。runtime message 文案变更会让 SDK 静默退化为 `LokvisError({ code: 'UNKNOWN' })`,消费方的 `instanceof AssetNotFoundError` 失效
-- **影响**:SDK 错误类型恢复依赖 runtime message 文案稳定性,脆弱
-- **长期方案**:runtime 层抛类型化错误类(从 schema 或新增 errors 包 import),SDK 用 `instanceof` 检测,移除 message 模式匹配
-- **为何暂不修**:runtime 多处抛错点需统一改造,涉及 runtime/sdk 双包;当前 message 匹配覆盖 6 种已知错误,满足基本需求
-- **触发条件**:runtime 错误类型统一改造时,或 message 文案变更导致 SDK 误判时
+> 2026-07-15 清偿:runtime 新增 `errors.ts` 定义 7 个类型化错误类(AssetNotFoundError / AssetBlobNotFoundError / WorkflowInvalidError / WorkflowCycleError / WorkflowNodeError / CapabilityNotRegisteredError / CapabilityStubOnlyError),11 处 `throw new Error(...)` 改用类型化错误类。SDK `fromLokvisError()` 删除 message 模式匹配分支,改用 `instanceof` 检测。详见 TD-C16。
 
 ---
 
@@ -333,7 +320,6 @@
   - TD-4.4(exif-reader 嵌套类型)已清偿(v2.3 重构)
 - **决定不修**:本次 review 未清偿任何既有活动债务代码,仅同步文档状态。理由:所有活动债务均评估为"有防护的局部 workaround"或"Phase 2 路线性取舍",无阻塞性问题
 - **Phase 2 候选**:
-  - TD-4.6(SDK message 匹配):runtime 错误类型统一改造时落地
   - TD-3.x 系列(静默吞错):接入 Sentry 后统一处理
 
 ### Review #3 — 2026-07-04 W12 Alpha 里程碑技术债复核
@@ -499,3 +485,23 @@
 - **清偿验证**:`grep "from 'pdf-lib'" packages/mcp-server/src/tools/pdf.ts` 无命中;`pdf.test.ts` 17 个用例全绿;mcp-server 全量 146 个用例全绿;engine-pdf typecheck/build 通过
 - **清偿来源**:本 PR T9b 任务
 - **架构说明**:与 T9a 一致,mcp-server 作为 Node 应用直接消费 Engine 层 Blob↔Blob 操作,不经 Runtime/Capability 系统(Runtime 无公开 `capabilities.execute()`,execute 签名是 `Asset[]→Asset[]` 非 `Blob→Blob`;强行经 Runtime 属过度工程)。PdfEngineAdapter 仍为 stub,未来 plugin-pdf/node 实装时 adapter 方法可委托到 operations.ts,version 升为非-stub。capability 系统对接仍属 Phase 2(见 TD-1.1)
+
+### TD-C16 sdk errors.ts message 模式匹配过渡方案(2026-07-15 清偿)
+
+- **原债务**(原 TD-4.6):`packages/sdk/src/errors.ts:361-389` 用 `msg.startsWith('Asset not found')` 等 6 个 message 前缀模式匹配恢复类型,注释自认过渡方案。runtime 层抛的是 `new Error(message)` 而非类型化错误类,SDK 被迫用字符串匹配。runtime message 文案变更会让 SDK 静默退化为 `LokvisError({ code: 'UNKNOWN' })`,消费方的 `instanceof AssetNotFoundError` 失效
+- **违反**:SDK 错误类型恢复依赖 runtime message 文案稳定性,脆弱。原 TD-4.6 注释明确"后续 runtime 层应抛类型化错误,届时可移除此层"
+- **清偿方案**:
+  1. runtime 新增 `packages/runtime/src/errors.ts`,定义 7 个类型化错误类(继承 `Error`,与 runtime 现有错误类风格一致:super message + `this.name` + readonly 属性):
+     - `AssetNotFoundError(assetId)` — 替代 3 处 `throw new Error('Asset not found: ...')`(asset-manager / plugin-context / executor)
+     - `AssetBlobNotFoundError(message)` — 替代 3 处 `throw new Error('Blob not found ...')`(memory/opfs/idb asset-store)
+     - `WorkflowInvalidError(message)` — 替代 `throw new Error('Workflow contains duplicate node id: ...')`
+     - `WorkflowCycleError(message)` — 替代 `throw new Error('Workflow contains a cycle, cannot execute')`
+     - `WorkflowNodeError(nodeId, message)` — 替代 `throw new Error('Transform node "..." has no capability')`,带 nodeId 属性(SDK 不再需从 message 正则提取)
+     - `CapabilityNotRegisteredError(capability)` — 替代 `throw new Error('No implementation registered for capability "..."')`,带 capability 属性
+     - `CapabilityStubOnlyError(capability)` — 替代 `throw new Error('Capability "..." is not yet available (only stub engine registered)...')`。**额外修复**:原 SDK 有 `CAPABILITY_STUB_ONLY` code 定义但无对应 message/instanceof 分支,stub-only 错误落入 `UNKNOWN`;本次新增 instanceof 分支修复此缺陷
+  2. runtime `index.ts` 加 `export * from './errors.js'`(与现有错误类通过 `export *` 透出模式一致)
+  3. SDK `errors.ts` 从 `@lokvis/runtime` import 7 个类(加 `Runtime` 前缀别名,与 QuotaExceededError 等现有模式一致),`fromLokvisError()` 新增 7 个 instanceof 分支,删除 message 模式匹配分支(L361-389)。归一优先级从 5 层精简为 4 层(移除"message 匹配"层)
+  4. super message 与原 `throw new Error(...)` 完全一致,保证日志/堆栈输出不变、依赖 message 文案的测试不破
+- **清偿验证**:`grep "startsWith" packages/sdk/src/errors.ts` 无命中;runtime 497 测试全绿;SDK 测试全绿;mcp-server 146 测试全绿;runtime/sdk typecheck 通过
+- **清偿来源**:本 PR T10 任务
+- **设计说明**:错误类定义在 runtime(非 schema),因为 schema 是纯类型定义层(不含运行时 Error 类);runtime 已有 13 个错误类(QuotaExceededError / Worker*Error 等)分散在各模块,新增的 7 个跨模块共用类集中放在 `errors.ts` 更合理。SDK 自身仍定义同名 LokvisError 子类作为公共契约,runtime 侧继承 Error(不依赖 SDK,符合五层架构)

@@ -17,6 +17,14 @@ import type {
 import type { EventBus } from '@lokvis/schema';
 import type { AssetStore } from './asset-store.js';
 import type { CapabilityRegistry } from './capability-registry.js';
+import {
+  AssetNotFoundError,
+  WorkflowInvalidError,
+  WorkflowCycleError,
+  WorkflowNodeError,
+  CapabilityNotRegisteredError,
+  CapabilityStubOnlyError,
+} from './errors.js';
 
 /** 执行中的工作流状态 */
 interface RunningWorkflow {
@@ -75,7 +83,7 @@ function topologicalSort(nodes: WorkflowNode[], edges: WorkflowEdge[]): Workflow
     const seen = new Set<string>();
     for (const n of nodes) {
       if (seen.has(n.id)) {
-        throw new Error(`Workflow contains duplicate node id: ${n.id}`);
+        throw new WorkflowInvalidError(`Workflow contains duplicate node id: ${n.id}`);
       }
       seen.add(n.id);
     }
@@ -133,7 +141,7 @@ function topologicalSort(nodes: WorkflowNode[], edges: WorkflowEdge[]): Workflow
   }
 
   if (sorted.length !== nodes.length) {
-    throw new Error('Workflow contains a cycle, cannot execute');
+    throw new WorkflowCycleError('Workflow contains a cycle, cannot execute');
   }
 
   return sorted;
@@ -167,7 +175,7 @@ export class WorkflowExecutor {
       currentAssets = await Promise.all(
         ids.map(async (id) => {
           const asset = await this.config.assetStore.get(id);
-          if (!asset) throw new Error(`Asset not found: ${id}`);
+          if (!asset) throw new AssetNotFoundError(id);
           return asset;
         })
       );
@@ -240,16 +248,14 @@ export class WorkflowExecutor {
           // 解析能力实现(transform 节点必须有 capability)
           const capability = node.capability;
           if (!capability) {
-            throw new Error(`Transform node "${node.id}" has no capability`);
+            throw new WorkflowNodeError(node.id, `Transform node "${node.id}" has no capability`);
           }
           const impl = this.config.capabilityRegistry.resolve(capability);
           if (!impl) {
             if (this.config.capabilityRegistry.isStubOnly(capability)) {
-              throw new Error(
-                `Capability "${capability}" is not yet available (only stub engine registered). Install a real engine plugin to use this capability.`
-              );
+              throw new CapabilityStubOnlyError(capability);
             }
-            throw new Error(`No implementation registered for capability "${capability}"`);
+            throw new CapabilityNotRegisteredError(capability);
           }
 
           // E1: target params 覆盖 node params（浅合并,target 优先）

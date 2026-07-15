@@ -28,6 +28,7 @@ import type {
   MetadataReader,
 } from '@lokvis/schema';
 import type { QuotaAwareAssetStore } from './quota-manager.js';
+import { AssetNotFoundError } from '../errors.js';
 
 /** AssetManager 依赖 */
 export interface AssetManagerDeps {
@@ -100,12 +101,11 @@ export class AssetManager {
   }
 
   /**
-   * 获取资产(不存在抛 Error,message 以 "Asset not found" 开头,
-   * SDK 据此模式匹配转换为 AssetNotFoundError)。
+   * 获取资产(不存在抛 AssetNotFoundError,SDK 经 instanceof 转换)。
    */
   async getAsset(id: AssetId): Promise<Asset> {
     const asset = await this.deps.assetStore.get(id);
-    if (!asset) throw new Error(`Asset not found: ${id}`);
+    if (!asset) throw new AssetNotFoundError(id);
     return asset;
   }
 

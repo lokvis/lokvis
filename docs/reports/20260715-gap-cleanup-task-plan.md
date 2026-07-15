@@ -179,8 +179,9 @@
   - `pnpm test --filter @lokvis/sdk` 全绿
   - 全量 `pnpm typecheck` 通过
 - **commit message**:`refactor(errors): runtime 抛类型化错误,SDK 移除 message 模式匹配`
-- **状态**:待办
-- **风险**:涉及 runtime 多处抛错点;需保证 SDK 错误类名向后兼容(已有的 StorageQuotaExceededError 等不变)
+- **状态**:✅ 已完成(见 TD-C16)
+- **实际方案偏离说明**:原方案 A(在 `@lokvis/schema` 新增 errors.ts)未采用。实际在 `@lokvis/runtime` 新增 `src/errors.ts` 定义 7 个类型化错误类。理由:schema 是纯类型定义层(不含运行时 Error 类);runtime 已有 13 个错误类(QuotaExceededError / Worker*Error 等)分散在各模块,新增的 7 个跨模块共用类集中放在 `errors.ts` 更合理。额外修复:原 SDK 有 `CAPABILITY_STUB_ONLY` code 但无对应 message/instanceof 分支(stub-only 错误落入 `UNKNOWN`),本次新增 instanceof 分支修复此缺陷
+- **风险**:涉及 runtime 多处抛错点;需保证 SDK 错误类名向后兼容(已有的 StorageQuotaExceededError 等不变) —— SDK 错误类名未变,仅 fromLokvisError() 内部检测机制从 message 匹配改为 instanceof
 
 ---
 

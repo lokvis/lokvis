@@ -16,6 +16,7 @@ import {
   parseBlobPath,
   prepareImport,
 } from './asset-store.js';
+import { AssetBlobNotFoundError } from './errors.js';
 
 /** IndexedDB 不可用时抛出 */
 export class IdbUnavailableError extends Error {
@@ -97,7 +98,7 @@ export async function createIdbAssetStore(
       const id = parseBlobPath(handle.path, IDB_PATH_PREFIX);
       const record = await db.assets.get(id);
       if (!record) {
-        throw new Error(`Blob not found in IndexedDB for path: ${handle.path}`);
+        throw new AssetBlobNotFoundError(`Blob not found in IndexedDB for path: ${handle.path}`);
       }
       return record.blob;
     },
