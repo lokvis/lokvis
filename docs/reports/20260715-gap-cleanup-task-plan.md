@@ -157,8 +157,9 @@
   - `pnpm test --filter @lokvis/engine-pdf` 全绿(若 engine-pdf 实装)
   - `pnpm test --filter @lokvis/plugin-image` 全绿
 - **commit message**:`refactor(mcp): image/pdf tool 改为经 runtime capability 系统调用(消除 sharp/pdf-lib 直用)`
-- **状态**:待办
-- **风险**:本任务改动面大,需谨慎设计。若复杂度过高,可拆为 T9a(image)与 T9b(pdf)两个子任务
+- **状态**:✅ 已完成(T9a + T9b,见 TD-C14/TD-C15)
+- **实际方案偏离说明**:原方案"经 runtime capability 系统调用"未采用。实际采用 mcp-server 作为 Node 应用直接消费 Engine 层 Blob↔Blob 操作(image 经 `@lokvis/engine-image-node`,pdf 经 `@lokvis/engine-pdf` 独立 operations)。理由:Runtime 无公开 `capabilities.execute()`,execute 签名是 `Asset[]→Asset[]` 非 `Blob→Blob`;engine-pdf 的 PdfEngineAdapter 为 stub。强行经 Runtime/Capability 属过度工程。直接 Engine 消费与 engine-image-node 的 operations/ 模式对齐,详见 TD-C14/TD-C15 的「架构说明」
+- **风险**:本任务改动面大,需谨慎设计。若复杂度过高,可拆为 T9a(image)与 T9b(pdf)两个子任务 —— 已按此拆分执行:T9a(commit c6e943d)/ T9b(本任务)
 
 ### T10 — SDK errors.ts message 匹配 → runtime 抛类型化错误
 

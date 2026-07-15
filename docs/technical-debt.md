@@ -12,7 +12,7 @@
 
 | 类别 | 数量 | 严重度 | 处理策略 |
 |---|---|---|---|
-| Phase 2 路线 | 3 项 | 中 | 按 Phase 2 路线推进(TD-1.3 已清偿,见 TD-C14) |
+| Phase 2 路线 | 2 项 | 中 | 按 Phase 2 路线推进(TD-1.3/TD-1.4 已清偿,见 TD-C14/TD-C15) |
 | 测试时序依赖 | 2 项 | 中 | 需改生产 API 语义,专项评估 |
 | 静默吞错 | 10 处 | 低 | intentional,需 assetStore 错误类型分层才能根治 |
 | 类型层面 workaround | 1 处 | 低 | 局部小问题,收益低(TD-4.5 已清偿,见 TD-C13) |
@@ -21,7 +21,7 @@
 | 测试环境 hack | 3 处 | 低 | 合理写法,非债务(记录备查) |
 | Cloud 耦合泄漏 | 1 项 | 中 | mcp-server 硬编码 cloud URL/plan 名 |
 
-**净评估**:无阻塞性债务。Phase 2 路线的 4 项是已知的功能性取舍,Cloud 耦合有 graceful degradation 防护,其余均为"有防护的局部 workaround"或"抽象收益不足"的项目。
+**净评估**:无阻塞性债务。Phase 2 路线的 3 项是已知的功能性取舍,Cloud 耦合有 graceful degradation 防护,其余均为"有防护的局部 workaround"或"抽象收益不足"的项目。
 
 ---
 
@@ -32,8 +32,8 @@
 - **状态**:🟡 部分修复(NodeAssetStore 已实装,但未完全替代默认 store)
 - **位置**:`packages/mcp-server/src/server.ts:144`、`packages/mcp-server/src/node-asset-store.ts:74-144`
 - **问题**:原描述"使用默认内存/OPFS store,无法读写本地文件"已部分修复 —— `NodeAssetStore` 基于 `fs/promises` + `workdir` 实装,但未完全替代默认 store 路径。
-- **影响**:Node 环境已可读写本地文件,但与 runtime capability 系统的集成未完成(见 TD-1.4)
-- **长期方案**:完成 mcp-server 与 runtime capability 系统的对接(TD-1.4;image 侧已改经 engine-image-node,见 TD-C14)
+- **影响**:Node 环境已可读写本地文件,但与 runtime capability 系统的集成未完成(image/pdf 已改经 Engine 层直接消费,见 TD-C14/TD-C15;capability 系统对接仍待 Phase 2)
+- **长期方案**:完成 mcp-server 与 runtime capability 系统的对接(image/pdf 侧已走 Engine 层 Blob↔Blob 直接消费,见 TD-C14/TD-C15)
 - **为何暂不修**:已明确记入 Phase 2 路线,NodeAssetStore 已满足当前 5 个 tool 的文件读写需求
 - **触发条件**:Phase 2 MCP Server v1 与 runtime capability 系统对接完成时
 
@@ -50,16 +50,9 @@
 
 > 2026-07-15 清偿:image tool handlers 改为经 `@lokvis/engine-image-node` Blob↔Blob 操作调用,mcp-server 不再直接 import sharp。详见 TD-C14。
 
-### TD-1.4 mcp-server pdf tools 直接用 pdf-lib 绕过 Engine 层
+### TD-1.4 ~~mcp-server pdf tools 直接用 pdf-lib 绕过 Engine 层~~(已清偿,见 TD-C15)
 
-- **位置**:`packages/mcp-server/src/tools/pdf.ts`(`import { PDFDocument } from 'pdf-lib'`)
-- **问题**:同 TD-1.3,但 pdf 的额外复杂度在于 `engine-pdf` 当前是 stub,本债务需先实装 `engine-pdf` 的 `merge`/`compress` 两个 Blob↔Blob 操作
-- **影响**:同 TD-1.3
-- **长期方案**:
-  1. 实装 `engine-pdf` 的 `merge`/`compress` 操作(基于 pdf-lib)
-  2. mcp-server pdf tool handlers 改为经 runtime capability 系统调用
-- **为何暂不修**:engine-pdf 仍为 stub,Phase 2 才会实装
-- **触发条件**:Phase 2 engine-pdf 实装时
+> 2026-07-15 清偿:实装 `engine-pdf` 的 `mergePdfs`/`compressPdf`/`getPdfInfo` Blob↔Blob 操作,pdf tool handlers 改为经 `@lokvis/engine-pdf` 调用,mcp-server 不再直接 import pdf-lib。详见 TD-C15。
 
 ### TD-1.5 mcp-server 硬编码 cloud URL / plan 名(耦合泄漏)
 
@@ -340,7 +333,6 @@
   - TD-4.4(exif-reader 嵌套类型)已清偿(v2.3 重构)
 - **决定不修**:本次 review 未清偿任何既有活动债务代码,仅同步文档状态。理由:所有活动债务均评估为"有防护的局部 workaround"或"Phase 2 路线性取舍",无阻塞性问题
 - **Phase 2 候选**:
-  - TD-1.4(mcp-server pdf 经 capability 系统):Phase 2 W7-W8 mcp-server 改造时落地(TD-1.3 image 侧已在本 PR T9a 清偿)
   - TD-4.6(SDK message 匹配):runtime 错误类型统一改造时落地
   - TD-3.x 系列(静默吞错):接入 Sentry 后统一处理
 
@@ -493,3 +485,17 @@
 - **清偿验证**:`grep "from 'sharp'" packages/mcp-server/src/tools/image.ts` 无命中;`image.test.ts` 17 个用例全绿;`engine-image-node` operations 测试 30 个用例全绿;`mcp-server` 全量 146 个用例全绿
 - **清偿来源**:本 PR T9a 任务
 - **未清偿关联**:TD-1.4(pdf 侧)仍活动 —— engine-pdf 为 stub,需 T9b 实装 engine-pdf 的 merge/compress Blob↔Blob 操作后清偿
+
+### TD-C15 mcp-server pdf tools 直接用 pdf-lib 绕过 Engine 层(2026-07-15 清偿)
+
+- **原债务**(原 TD-1.4):`packages/mcp-server/src/tools/pdf.ts` 直接 `import { PDFDocument } from 'pdf-lib'`,merge/compress 两个 tool handler 各自调用 pdf-lib 处理本地文件,绕过 `@lokvis/engine-pdf`(Engine 层)。文件头注释自认"M2.1 阶段直接使用 pdf-lib;M2.2 后将封装到 engine-pdf 包"。额外复杂度:engine-pdf 当前的 `PdfEngineAdapter`(pdfLibEngine/pdfjsEngine)是 stub(version 含 'stub'),能力系统绑定的 adapter 方法全部抛 not implemented
+- **违反**:ADR-011 设计意图"MCP server 通过 Engine 层暴露能力";AGENTS.md 五层架构 Engine 层职责(Blob↔Blob 纯函数)。与 T9a 清偿的 image 侧形成对称问题
+- **清偿方案**:
+  1. 新增 `packages/engine-pdf/src/operations.ts`,实装三个 Blob↔Blob 纯函数:`mergePdfs(blobs, params)` / `compressPdf(blob, params)` / `getPdfInfo(blob)`。pdf-lib 经动态 `import('pdf-lib')` 加载(浏览器侧 plugin-pdf 只导入 PdfEngineAdapter stub,不会拉入 pdf-lib)。为跨端类型安全(AGENTS.md:engine-pdf tsconfig 不含 `types: ['node']`),仅用标准 `Blob`/`ArrayBuffer`/`Uint8Array`,通过 `uint8ToBlobPart(bytes)`(`bytes.buffer.slice(...) as ArrayBuffer`)做 Uint8Array→BlobPart 转换,不用 Node 专属 Buffer
+  2. `engine-pdf/src/index.ts` 导出独立 operations(`PdfEngineAdapter` 仍为 stub,供能力系统绑定;独立 operations 供不经能力系统的 Node 消费方直接调用,与 engine-image-node 的 operations/ 模式对齐)
+  3. `engine-pdf/package.json` 加 `pdf-lib` 到 dependencies
+  4. pdf tool handlers 改为经 `@lokvis/engine-pdf` 的 Blob↔Blob 操作调用,tool handler 自行做 file-path ↔ Blob 翻译(与 T9a image.ts 一致)。页数报告改用 `getPdfInfo(outBlob)`
+  5. `pdf-lib` 从 mcp-server dependencies 移到 devDependencies(测试用 pdf-lib 生成 fixture 与验证输出)
+- **清偿验证**:`grep "from 'pdf-lib'" packages/mcp-server/src/tools/pdf.ts` 无命中;`pdf.test.ts` 17 个用例全绿;mcp-server 全量 146 个用例全绿;engine-pdf typecheck/build 通过
+- **清偿来源**:本 PR T9b 任务
+- **架构说明**:与 T9a 一致,mcp-server 作为 Node 应用直接消费 Engine 层 Blob↔Blob 操作,不经 Runtime/Capability 系统(Runtime 无公开 `capabilities.execute()`,execute 签名是 `Asset[]→Asset[]` 非 `Blob→Blob`;强行经 Runtime 属过度工程)。PdfEngineAdapter 仍为 stub,未来 plugin-pdf/node 实装时 adapter 方法可委托到 operations.ts,version 升为非-stub。capability 系统对接仍属 Phase 2(见 TD-1.1)

@@ -31,7 +31,8 @@
   },
   "dependencies": {
     "@lokvis/engine-core": "workspace:*",
-    "@lokvis/schema": "workspace:*"
+    "@lokvis/schema": "workspace:*",
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

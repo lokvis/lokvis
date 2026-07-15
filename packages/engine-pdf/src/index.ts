@@ -200,4 +200,16 @@ export async function selectBestPdfEngine(): Promise<PdfEngineAdapter> {
   return registry.selectBest();
 }
 
+// ─── 独立 Blob↔Blob 操作(供不经能力系统的 Node 消费方直接调用) ───
+// PdfEngineAdapter 仍为 stub(能力系统绑定);本模块为已实装操作,
+// 未来 plugin-pdf/node 实装时 adapter 方法会委托到此(见 TD-1.4)。
+// 注:PdfMergeParams / PdfCompressParams 已在上方定义(adapter 签名用),
+// operations.ts 内部使用同名字面量,此处只导出函数 + 新增 PdfInfo 类型。
+export {
+  mergePdfs,
+  compressPdf,
+  getPdfInfo,
+  type PdfInfo,
+} from './operations.js';
+
 export type { AssetType };

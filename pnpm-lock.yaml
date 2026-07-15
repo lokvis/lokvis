@@ -391,6 +391,9 @@ importers:
       '@lokvis/schema':
         specifier: workspace:*
         version: link:../schema
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
     devDependencies:
       typescript:
         specifier: ^5.6.0
@@ -414,6 +417,9 @@ importers:
       '@lokvis/engine-image-node':
         specifier: workspace:*
         version: link:../engine-image-node
+      '@lokvis/engine-pdf':
+        specifier: workspace:*
+        version: link:../engine-pdf
       '@lokvis/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -426,9 +432,6 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
-      pdf-lib:
-        specifier: ^1.17.1
-        version: 1.17.1
       ws:
         specifier: ^8.18.0
         version: 8.21.0
@@ -442,6 +445,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^2.1.0
         version: 2.1.9(vitest@2.1.9(@types/node@22.20.0)(jsdom@25.0.1)(lightningcss@1.32.0))
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
       sharp:
         specifier: ^0.33.0
         version: 0.33.5

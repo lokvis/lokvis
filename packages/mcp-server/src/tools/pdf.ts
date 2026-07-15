@@ -1,21 +1,45 @@
 /**
  * PDF tools:MCP tool handlers for PDF processing.
  *
- * 2 个 tool 直接使用 pdf-lib 处理本地 PDF 文件:
+ * 2 个 tool 经 @lokvis/engine-pdf(Engine 层,Blob↔Blob 纯函数)处理本地 PDF 文件:
  * - lokvis_pdf_merge: 合并多个 PDF
  * - lokvis_pdf_compress: 压缩 PDF(移除冗余对象 + 对象流压缩)
  *
- * 与 image.ts 一致,M2.1 阶段直接使用 pdf-lib;M2.2 后将封装到 engine-pdf 包,
- * tool handler 改为通过 runtime capability 系统调用。
+ * 架构定位:mcp-server 是 Node 应用,直接消费 Engine 层 Blob↔Blob 操作
+ * (与 image.ts 一致;与浏览器侧 Runtime→Capability→Engine 链路对齐:Node 侧
+ *  无需 Asset/Workflow 抽象,tool handler 自行做 file-path ↔ Blob 翻译)。
+ * pdf-lib 仅在 engine-pdf 内使用,本文件不直接 import pdf-lib
+ * (ADR-011 / AGENTS.md 五层架构)。engine-pdf 的 PdfEngineAdapter 仍为 stub
+ * (能力系统绑定),此处的独立 operations 是已实装的 Blob↔Blob 实现,
+ * 供不经能力系统的 Node 消费方直接调用(见 TD-1.4 长期方案)。
  *
  * 输入:文件路径(绝对路径或相对 workdir)
  * 输出:处理后的文件路径 + 元数据(页数/大小变化)
  */
 
-import { PDFDocument } from 'pdf-lib';
+import { readFile, writeFile, stat } from 'node:fs/promises';
 import { resolve, dirname, basename, extname, join } from 'node:path';
-import { stat, readFile } from 'node:fs/promises';
+import {
+  mergePdfs as engineMergePdfs,
+  compressPdf as engineCompressPdf,
+  getPdfInfo,
+} from '@lokvis/engine-pdf';
 import type { McpToolResult } from '../server.js';
+
+/** PDF 文件的 MIME 类型(构造输入 Blob 时使用) */
+const PDF_MIME = 'application/pdf';
+
+/** 读取文件为 Blob(带 PDF MIME) */
+async function fileToBlob(path: string): Promise<Blob> {
+  const buffer = await readFile(path);
+  return new Blob([buffer], { type: PDF_MIME });
+}
+
+/** 把 Blob 写入文件 */
+async function blobToFile(blob: Blob, path: string): Promise<void> {
+  const buffer = Buffer.from(await blob.arrayBuffer());
+  await writeFile(path, buffer);
+}
 
 /** 生成输出路径:输入路径加后缀 */
 function makeOutputPath(
@@ -69,24 +93,14 @@ export async function pdfMerge(params: {
     : makeOutputPath(resolvedPaths[0]!, 'merged');
 
   try {
-    const mergedPdf = await PDFDocument.create();
-
-    for (const inputPath of resolvedPaths) {
-      const bytes = await readFile(inputPath);
-      const srcPdf = await PDFDocument.load(bytes);
-      const pages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
-      for (const page of pages) {
-        mergedPdf.addPage(page);
-      }
-    }
-
-    const outputBytes = await mergedPdf.save();
-    const { writeFile } = await import('node:fs/promises');
-    await writeFile(outputPath, outputBytes);
+    const inputBlobs = await Promise.all(resolvedPaths.map(fileToBlob));
+    const outBlob = await engineMergePdfs(inputBlobs);
+    await blobToFile(outBlob, outputPath);
 
     const inputSizes = await Promise.all(resolvedPaths.map(getFileSize));
     const totalInputSize = inputSizes.reduce((a, b) => a + b, 0);
     const outputSize = await getFileSize(outputPath);
+    const info = await getPdfInfo(outBlob);
 
     return {
       content: [
@@ -97,7 +111,7 @@ export async function pdfMerge(params: {
             `  Inputs: ${resolvedPaths.length} files (${formatSize(totalInputSize)} total)`,
             ...resolvedPaths.map((p, i) => `    - ${p} (${formatSize(inputSizes[i]!)})`),
             `  Output: ${outputPath} (${formatSize(outputSize)})`,
-            `  Pages: ${mergedPdf.getPageCount()}`,
+            `  Pages: ${info.pages}`,
           ].join('\n'),
         },
       ],
@@ -121,7 +135,7 @@ export async function pdfMerge(params: {
  * - output_path: 输出路径(可选,默认输入路径加 _compressed 后缀)
  *
  * 注意:pdf-lib 的压缩能力有限(主要是对象流压缩 + 移除冗余)。
- * 深度压缩(图片降采样)需要 ghostscript 等外部工具,留待 M2.2+。
+ * 深度压缩(图片降采样)需要 ghostscript 等外部工具,留待后续。
  */
 export async function pdfCompress(params: {
   input_path: string;
@@ -144,21 +158,13 @@ export async function pdfCompress(params: {
   }
 
   try {
-    const inputBytes = await readFile(inputPath);
-    const pdfDoc = await PDFDocument.load(inputBytes);
-
-    // pdf-lib 的 save 支持 useObjectStreams(对象流压缩)
-    // level 0-3: 不启用对象流(快速保存)
-    // level 4-9: 启用对象流(压缩率更高)
-    const outputBytes = await pdfDoc.save({
-      useObjectStreams: level >= 4,
-    });
-
-    const { writeFile } = await import('node:fs/promises');
-    await writeFile(outputPath, outputBytes);
+    const inputBlob = await fileToBlob(inputPath);
+    const outBlob = await engineCompressPdf(inputBlob, { level });
+    await blobToFile(outBlob, outputPath);
 
     const originalSize = await getFileSize(inputPath);
-    const ratio = ((1 - outputBytes.length / originalSize) * 100).toFixed(1);
+    const ratio = ((1 - outBlob.size / originalSize) * 100).toFixed(1);
+    const info = await getPdfInfo(outBlob);
 
     return {
       content: [
@@ -167,10 +173,10 @@ export async function pdfCompress(params: {
           text: [
             `PDF compressed successfully.`,
             `  Input: ${inputPath} (${formatSize(originalSize)})`,
-            `  Output: ${outputPath} (${formatSize(outputBytes.length)})`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
             `  Level: ${level}`,
-            `  Pages: ${pdfDoc.getPageCount()}`,
-            `  Saved: ${ratio}% (${formatSize(originalSize - outputBytes.length)})`,
+            `  Pages: ${info.pages}`,
+            `  Saved: ${ratio}% (${formatSize(originalSize - outBlob.size)})`,
           ].join('\n'),
         },
       ],
