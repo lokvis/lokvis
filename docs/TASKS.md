@@ -12,11 +12,11 @@
 
 | 阶段 | 总任务数 | ✅ 完成 | ⬜ 待办 | ⛔ 废弃 | ⏭️ 延后 | 完成率 |
 |------|---------|---------|---------|---------|---------|--------|
-| **Phase 1** (W1-W24) | ~90 | ~68 | ~15 | 4 | 3 | 75% |
+| **Phase 1** (W1-W24) | ~90 | ~69 | ~14 | 4 | 3 | 77% |
 | **Phase 1.5** (架构优化) | 21 | 21 | 0 | 0 | 0 | 100% |
 | **Phase 2** (MCP/Engine/Workflow) | 9 | 6 | 0 | 0 | 3 | 67% |
 | **技术债务** | 16 | 9 | 7 | — | — | 56% |
-| **合计** | ~136 | ~104 | ~15 | 4 | 6 | 76% |
+| **合计** | ~136 | ~105 | ~14 | 4 | 6 | 77% |
 
 ---
 
@@ -41,7 +41,7 @@
 | M2 | W5-W8 | Image 工具（7 工具 + 批量 + 水印 + 历史 + 预设库 20+） | ✅ 完成 |
 | M3 | W9-W12 | Workspace UI + Workflow Layer（SPA + 拖拽编辑器 + 5 步编排 + Alpha） | ✅ 代码侧完成 |
 | M4 | W13-W16 | npm 发版 + Playground 5 demo + PWA | ✅ 完成 |
-| M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 仅 6/16 完成（19.1/19.7/19.9 提前完成 + 20.1/20.2/20.3 W20 CLI 核心） |
+| M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 仅 7/16 完成（19.1/19.7/19.9 提前完成 + 20.1/20.2/20.3/20.4 W20 CLI 核心 + 集成测试） |
 | M6 | W21-W24 | 性能优化 + 跨浏览器测试 + 开源发布 + Product Hunt | ⬜ 全部待开始 |
 
 ### M5/W17-W20 待办明细
@@ -53,7 +53,7 @@
 | 18.1-18.3 plugin-sdk npm + 文档 + 示例插件 | P1 | ⬜ | |
 | 18.6 Plugin 权限沙箱 | P0 | ⬜ | |
 | 19.2-19.6 文档结构 + API Ref + Guides + Architecture + 交互 Playground | P0 | ⬜ | |
-| 20.1-20.6 CLI 最小版（run/capabilities/plugin create） | P1 | 🟡 | 20.1/20.2/20.3 已完成(run 默认注入 sharp 引擎 + --input/--output);20.4/20.5/20.6 待办 |
+| 20.1-20.6 CLI 最小版（run/capabilities/plugin create） | P1 | 🟡 | 20.1/20.2/20.3/20.4 已完成(run 默认注入 sharp 引擎 + --input/--output + 真实 resize 集成测试);20.5/20.6 待办 |
 
 ### M6/W21-W24 待办明细
 
@@ -201,6 +201,7 @@
 
 ### 已完成（最近）
 
+- ✅ **W20.4**（2026-07-15）— CLI 集成测试 `packages/cli/src/__tests__/integration/run-resize.integration.test.ts`,3 测试覆盖 resize(200x100→100x50 PNG) + compress(PNG→JPEG) + 无 --output 路径,真实 sharp 引擎端到端跑通,作为持续验证 CLI 端到端可用性的护栏。
 - ✅ **W20.1/20.2/20.3**（2026-07-15）— CLI `run` 命令默认注入 `imageToolsPluginNode`(sharp 引擎),支持 `--input`/`--output` 选项;Node 端真实跑图像工作流端到端验证通过(256x192→64x48 PNG 37ms)。`capabilities` 与 `plugin create` 命令核验通过。
 - ✅ **M2.4**（2026-07-15）— Claude Desktop / Cursor 端到端验证 + 可复现 demo + blog post（详见 [blog](./blog/2026-07-15-mcp-first-local-tools.md)）
 
