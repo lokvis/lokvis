@@ -393,7 +393,7 @@
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
 | 19.1 | `apps/docs` 升级 Starlight 或自建导航 | P0 | 4h | ✅ | docs(已迁移至 Starlight 0.41) |
-| 19.2 | 文档结构:Getting Started / Concepts / API Ref / Guides / Plugins / Examples | P0 | 4h | ⬜ | docs |
+| 19.2 | 文档结构:Getting Started / Concepts / API Ref / Guides / Plugins / Examples | P0 | 4h | ✅ | docs(astro.config.mjs sidebar 重整为六段式:Overview / Getting Started / Architecture / Concepts(capabilities+workflows+mcp) / Guides(embed-sdk+write-first-plugin) / Plugins / Examples(custom-workspace+cli-automation) / Reference(sdk+cli+roadmap);中英两版同步;slug 不变不断链) |
 | 19.3 | API Reference 自动生成(从 tsdoc) | P0 | 6h | ⬜ | `docs/api/` |
 | 19.4 | Guides:嵌入 SDK / 写第一个插件 / 自定义 Workspace / CLI 自动化 | P0 | 8h | ⬜ | docs |
 | 19.5 | Architecture 深度文:Runtime/Engine/Capability/Plugin 四层 | P0 | 4h | ✅ | docs(四层深度文已存在;本次补强:修复 architecture.mdx 断链 whitepaper/→business/(中英两版);新增"四层协作"综述章节串联四层请求流+单向依赖+深度文档链接(中英两版)) |

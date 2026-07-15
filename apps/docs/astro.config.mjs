@@ -24,6 +24,7 @@ export default defineConfig({
           label: 'English',
           lang: 'en',
           // 英文侧边栏导航(手动配置以控制顺序)
+          // W19.2 六段式结构:Getting Started / Concepts / Guides / Plugins / Examples / Reference
           sidebar: [
             { label: 'Overview', slug: 'index' },
             { label: 'Getting Started', slug: 'getting-started' },
@@ -38,23 +39,41 @@ export default defineConfig({
                 { label: 'Plugin SDK', slug: 'architecture/plugin' },
               ],
             },
-            { label: 'Capabilities', slug: 'capabilities' },
-            { label: 'Plugins', slug: 'plugins' },
-            { label: 'MCP Integration', slug: 'mcp' },
-            { label: 'Workflows', slug: 'workflows' },
+            {
+              label: 'Concepts',
+              collapsed: true,
+              items: [
+                { label: 'Capabilities', slug: 'capabilities' },
+                { label: 'Workflows', slug: 'workflows' },
+                { label: 'MCP Integration', slug: 'mcp' },
+              ],
+            },
             {
               label: 'Guides',
               collapsed: true,
               items: [
                 { label: 'Embed the SDK', slug: 'guides/embed-sdk' },
                 { label: 'Write Your First Plugin', slug: 'guides/write-first-plugin' },
-                { label: 'Build a Custom Workspace', slug: 'guides/custom-workspace' },
+              ],
+            },
+            { label: 'Plugins', slug: 'plugins' },
+            {
+              label: 'Examples',
+              collapsed: true,
+              items: [
+                { label: 'Custom Workspace', slug: 'guides/custom-workspace' },
                 { label: 'CLI Automation', slug: 'guides/cli-automation' },
               ],
             },
-            { label: 'SDK', slug: 'sdk' },
-            { label: 'CLI', slug: 'cli' },
-            { label: 'Roadmap', slug: 'roadmap' },
+            {
+              label: 'Reference',
+              collapsed: true,
+              items: [
+                { label: 'SDK', slug: 'sdk' },
+                { label: 'CLI', slug: 'cli' },
+                { label: 'Roadmap', slug: 'roadmap' },
+              ],
+            },
           ],
         },
         'zh-cn': {
@@ -77,6 +96,7 @@ export default defineConfig({
             '404.content': '该页面不存在或已被移动。',
           },
           // 中文侧边栏导航(与英文结构一致,标签为中文)
+          // W19.2 六段式结构:快速开始 / 概念 / 指南 / 插件 / 示例 / 参考
           sidebar: [
             { label: '概览', slug: 'index' },
             { label: '快速开始', slug: 'getting-started' },
@@ -91,23 +111,41 @@ export default defineConfig({
                 { label: 'Plugin SDK 插件', slug: 'architecture/plugin' },
               ],
             },
-            { label: '能力目录', slug: 'capabilities' },
-            { label: '插件', slug: 'plugins' },
-            { label: 'MCP 集成', slug: 'mcp' },
-            { label: '工作流', slug: 'workflows' },
+            {
+              label: '概念',
+              collapsed: true,
+              items: [
+                { label: '能力目录', slug: 'capabilities' },
+                { label: '工作流', slug: 'workflows' },
+                { label: 'MCP 集成', slug: 'mcp' },
+              ],
+            },
             {
               label: '指南',
               collapsed: true,
               items: [
                 { label: '嵌入 SDK', slug: 'guides/embed-sdk' },
                 { label: '编写第一个插件', slug: 'guides/write-first-plugin' },
-                { label: '构建自定义工作台', slug: 'guides/custom-workspace' },
+              ],
+            },
+            { label: '插件', slug: 'plugins' },
+            {
+              label: '示例',
+              collapsed: true,
+              items: [
+                { label: '自定义工作台', slug: 'guides/custom-workspace' },
                 { label: 'CLI 自动化', slug: 'guides/cli-automation' },
               ],
             },
-            { label: 'SDK', slug: 'sdk' },
-            { label: 'CLI', slug: 'cli' },
-            { label: '路线图', slug: 'roadmap' },
+            {
+              label: '参考',
+              collapsed: true,
+              items: [
+                { label: 'SDK', slug: 'sdk' },
+                { label: 'CLI', slug: 'cli' },
+                { label: '路线图', slug: 'roadmap' },
+              ],
+            },
           ],
         },
       },

@@ -41,7 +41,7 @@
 | M2 | W5-W8 | Image 工具（7 工具 + 批量 + 水印 + 历史 + 预设库 20+） | ✅ 完成 |
 | M3 | W9-W12 | Workspace UI + Workflow Layer（SPA + 拖拽编辑器 + 5 步编排 + Alpha） | ✅ 代码侧完成 |
 | M4 | W13-W16 | npm 发版 + Playground 5 demo + PWA | ✅ 完成 |
-| M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 仅 11/16 完成（19.1/19.5/19.7/19.9 + 18.3 + 20.1-20.6 完成） |
+| M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 仅 12/16 完成（19.1/19.2/19.5/19.7/19.9 + 18.3 + 20.1-20.6 完成） |
 | M6 | W21-W24 | 性能优化 + 跨浏览器测试 + 开源发布 + Product Hunt | ⬜ 全部待开始 |
 
 ### M5/W17-W20 待办明细
@@ -52,7 +52,7 @@
 | 17.11 ToolLayout vs AI 文案 | P0 | ⬜ | |
 | 18.1-18.3 plugin-sdk npm + 文档 + 示例插件 | P1 | 🟡 | 18.3 完成(plugin-grayscale 教学插件 + 13 测试);18.1/18.2 待办 |
 | 18.6 Plugin 权限沙箱 | P0 | ⬜ | |
-| 19.2-19.6 文档结构 + API Ref + Guides + Architecture + 交互 Playground | P0 | 🟡 | 19.5 完成(四层协作综述+断链修复);19.1/19.7/19.9 此前完成;19.2/19.3/19.4/19.6/19.8 待办 |
+| 19.2-19.6 文档结构 + API Ref + Guides + Architecture + 交互 Playground | P0 | 🟡 | 19.2/19.5 完成(sidebar 六段式重整+四层协作综述);19.1/19.7/19.9 此前完成;19.3/19.4/19.6/19.8 待办 |
 | 20.1-20.6 CLI 最小版（run/capabilities/plugin create） | P1 | ✅ | 20.1-20.6 全部完成(run 默认注入 sharp 引擎 + --input/--output + 真实 resize 集成测试 + README + 帮助文本 + cli-automation 升级 + GitHub Actions 示例) |
 
 ### M6/W21-W24 待办明细
@@ -201,6 +201,7 @@
 
 ### 已完成（最近）
 
+- ✅ **W19.2**（2026-07-15）— 文档结构重整为六段式:`astro.config.mjs` sidebar 重组为 Overview / Getting Started / Architecture / Concepts(capabilities+workflows+mcp) / Guides(embed-sdk+write-first-plugin) / Plugins / Examples(custom-workspace+cli-automation) / Reference(sdk+cli+roadmap);中英两版同步;slug 不变不断链;`pnpm --filter @lokvis/docs typecheck` 0 errors。
 - ✅ **W18.3**（2026-07-15）— 示例插件 `plugin-grayscale`(教学用):`examples/plugin-grayscale/`,`grayscalePlugin()` 注册 `image.grayscale` 能力,自包含 canvas 灰度化 operation(decode→逐像素→encode),3 种算法(luminance/average/lightness);13 测试覆盖插件常量/installer 注册数/factory 返回数/stub status/execute 抛错/三种算法 + abort;README 含 30 秒速览 + 算法表 + 与官方 plugin-image 对比表。
 - ✅ **W19.5**（2026-07-15）— Architecture 深度文补强:修复 `architecture.mdx` 断链(`docs/whitepaper/` → `docs/business/`,中英两版);新增"四层协作"综述章节,串联 Runtime/Capability/Plugin/Engine 请求流 + 单向依赖 + 四篇深度文档链接(中英两版)。四层深度文(runtime/engine/capability/plugin)此前已存在且完整。
 - ✅ **W20.6**（2026-07-15）— `examples/cli-automation` 升级:`automate.ts` 移除过时 Node 限制说明,真实跑 image.resize(1920x1080→1280x720 PNG 174ms);新增 `.github/workflows/resize-ci.yml` GitHub Actions CI gate 示例;README 重写。W20 CLI 最小版全部完成。
