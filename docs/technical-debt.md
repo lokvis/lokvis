@@ -15,7 +15,7 @@
 | Phase 2 路线 | 4 项 | 中 | 按 Phase 2 路线推进 |
 | 测试时序依赖 | 2 项 | 中 | 需改生产 API 语义,专项评估 |
 | 静默吞错 | 10 处 | 低 | intentional,需 assetStore 错误类型分层才能根治 |
-| 类型层面 workaround | 2 处 | 低 | 局部小问题,收益低 |
+| 类型层面 workaround | 1 处 | 低 | 局部小问题,收益低(TD-4.5 已清偿,见 TD-C13) |
 | UI ObjectURL 生命周期分散 | 2 处 | 中 | 有防护,重构影响面大 |
 | 事件订阅 cleanup 模式分散 | 3 处 | 低 | 各有特殊点,抽象灵活性下降 |
 | 测试环境 hack | 3 处 | 低 | 合理写法,非债务(记录备查) |
@@ -228,7 +228,7 @@
 
 ## 4. 类型层面 workaround
 
-> **TD-4.1 / TD-4.3 / TD-4.4 已清偿**,见「已清偿」章节。本节仅保留活动债务 TD-4.2 与 TD-4.5。
+> **TD-4.1 / TD-4.3 / TD-4.4 / TD-4.5 已清偿**,见「已清偿」章节。本节保留活动债务 TD-4.2(类型强转)与 TD-4.6(message 模式匹配过渡方案)。
 
 ### TD-4.2 schema workflow.ts 强转加字段
 
@@ -239,22 +239,6 @@
 - **长期方案**:把 `properties` 类型设计为允许任意键的索引签名类型
 - **为何暂不修**:JSON Schema 动态加字段是合理用法,改动 schema 类型影响面大
 - **触发条件**:重构 workflow schema 类型时
-
-### TD-4.5 plugin-permissions.ts 全局构造器/原型方法 monkey-patch 双断言
-
-- **位置**:`packages/runtime/src/plugin-permissions.ts:186, 196, 209`
-- **代码**:
-  ```ts
-  } as unknown as typeof XMLHttpRequest.prototype.open;   // L186
-  } as unknown as typeof WebSocket;                       // L196
-  } as unknown as typeof EventSource;                     // L209
-  ```
-- **问题**:网络守卫沙箱 monkey-patch `XMLHttpRequest.prototype.open` / `WebSocket` / `EventSource`,用返回 `never` 的拦截函数替换原生重载签名方法。TS 不允许 `() => never` 直接赋值给带重载或带 prototype 的原生函数类型,需双断言绕过
-- **违反**:AGENTS.md "禁止 `as unknown as` 双断言……唯一的例外是 Worker scope 等跨边界场景"。此 3 处属"全局构造器/原型方法 monkey-patch"跨边界,与 Worker scope 性质类似但 AGENTS.md 未明文列入例外
-- **影响**:类型安全减弱,生产代码 3 处未登记的双断言
-- **长期方案**:用 `Object.defineProperty` 替代直接赋值,或用 `declare global` 扩展原生类型提供类型友好的 patch 接口;或在 AGENTS.md 显式扩展"全局构造器/原型方法 monkey-patch"作为允许的例外
-- **为何暂不修**:monkey-patch 全局构造器是网络守卫沙箱的必要手段,无更简洁的替代方案;双断言是 TS 类型系统的限制而非代码缺陷
-- **触发条件**:重构 plugin-permissions 沙箱,或 AGENTS.md 扩展例外条款时
 
 ### TD-4.6 sdk errors.ts best-effort message 模式匹配过渡方案
 
@@ -502,3 +486,11 @@
 - **清偿方案**:v2.3 重构后 RawExifData 不再在主路径使用,`data.raw` 赋值行已删除。RawExifData 类型保留在 schema 供未来调试场景,但不再有类型强转
 - **清偿验证**:`grep 'as Record<string, unknown>' plugin-image/src/exif-reader.ts` 无命中
 - **清偿来源**:本 PR T5 任务(同步 TD 状态,确认 v2.3 重构已清偿)
+
+### TD-C13 plugin-permissions.ts 全局构造器/原型方法 monkey-patch 双断言(2026-07-15 清偿)
+
+- **原债务**(原 TD-4.5):`packages/runtime/src/plugin-permissions.ts:186, 196, 209` 三处 `as unknown as typeof XMLHttpRequest.prototype.open` / `typeof WebSocket` / `typeof EventSource` 双断言。网络守卫沙箱用返回 `never` 的拦截函数替换原生重载签名方法,TS 不允许 `() => never` 直接赋值给带重载/带 prototype 的原生函数类型,故用双断言绕过
+- **违反**:AGENTS.md "禁止 `as unknown as` 双断言……唯一的例外是 Worker scope 等跨边界场景"。此 3 处属全局构造器/原型方法 monkey-patch 跨边界,未在明文例外内
+- **清偿方案**:改用 `Object.defineProperty(target, key, { value, writable: true, configurable: true })` 替代直接赋值。`PropertyDescriptor.value` 类型为 `any`,无需为 `() => never` 与原生重载签名的不兼容做双断言;`writable`/`configurable` 显式为 true,与原生原型方法/全局构造器描述符一致。restore 函数仍用类型安全的直接赋值(`origXHRopen` 等已具原生类型)
+- **清偿验证**:`grep 'as unknown as' packages/runtime/src/plugin-permissions.ts` 仅命中注释(无生产代码双断言);`plugin-permissions.test.ts` 25 个用例全绿(fetch/XHR.open/WebSocket/EventSource 拦截 + restore + 嵌套守卫)
+- **清偿来源**:本 PR T8 任务
