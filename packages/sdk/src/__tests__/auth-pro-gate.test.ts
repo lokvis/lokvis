@@ -38,7 +38,7 @@ function makeWorkflow(id = 'wf-test'): Workflow {
 /** 构造 n 个批量条目(仅 source,无需真实文件) */
 function makeItems(n: number) {
   return Array.from({ length: n }, (_, i) => ({
-    source: { kind: 'file', file: new File([new Uint8Array([0])], `f${i}.png`, { type: 'image/png' }) },
+    source: { kind: 'file' as const, file: new File([new Uint8Array([0])], `f${i}.png`, { type: 'image/png' }) },
     workflow: makeWorkflow(`wf-${i}`),
   }));
 }

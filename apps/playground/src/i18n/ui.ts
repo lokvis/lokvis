@@ -528,6 +528,22 @@ export const ui: Dict = {
   'privacy.guideHint': { en: 'After going offline, return to this page and continue uploading/processing images. If everything works, files are indeed processed locally.', zh: '断网后回到此页面,继续上传/处理图片。如果一切正常,说明文件确实在本地处理。' },
   'privacy.close': { en: 'Close', zh: '关闭' },
 
+  // ─── Why use Lokvis?(W17.11 工具页 vs AI 对比卡片) ────
+  'whylokvis.title': { en: 'Why use Lokvis?', zh: '为什么用 Lokvis？' },
+  'whylokvis.subtitle': { en: 'vs AI chat tools (ChatGPT / Claude / Gemini)', zh: '对比 AI 对话工具（ChatGPT / Claude / Gemini）' },
+  'whylokvis.uploadTitle': { en: 'Privacy · no upload', zh: '隐私 · 不上传' },
+  'whylokvis.uploadLokvis': { en: 'Lokvis: files processed 100% in your browser, never leave your device', zh: 'Lokvis：文件 100% 在浏览器内处理,不离开你的设备' },
+  'whylokvis.uploadAi': { en: 'vs AI: ChatGPT / Claude require uploading files to their servers', zh: 'vs AI：ChatGPT / Claude 需要把文件上传到服务器' },
+  'whylokvis.responseTitle': { en: 'Speed · instant response', zh: '速度 · 即时响应' },
+  'whylokvis.responseLokvis': { en: 'Lokvis: executes immediately on local CPU/WASM, no network round-trip', zh: 'Lokvis：本地 CPU/WASM 直接执行,无网络往返' },
+  'whylokvis.responseAi': { en: 'vs AI: no waiting for LLM token streaming or rate limits', zh: 'vs AI：无需等待 LLM token 流式响应或限流' },
+  'whylokvis.tokensTitle': { en: 'Free · no token cost', zh: '免费 · 无 token 消耗' },
+  'whylokvis.tokensLokvis': { en: 'Lokvis: open source, run unlimited batches at zero marginal cost', zh: 'Lokvis：开源,无限次批量处理,边际成本为零' },
+  'whylokvis.tokensAi': { en: 'vs AI: each image consumes API tokens / quota, costs add up at scale', zh: 'vs AI:每张图片都消耗 API tokens / 配额,规模上去成本陡增' },
+  'whylokvis.offlineTitle': { en: 'Offline · always available', zh: '离线 · 永远可用' },
+  'whylokvis.offlineLokvis': { en: 'Lokvis: PWA works fully offline after first load, plane / subway friendly', zh: 'Lokvis:PWA 首次加载后完全离线可用,飞机 / 地铁场景友好' },
+  'whylokvis.offlineAi': { en: 'vs AI: AI tools are unreachable without network, no offline mode at all', zh: 'vs AI:AI 工具断网即不可用,完全无离线模式' },
+
   // ─── Upload Box ───────────────────────────────────────
   'upload.defaultHint': { en: 'Click or drag files here', zh: '点击或拖拽文件到此处' },
   'upload.rejectPrefix': { en: 'Ignored ', zh: '已忽略 ' },
