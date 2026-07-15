@@ -91,7 +91,7 @@ console.log(result.duration); // ms
 编程式构建工作流：
 
 ```typescript
-import { WorkflowBuilder } from '@lokvis/runtime';
+import { WorkflowBuilder } from '@lokvis/workflow';
 
 const builder = new WorkflowBuilder()
   .add('image.resize', { width: 1920, fit: 'inside' })
@@ -100,6 +100,8 @@ const builder = new WorkflowBuilder()
 
 const workflow = builder.build();
 ```
+
+> **架构约束**：`WorkflowBuilder` 与 `buildLinearWorkflow` 位于独立的 `@lokvis/workflow` 包,仅依赖 `@lokvis/schema`。Runtime 层不依赖 workflow 包（[AGENTS.md](../AGENTS.md) 五层单向依赖:UI → Workflow → Runtime → Capability → Engine）。
 
 最多 5 步（Year 1 限制）。
 

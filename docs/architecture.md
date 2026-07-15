@@ -145,9 +145,12 @@ idle → ready → restarting → dead/disposed
 
 1. 校验 `storageQuota`
 2. 导入输入资产
-3. 按 Workflow 节点顺序执行 transform
-4. 每个节点完成后发出 `node:finished` 事件，自动记录 History
-5. 返回 `WorkflowResult`（status / outputs / duration）
+3. **`validateWorkflow`**：校验 workflow 节点顺序、capability 兼容性、`MAX_WORKFLOW_STEPS` 上限、capability resolve（runtime `WorkflowCoordinator.run` 起手第一步）
+4. `historyManager.prepareForRun`：初始化历史栈与初始输入记录
+5. 按 Workflow 节点顺序执行 transform（经 `Executor.execute`）
+6. 每个节点完成后发出 `node:finished` 事件，`HistoryManager` 自动 append HistoryStack
+7. `historyManager.recordRunResult`：记录运行结果
+8. 返回 `WorkflowResult`（status / outputs / duration）
 
 ### 能力降级阶梯
 
@@ -196,24 +199,34 @@ lokvis-open（MIT）                    lokvis-cloud（闭源）
 
 ---
 
-## 八、仓库基线（2026-06 末快照）
+## 八、仓库基线（2026-07-15 快照）
 
 | 模块 | 状态 | 说明 |
 |------|------|------|
-| `packages/schema` | ✅ 已实现 | Workflow/Asset/Capability/Plugin/Event Zod schema + 单测 |
-| `packages/runtime` | 🟡 部分实现 | 调度/事件总线/AssetStore/CapabilityRegistry/undo/redo/OPFS 已实现；无 streaming |
-| `packages/capability` | ✅ 已实现 | names/helpers/presets + 单测 |
-| `packages/sdk` | ✅ 已实现 | createLokvis/loadPlugin + PluginContext + toMcpManifest |
-| `packages/plugin-sdk` | ✅ 已实现 | definePlugin/PluginContext 类型 |
-| `packages/engine-image` | ✅ 已实现 | Canvas + createImageBitmap，零 WASM |
-| `packages/plugin-image` | ✅ 已实现 | 8 个能力，接 canvas engine + 单测 |
-| `packages/engine-pdf` | 🔴 stub | 接口完整，所有操作抛 Not Implemented |
-| `packages/engine-video` | 🔴 stub | ffmpeg.wasm/webcodecs 占位 |
-| `packages/engine-audio` | 🔴 stub | 空壳 |
-| `packages/engine-ai` | 🔴 stub | 空壳 |
-| `packages/mcp-server` | 🟡 骨架 | index/server/router/cli + examples |
+| `packages/schema` | ✅ 已实现 | Workflow/Asset/Capability/Plugin/Event Zod schema + 校验器 + 单测 + MAX_WORKFLOW_STEPS 等业务约束常量 |
+| `packages/runtime` | ✅ 已实现 | 调度/事件总线/AssetStore/CapabilityRegistry/undo/redo/OPFS 已实现;**已二次分层**（runtime.ts 22 行 Facade + 5 个 manager);无 streaming |
+| `packages/capability` | ✅ 已实现 | names/helpers/presets + 单测;**manifest codegen 已落地**（5 域 manifest + 5 个 .generated.ts） |
+| `packages/workflow` | ✅ 已实现 | 独立包,仅依赖 `@lokvis/schema`,提供 `WorkflowBuilder` 与 `buildLinearWorkflow` |
+| `packages/sdk` | ✅ 已实现 | createLokvis/loadPlugin + PluginContext + toMcpManifest + auth-pro 软耦合 |
+| `packages/plugin-sdk` | ✅ 已实现 | definePlugin/PluginContext 类型 + 三个工厂（createBlobCapabilityImpl/createMergeCapabilityImpl/createSplitCapabilityImpl） |
+| `packages/engine-image` | ✅ 已实现 | Canvas + createImageBitmap,零 WASM,9 能力 |
+| `packages/engine-image-node` | ✅ 已实现 | sharp 适配,5 能力（resize/compress/convert/crop/watermark） |
+| `packages/plugin-image` | ✅ 已实现 | 9 能力,接 canvas engine（浏览器）+ sharp engine（Node 子路径 `@lokvis/plugin-image/node`）+ 单测 |
+| `packages/plugin-pdf` | 🟡 stub | 接 engine-pdf stub,7 能力声明 |
+| `packages/plugin-video` | 🟡 stub | 接 engine-video stub,7 能力声明 |
+| `packages/plugin-audio` | 🟡 stub | 接 engine-audio stub,4 能力声明 |
+| `packages/plugin-ai` | 🟡 stub | 接 engine-ai stub,5 能力声明（ocr/caption/bg-remove 走 transformersEngine,generate/optimize-workflow 走 cloudProxyEngine） |
+| `packages/plugin-dev` | ✅ 已实现 | 4 能力（inspect.capabilities/inspect.asset/validate.workflow/profile）,内联实现 |
+| `packages/engine-pdf` | 🔴 stub | 接口完整,7 操作抛 Not Implemented |
+| `packages/engine-video` | 🔴 stub | ffmpeg.wasm/webcodecs 占位,9 操作抛 Not Implemented |
+| `packages/engine-audio` | 🔴 stub | 空壳,4 操作抛 Not Implemented |
+| `packages/engine-ai` | 🔴 stub | 空壳,5 操作抛 Not Implemented |
+| `packages/mcp-server` | ✅ 已实装 | `createLokvisMcpServer()` 返回真实 McpServerAdapter;stdio/SSE/WebSocket 三传输;5 个 tool（3 image + 2 pdf）真实可用;auth/billing 接 cloud API（含降级） |
+| `packages/cli` | ✅ 已实现 | `run`/`capabilities`/`plugin create`/`version`/`help` 命令;Node 环境用 `@lokvis/plugin-image/node` |
+| `packages/ui-react` | ✅ 已实现 | Workspace UI + Zustand store + 8 hooks;ToolRunner engine 经 prop 注入 |
+| `packages/ui-core` | ✅ 已实现 | 16 个设计系统组件（badge/button/card/dialog/input 等） |
 | `apps/docs` | 🟢 Starlight | 10 页内容 + 9 Mermaid 图表 |
-| `apps/playground` | 🟡 占位 | 仅壳 |
+| `apps/playground` | ✅ 已落地 | 8 demo + PWA 组件 + 30 单测 |
 
 ---
 
