@@ -177,21 +177,56 @@ export async function loadPlugin(
 
 // ─── 公共类型 re-export ──────────────────────────────────────────
 
-/** @public */
-export type { LokvisRuntime, RuntimeConfig } from '@lokvis/runtime';
-/** @public */
-export type { PluginConfig, PluginContext } from '@lokvis/plugin-sdk';
 /**
  * @public
  *
- * MCP manifest 类型(见 docs/AI生态冲击调整方案.md §6.1)
+ * Runtime 类型(LokvisRuntime / RuntimeConfig 是核心入口;RunOptions /
+ * ToMcpManifestOptions / RuntimeStatus 用于调用 runtime.run() /
+ * runtime.toMcpManifest() / 读取 runtime.status;BatchProcessor 等用于
+ * runtime.batch 的批量类型)。
+ */
+export type {
+  LokvisRuntime,
+  RuntimeConfig,
+  RuntimeStatus,
+  RunOptions,
+  ToMcpManifestOptions,
+  BatchProcessor,
+  BatchJob,
+  BatchItem,
+  BatchItemInput,
+  EnqueueOptions,
+  BatchProgress,
+} from '@lokvis/runtime';
+
+/** @public */
+export type { PluginConfig, PluginContext, PluginInstaller } from '@lokvis/plugin-sdk';
+
+/**
+ * @public
+ *
+ * Schema 公共类型:Asset / Workflow / Capability / EventBus / MCP manifest。
+ * 包含 AssetSource(构造 importAsset 参数)、HistoryEntry(history() 返回)、
+ * ExifData(readAssetExif() 返回)等调用 LokvisRuntime 方法时必须引用的类型。
  */
 export type {
   Asset,
   AssetId,
+  AssetSource,
+  AssetType,
+  AssetMetadata,
+  HistoryEntry,
+  ExifData,
   Workflow,
   WorkflowResult,
   Capability,
+  EngineSelectionStrategy,
+  EventBus,
+  LokvisEvent,
+  LokvisEventType,
+  EventHandler,
+  BatchItemStatus,
+  BatchJobStatus,
   McpManifest,
   McpToolManifest,
   McpResourceManifest,
