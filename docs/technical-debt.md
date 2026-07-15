@@ -12,7 +12,7 @@
 
 | 类别 | 数量 | 严重度 | 处理策略 |
 |---|---|---|---|
-| Phase 2 路线 | 4 项 | 中 | 按 Phase 2 路线推进 |
+| Phase 2 路线 | 3 项 | 中 | 按 Phase 2 路线推进(TD-1.3 已清偿,见 TD-C14) |
 | 测试时序依赖 | 2 项 | 中 | 需改生产 API 语义,专项评估 |
 | 静默吞错 | 10 处 | 低 | intentional,需 assetStore 错误类型分层才能根治 |
 | 类型层面 workaround | 1 处 | 低 | 局部小问题,收益低(TD-4.5 已清偿,见 TD-C13) |
@@ -32,8 +32,8 @@
 - **状态**:🟡 部分修复(NodeAssetStore 已实装,但未完全替代默认 store)
 - **位置**:`packages/mcp-server/src/server.ts:144`、`packages/mcp-server/src/node-asset-store.ts:74-144`
 - **问题**:原描述"使用默认内存/OPFS store,无法读写本地文件"已部分修复 —— `NodeAssetStore` 基于 `fs/promises` + `workdir` 实装,但未完全替代默认 store 路径。
-- **影响**:Node 环境已可读写本地文件,但与 runtime capability 系统的集成未完成(见 TD-1.3)
-- **长期方案**:完成 mcp-server 与 runtime capability 系统的对接(TD-1.3 / TD-1.4)
+- **影响**:Node 环境已可读写本地文件,但与 runtime capability 系统的集成未完成(见 TD-1.4)
+- **长期方案**:完成 mcp-server 与 runtime capability 系统的对接(TD-1.4;image 侧已改经 engine-image-node,见 TD-C14)
 - **为何暂不修**:已明确记入 Phase 2 路线,NodeAssetStore 已满足当前 5 个 tool 的文件读写需求
 - **触发条件**:Phase 2 MCP Server v1 与 runtime capability 系统对接完成时
 
@@ -46,18 +46,9 @@
 - **为何暂不修**:W6 主要保证 Asset 持久化,批量队列是临时调度结构,刷新后由 UI 重新发起即可。Phase 2 再做持久化
 - **触发条件**:Phase 2 或用户反馈批量恢复需求
 
-### TD-1.3 mcp-server image tools 直接用 sharp 绕过 Engine 层
+### TD-1.3 ~~mcp-server image tools 直接用 sharp 绕过 Engine 层~~(已清偿,见 TD-C14)
 
-- **位置**:`packages/mcp-server/src/tools/image.ts:9-10,16`
-- **代码**:`import sharp from 'sharp';` + 文件头注释 "M2.1 阶段直接使用 sharp;M2.2 后将 sharp 封装到 engine-image-node 包,tool handler 改为通过 runtime capability 系统调用"
-- **问题**:MCP server 的 image tool handlers 直接 import sharp,绕过 `@lokvis/engine-image-node` 与 runtime capability 系统,违反 ADR-011 "MCP server 通过 runtime capability 系统暴露能力" 的设计意图。代码注释自认过渡方案。
-- **影响**:
-  - 与 `plugin-image/node-plugin.ts` 形成两套平行的 Node 路径
-  - capability 名字面量在 mcp-server/tools/image.ts 与 plugin-image 中重复
-  - 未来 capability 注册方式变更(如 manifest codegen)不会自动反映到 mcp-server
-- **长期方案**:image tool handlers 改为经 `runtime.capabilities.execute('image.resize', ...)` 或 `plugin-image/node` 的 capability impl 调用,mcp-server 不再直接 import sharp
-- **为何暂不修**:Phase 1 阶段 mcp-server 仅 5 个 tool,直用 sharp 简单直接;Phase 2 W7-W8 改为经 capability 系统调用
-- **触发条件**:Phase 2 W7-W8 mcp-server 改造时
+> 2026-07-15 清偿:image tool handlers 改为经 `@lokvis/engine-image-node` Blob↔Blob 操作调用,mcp-server 不再直接 import sharp。详见 TD-C14。
 
 ### TD-1.4 mcp-server pdf tools 直接用 pdf-lib 绕过 Engine 层
 
@@ -349,8 +340,7 @@
   - TD-4.4(exif-reader 嵌套类型)已清偿(v2.3 重构)
 - **决定不修**:本次 review 未清偿任何既有活动债务代码,仅同步文档状态。理由:所有活动债务均评估为"有防护的局部 workaround"或"Phase 2 路线性取舍",无阻塞性问题
 - **Phase 2 候选**:
-  - TD-1.3 / TD-1.4(mcp-server 经 capability 系统):Phase 2 W7-W8 mcp-server 改造时落地
-  - TD-4.5(plugin-permissions 双断言):AGENTS.md 扩展例外条款,或重构沙箱
+  - TD-1.4(mcp-server pdf 经 capability 系统):Phase 2 W7-W8 mcp-server 改造时落地(TD-1.3 image 侧已在本 PR T9a 清偿)
   - TD-4.6(SDK message 匹配):runtime 错误类型统一改造时落地
   - TD-3.x 系列(静默吞错):接入 Sentry 后统一处理
 
@@ -494,3 +484,12 @@
 - **清偿方案**:改用 `Object.defineProperty(target, key, { value, writable: true, configurable: true })` 替代直接赋值。`PropertyDescriptor.value` 类型为 `any`,无需为 `() => never` 与原生重载签名的不兼容做双断言;`writable`/`configurable` 显式为 true,与原生原型方法/全局构造器描述符一致。restore 函数仍用类型安全的直接赋值(`origXHRopen` 等已具原生类型)
 - **清偿验证**:`grep 'as unknown as' packages/runtime/src/plugin-permissions.ts` 仅命中注释(无生产代码双断言);`plugin-permissions.test.ts` 25 个用例全绿(fetch/XHR.open/WebSocket/EventSource 拦截 + restore + 嵌套守卫)
 - **清偿来源**:本 PR T8 任务
+
+### TD-C14 mcp-server image tools 直接用 sharp 绕过 Engine 层(2026-07-15 清偿)
+
+- **原债务**(原 TD-1.3):`packages/mcp-server/src/tools/image.ts` 直接 `import sharp from 'sharp'`,resize/compress/convert 三个 tool handler 各自构建 sharp pipeline 处理本地文件,绕过 `@lokvis/engine-image-node`(Engine 层)。文件头注释自认"M2.1 阶段直接使用 sharp;M2.2 后将封装到 engine-image-node 包"
+- **违反**:ADR-011 设计意图"MCP server 通过 Engine 层暴露能力";AGENTS.md 五层架构 Engine 层职责(Blob↔Blob 纯函数)。mcp-server 与 `plugin-image/node-plugin.ts` 形成两套平行的 Node sharp 路径
+- **清偿方案**:image tool handlers 改为经 `@lokvis/engine-image-node` 暴露的 Blob↔Blob 操作(`resize`/`compress`/`convert`)调用。mcp-server 作为 Node 应用直接消费 Engine 层(tool handler 自行做 file-path ↔ Blob 翻译),与浏览器侧 Runtime→Capability→Engine 链路对齐。新增 `getMetadata(blob)` 到 engine-image-node(与 engine-image 的 `decode` 返回 dimensions 语义一致),供 tool 报告尺寸/格式。sharp 从 mcp-server dependencies 移到 devDependencies(测试用 sharp 生成 fixture 与验证输出)
+- **清偿验证**:`grep "from 'sharp'" packages/mcp-server/src/tools/image.ts` 无命中;`image.test.ts` 17 个用例全绿;`engine-image-node` operations 测试 30 个用例全绿;`mcp-server` 全量 146 个用例全绿
+- **清偿来源**:本 PR T9a 任务
+- **未清偿关联**:TD-1.4(pdf 侧)仍活动 —— engine-pdf 为 stub,需 T9b 实装 engine-pdf 的 merge/compress Blob↔Blob 操作后清偿

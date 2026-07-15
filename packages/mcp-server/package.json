@@ -35,18 +35,19 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@lokvis/engine-image-node": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/schema": "workspace:*",
     "@lokvis/sdk": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "pdf-lib": "^1.17.1",
-    "sharp": "^0.33.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/ws": "^8.5.10",
     "@vitest/coverage-v8": "^2.1.0",
+    "sharp": "^0.33.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   },

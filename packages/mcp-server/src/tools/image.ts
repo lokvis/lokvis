@@ -1,22 +1,57 @@
 /**
  * Image tools:MCP tool handlers for image processing.
  *
- * 3 个 tool 直接使用 sharp 处理本地图片文件:
+ * 3 个 tool 经 @lokvis/engine-image-node(Engine 层,Blob↔Blob 纯函数)处理本地图片:
  * - lokvis_image_resize: 调整尺寸
- * - lokvis_image_compress: 压缩(jpeg/png quality)
+ * - lokvis_image_compress: 压缩(jpeg/png/webp/avif quality)
  * - lokvis_image_convert: 格式转换
  *
- * M2.1 阶段直接使用 sharp;M2.2 后将 sharp 封装到 engine-image-node 包,
- * tool handler 改为通过 runtime capability 系统调用。
+ * 架构定位:mcp-server 是 Node 应用,直接消费 Engine 层 Blob↔Blob 操作
+ * (与浏览器侧 Runtime→Capability→Engine 链路对齐:Node 侧无需 Asset/Workflow 抽象,
+ *  tool handler 自行做 file-path ↔ Blob 翻译)。sharp 仅在 engine-image-node 内使用,
+ * 本文件不直接 import sharp(ADR-011 / AGENTS.md 五层架构)。
  *
  * 输入:文件路径(绝对路径或相对 workdir)
  * 输出:处理后的文件路径 + 元数据(尺寸/大小变化)
  */
 
-import sharp from 'sharp';
+import { readFile, writeFile, stat } from 'node:fs/promises';
 import { resolve, dirname, basename, extname, join } from 'node:path';
-import { stat } from 'node:fs/promises';
+import {
+  resize as engineResize,
+  compress as engineCompress,
+  convert as engineConvert,
+  getMetadata,
+} from '@lokvis/engine-image-node';
 import type { McpToolResult } from '../server.js';
+
+/** 文件扩展名 → MIME 类型(构造输入 Blob 时使用,engine 据此推断格式) */
+const EXT_TO_MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  avif: 'image/avif',
+  gif: 'image/gif',
+};
+
+/** 从文件路径扩展名推断 MIME */
+function extToMime(path: string): string {
+  const ext = extname(path).slice(1).toLowerCase();
+  return EXT_TO_MIME[ext] ?? 'application/octet-stream';
+}
+
+/** 读取文件为 Blob(带正确 MIME,供 engine 推断格式) */
+async function fileToBlob(path: string): Promise<Blob> {
+  const buffer = await readFile(path);
+  return new Blob([buffer], { type: extToMime(path) });
+}
+
+/** 把 Blob 写入文件 */
+async function blobToFile(blob: Blob, path: string): Promise<void> {
+  const buffer = Buffer.from(await blob.arrayBuffer());
+  await writeFile(path, buffer);
+}
 
 /** 生成输出路径:输入路径加后缀,如 `image.png` → `image_resized.png` */
 function makeOutputPath(
@@ -78,14 +113,12 @@ export async function imageResize(params: {
   }
 
   try {
-    const pipeline = sharp(inputPath).resize({
-      width,
-      height,
-      fit,
-      withoutEnlargement: true,
-    });
-    const info = await pipeline.toFile(outputPath);
+    const inputBlob = await fileToBlob(inputPath);
+    const outBlob = await engineResize(inputBlob, { width, height, fit });
+    await blobToFile(outBlob, outputPath);
+
     const originalSize = await getFileSize(inputPath);
+    const meta = await getMetadata(outBlob);
 
     return {
       content: [
@@ -94,9 +127,9 @@ export async function imageResize(params: {
           text: [
             `Image resized successfully.`,
             `  Input: ${inputPath} (${formatSize(originalSize)})`,
-            `  Output: ${outputPath} (${formatSize(info.size)})`,
-            `  Dimensions: ${info.width}x${info.height}`,
-            `  Format: ${info.format}`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
+            `  Dimensions: ${meta.width}x${meta.height}`,
+            `  Format: ${meta.format}`,
           ].join('\n'),
         },
       ],
@@ -119,8 +152,7 @@ export async function imageResize(params: {
  * - quality: 压缩质量 1-100(可选,默认 80)
  * - output_path: 输出路径(可选,默认输入路径加 _compressed 后缀)
  *
- * 注意:对于 PNG,quality 控制压缩级别(通过 palette + quality);
- * 对于 JPEG/WebP,直接控制质量因子。
+ * 注意:保持输入格式不变(png/jpeg/webp/avif),按 quality 压缩。
  */
 export async function imageCompress(params: {
   input_path: string;
@@ -143,32 +175,16 @@ export async function imageCompress(params: {
   }
 
   try {
-    const metadata = await sharp(inputPath).metadata();
-    const format = metadata.format ?? 'jpeg';
+    const inputBlob = await fileToBlob(inputPath);
+    // 保持输入格式:从扩展名推断 format 传给 engine
+    const inputExt = extname(inputPath).slice(1).toLowerCase();
+    const format = (EXT_TO_MIME[inputExt]?.split('/')[1] ?? 'webp') as
+      | 'png' | 'jpeg' | 'webp' | 'avif' | 'gif';
+    const outBlob = await engineCompress(inputBlob, { format, quality });
+    await blobToFile(outBlob, outputPath);
 
-    let pipeline = sharp(inputPath);
-    if (format === 'jpeg' || format === 'jpg') {
-      pipeline = pipeline.jpeg({ quality, mozjpeg: true });
-    } else if (format === 'webp') {
-      pipeline = pipeline.webp({ quality });
-    } else if (format === 'avif') {
-      pipeline = pipeline.avif({ quality });
-    } else if (format === 'png') {
-      // PNG 是无损格式,使用 compressionLevel(0-9)和 palette 量化减色
-      pipeline = pipeline.png({
-        quality: Math.min(quality, 100),
-        palette: quality < 100,
-        compressionLevel: 9,
-        colours: Math.round((quality / 100) * 256),
-      });
-    } else {
-      // 未知格式,转为 jpeg 压缩
-      pipeline = pipeline.jpeg({ quality });
-    }
-
-    const info = await pipeline.toFile(outputPath);
     const originalSize = await getFileSize(inputPath);
-    const ratio = ((1 - info.size / originalSize) * 100).toFixed(1);
+    const ratio = ((1 - outBlob.size / originalSize) * 100).toFixed(1);
 
     return {
       content: [
@@ -177,9 +193,9 @@ export async function imageCompress(params: {
           text: [
             `Image compressed successfully.`,
             `  Input: ${inputPath} (${formatSize(originalSize)})`,
-            `  Output: ${outputPath} (${formatSize(info.size)})`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
             `  Quality: ${quality}%`,
-            `  Saved: ${ratio}% (${formatSize(originalSize - info.size)})`,
+            `  Saved: ${ratio}% (${formatSize(originalSize - outBlob.size)})`,
           ].join('\n'),
         },
       ],
@@ -230,20 +246,13 @@ export async function imageConvert(params: {
   }
 
   try {
-    let pipeline = sharp(inputPath);
-    if (format === 'jpeg') {
-      pipeline = pipeline.jpeg({ quality, mozjpeg: true });
-    } else if (format === 'png') {
-      pipeline = pipeline.png({ compressionLevel: 9 });
-    } else if (format === 'webp') {
-      pipeline = pipeline.webp({ quality });
-    } else if (format === 'avif') {
-      pipeline = pipeline.avif({ quality });
-    }
+    const inputBlob = await fileToBlob(inputPath);
+    const inputMeta = await getMetadata(inputBlob);
+    const outBlob = await engineConvert(inputBlob, { format, quality });
+    await blobToFile(outBlob, outputPath);
 
-    const info = await pipeline.toFile(outputPath);
     const originalSize = await getFileSize(inputPath);
-    const inputMetadata = await sharp(inputPath).metadata();
+    const outMeta = await getMetadata(outBlob);
 
     return {
       content: [
@@ -251,9 +260,9 @@ export async function imageConvert(params: {
           type: 'text',
           text: [
             `Image converted successfully.`,
-            `  Input: ${inputPath} (${inputMetadata.format}, ${formatSize(originalSize)})`,
-            `  Output: ${outputPath} (${info.format}, ${formatSize(info.size)})`,
-            `  Dimensions: ${info.width}x${info.height}`,
+            `  Input: ${inputPath} (${inputMeta.format}, ${formatSize(originalSize)})`,
+            `  Output: ${outputPath} (${outMeta.format}, ${formatSize(outBlob.size)})`,
+            `  Dimensions: ${outMeta.width}x${outMeta.height}`,
           ].join('\n'),
         },
       ],
