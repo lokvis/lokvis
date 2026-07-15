@@ -257,27 +257,67 @@ The three-layer effect:
 
 This lets `runtime.capabilities()` advertise stub-backed capabilities (so users see what's coming in Phase 2) while preventing accidental invocation.
 
-## Alpha permissions advisory
+## Permissions model (W18.6 enforced)
 
-`PluginConfig.permissions` is declared but **not yet enforced** in the Alpha runtime. The string union covers:
+`PluginConfig.permissions` declares a plugin's access needs. As of W18.6,
+**`network:none` is actively enforced** via `PluginPermissionSandbox`; other
+permissions remain advisory. The string union covers:
 
-| Permission | Intended meaning |
+| Permission | Meaning | Enforcement (W18.6) |
+| --- | --- | --- |
+| `asset:read` | Read assets from the AssetStore | Advisory (always granted) |
+| `asset:write` | Create / modify / delete assets | Advisory (always granted) |
+| `network:none` | No network access | **Enforced** — monkey-patched fetch/XHR/WebSocket/EventSource |
+| `network:limited` | Fetch from a configured allowlist | Advisory (no allowlist yet) |
+| `network:full` | Unrestricted network | Advisory (no restriction) |
+| `filesystem:opfs` | Direct OPFS access | Advisory (no direct FS API yet) |
+| `filesystem:local` | Native filesystem access | Advisory (no direct FS API yet) |
+
+### How `network:none` enforcement works
+
+When `installPlugin()` runs, the runtime creates a `PluginPermissionSandbox`
+from `plugin.config.permissions` and calls `applyNetworkGuard()` before
+`plugin.install(ctx)`. If the plugin declared `network:none`, the guard
+monkey-patches four global network APIs:
+
+- `fetch()` → throws `NetworkGuardError`
+- `XMLHttpRequest.prototype.open()` → throws `NetworkGuardError`
+- `new WebSocket(url)` → throws `NetworkGuardError`
+- `new EventSource(url)` → throws `NetworkGuardError`
+
+After `install()` returns (or throws), the guard restores the original
+implementations. This is a **best-effort** guard: it covers the `install()`
+synchronous window, but async callbacks scheduled after install (e.g.
+`setTimeout`) cannot be intercepted. Plugin authors should also call
+`ctx.sandbox.assertNetworkAllowed('reason')` proactively before any network
+API call.
+
+### Proactive assertions via `ctx.sandbox`
+
+`PluginContext` exposes a `sandbox` field (type `PluginPermissionSandbox`)
+that plugins can use to self-check before performing restricted operations:
+
+```typescript
+export default definePlugin({
+  name: 'my-plugin',
+  permissions: ['asset:read', 'asset:write', 'network:limited'],
+  // ...
+}, (ctx) => {
+  ctx.sandbox.assertNetworkAllowed('loading model manifest');
+  ctx.sandbox.assertFilesystemAllowed('opfs', 'writing cache');
+  // ...
+});
+```
+
+| Method | Throws when |
 | --- | --- |
-| `asset:read` | Read assets from the AssetStore |
-| `asset:write` | Create / modify / delete assets |
-| `network:none` | No network access (default for offline plugins) |
-| `network:limited` | Fetch from a configured allowlist |
-| `network:full` | Unrestricted network |
-| `filesystem:opfs` | Direct OPFS access (bypass AssetStore abstraction) |
-| `filesystem:local` | Native filesystem access (File System Access API) |
+| `has(perm)` | (never throws — returns boolean) |
+| `assertNetworkAllowed(reason)` | Plugin declared `network:none` |
+| `assertFilesystemAllowed(scope, reason)` | Plugin did not declare `filesystem:${scope}` |
 
-In Alpha:
-
-- `asset:read` / `asset:write` are **always granted** — `PluginContext.runtime` exposes the relevant methods unconditionally.
-- `network:*` is **not enforced** — plugins can `fetch()` freely. Host apps are expected to apply CSP rules at the embed layer.
-- `filesystem:*` is **not enforced** — plugins don't currently have a direct filesystem API, but the permission is reserved for future expansion.
-
-The advisory exists so plugin authors declare intent now and Lokvis can enforce it later without breaking the manifest contract. Phase 2 will wire actual enforcement once the plugin sandbox lands.
+Future phases will wire full enforcement for `network:limited` (allowlist),
+`filesystem:*` (OPFS/local API guards), and `asset:*` (capability-scoped
+access).
 
 ## Panels
 
