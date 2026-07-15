@@ -1,0 +1,22 @@
+{
+  "name": "@lokvis/example-plugin-grayscale",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Example: a minimal teaching plugin that adds image.grayscale via canvas pixel manipulation",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lokvis/schema": "workspace:*",
+    "@lokvis/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

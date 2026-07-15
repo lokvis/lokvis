@@ -382,7 +382,7 @@
 |---|---|---|---|---|---|
 | 18.1 | `@lokvis/plugin-sdk` 发布到 npm(0.1.0-alpha) | P1 | 4h | ⬜ | npm |
 | 18.2 | Plugin SDK 文档:Manifest / Context / 权限模型 / 生命周期 | P1 | 6h | ⬜ | docs |
-| 18.3 | 示例插件:`plugin-grayscale`(教学用) | P1 | 6h | ⬜ | `examples/plugin-grayscale` |
+| 18.3 | 示例插件:`plugin-grayscale`(教学用) | P1 | 6h | ✅ | `examples/plugin-grayscale`(`grayscalePlugin()` 注册 `image.grayscale` 能力,自包含 canvas 灰度化 operation,3 种算法 luminance/average/lightness;13 测试覆盖常量/installer/factory/stub status/execute/算法;README 含 30 秒速览 + 与官方 plugin-image 对比表) |
 | 18.4 | 示例插件:`plugin-batch-watermark`(实用) | ⏭️延后 | 8h | ⬜ | 改为 MCP tool 实现(Phase 2) |
 | 18.5 | Plugin 脚手架:`pnpm create @lokvis/plugin` | ⏭️延后 | 6h | ⬜ | 优先 `npx @lokvis/mcp-server`(Phase 2) |
 | 18.6 | Plugin 权限沙箱:network:none 强制、filesystem 限制 | P0 | 6h | ⬜ | runtime |
