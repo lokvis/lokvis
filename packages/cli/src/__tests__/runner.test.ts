@@ -97,7 +97,11 @@ describe('runCLI', () => {
         status: 'completed',
       });
       await runCLI(['run', './wf.json', 'a.png', 'b.png']);
-      expect(runWorkflowMock).toHaveBeenCalledWith('./wf.json', ['a.png', 'b.png']);
+      expect(runWorkflowMock).toHaveBeenCalledWith(
+        './wf.json',
+        ['a.png', 'b.png'],
+        {}
+      );
       const out = stdout.writes.join('');
       expect(out).toContain('"workflowId": "wf-1"');
       expect(out).toContain('"status": "completed"');
@@ -108,6 +112,91 @@ describe('runCLI', () => {
       await expect(runCLI(['run', './missing.json'])).rejects.toThrow(
         'Workflow file not found'
       );
+    });
+
+    it('--input/-i 选项应作为输入文件传入(可与位置参数混用)', async () => {
+      runWorkflowMock.mockResolvedValue({
+        workflowId: 'wf-1',
+        outputs: ['out-1'],
+        duration: 1,
+        status: 'completed',
+      });
+      await runCLI([
+        'run', './wf.json', 'pos.png',
+        '--input', 'a.png', '-i', 'b.png',
+      ]);
+      // 位置参数在前,--input 文件按出现顺序追加
+      expect(runWorkflowMock).toHaveBeenCalledWith(
+        './wf.json',
+        ['pos.png', 'a.png', 'b.png'],
+        {}
+      );
+    });
+
+    it('--input= 形式也应被解析', async () => {
+      runWorkflowMock.mockResolvedValue({
+        workflowId: 'wf-1',
+        outputs: ['out-1'],
+        duration: 1,
+        status: 'completed',
+      });
+      await runCLI(['run', './wf.json', '--input=a.png']);
+      expect(runWorkflowMock).toHaveBeenCalledWith(
+        './wf.json',
+        ['a.png'],
+        {}
+      );
+    });
+
+    it('--output/-o 选项应作为 options.output 传入', async () => {
+      runWorkflowMock.mockResolvedValue({
+        workflowId: 'wf-1',
+        outputs: ['out-1'],
+        duration: 1,
+        status: 'completed',
+      });
+      await runCLI(['run', './wf.json', 'a.png', '--output', 'out.png']);
+      expect(runWorkflowMock).toHaveBeenCalledWith(
+        './wf.json',
+        ['a.png'],
+        { output: 'out.png' }
+      );
+    });
+
+    it('-o 短选项与 --output= 形式也应被解析', async () => {
+      runWorkflowMock.mockResolvedValue({
+        workflowId: 'wf-1',
+        outputs: ['out-1'],
+        duration: 1,
+        status: 'completed',
+      });
+      await runCLI(['run', './wf.json', '-o', 'o1.png']);
+      expect(runWorkflowMock).toHaveBeenCalledWith(
+        './wf.json',
+        [],
+        { output: 'o1.png' }
+      );
+      runWorkflowMock.mockClear();
+      await runCLI(['run', './wf.json', '--output=o2.png']);
+      expect(runWorkflowMock).toHaveBeenCalledWith(
+        './wf.json',
+        [],
+        { output: 'o2.png' }
+      );
+    });
+
+    it('--input 缺值应抛出 Usage 错误', async () => {
+      await expect(runCLI(['run', './wf.json', '--input'])).rejects.toThrow(
+        /missing value for --input/
+      );
+      expect(runWorkflowMock).not.toHaveBeenCalled();
+    });
+
+    it('--output 缺值应抛出 Usage 错误', async () => {
+      await expect(runCLI(['run', './wf.json', '-o'])).rejects.toThrow(
+        /missing value for -o/
+      );
+      expect(runWorkflowMock).not.toHaveBeenCalled();
     });
   });
 

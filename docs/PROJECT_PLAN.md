@@ -407,9 +407,9 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 20.1 | `packages/cli` 最小版:`lokvis run workflow.json --input x.png --output y.png` | P1 | 8h | ⬜ | cli |
-| 20.2 | `lokvis capabilities` 列出已注册能力 | P1 | 2h | ⬜ | cli |
-| 20.3 | `lokvis plugin create [name]` 脚手架 | P1 | 4h | ⬜ | cli |
+| 20.1 | `packages/cli` 最小版:`lokvis run workflow.json --input x.png --output y.png` | P1 | 8h | ✅ | cli(run 命令默认注入 `imageToolsPluginNode`(sharp 引擎),支持 `--input`/`--output` 选项,Node 端真实跑图像工作流端到端验证通过 256x192→64x48 PNG 37ms) |
+| 20.2 | `lokvis capabilities` 列出已注册能力 | P1 | 2h | ✅ | cli(此前已实装,本次 W20.1 一并核验 40 个能力齐全) |
+| 20.3 | `lokvis plugin create [name]` 脚手架 | P1 | 4h | ✅ | cli(此前已实装) |
 | 20.4 | CLI 集成测试(真实跑 resize) | P1 | 4h | ⬜ | tests |
 | 20.5 | CLI README + 帮助文本 | P1 | 2h | ⬜ | docs |
 | 20.6 | `examples/cli-automation` 升级:GitHub Actions 示例 | P1 | 4h | ⬜ | examples |

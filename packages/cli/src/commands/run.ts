@@ -3,22 +3,30 @@
  *
  * 加载工作流 JSON，导入输入文件，执行工作流。
  *
- * 限制：Runtime 在 Node.js 中只能执行不依赖浏览器 API（Canvas、
- * createImageBitmap 等）的能力。大部分图像能力在 Node.js 中无法运行，
- * 该命令主要用于工作流校验与不需要引擎的简单能力（如 asset.rename）。
+ * Node 端图像能力：通过 `@lokvis/plugin-image/node` 注入 sharp 引擎
+ * (M2.2 实装)，让 image.resize / image.compress / image.convert /
+ * image.crop / image.watermark 在 Node 中可真实执行。其余 4 个图像
+ * 操作(rotate/flip/background/filter)为 stub，需走浏览器路径。
+ *
+ * 若指定 --output，则把第一个输出 Asset 写入目标文件。
  */
 
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createLokvis } from '@lokvis/sdk';
 import { validateWorkflow } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { PluginLoadEntry } from '@lokvis/sdk';
+import { imageToolsPluginNode } from '@lokvis/plugin-image/node';
 
 export interface RunOptions {
-  /** 额外插件 */
+  /** 额外插件(在默认 image plugin 之后追加) */
   plugins?: PluginLoadEntry[];
+  /** 输出文件路径；若指定则把第一个输出 Asset 写入此文件 */
+  output?: string;
+  /** 是否注入默认 image plugin(默认 true) */
+  injectImagePlugin?: boolean;
 }
 
 export async function runWorkflow(
@@ -56,10 +64,21 @@ export async function runWorkflow(
   }
   const workflow: Workflow = parsed.data;
 
+  // 默认注入 imageToolsPluginNode(sharp 引擎),让 Node 端可执行图像能力;
+  // 用户可通过 injectImagePlugin: false 禁用,或通过 options.plugins 追加自定义插件。
+  // 顺序:image plugin 在前,用户插件在后,允许用户插件覆盖同名能力。
+  const plugins: PluginLoadEntry[] = [];
+  if (options.injectImagePlugin !== false) {
+    plugins.push(await imageToolsPluginNode());
+  }
+  if (options.plugins) {
+    plugins.push(...options.plugins);
+  }
+
   const runtime = await createLokvis({
     enableOpfs: false,
     enableIndexedDB: false,
-    plugins: options.plugins ?? [],
+    plugins,
   });
 
   // 导入输入文件为 Asset
@@ -78,5 +97,19 @@ export async function runWorkflow(
   }
 
   const result = await runtime.run(workflow, inputIds);
+
+  // 若指定 output,把第一个输出 Asset 写入文件
+  if (options.output) {
+    if (result.outputs.length === 0) {
+      throw new Error(
+        `--output specified but workflow produced no outputs (status: ${result.status})`
+      );
+    }
+    const outAbs = resolve(process.cwd(), options.output);
+    const blob = await runtime.exportAsset(result.outputs[0]!);
+    const buf = Buffer.from(await blob.arrayBuffer());
+    await writeFile(outAbs, buf);
+  }
+
   return result;
 }

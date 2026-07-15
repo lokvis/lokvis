@@ -37,7 +37,8 @@
     "@lokvis/schema": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/sdk": "workspace:*",
-    "@lokvis/capability": "workspace:*"
+    "@lokvis/capability": "workspace:*",
+    "@lokvis/plugin-image": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -264,6 +264,9 @@ importers:
       '@lokvis/capability':
         specifier: workspace:*
         version: link:../capability
+      '@lokvis/plugin-image':
+        specifier: workspace:*
+        version: link:../plugin-image
       '@lokvis/runtime':
         specifier: workspace:*
         version: link:../runtime

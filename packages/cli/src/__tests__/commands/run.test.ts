@@ -7,12 +7,15 @@
  * 3. 工作流结构校验(各字段缺失场景)
  * 4. 输入文件不存在错误处理
  * 5. 正常执行路径(mock createLokvis + 真实 fs fixture)
+ * 6. 默认注入 imageToolsPluginNode + injectImagePlugin: false 禁用
+ * 7. --output 选项:成功写入 / outputs 为空时抛错
  *
  * 使用真实 fs 写入临时 fixture 文件,验证 resolve/cwd/existsSync/readFile 集成;
- * createLokvis 通过 vi.mock 替换为返回桩 runtime。
+ * createLokvis 与 imageToolsPluginNode 通过 vi.mock 替换为桩。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
@@ -20,6 +23,17 @@ import type { Workflow, WorkflowResult } from '@lokvis/schema';
 // 桩 @lokvis/sdk 的 createLokvis,避免初始化真实 Runtime(OPFS/IDB/Worker)
 const createLokvisMock = vi.fn();
 vi.mock('@lokvis/sdk', () => ({ createLokvis: createLokvisMock }));
+
+// 桩 @lokvis/plugin-image/node 的 imageToolsPluginNode,
+// 返回一个带识别标记的 PluginLoadEntry,便于断言"默认已注入"
+const imagePluginMock = {
+  config: { name: '@lokvis/plugin-image-node-mock', version: '0.0.0', capabilities: [] },
+  install: vi.fn(),
+};
+const imageToolsPluginNodeMock = vi.fn().mockResolvedValue(imagePluginMock);
+vi.mock('@lokvis/plugin-image/node', () => ({
+  imageToolsPluginNode: imageToolsPluginNodeMock,
+}));
 
 const { runWorkflow } = await import('../../commands/run.js');
 
@@ -41,7 +55,7 @@ function makeWorkflow(overrides: Partial<Workflow> = {}): Workflow {
   };
 }
 
-/** 桩 runtime:importAsset 返回递增 ID,run 返回固定结果 */
+/** 桩 runtime:importAsset 返回递增 ID,run 返回固定结果,exportAsset 返回固定 Blob */
 function makeMockRuntime() {
   let counter = 0;
   return {
@@ -56,6 +70,7 @@ function makeMockRuntime() {
         status: 'completed',
       })
     ),
+    exportAsset: vi.fn(async (_id: string) => new Blob(['exported-bytes'])),
   };
 }
 
@@ -65,6 +80,9 @@ describe('runWorkflow', () => {
   beforeEach(async () => {
     tmpDir = await mkdtemp(join(tmpdir(), 'lokvis-run-'));
     createLokvisMock.mockReset();
+    imageToolsPluginNodeMock.mockReset();
+    imageToolsPluginNodeMock.mockResolvedValue(imagePluginMock);
+    imagePluginMock.install.mockClear();
   });
 
   afterEach(async () => {
@@ -172,7 +190,7 @@ describe('runWorkflow', () => {
   });
 
   describe('正常执行', () => {
-    it('无输入文件应创建 runtime 并执行工作流', async () => {
+    it('无输入文件应创建 runtime 并执行工作流(默认注入 image plugin)', async () => {
       const wfPath = join(tmpDir, 'wf.json');
       await writeFile(wfPath, JSON.stringify(makeWorkflow()), 'utf-8');
       const runtime = makeMockRuntime();
@@ -180,10 +198,12 @@ describe('runWorkflow', () => {
 
       const result = await runWorkflow(wfPath, []);
 
+      // 默认调用 imageToolsPluginNode 一次,并把返回值作为 plugins[0]
+      expect(imageToolsPluginNodeMock).toHaveBeenCalledTimes(1);
       expect(createLokvisMock).toHaveBeenCalledWith({
         enableOpfs: false,
         enableIndexedDB: false,
-        plugins: [],
+        plugins: [imagePluginMock],
       });
       expect(runtime.importAsset).not.toHaveBeenCalled();
       expect(runtime.run).toHaveBeenCalledTimes(1);
@@ -220,19 +240,39 @@ describe('runWorkflow', () => {
       expect(idsArg).toEqual(['asset-1', 'asset-2']);
     });
 
-    it('options.plugins 应透传给 createLokvis', async () => {
+    it('options.plugins 应在 image plugin 之后追加', async () => {
       const wfPath = join(tmpDir, 'wf.json');
       await writeFile(wfPath, JSON.stringify(makeWorkflow()), 'utf-8');
       const runtime = makeMockRuntime();
       createLokvisMock.mockResolvedValue(runtime);
 
-      const plugins = [{ config: { name: 'p', version: '1', capabilities: [] }, install: vi.fn() }];
-      await runWorkflow(wfPath, [], { plugins });
+      const userPlugin = {
+        config: { name: 'p', version: '1', capabilities: [] },
+        install: vi.fn(),
+      };
+      await runWorkflow(wfPath, [], { plugins: [userPlugin] });
 
+      // 顺序:image plugin 在前,用户插件在后(允许用户覆盖同名能力)
       expect(createLokvisMock).toHaveBeenCalledWith({
         enableOpfs: false,
         enableIndexedDB: false,
-        plugins,
+        plugins: [imagePluginMock, userPlugin],
+      });
+    });
+
+    it('injectImagePlugin: false 应禁用默认 image plugin 注入', async () => {
+      const wfPath = join(tmpDir, 'wf.json');
+      await writeFile(wfPath, JSON.stringify(makeWorkflow()), 'utf-8');
+      const runtime = makeMockRuntime();
+      createLokvisMock.mockResolvedValue(runtime);
+
+      await runWorkflow(wfPath, [], { injectImagePlugin: false });
+
+      expect(imageToolsPluginNodeMock).not.toHaveBeenCalled();
+      expect(createLokvisMock).toHaveBeenCalledWith({
+        enableOpfs: false,
+        enableIndexedDB: false,
+        plugins: [],
       });
     });
 
@@ -244,6 +284,57 @@ describe('runWorkflow', () => {
       createLokvisMock.mockResolvedValue(runtime);
 
       await expect(runWorkflow(wfPath, [])).rejects.toThrow('engine crashed');
+    });
+  });
+
+  describe('--output 选项', () => {
+    it('指定 output 应把第一个输出 Asset 写入文件', async () => {
+      const wfPath = join(tmpDir, 'wf.json');
+      await writeFile(wfPath, JSON.stringify(makeWorkflow()), 'utf-8');
+      const runtime = makeMockRuntime();
+      createLokvisMock.mockResolvedValue(runtime);
+
+      const outPath = join(tmpDir, 'out.png');
+      await runWorkflow(wfPath, [], { output: outPath });
+
+      // exportAsset 应被调用一次,id 为 result.outputs[0] = 'out-1'
+      expect(runtime.exportAsset).toHaveBeenCalledTimes(1);
+      expect(runtime.exportAsset.mock.calls[0]![0]).toBe('out-1');
+      // 文件应已写入,内容为 mock Blob 的 'exported-bytes'
+      expect(existsSync(outPath)).toBe(true);
+      const written = await readFile(outPath);
+      expect(written.toString()).toBe('exported-bytes');
+    });
+
+    it('outputs 为空时指定 output 应抛错', async () => {
+      const wfPath = join(tmpDir, 'wf.json');
+      await writeFile(wfPath, JSON.stringify(makeWorkflow()), 'utf-8');
+      const runtime = makeMockRuntime();
+      // 让 run 返回 outputs: []
+      runtime.run.mockResolvedValue({
+        workflowId: 'wf-test',
+        outputs: [],
+        duration: 1,
+        status: 'completed',
+      });
+      createLokvisMock.mockResolvedValue(runtime);
+
+      const outPath = join(tmpDir, 'should-not-exist.png');
+      await expect(runWorkflow(wfPath, [], { output: outPath })).rejects.toThrow(
+        /--output specified but workflow produced no outputs/
+      );
+      expect(runtime.exportAsset).not.toHaveBeenCalled();
+      expect(existsSync(outPath)).toBe(false);
+    });
+
+    it('未指定 output 时不应调用 exportAsset', async () => {
+      const wfPath = join(tmpDir, 'wf.json');
+      await writeFile(wfPath, JSON.stringify(makeWorkflow()), 'utf-8');
+      const runtime = makeMockRuntime();
+      createLokvisMock.mockResolvedValue(runtime);
+
+      await runWorkflow(wfPath, []);
+      expect(runtime.exportAsset).not.toHaveBeenCalled();
     });
   });
 });
