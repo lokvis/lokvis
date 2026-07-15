@@ -37,12 +37,12 @@ const AUTH_MODES: Record<AuthMode, { label: string; auth: LokvisAuthSession | un
   },
   pro: {
     label: 'Pro (cloud session)',
-    auth: { session: 'demo-cloud-jwt-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature' },
-    description: 'cloud session JWT → isPro: true,全部上限放宽',
+    auth: { session: 'demo-cloud-session-PLACEHOLDER-NOT-A-REAL-TOKEN' },
+    description: 'cloud session → isPro: true,全部上限放宽',
   },
   guest: {
     label: 'Guest (cloud, but free)',
-    auth: { session: 'guest-jwt', isPro: false },
+    auth: { session: 'guest-session-placeholder', isPro: false },
     description: 'cloud 识别游客身份,显式 isPro: false 仍受限',
   },
 };
@@ -115,12 +115,11 @@ export default function App(): React.ReactElement {
       {/* 主区域:嵌入 Lokvis Workspace */}
       <main style={{ flex: 1, minWidth: 0 }}>
         {/*
-          key={authMode} 强制 remount:useLokvis() 只在挂载时初始化一次,
-          切换 auth 需要销毁旧 Runtime 实例并创建新的。
-          在真实集成中,auth 通常稳定不变,不需要这个 key。
+          useLokvis 通过 JSON.stringify(auth) 监听 auth 内容变化,
+          切换 authMode 时会自动重新初始化 Runtime(无需 key remount)。
+          在真实集成中,auth 通常由宿主 auth context 提供且稳定不变。
         */}
         <Workspace
-          key={authMode}
           title="Lokvis Workspace"
           {...lokvisOptions}
           showStatusBar

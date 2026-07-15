@@ -35,11 +35,12 @@ export function decodeCodeFromHash(encoded: string): string | null {
   }
 }
 
-/** 从完整 hash 字符串(如 "#code=xxx")中提取并解码代码;无匹配返回 null */
+/** 从完整 hash 字符串(如 "#code=xxx" 或 "#code=xxx&foo=bar")中提取并解码代码;无匹配返回 null */
 export function extractCodeFromHash(hash: string): string | null {
   if (!hash.startsWith(`#${URL_HASH_KEY}=`)) return null;
-  const encoded = hash.slice(URL_HASH_KEY.length + 2);
-  return decodeCodeFromHash(encoded);
+  // 支持 #code=xxx&foo=bar 多参数场景:用 & 分割取首个值
+  const encoded = hash.slice(URL_HASH_KEY.length + 2).split('&')[0];
+  return decodeCodeFromHash(encoded ?? '');
 }
 
 /** 拼接完整分享 URL: origin + pathname + #code=<encoded> */

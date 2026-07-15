@@ -24,7 +24,7 @@
  * ```
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime, RuntimeConfig } from '@lokvis/runtime';
 import type { LokvisAuthSession, PluginLoadEntry } from '@lokvis/sdk';
@@ -58,13 +58,16 @@ export function useLokvis(options: UseLokvisOptions = {}): UseLokvisResult {
   const [runtime, setRuntime] = useState<LokvisRuntime | null>(null);
   const [status, setStatus] = useState<UseLokvisResult['status']>('idle');
   const [error, setError] = useState<string | null>(null);
-  const initRef = useRef(false);
 
   const storeInit = useWorkspaceStore((s) => s.init);
 
+  // 用 JSON.stringify(auth) 作为 effect 依赖,使 auth 变化时重新初始化。
+  // (auth 是对象,直接放依赖数组会因引用变化每次 render 都触发;
+  //  JSON.stringify 提供稳定的 primitive 依赖,只在 auth 内容变化时重 init)
+  const authKey = JSON.stringify(auth ?? null);
+
   useEffect(() => {
-    if (!autoInit || initRef.current) return;
-    initRef.current = true;
+    if (!autoInit) return;
 
     let cancelled = false;
     (async () => {
@@ -90,8 +93,8 @@ export function useLokvis(options: UseLokvisOptions = {}): UseLokvisResult {
     return () => {
       cancelled = true;
     };
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authKey, autoInit]);
 
   return { runtime, status, error };
 }

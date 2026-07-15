@@ -9,10 +9,13 @@
  *
  * 设计取舍:
  * - 真正的进程隔离(Realm / Worker / iframe sandbox)不在 W18.6 范围,
- *   这里做 install-time / execute-time monkey-patch,覆盖 99% 的网络
+ *   这里做 install-time monkey-patch,覆盖 99% 的网络
  *   调用路径(原生 fetch / XHR / WebSocket / EventSource)
- * - 沙箱在 installPlugin() 与 capability execute() 期间生效,这两个
- *   窗口外(如插件 setTimeout 异步调用)无法覆盖 —— 这是有意为之的
+ * - 沙箱**仅在 installPlugin() 期间生效**(applyNetworkGuard 在
+ *   installPlugin 的 try/finally 中应用)。capability execute()
+ *   期间**不**应用 network guard —— execute 路径由 plugin 代码
+ *   自行据 ctx.sandbox.assertNetworkAllowed() 主动自检
+ * - 窗口外(如插件 setTimeout 异步调用)无法覆盖 —— 这是有意为之的
  *   "best-effort 守卫",plugin 作者应据 ctx.sandbox 自检再调用
  * - 文件系统权限(filesystem:opfs / filesystem:local)目前仅做断言,
  *   不 monkey-patch OPFS API(navigator.storage.getDirectory 等覆盖面
@@ -57,7 +60,14 @@ export class NetworkGuardError extends Error {
   }
 }
 
-/** 网络守卫拦截时抛出(声明未含 filesystem:* 又调文件系统 API 时) */
+/**
+ * 文件系统守卫拦截时抛出(预留未启用)。
+ *
+ * W18.6 的 filesystem 权限目前仅做 `assertFilesystemAllowed()` 主动断言
+ * (抛 `PluginPermissionError`),不 monkey-patch OPFS API。
+ * 此类预留给后续 W18.x strict mode(覆盖 navigator.storage / showOpenFilePicker
+ * 等 API)使用,当前为未启用的占位类,生产代码不会抛出此错误。
+ */
 export class FilesystemGuardError extends Error {
   readonly pluginName: string;
   readonly scope: 'opfs' | 'local';
@@ -77,8 +87,9 @@ export class FilesystemGuardError extends Error {
 /**
  * Plugin 权限沙箱。
  *
- * 一个插件对应一个 sandbox 实例,生命周期与 installPlugin() 一致;
- * 在 capability execute() 时通过 wrapImplementationsWithSandbox() 复用。
+ * 一个插件对应一个 sandbox 实例,生命周期与 installPlugin() 一致。
+ * applyNetworkGuard() 在 installPlugin 的 try/finally 中应用;
+ * capability execute() 路径不自动应用守卫(由 plugin 主动自检)。
  */
 export class PluginPermissionSandbox implements IPluginPermissionSandbox {
   readonly pluginName: string;
