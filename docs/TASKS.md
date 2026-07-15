@@ -12,11 +12,11 @@
 
 | 阶段 | 总任务数 | ✅ 完成 | ⬜ 待办 | ⛔ 废弃 | ⏭️ 延后 | 完成率 |
 |------|---------|---------|---------|---------|---------|--------|
-| **Phase 1** (W1-W24) | ~90 | ~71 | ~12 | 4 | 3 | 79% |
+| **Phase 1** (W1-W24) | ~90 | ~76 | ~7 | 4 | 3 | 84% |
 | **Phase 1.5** (架构优化) | 21 | 21 | 0 | 0 | 0 | 100% |
 | **Phase 2** (MCP/Engine/Workflow) | 9 | 6 | 0 | 0 | 3 | 67% |
 | **技术债务** | 16 | 9 | 7 | — | — | 56% |
-| **合计** | ~136 | ~107 | ~12 | 4 | 6 | 79% |
+| **合计** | ~136 | ~112 | ~7 | 4 | 6 | 82% |
 
 ---
 
@@ -41,17 +41,17 @@
 | M2 | W5-W8 | Image 工具（7 工具 + 批量 + 水印 + 历史 + 预设库 20+） | ✅ 完成 |
 | M3 | W9-W12 | Workspace UI + Workflow Layer（SPA + 拖拽编辑器 + 5 步编排 + Alpha） | ✅ 代码侧完成 |
 | M4 | W13-W16 | npm 发版 + Playground 5 demo + PWA | ✅ 完成 |
-| M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 仅 12/16 完成（19.1/19.2/19.5/19.7/19.9 + 18.3 + 20.1-20.6 完成） |
+| M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 17/22 完成（17.3/17.7/17.8/17.11 + 18.3/18.6 + 19.1/19.2/19.5/19.7/19.9 + 20.1-20.6 完成;17.1/17.2/17.4-17.6/17.9/18.1/18.2/18.7/19.3/19.4/19.6/19.8 待办） |
 | M6 | W21-W24 | 性能优化 + 跨浏览器测试 + 开源发布 + Product Hunt | ⬜ 全部待开始 |
 
 ### M5/W17-W20 待办明细
 
 | 任务 | 优先级 | 状态 | 说明 |
 |------|--------|------|------|
-| 17.1-17.9 SDK 发布 + 类型导出 + auth 钩子 + isPro + examples | P0 | ⬜ | 全部待开始 |
-| 17.11 ToolLayout vs AI 文案 | P0 | ⬜ | |
+| 17.1-17.9 SDK 发布 + 类型导出 + auth 钩子 + isPro + examples | P0 | 🟡 | 17.3(auth 钩子+isPro 推导)/17.7(CHANGELOG+迁移指南)/17.8(Pro 门控单测 11 用例)完成;17.1/17.2/17.4-17.6/17.9 待办 |
+| 17.11 ToolLayout vs AI 文案 | P0 | ✅ | 13 个 whylokvis.* i18n key(en+zh)+ ToolLayout 底部 4 张响应式对比卡片 |
 | 18.1-18.3 plugin-sdk npm + 文档 + 示例插件 | P1 | 🟡 | 18.3 完成(plugin-grayscale 教学插件 + 13 测试);18.1/18.2 待办 |
-| 18.6 Plugin 权限沙箱 | P0 | ⬜ | |
+| 18.6 Plugin 权限沙箱 | P0 | ✅ | PluginPermissionSandbox 类(schema 接口+runtime 实现)+ installPlugin 自动应用 network guard + 25 单测 + 8 plugin test mock 更新 + changeset |
 | 19.2-19.6 文档结构 + API Ref + Guides + Architecture + 交互 Playground | P0 | 🟡 | 19.2/19.5 完成(sidebar 六段式重整+四层协作综述);19.1/19.7/19.9 此前完成;19.3/19.4/19.6/19.8 待办 |
 | 20.1-20.6 CLI 最小版（run/capabilities/plugin create） | P1 | ✅ | 20.1-20.6 全部完成(run 默认注入 sharp 引擎 + --input/--output + 真实 resize 集成测试 + README + 帮助文本 + cli-automation 升级 + GitHub Actions 示例) |
 
