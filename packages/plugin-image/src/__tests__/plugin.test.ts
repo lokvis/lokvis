@@ -64,6 +64,13 @@ function createMockContext(): {
       readers.set(name, reader as (asset: Asset) => Promise<unknown>);
     }),
     registerPanel: vi.fn(),
+    sandbox: {
+      pluginName: 'mock',
+      declared: new Set(['asset:read', 'asset:write'] as const),
+      has: () => true,
+      assertNetworkAllowed: () => {},
+      assertFilesystemAllowed: () => {},
+    },
     log: vi.fn((level, message) => logs.push({ level, message })),
   };
   return { ctx, registered, readers, logs };

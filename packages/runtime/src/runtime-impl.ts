@@ -32,6 +32,7 @@ import { HistoryManager } from './managers/history-manager.js';
 import { WorkflowCoordinator } from './managers/workflow-coordinator.js';
 import { toMcpManifest as buildMcpManifest } from './managers/mcp-manifest-builder.js';
 import { createPluginContext } from './plugin-context.js';
+import { PluginPermissionSandbox } from './plugin-permissions.js';
 
 export const RUNTIME_VERSION = '0.1.0';
 
@@ -150,17 +151,35 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   }
 
   // ─── 插件安装 ────────────────────────────────────────
-  /** 安装插件:① 注册能力声明 → ② 构造受限 PluginContext → ③ 调用 plugin.install(ctx) → ④ 发射 plugin:loaded 事件。不吞错。 */
+  /**
+   * 安装插件:① 注册能力声明 → ② 构造权限沙箱 → ③ 构造受限 PluginContext
+   *        → ④ 应用 network guard(声明 network:none 时 monkey-patch 全局
+   *        fetch/XHR/WebSocket/EventSource)→ ⑤ 调用 plugin.install(ctx)
+   *        → ⑥ restore 全局 API → ⑦ 发射 plugin:loaded 事件。不吞错。
+   *
+   * network guard 仅在 plugin.install() 期间生效;install 后插件若异步调用
+   * 网络 API(如 setTimeout 回调)无法覆盖 —— plugin 作者应据 ctx.sandbox
+   * 主动断言(best-effort 守卫,见 docs/PROJECT_PLAN.md W18.6)。
+   */
   async installPlugin(plugin: PluginInstallEntry): Promise<void> {
     for (const capability of plugin.config.capabilities) {
       this.capabilityRegistry.registerCapability(capability);
     }
+    const sandbox = new PluginPermissionSandbox(
+      plugin.config.name, plugin.config.permissions
+    );
     const ctx = createPluginContext(plugin.config.name, {
       eventBus: this.eventBus, assetStore: this.assetStore,
       capabilityRegistry: this.capabilityRegistry,
       registerMetadataReader: (name, reader) => this._registerMetadataReader(name, reader),
+      sandbox,
     });
-    await plugin.install(ctx);
+    const restore = sandbox.applyNetworkGuard();
+    try {
+      await plugin.install(ctx);
+    } finally {
+      restore();
+    }
     this.eventBus.emit({
       type: 'plugin:loaded', name: plugin.config.name, version: plugin.config.version,
     });

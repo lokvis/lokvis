@@ -14,6 +14,7 @@
 
 import type {
   EventBus, MetadataReader, PanelDefinition, PluginContext,
+  PluginPermissionSandbox as IPluginPermissionSandbox,
 } from '@lokvis/schema';
 import type { AssetStore } from './asset-store.js';
 import type { CapabilityRegistry } from './capability-registry.js';
@@ -27,6 +28,12 @@ export interface PluginContextRuntimeDeps {
   assetStore: AssetStore;
   capabilityRegistry: CapabilityRegistry;
   registerMetadataReader(name: string, reader: MetadataReader): void;
+  /**
+   * 权限沙箱(W18.6)。由 runtime 构造并注入(基于 plugin.config.permissions),
+   * 用于在 PluginContext 上暴露 ctx.sandbox,并在 installPlugin() 期间应用
+   * network guard。
+   */
+  sandbox: IPluginPermissionSandbox;
 }
 
 /** 构造受限 PluginContext(供 Runtime.installPlugin 调用)。 */
@@ -68,6 +75,7 @@ export function createPluginContext(
       // Panel 注册由 UI 层处理,这里仅记录日志
       void panel;
     },
+    sandbox: deps.sandbox,
     log: (level, message) => {
       const prefix = `[${pluginName}]`;
       if (level === 'error') console.error(`${prefix} ${message}`);

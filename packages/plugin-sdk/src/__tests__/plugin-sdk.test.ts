@@ -70,6 +70,13 @@ function createMockContext(): {
     registerCapability: vi.fn((impl) => registered.push(impl)),
     registerMetadataReader: vi.fn(),
     registerPanel: vi.fn(),
+    sandbox: {
+      pluginName: 'mock',
+      declared: new Set(['asset:read', 'asset:write'] as const),
+      has: () => true,
+      assertNetworkAllowed: () => {},
+      assertFilesystemAllowed: () => {},
+    },
     log: vi.fn((level, message) => logs.push({ level, message })),
   };
   return { ctx, createAsset, registered, logs };
