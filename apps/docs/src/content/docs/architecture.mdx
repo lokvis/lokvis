@@ -21,7 +21,7 @@ import {
 
 <MermaidScript />
 
-Lokvis follows a strict five-layer architecture with one-way dependencies. See `docs/whitepaper/04-技术架构设计.md` for the full spec.
+Lokvis follows a strict five-layer architecture with one-way dependencies. See `docs/business/04-技术架构设计.md` for the full spec.
 
 ## Layers
 
@@ -44,6 +44,39 @@ The "browser operating system". Single responsibility: `Input → Run → Output
 ### 5. Engine Layer
 
 Pluggable adapters wrap WASM libraries (Squoosh, ffmpeg.wasm, pdf-lib). The MVP image engine uses native browser Canvas + createImageBitmap for zero-dependency fastest first paint.
+
+## Four-layer collaboration
+
+The middle four layers (Runtime / Capability / Plugin / Engine) form the execution core. Each has a single, non-overlapping job; together they turn a declarative `Workflow` into bytes on disk.
+
+### Request flow: `runtime.run(workflow, inputs)` → bytes
+
+1. **Runtime** (`@lokvis/runtime`) — topological-sorts the workflow nodes, resolves each node's capability against the `CapabilityRegistry`, and drives the `WorkflowExecutor`. It only ever holds `AssetId`s; raw `Blob`s live in the `AssetStore` (OPFS → IDB → memory fallback).
+
+2. **Capability** (`@lokvis/capability` + `@lokvis/schema`) — `CapabilityRegistry.resolve(name)` returns the best `CapabilityImplementation` for a capability name, skipping `stub` implementations automatically. The `Capability` type itself is a pure declarative contract (`name` / `inputTypes` / `outputTypes` / `params` schema) owned by Schema, so any layer can depend on it without pulling in Runtime.
+
+3. **Plugin** (`@lokvis/plugin-*`) — the `CapabilityImplementation.execute` that the registry returns is built by a plugin via `createBlobCapabilityImpl()`. The plugin's `operation(blob, params, signal)` is where Asset ↔ Blob conversion happens: it pulls a `Blob` from the AssetStore, hands it to an Engine function, and creates a new Asset from the result. Plugins are the only layer that knows about both Assets (Capability vocabulary) and Blobs (Engine vocabulary).
+
+4. **Engine** (`@lokvis/engine-*`) — a pure `Blob → Blob` function (`resize`, `compress`, `convert`, …). It knows nothing about Assets, capabilities, or workflows. This isolation is what lets the same engine power a browser Workspace, a Node CLI, and an MCP server without change.
+
+### Why one-way dependencies matter
+
+The arrow `Runtime → Capability → Engine` (with Plugin bridging Capability and Engine) is enforced at the package level via `package.json` `dependencies`. Concretely:
+
+- `@lokvis/runtime` never imports `@lokvis/engine-image` — it only resolves capability *names* and calls `impl.execute()`.
+- `@lokvis/engine-image` never imports `@lokvis/runtime` or `@lokvis/schema` — it is a set of pure functions.
+- A plugin (`@lokvis/plugin-image`) imports *both* its engine and `@lokvis/capability` to glue them together, but Runtime never imports the plugin directly; plugins are registered at runtime via `installPlugin()`.
+
+This means you can swap the Canvas engine for a WASM engine (or a sharp engine in Node) by shipping a different plugin — Runtime, Capability, and Workflow code stay unchanged.
+
+### Deep dives
+
+Each layer has its own deep-dive document:
+
+- [Runtime](./architecture/runtime) — AssetStore three-tier fallback, CapabilityRegistry resolve flow, WorkflowExecutor linear DAG, HistoryStack cursor, MemoryGuard, Worker isolation, extension hooks.
+- [Engine](./architecture/engine) — `ImageEngineAdapter` contract, `Record<string, any>` operation signature rule, Canvas implementation + `decodeResized`, streaming type contracts, Worker integration, stub engine pattern.
+- [Capability](./architecture/capability) — `Capability` shape, 8 `CapabilityParam` types, capability catalog (image real / video-pdf stub), `CapabilityRegistry.resolve` three-stage flow, three-layer workflow validation, MCP manifest generation.
+- [Plugin SDK](./architecture/plugin) — `definePlugin` + `createBlobCapabilityImpl` factories, `PluginContext` restricted Runtime view, lifecycle, MetadataReader, stub plugin pattern, Panels, Vitest testing pattern.
 
 ## Dependency Rules
 

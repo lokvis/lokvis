@@ -396,7 +396,7 @@
 | 19.2 | 文档结构:Getting Started / Concepts / API Ref / Guides / Plugins / Examples | P0 | 4h | ⬜ | docs |
 | 19.3 | API Reference 自动生成(从 tsdoc) | P0 | 6h | ⬜ | `docs/api/` |
 | 19.4 | Guides:嵌入 SDK / 写第一个插件 / 自定义 Workspace / CLI 自动化 | P0 | 8h | ⬜ | docs |
-| 19.5 | Architecture 深度文:Runtime/Engine/Capability/Plugin 四层 | P0 | 4h | ⬜ | docs |
+| 19.5 | Architecture 深度文:Runtime/Engine/Capability/Plugin 四层 | P0 | 4h | ✅ | docs(四层深度文已存在;本次补强:修复 architecture.mdx 断链 whitepaper/→business/(中英两版);新增"四层协作"综述章节串联四层请求流+单向依赖+深度文档链接(中英两版)) |
 | 19.6 | 交互式 Playground 增强:可编辑代码 + 实时运行 | P1 | 8h | ⬜ | apps/playground |
 | 19.7 | 搜索功能(Pagefind) | P0 | 2h | ✅ | docs(Starlight 0.33+ 内置 Pagefind) |
 | 19.8 | 缓冲 | P0 | 4h | ⬜ | — |

@@ -21,7 +21,7 @@ import {
 
 <MermaidScript />
 
-Lokvis 遵循严格的五层架构,层与层之间单向依赖。完整规范见 `docs/whitepaper/04-技术架构设计.md`。
+Lokvis 遵循严格的五层架构,层与层之间单向依赖。完整规范见 `docs/business/04-技术架构设计.md`。
 
 ## 层级
 
@@ -44,6 +44,39 @@ Astro 7 + React 19 + Tailwind v4。渲染工作区 UI 与工具页面。
 ### 5. Engine 层
 
 可插拔适配器封装 WASM 库(Squoosh、ffmpeg.wasm、pdf-lib)。MVP 图像引擎使用浏览器原生 Canvas + createImageBitmap,零依赖,实现最快的首屏渲染。
+
+## 四层协作
+
+中间四层(Runtime / Capability / Plugin / Engine)构成执行核心。每层只有一个不重叠的职责;四层合力把声明式 `Workflow` 变成磁盘上的字节。
+
+### 请求流:`runtime.run(workflow, inputs)` → 字节
+
+1. **Runtime**(`@lokvis/runtime`)—— 对工作流节点做拓扑排序,把每个节点的能力交给 `CapabilityRegistry` 解析,并驱动 `WorkflowExecutor`。它只持有 `AssetId`;原始 `Blob` 存放在 `AssetStore` 中(OPFS → IDB → 内存三级回退)。
+
+2. **Capability**(`@lokvis/capability` + `@lokvis/schema`)—— `CapabilityRegistry.resolve(name)` 为能力名返回最优的 `CapabilityImplementation`,自动跳过 `stub` 实现。`Capability` 类型本身是纯声明式契约(`name` / `inputTypes` / `outputTypes` / `params` schema),由 Schema 层拥有,因此任何层都能依赖它而无需引入 Runtime。
+
+3. **Plugin**(`@lokvis/plugin-*`)—— 注册表返回的 `CapabilityImplementation.execute` 由插件通过 `createBlobCapabilityImpl()` 构造。插件的 `operation(blob, params, signal)` 是 Asset ↔ Blob 转换发生的地方:它从 AssetStore 取出 `Blob`,交给 Engine 函数,再用结果创建新 Asset。Plugin 是唯一同时感知 Asset(Capability 词汇)与 Blob(Engine 词汇)的层。
+
+4. **Engine**(`@lokvis/engine-*`)—— 纯 `Blob → Blob` 函数(`resize`、`compress`、`convert`……)。它不感知 Asset、能力或工作流。这种隔离让同一个引擎能驱动浏览器 Workspace、Node CLI 与 MCP server 而无需改动。
+
+### 单向依赖为何重要
+
+`Runtime → Capability → Engine` 的箭头(Plugin 桥接 Capability 与 Engine)在包级别通过 `package.json` 的 `dependencies` 强制执行。具体而言:
+
+- `@lokvis/runtime` 从不导入 `@lokvis/engine-image` —— 它只解析能力*名*并调用 `impl.execute()`。
+- `@lokvis/engine-image` 从不导入 `@lokvis/runtime` 或 `@lokvis/schema` —— 它是一组纯函数。
+- 插件(`@lokvis/plugin-image`)*同时*导入它的 engine 与 `@lokvis/capability` 来粘合它们,但 Runtime 从不直接导入插件;插件在运行时通过 `installPlugin()` 注册。
+
+这意味着你可以通过发布不同插件来把 Canvas 引擎换成 WASM 引擎(或 Node 中的 sharp 引擎)—— Runtime、Capability 与 Workflow 代码保持不变。
+
+### 深度文档
+
+每一层都有独立的深度文档:
+
+- [Runtime](./architecture/runtime) —— AssetStore 三级回退、CapabilityRegistry 解析流程、WorkflowExecutor 线性 DAG、HistoryStack 游标、MemoryGuard、Worker 隔离、扩展钩子。
+- [Engine](./architecture/engine) —— `ImageEngineAdapter` 契约、`Record<string, any>` 操作签名规则、Canvas 实现 + `decodeResized`、流式类型契约、Worker 集成、stub 引擎模式。
+- [Capability](./architecture/capability) —— `Capability` 形状、8 种 `CapabilityParam` 类型、能力目录(image 真实 / video-pdf stub)、`CapabilityRegistry.resolve` 三阶段流程、三层工作流校验、MCP manifest 生成。
+- [Plugin SDK](./architecture/plugin) —— `definePlugin` + `createBlobCapabilityImpl` 工厂、`PluginContext` 受限 Runtime 视图、生命周期、MetadataReader、stub 插件模式、Panels、Vitest 测试模式。
 
 ## 依赖规则
 
