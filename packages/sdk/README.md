@@ -37,6 +37,62 @@ const blob = await lokvis.exportAsset(result.outputs[0]);
 | `loadPlugin` | `(runtime, plugin) => Promise<void>` | Load a single plugin into an existing runtime |
 | `fromLokvisError` | `(value: unknown) => LokvisError` | Normalize any caught value into a `LokvisError` |
 
+## Cloud auth & Pro gate (W17.3)
+
+`createLokvis` accepts an optional `auth` option to receive cloud session/token
+from your auth layer. When present (and not explicitly `isPro: false`), the
+runtime flips to **Pro mode**: batch processing has no item limit, default
+concurrency rises from 4 → 16, and UI workflow slots become unlimited.
+
+```ts
+import { createLokvis } from '@lokvis/sdk';
+import { imageToolsPlugin } from '@lokvis/plugin-image';
+
+// After your cloud login flow returns a JWT:
+const cloudJwt = await fetchCloudSession(oauthCode);
+
+const lokvis = await createLokvis({
+  plugins: [imageToolsPlugin()],
+  auth: { session: cloudJwt },
+});
+
+console.log(lokvis.isPro); // true → batch enqueue > 10 items no longer throws
+```
+
+`LokvisAuthSession` shape:
+
+| Field | Type | Description |
+|---|---|---|
+| `session` | `string` | Cloud session token (e.g. JWT from lokvis-cloud) |
+| `token` | `string` | Direct API token (alternative to `session`, for CLI / server) |
+| `isPro` | `boolean` | Explicit override. Wins over `session`/`token` presence. |
+
+Resolution rules:
+
+1. No `auth` → `isPro = false` (free mode, default)
+2. `auth.isPro` explicitly set → use it (allows guest sessions with `isPro: false`)
+3. Otherwise → `session` or `token` non-empty → `isPro = true`
+
+SDK does **not** validate token shape or signature — that's the cloud gateway's
+job. SDK only consumes the result.
+
+### Migration (0.2.x → 0.3.x)
+
+- **Local-only usage**: no change required. `createLokvis()` with no `auth`
+  keeps `isPro = false` and free-tier limits, identical to 0.2.x.
+- **Direct `isPro` flag still works**: `createLokvis({ isPro: true })`
+  (the RuntimeConfig path) remains valid for testing / dev.
+- **Cloud integration**: add the `auth` option in your cloud-aware bootstrap
+  path. Free-tier users should be given an empty/undefined `auth` (or
+  `auth: { session, isPro: false }` if you issue guest sessions).
+
+| Behavior | free (`isPro=false`) | Pro (`isPro=true`) |
+|---|---|---|
+| `batch.enqueue` item limit | 10 (throws `BatchLimitExceededError`) | unlimited |
+| `batch.enqueue` default concurrency | 4 | 16 |
+| UI workflow slots | 5 | unlimited |
+| Playground custom presets | 3 | unlimited |
+
 ### LokvisRuntime methods
 
 | Method | Returns | Description |
