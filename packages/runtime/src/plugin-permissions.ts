@@ -177,38 +177,44 @@ export class PluginPermissionSandbox implements IPluginPermissionSandbox {
     }
 
     // patch XMLHttpRequest.open(原型方法,跨边界 monkey-patch)
+    // 用 Object.defineProperty 替代直接赋值:PropertyDescriptor.value 为 any,
+    // 无需为 `() => never` 与原生重载签名的不兼容做 `as unknown as` 双断言
+    // (TD-4.5)。writable/configurable 显式为 true,与原生原型方法描述符一致。
     if (OrigXHR) {
-      OrigXHR.prototype.open = function (
-        this: XMLHttpRequest,
-        ..._args: unknown[]
-      ): never {
-        return blocked('XMLHttpRequest.open');
-      } as unknown as typeof XMLHttpRequest.prototype.open;
+      Object.defineProperty(OrigXHR.prototype, 'open', {
+        value: function (this: XMLHttpRequest, ..._args: unknown[]): never {
+          return blocked('XMLHttpRequest.open');
+        },
+        writable: true,
+        configurable: true,
+      });
     }
 
     // patch WebSocket(构造器,需支持 new;跨边界 monkey-patch)
     if (origWebSocket) {
-      const BlockedWS = function (
-        this: unknown,
-        ..._args: unknown[]
-      ): never {
+      const BlockedWS = function (this: unknown, ..._args: unknown[]): never {
         return blocked('WebSocket');
-      } as unknown as typeof WebSocket;
+      };
       // 保留原型链,instanceof 检查仍可通过(虽然实际不会构造成功)
       BlockedWS.prototype = origWebSocket.prototype;
-      globalThis.WebSocket = BlockedWS;
+      Object.defineProperty(globalThis, 'WebSocket', {
+        value: BlockedWS,
+        writable: true,
+        configurable: true,
+      });
     }
 
     // patch EventSource(构造器,跨边界 monkey-patch)
     if (origEventSource) {
-      const BlockedES = function (
-        this: unknown,
-        ..._args: unknown[]
-      ): never {
+      const BlockedES = function (this: unknown, ..._args: unknown[]): never {
         return blocked('EventSource');
-      } as unknown as typeof EventSource;
+      };
       BlockedES.prototype = origEventSource.prototype;
-      globalThis.EventSource = BlockedES;
+      Object.defineProperty(globalThis, 'EventSource', {
+        value: BlockedES,
+        writable: true,
+        configurable: true,
+      });
     }
 
     // restore 函数

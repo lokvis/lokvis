@@ -6,6 +6,7 @@
  */
 
 export * from './types.js';
+export * from './errors.js';
 export * from './event-bus.js';
 export * from './asset-store.js';
 export * from './opfs-asset-store.js';

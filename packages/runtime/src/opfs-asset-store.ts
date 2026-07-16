@@ -28,6 +28,7 @@ import {
   prepareImport,
 } from './asset-store.js';
 import { isIdbSupported } from './idb-asset-store.js';
+import { AssetBlobNotFoundError } from './errors.js';
 
 /** OPFS 不可用或初始化失败时抛出 */
 export class OpfsUnavailableError extends Error {
@@ -232,7 +233,7 @@ export async function createOpfsAssetStore(
           fileHandle = await assetsDir.getFileHandle(fileName(id));
           fileHandles.set(id, fileHandle);
         } catch {
-          throw new Error(`Blob not found in OPFS for path: ${handle.path}`);
+          throw new AssetBlobNotFoundError(`Blob not found in OPFS for path: ${handle.path}`);
         }
       }
       const file = await fileHandle.getFile();

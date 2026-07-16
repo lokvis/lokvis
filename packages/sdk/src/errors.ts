@@ -30,6 +30,13 @@ import {
   WorkerRequestTimeoutError as RuntimeWorkerRequestTimeoutError,
   WorkerHandshakeError as RuntimeWorkerHandshakeError,
   WorkerRequestAbortedError as RuntimeWorkerRequestAbortedError,
+  AssetNotFoundError as RuntimeAssetNotFoundError,
+  AssetBlobNotFoundError as RuntimeAssetBlobNotFoundError,
+  WorkflowInvalidError as RuntimeWorkflowInvalidError,
+  WorkflowCycleError as RuntimeWorkflowCycleError,
+  WorkflowNodeError as RuntimeWorkflowNodeError,
+  CapabilityNotRegisteredError as RuntimeCapabilityNotRegisteredError,
+  CapabilityStubOnlyError as RuntimeCapabilityStubOnlyError,
 } from '@lokvis/runtime';
 
 /**
@@ -183,11 +190,11 @@ export class CapabilityNotRegisteredError extends LokvisError {
 /** 能力仅有 stub 实现(需安装真实 engine 插件) */
 export class CapabilityStubOnlyError extends LokvisError {
   readonly capability: string;
-  constructor(capability: string) {
+  constructor(capability: string, cause?: unknown) {
     super(
       `Capability "${capability}" is not yet available (only stub engine registered). ` +
         'Install a real engine plugin to use this capability.',
-      { code: 'CAPABILITY_STUB_ONLY', context: { capability } }
+      { code: 'CAPABILITY_STUB_ONLY', context: { capability }, cause }
     );
     this.name = 'CapabilityStubOnlyError';
     this.capability = capability;
@@ -302,16 +309,13 @@ export class PluginLoadError extends LokvisError {
  *
  * 归一优先级:
  * 1. 已是 LokvisError → 原样返回
- * 2. 是 runtime 抛出的具体 Error 子类(QuotaExceededError 等)→ instanceof 匹配,包装为对应 SDK 错误
- * 3. 是普通 Error 但 message 匹配已知模式 → best-effort 字符串匹配,转成对应 SDK 错误
- *    (runtime 部分模块仍抛普通 Error,待后续 runtime 层类型化后可移除此层)
- * 4. 其他普通 Error → 包装为 UNKNOWN LokvisError,保留 cause
- * 5. 非 Error 值 → 字符串化为 message
+ * 2. 是 runtime 抛出的具体 Error 子类(QuotaExceededError / AssetNotFoundError /
+ *    WorkflowCycleError 等)→ instanceof 匹配,包装为对应 SDK 错误
+ * 3. 其他普通 Error → 包装为 UNKNOWN LokvisError,保留 cause
+ * 4. 非 Error 值 → 字符串化为 message
  *
- * 使用 `instanceof` 为主、message 模式匹配为辅:instanceof 准确且不受文案改动影响,
- * 但 runtime 仍有未类型化的 `throw new Error(...)`,message 匹配作为兜底保证
- * ASSET_NOT_FOUND / WORKFLOW_INVALID / WORKFLOW_CYCLE / CAPABILITY_NOT_REGISTERED
- * 等 code 也能命中,让消费方的 switch(err.code) 分支稳定可用。
+ * 全部通过 `instanceof` 检测 runtime 类型化错误,不受 message 文案变更影响
+ * (T10:原 message 模式匹配过渡方案已移除,runtime 各抛错点已改用类型化错误类)。
  *
  * @example
  * ```ts
@@ -329,7 +333,7 @@ export function fromLokvisError(value: unknown): LokvisError {
   if (value instanceof LokvisError) return value;
 
   if (value instanceof Error) {
-    // ── 优先:instanceof 匹配 runtime 已类型化的错误类 ──
+    // ── instanceof 匹配 runtime 类型化错误类 ──
     if (value instanceof RuntimeQuotaExceededError) {
       return new StorageQuotaExceededError(value.usage, value.delta, value.quota, value);
     }
@@ -357,35 +361,26 @@ export function fromLokvisError(value: unknown): LokvisError {
     if (value instanceof RuntimeWorkerRequestAbortedError) {
       return new WorkerRequestAbortedError(value.message, value);
     }
-
-    // ── 兜底:best-effort message 模式匹配(runtime 未类型化的 Error)──
-    // 匹配 runtime 抛出的已知 message 前缀,转成对应 SDK 错误类。
-    // 注意:这是过渡方案,后续 runtime 层应抛类型化错误,届时可移除此层。
-    const msg = value.message;
-    if (msg.startsWith('Asset not found')) {
-      return new AssetNotFoundError(msg.replace(/^Asset not found:?\s*/, ''), value);
+    if (value instanceof RuntimeAssetNotFoundError) {
+      return new AssetNotFoundError(value.assetId, value);
     }
-    if (msg.startsWith('Workflow contains a cycle')) {
-      return new WorkflowCycleError(msg, value);
+    if (value instanceof RuntimeAssetBlobNotFoundError) {
+      return new AssetExportError(value.message, value);
     }
-    if (msg.startsWith('Workflow contains duplicate node id')) {
-      return new WorkflowInvalidError(msg, value);
+    if (value instanceof RuntimeWorkflowInvalidError) {
+      return new WorkflowInvalidError(value.message, value);
     }
-    if (msg.startsWith('No implementation registered for capability')) {
-      // 从 message 提取 capability 名:"No implementation registered for capability \"image.resize\""
-      const m = msg.match(/capability "([^"]+)"/);
-      const cap = m?.[1] ?? '';
-      return new CapabilityNotRegisteredError(cap, value);
+    if (value instanceof RuntimeWorkflowCycleError) {
+      return new WorkflowCycleError(value.message, value);
     }
-    if (msg.startsWith('Transform node ') && msg.endsWith(' has no capability')) {
-      // runtime 抛 `Transform node "<nodeId>" has no capability`,提取 nodeId
-      // 便于消费方据 context.nodeId 定位失败节点。capability 缺失故留空串。
-      const m = msg.match(/Transform node "([^"]+)"/);
-      const nodeId = m?.[1] ?? '';
-      return new WorkflowNodeError(nodeId, '', msg, value);
+    if (value instanceof RuntimeWorkflowNodeError) {
+      return new WorkflowNodeError(value.nodeId, '', value.message, value);
     }
-    if (msg.startsWith('Blob not found')) {
-      return new AssetExportError(msg, value);
+    if (value instanceof RuntimeCapabilityNotRegisteredError) {
+      return new CapabilityNotRegisteredError(value.capability, value);
+    }
+    if (value instanceof RuntimeCapabilityStubOnlyError) {
+      return new CapabilityStubOnlyError(value.capability, value);
     }
 
     return new LokvisError(value.message, { code: 'UNKNOWN', cause: value });

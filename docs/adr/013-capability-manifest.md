@@ -1,8 +1,15 @@
 # ADR-013：Capability Manifest 与 Codegen
 
-- **状态**：Proposed
-- **日期**：2026-07-13
+- **状态**：Accepted
+- **日期**：2026-07-13（Proposed）/ 2026-07-15（Accepted）
 - **来源**：[架构深度诊断报告](../reports/architecture-deep-diagnostic-20260712.md) §W4 / [任务计划](../reports/20260712-task-plan.md) W4.1
+- **Acceptance 验证**（2026-07-15）：
+  - ✅ `packages/capability/manifests/{image,pdf,video,audio,ai}.manifest.json` 5 域 manifest 齐全
+  - ✅ `scripts/codegen-capabilities.ts` codegen 脚本实装
+  - ✅ `packages/schema/src/capability-names.generated.ts` 联合类型生成
+  - ✅ `packages/capability/src/presets/{domain}.generated.ts` 5 域预设生成
+  - ✅ W4.3 迁移完成：手写 `presets/{image,pdf,video,audio,ai}.ts` 已删除
+  - ✅ `manifests/schema.json`（JSON Schema Draft 07）完整定义
 
 ---
 

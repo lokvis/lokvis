@@ -38,25 +38,27 @@
 
 ## 3. 核心问题分级
 
+> **状态复核(2026-07-15,Review #4)**:本节 P0/P1 问题已部分修复。修复状态见各条目末尾的「2026-07-15 复核」标注。完整审计与新增债务见 [`docs/technical-debt.md`](../technical-debt.md) Review #4。
+
 ### P0 — 阻塞 Phase 2 战略验证
 
-| # | 问题 | 依据 |
-|---|---|---|
-| 1 | **MCP Server 仅骨架** — `createServer()` 返回 `{ server: null }`，stdio/SSE/WebSocket 三传输均未实现 | `mcp-server/src/server.ts:154`、ADR-011、gap 报告 |
-| 2 | **4/5 Engine 为 stub** — video/pdf/audio/ai 全部抛"not implemented" | `plugin-{video,pdf}/src/operations.ts`、Phase 2 关键路径 |
-| 3 | **ADR-O1/O2/O3 仍 Proposed** — 战略已被 roadmap/代码消费，ADR 未正式化 | `docs/adr/O*.md` vs PROJECT_PLAN |
-| 4 | **白皮书与 AI 调整方案根本矛盾** — 白皮书仍以 Marketplace 抽成 35% 为收入核心，调整方案已改"免费社区分享" | `business/05-*.md` vs `AI生态冲击调整方案.md` |
+| # | 问题 | 依据 | 2026-07-15 复核 |
+|---|---|---|---|
+| 1 | **MCP Server 仅骨架** — `createServer()` 返回 `{ server: null }`，stdio/SSE/WebSocket 三传输均未实现 | `mcp-server/src/server.ts:154`、ADR-011、gap 报告 | ✅ **已修复** — `createLokvisMcpServer()` 返回真实 `McpServerAdapter`,stdio/SSE/WebSocket 三传输全部实装,5 个 tool(3 image + 2 pdf)真实可用 |
+| 2 | **4/5 Engine 为 stub** — video/pdf/audio/ai 全部抛"not implemented" | `plugin-{video,pdf}/src/operations.ts`、Phase 2 关键路径 | 🟡 维持(符合 Phase 1 计划) — engine-pdf/video/audio/ai 仍为 stub;engine-image-node 已实装(sharp 适配) |
+| 3 | **ADR-O1/O2/O3 仍 Proposed** — 战略已被 roadmap/代码消费，ADR 未正式化 | `docs/adr/O*.md` vs PROJECT_PLAN | ✅ **已修复** — ADR-O1/O2/O3 全部 Accepted |
+| 4 | **白皮书与 AI 调整方案根本矛盾** — 白皮书仍以 Marketplace 抽成 35% 为收入核心，调整方案已改"免费社区分享" | `business/05-*.md` vs `AI生态冲击调整方案.md` | 🟡 未复核(本报告不覆盖商业文档同步) |
 
 ### P1 — 影响可扩展性与长期维护
 
-| # | 问题 | 依据 |
-|---|---|---|
-| 5 | **`runtime.ts` 1151 行 God Object** — `LokvisRuntimeImpl` 承载 8 类职责 | `packages/runtime/src/runtime.ts:195-990` |
-| 6 | **engine-audio / engine-ai 无对应 plugin** — Capability 层桥梁缺失 | `packages/` 目录对比 |
-| 7 | **能力硬编码** — 新增 engine 需改 schema 联合类型 / capability presets / plugin operations 三处 | `plugin-image/src/operations.ts:58-68` |
-| 8 | **Workflow 层未独立** — `buildLinearWorkflow` 嵌在 `ui-react/store/workflow-slice.ts:327` | ui-react 与 runtime 双落点 |
-| 9 | **6 个包零测试** — engine-{core,pdf,video,audio,ai}、plugin-{pdf,video,dev,sdk}、cli、ui-core | vitest coverage |
-| 10 | **双轨文档** — `docs/` 与 `apps/docs/` 内容分歧 | gap 报告 P2-6 |
+| # | 问题 | 依据 | 2026-07-15 复核 |
+|---|---|---|---|
+| 5 | **`runtime.ts` 1151 行 God Object** — `LokvisRuntimeImpl` 承载 8 类职责 | `packages/runtime/src/runtime.ts:195-990` | ✅ **已修复** — runtime.ts 22 行 Facade,runtime-impl.ts 218 行,5 个 manager 抽出(asset/history/quota/workflow-coordinator/mcp-manifest-builder) |
+| 6 | **engine-audio / engine-ai 无对应 plugin** — Capability 层桥梁缺失 | `packages/` 目录对比 | ✅ **已修复** — plugin-audio(4 能力)/plugin-ai(5 能力)已存在并完整对接 |
+| 7 | **能力硬编码** — 新增 engine 需改 schema 联合类型 / capability presets / plugin operations 三处 | `plugin-image/src/operations.ts:58-68` | ✅ **已修复** — ADR-013 Capability Manifest codegen 落地,manifest 成为单一信息源(2026-07-15 升 Accepted) |
+| 8 | **Workflow 层未独立** — `buildLinearWorkflow` 嵌在 `ui-react/store/workflow-slice.ts:327` | ui-react 与 runtime 双落点 | ✅ **已修复** — `@lokvis/workflow` 独立成包,仅依赖 `@lokvis/schema`;ui-react 改为 import `buildLinearWorkflow` from `@lokvis/workflow` |
+| 9 | **6 个包零测试** — engine-{core,pdf,video,audio,ai}、plugin-{pdf,video,dev,sdk}、cli、ui-core | vitest coverage | 🟡 部分修复 — plugin-pdf/video/audio/ai 已补 `__tests__/plugin.test.ts`;engine-{core,pdf,video,audio,ai} 仍零测试(stub,可接受);cli/ui-core 测试覆盖待补 |
+| 10 | **双轨文档** — `docs/` 与 `apps/docs/` 内容分歧 | gap 报告 P2-6 | 🟡 未复核(本报告不覆盖文档站同步) |
 
 ### P2 — 中期优化
 

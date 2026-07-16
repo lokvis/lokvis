@@ -3,6 +3,16 @@
 > 将 Lokvis 能力暴露给 AI 客户端（Claude Desktop / ChatGPT / Cursor / Windsurf）
 > 文件留在本地，不上传任何东西。
 
+> **当前实现进度（2026-07-15）**：
+> - ✅ Tools 层：5 个工具已实装（3 image + 2 pdf），基于 sharp / pdf-lib 真实处理本地文件
+> - ✅ 三传输：stdio / SSE / WebSocket 全部实装
+> - ✅ 鉴权 / 计费：`LOKVIS_API_KEY` 接入 cloud API（无 key 时降级到本地模式）
+> - 🚧 **Meta Tools**（`lokvis_run_workflow` / `lokvis_get_asset` / `lokvis_export_asset` / `lokvis_undo` / `lokvis_redo` / `lokvis_cancel`）：**未实现**，规划中（Phase 2 W7-W8）
+> - 🚧 **Resources**（`lokvis://capabilities` 等 4 个）：**未注册**，`McpServerAdapter.registerResource()` 机制已就绪但 server 未调用（Phase 2 W9-W10）
+> - 🚧 **Prompts**（`lokvis_optimize_for_web` 等 4 个）：**未注册**（Phase 2 W9-W10）
+>
+> 本文 §「可用 Tools」「Resources」「Prompts」章节描述的是 Phase 2 完成后的目标态。当前消费方应仅依赖已实装的 5 个 Tools。
+
 ---
 
 ## 为什么需要 MCP？
@@ -113,21 +123,25 @@ npx @lokvis/mcp-server
 
 ## 可用 Tools
 
+> **当前实装：5 个**（3 image + 2 pdf）。下表前 5 行为已实装；后 2 行（`image.crop` / `image.watermark`）规划在 Phase 2 W7-W8 实装,当前调用会返回 `isError: true`。
+
 ### 能力 Tool（对应单一 capability）
 
-| Tool | 说明 | 示例 prompt |
-|------|------|-------------|
-| `lokvis_image_compress` | 本地压缩图片（质量/格式） | "Compress image.jpg to 80% quality" |
-| `lokvis_image_resize` | 调整尺寸（宽高/缩放策略） | "Resize image.png to 800px width" |
-| `lokvis_image_convert` | 格式转换（JPEG/PNG/WebP/AVIF） | "Convert PNG to WebP" |
-| `lokvis_image_crop` | 裁剪（x/y/width/height） | "Crop image to 200x200 from top-left" |
-| `lokvis_image_watermark` | 水印（文字/位置/透明度） | "Add '© 2026' watermark to bottom-right" |
-| `lokvis_pdf_merge` | 合并多个 PDF 文件 | "Merge report.pdf and appendix.pdf" |
-| `lokvis_pdf_compress` | 压缩 PDF（对象流压缩） | "Compress large.pdf to reduce size" |
+| Tool | 状态 | 说明 | 示例 prompt |
+|------|------|------|-------------|
+| `lokvis_image_compress` | ✅ 已实装 | 本地压缩图片（质量/格式） | "Compress image.jpg to 80% quality" |
+| `lokvis_image_resize` | ✅ 已实装 | 调整尺寸（宽高/缩放策略） | "Resize image.png to 800px width" |
+| `lokvis_image_convert` | ✅ 已实装 | 格式转换（JPEG/PNG/WebP/AVIF） | "Convert PNG to WebP" |
+| `lokvis_pdf_merge` | ✅ 已实装 | 合并多个 PDF 文件 | "Merge report.pdf and appendix.pdf" |
+| `lokvis_pdf_compress` | ✅ 已实装 | 压缩 PDF（对象流压缩） | "Compress large.pdf to reduce size" |
+| `lokvis_image_crop` | 🚧 未实装 | 裁剪（x/y/width/height） | — |
+| `lokvis_image_watermark` | 🚧 未实装 | 水印（文字/位置/透明度） | — |
 
-> Tool 清单由 `runtime.toMcpManifest()` 自动生成，新增 capability 自动可见。命名约定：`lokvis_<domain>_<verb>`。
+> Tool 清单由 `runtime.toMcpManifest()` 自动生成（基于已注册 capability），新增 capability 自动可见。命名约定：`lokvis_<domain>_<verb>`。**已实装的 5 个 Tool 当前直接基于 sharp / pdf-lib 实现**，未经 runtime capability 系统（Phase 2 W7-W8 后将改为经 capability 系统调用，见 [ADR-011](./adr/011-mcp-server.md)）。
 
 ### 元 Tool（Runtime 级别操作）
+
+> 🚧 **未实现**：以下 6 个 Meta Tool 为 Phase 2 W7-W8 规划，当前 mcp-server 未注册任何 meta tool handler。消费方应仅依赖上节 5 个已实装的能力 Tool。
 
 这些 Tool 不对应单一 capability，而是 Runtime 级别操作：
 
@@ -170,6 +184,8 @@ API Key 可在 https://app.lokvis.com/settings/api-keys 创建。
 
 ## Resources
 
+> 🚧 **未注册**：以下 4 个 Resources 为 Phase 2 W9-W10 规划，当前 mcp-server 未调用 `registerResource()`。`McpServerAdapter` 已实现 `registerResource()` 机制（map 存储 + setRequestHandler），待 server 侧补齐具体 resource handler。
+
 MCP server 暴露以下 MCP Resources：
 
 | URI | 说明 | MIME |
@@ -187,6 +203,8 @@ MCP server 暴露以下 MCP Resources：
 ---
 
 ## Prompts（预定义提示模板）
+
+> 🚧 **未注册**：以下 4 个 Prompts 为 Phase 2 W9-W10 规划，当前 mcp-server 未调用 `registerPrompt()`。
 
 MCP Prompts 是预定义的提示模板，AI 客户端可调用：
 
@@ -254,26 +272,32 @@ Prompt 模板返回自然语言 + 结构化 workflow JSON，AI 可直接调用 `
 
 ## 包结构
 
+> **当前实际**（2026-07-15）：
+
 ```
 packages/mcp-server/
 ├── src/
 │   ├── index.ts              # 公共入口：createLokvisMcpServer()
-│   ├── server.ts             # MCP server 核心
-│   ├── tools/
-│   │   ├── image.ts          # 图片处理 tools
-│   │   ├── pdf.ts            # PDF tools（Phase 2.5+）
-│   │   ├── workflow.ts       # workflow 执行 tool
-│   │   └── asset.ts          # asset 管理 tools
-│   ├── resources/
-│   │   ├── capabilities.ts   # 能力列表 resource
-│   │   └── workflows.ts      # workflow 列表 resource
-│   ├── prompts/
-│   │   └── templates.ts      # 常见任务 prompt 模板
-│   └── adapters/
-│       ├── node-stdio.ts     # Node.js stdio 传输
-│       ├── browser-sse.ts    # 浏览器 SSE 传输（Phase 2.5+）
-│       └── node-engine.ts    # Node.js engine 适配（sharp）
+│   ├── server.ts             # MCP server 核心（注册 5 个 tool handler）
+│   ├── mcp-server-adapter.ts # McpServerAdapter（包装 @modelcontextprotocol/sdk）
+│   ├── router.ts             # ToolRouter（浏览器优先 → Node 降级路由）
+│   ├── cli.ts                # CLI 入口（stdio 模式）
+│   ├── auth.ts               # 鉴权（接 cloud API,含降级）
+│   ├── billing.ts            # 计费（接 cloud API,含降级）
+│   ├── browser-bridge.ts     # 浏览器 WebSocket 桥
+│   ├── sse-transport.ts      # SSE 传输
+│   ├── node-asset-store.ts   # Node.js 文件系统 AssetStore
+│   ├── node-engine-adapter.ts# Node.js engine 适配（ImageNodeEngineAdapter）
+│   └── tools/
+│       ├── image.ts          # ✅ 3 个 image tool（resize/compress/convert）
+│       └── pdf.ts            # ✅ 2 个 pdf tool（merge/compress）
 ```
+
+> **规划中**（Phase 2 W7-W10）：
+> - `tools/workflow.ts` — workflow 执行 tool（meta tool）
+> - `tools/asset.ts` — asset 管理 tool（meta tool）
+> - `resources/capabilities.ts`、`resources/workflows.ts` — MCP Resources
+> - `prompts/templates.ts` — MCP Prompts
 
 ---
 
