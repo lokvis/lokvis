@@ -124,6 +124,7 @@ console.log(manifest.resources);
 import {
   LokvisError,
   AssetNotFoundError,
+  AssetBlobNotFoundError,
   AssetImportError,
   AssetExportError,
   WorkflowInvalidError,
@@ -148,8 +149,9 @@ import {
 |-------|------|----------|
 | `LokvisError` | — | 基类，所有 SDK 错误的根 |
 | `AssetNotFoundError` | `ASSET_NOT_FOUND` | 资产 ID 不存在 |
+| `AssetBlobNotFoundError` | `ASSET_BLOB_NOT_FOUND` | 资产 Blob 数据缺失（OPFS/IDB 数据丢失，需重新导入） |
 | `AssetImportError` | `ASSET_IMPORT_FAILED` | 资产导入失败（格式不支持 / IO 错误） |
-| `AssetExportError` | `ASSET_EXPORT_FAILED` | 资产导出失败（格式不支持 / Blob 读取失败） |
+| `AssetExportError` | `ASSET_EXPORT_FAILED` | 资产导出失败（格式不支持 / 编码错误） |
 | `WorkflowInvalidError` | `WORKFLOW_INVALID` | workflow JSON 校验失败（形状 / 保留字 / 节点 id） |
 | `WorkflowCycleError` | `WORKFLOW_CYCLE` | workflow 含环 |
 | `WorkflowNodeError` | `WORKFLOW_NODE_ERROR` | 工作流节点执行失败（携带 nodeId / capability） |
