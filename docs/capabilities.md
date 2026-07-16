@@ -40,6 +40,7 @@
 | `image.flip` | 翻转 | direction (horizontal/vertical/both) |
 | `image.watermark` | 水印 | text/image, position (9宫格), opacity |
 | `image.background` | 背景色 | color |
+| `image.filter` | 滤镜预设 | preset (grayscale/invert/sepia/blur), radius (blur 专用，1-100，默认 4) |
 
 ### Video（`@lokvis/plugin-video`，ffmpeg.wasm，Phase 2）
 
@@ -73,7 +74,8 @@
 | `audio.merge` | 拼接 |
 | `audio.transcode` | 转码（MP3/WAV/AAC/FLAC/OGG） |
 | `audio.normalize` | 音量标准化 |
-| `audio.denoise` | 降噪 |
+
+> 注：`audio.denoise` 在前期文档中曾出现，但 manifest 与 engine-audio 均未声明该能力。如未来需要降噪，需在 `packages/capability/manifests/audio.manifest.json`、`engine-audio`、`plugin-audio` 三处同步补齐。
 
 ### Asset（跨域）
 

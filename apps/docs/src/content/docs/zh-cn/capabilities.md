@@ -31,6 +31,7 @@ head: []
 - `image.flip` — 水平 / 垂直 / 双向翻转
 - `image.watermark` — 添加文字或图片水印
 - `image.background` — 设置背景色
+- `image.filter` — 应用滤镜预设(grayscale/invert/sepia/blur),blur 可指定 `radius`
 
 ### 视频(Video)
 
@@ -51,6 +52,23 @@ head: []
 - `pdf.watermark`
 - `pdf.ocr`
 - `pdf.sign`
+
+### 音频(Audio)
+
+- `audio.trim` — 按时间段裁剪
+- `audio.merge` — 多段拼接
+- `audio.transcode` — 转码(MP3/WAV/OGG/AAC)
+- `audio.normalize` — 音量标准化到目标响度
+
+> 注:`audio.denoise` 在前期文档中曾出现,但 manifest 与 engine-audio 均未声明该能力。如未来需要降噪,需在 `packages/capability/manifests/audio.manifest.json`、`engine-audio`、`plugin-audio` 三处同步补齐。
+
+### AI
+
+- `ai.generate-workflow` — AI 辅助生成 workflow JSON(cloudProxyEngine)
+- `ai.optimize-workflow` — 优化已有 workflow(cloudProxyEngine)
+- `ai.ocr` — 本地 OCR(transformersEngine)
+- `ai.caption` — 图片描述,用于无障碍/SEO(transformersEngine)
+- `ai.background-remove` — 背景移除(transformersEngine)
 
 ### 资源(Asset)
 

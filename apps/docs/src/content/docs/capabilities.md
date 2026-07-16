@@ -31,6 +31,7 @@ Capabilities use a `<domain>.<action>` naming convention. Runtime never knows ab
 - `image.flip` — Flip horizontally/vertically/both
 - `image.watermark` — Add text or image watermark
 - `image.background` — Set background color
+- `image.filter` — Apply preset filter (grayscale/invert/sepia/blur), with optional `radius` for blur
 
 ### Video
 
@@ -51,6 +52,23 @@ Capabilities use a `<domain>.<action>` naming convention. Runtime never knows ab
 - `pdf.watermark`
 - `pdf.ocr`
 - `pdf.sign`
+
+### Audio
+
+- `audio.trim` — Trim to a time range
+- `audio.merge` — Merge multiple clips into one
+- `audio.transcode` — Transcode (MP3/WAV/OGG/AAC)
+- `audio.normalize` — Normalize loudness to a target level
+
+> Note: `audio.denoise` is not yet declared in the manifest or engine-audio. If needed in the future, it must be added to `packages/capability/manifests/audio.manifest.json`, `engine-audio`, and `plugin-audio` together.
+
+### AI
+
+- `ai.generate-workflow` — AI-assisted workflow JSON generation (cloudProxyEngine)
+- `ai.optimize-workflow` — Optimize an existing workflow (cloudProxyEngine)
+- `ai.ocr` — Local OCR (transformersEngine)
+- `ai.caption` — Image captioning for accessibility/SEO (transformersEngine)
+- `ai.background-remove` — Background removal (transformersEngine)
 
 ### Asset
 
