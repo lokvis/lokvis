@@ -97,27 +97,29 @@ await loadPlugin(lokvis, devToolsPlugin());
 
 ## WorkflowBuilder
 
-`@lokvis/runtime` 提供 `WorkflowBuilder` 链式 API 构造 workflow:
+`@lokvis/workflow` 提供 `WorkflowBuilder` 链式 API 构造 workflow:
 
 ```typescript
-import { WorkflowBuilder } from '@lokvis/runtime';
+import { WorkflowBuilder } from '@lokvis/workflow';
 
-const workflow = new WorkflowBuilder({ name: 'Web Optimize', category: 'web' })
-  .setInput({ type: 'image/*' })
+const workflow = new WorkflowBuilder({ id: 'wf_001', name: 'Web 优化' })
+  .setInput({ type: 'image', multiple: true })
+  .setOutput({ type: 'image', format: 'webp' })
   .add('image.resize', { width: 1920, height: 1080, fit: 'inside' })
   .add('image.compress', { quality: 80 })
   .add('image.convert', { format: 'webp' })
-  .setOutput({ type: 'image/webp', label: 'optimized' })
   .build(); // 校验 + 输出 Workflow 对象
 
-// 链式操作
-builder.move('n1', 'n2');      // 移动节点
-builder.swap('n1', 'n2');      // 交换
-builder.updateParams('n1', { width: 1280 });
-builder.remove('n1');           // 删除(自动重连边)
+// 链式操作（构造中可调整）
+builder.move(0, 2);                       // 移动节点（按索引）
+builder.swap(0, 1);                       // 交换（按索引）
+builder.updateParams('wf_001-node-1', { width: 1280 });
+builder.remove('image.convert');          // 删除（自动重连边）
 ```
 
-5 步上限超出时抛 `WorkflowValidationError`。
+构造参数 `WorkflowBuilderOptions` 必填 `id` + `name`，`setInput` / `setOutput` 必填，`build()` 在未设置时抛错。
+
+5 步上限（`MAX_WORKFLOW_STEPS`）超出时 `add()` 立即抛 `Error`。
 
 ## Pro 功能门控
 
