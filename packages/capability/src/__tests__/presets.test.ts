@@ -11,7 +11,7 @@ import {
   AUDIO_CAPABILITIES,
   AI_CAPABILITIES,
   ASSET_CAPABILITIES,
-  DEVELOPER_CAPABILITIES,
+  DEV_CAPABILITIES,
   BUILTIN_CAPABILITIES,
   IMAGE_RESIZE,
   IMAGE_COMPRESS,
@@ -159,9 +159,9 @@ describe('内置能力集合', () => {
     expect(names).toContain('asset.archive');
   });
 
-  it('DEVELOPER_CAPABILITIES 应包含 4 个开发工具', () => {
-    expect(DEVELOPER_CAPABILITIES).toHaveLength(4);
-    expect(DEVELOPER_CAPABILITIES.every((c) => c.name.startsWith('developer.'))).toBe(true);
+  it('DEV_CAPABILITIES 应包含 4 个开发工具', () => {
+    expect(DEV_CAPABILITIES).toHaveLength(4);
+    expect(DEV_CAPABILITIES.every((c) => c.name.startsWith('developer.'))).toBe(true);
   });
 
   it('BUILTIN_CAPABILITIES 应等于各分组合并', () => {
@@ -172,7 +172,7 @@ describe('内置能力集合', () => {
         AUDIO_CAPABILITIES.length +
         AI_CAPABILITIES.length +
         ASSET_CAPABILITIES.length +
-        DEVELOPER_CAPABILITIES.length
+        DEV_CAPABILITIES.length
     );
   });
 

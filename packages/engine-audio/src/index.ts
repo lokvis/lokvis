@@ -57,7 +57,7 @@ export interface AudioEngineAdapter {
   transcode(blob: Blob, params: Record<string, any>): Promise<Blob>;
   trim(blob: Blob, params: Record<string, any>): Promise<Blob>;
   normalize(blob: Blob, params: Record<string, any>): Promise<Blob>;
-  merge(blobs: Blob[]): Promise<Blob>;
+  merge(blobs: Blob[], params: Record<string, any>): Promise<Blob>;
 }
 
 /** Web Audio 引擎占位实现 */

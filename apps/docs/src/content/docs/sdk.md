@@ -97,27 +97,29 @@ await loadPlugin(lokvis, devToolsPlugin());
 
 ## WorkflowBuilder
 
-`@lokvis/runtime` provides the `WorkflowBuilder` chainable API to construct workflows:
+`@lokvis/workflow` provides the `WorkflowBuilder` chainable API to construct workflows:
 
 ```typescript
-import { WorkflowBuilder } from '@lokvis/runtime';
+import { WorkflowBuilder } from '@lokvis/workflow';
 
-const workflow = new WorkflowBuilder({ name: 'Web Optimize', category: 'web' })
-  .setInput({ type: 'image/*' })
+const workflow = new WorkflowBuilder({ id: 'wf_001', name: 'Web Optimize' })
+  .setInput({ type: 'image', multiple: true })
+  .setOutput({ type: 'image', format: 'webp' })
   .add('image.resize', { width: 1920, height: 1080, fit: 'inside' })
   .add('image.compress', { quality: 80 })
   .add('image.convert', { format: 'webp' })
-  .setOutput({ type: 'image/webp', label: 'optimized' })
   .build(); // Validate + output the Workflow object
 
-// Chainable operations
-builder.move('n1', 'n2');      // Move a node
-builder.swap('n1', 'n2');      // Swap
-builder.updateParams('n1', { width: 1280 });
-builder.remove('n1');           // Remove (auto-reconnects edges)
+// Chainable operations (during construction)
+builder.move(0, 2);                       // Move node (by index)
+builder.swap(0, 1);                       // Swap (by index)
+builder.updateParams('wf_001-node-1', { width: 1280 });
+builder.remove('image.convert');          // Remove (auto-reconnects edges)
 ```
 
-Exceeding the 5-step limit throws `WorkflowValidationError`.
+Constructor `WorkflowBuilderOptions` requires `id` + `name`; `setInput` / `setOutput` are required (calling `build()` without them throws).
+
+The 5-step limit (`MAX_WORKFLOW_STEPS`) is enforced in `add()` — exceeding it throws `Error` immediately.
 
 ## Pro Feature Gating
 

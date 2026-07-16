@@ -218,15 +218,15 @@ lokvis-open（MIT）                    lokvis-cloud（闭源）
 | `packages/plugin-ai` | 🟡 stub | 接 engine-ai stub,5 能力声明（ocr/caption/bg-remove 走 transformersEngine,generate/optimize-workflow 走 cloudProxyEngine） |
 | `packages/plugin-dev` | ✅ 已实现 | 4 能力（inspect.capabilities/inspect.asset/validate.workflow/profile）,内联实现 |
 | `packages/engine-pdf` | 🔴 stub | 接口完整,7 操作抛 Not Implemented |
-| `packages/engine-video` | 🔴 stub | ffmpeg.wasm/webcodecs 占位,9 操作抛 Not Implemented |
+| `packages/engine-video` | 🔴 stub | ffmpeg.wasm/webcodecs 占位,8 操作抛 Not Implemented（decode/transcode/compress/trim/screenshot/merge/extractAudio/toGif） |
 | `packages/engine-audio` | 🔴 stub | 空壳,4 操作抛 Not Implemented |
 | `packages/engine-ai` | 🔴 stub | 空壳,5 操作抛 Not Implemented |
 | `packages/mcp-server` | ✅ 已实装 | `createLokvisMcpServer()` 返回真实 McpServerAdapter;stdio/SSE/WebSocket 三传输;5 个 tool（3 image + 2 pdf）真实可用;auth/billing 接 cloud API（含降级） |
 | `packages/cli` | ✅ 已实现 | `run`/`capabilities`/`plugin create`/`version`/`help` 命令;Node 环境用 `@lokvis/plugin-image/node` |
 | `packages/ui-react` | ✅ 已实现 | Workspace UI + Zustand store + 8 hooks;ToolRunner engine 经 prop 注入 |
-| `packages/ui-core` | ✅ 已实现 | 16 个设计系统组件（badge/button/card/dialog/input 等） |
-| `apps/docs` | 🟢 Starlight | 10 页内容 + 9 Mermaid 图表 |
-| `apps/playground` | ✅ 已落地 | 8 demo + PWA 组件 + 30 单测 |
+| `packages/ui-core` | ✅ 已实现 | 15 个设计系统组件（badge/button/card/dialog/input/select/slider/spinner/tabs/textarea/toggle/tooltip/icon/confirm-dialog/empty-state） |
+| `apps/docs` | 🟢 Starlight | 10 页内容 + 16 Mermaid 图表（architecture.mdx 9 + runtime/engine/plugin/capability/mcp 7） |
+| `apps/playground` | ✅ 已落地 | 8 demo + PWA 组件 + 65 单测（snippets 14 + share 16 + download 9 + sentry 26） |
 
 ---
 

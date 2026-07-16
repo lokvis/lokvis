@@ -112,6 +112,8 @@ lokvis plugin create my-plugin
 | `@lokvis/plugin-image` | 9 | Canvas + createImageBitmap | ✅ 已实现 |
 | `@lokvis/plugin-video` | 7 | ffmpeg.wasm（计划） | 🟡 stub |
 | `@lokvis/plugin-pdf` | 7 | pdf-lib（计划） | 🟡 stub |
+| `@lokvis/plugin-audio` | 4 | Web Audio API + lamejs（计划） | 🟡 stub |
+| `@lokvis/plugin-ai` | 5 | transformers + cloud-proxy（计划） | 🟡 stub |
 | `@lokvis/plugin-dev` | 4 | 无（内置实现） | ✅ 已实现 |
 
 > stub 引擎遵循统一约定（见 [AGENTS.md](../AGENTS.md)）：`version` 含 `'stub'` 标识，

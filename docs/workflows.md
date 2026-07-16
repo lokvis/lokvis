@@ -93,7 +93,9 @@ console.log(result.duration); // ms
 ```typescript
 import { WorkflowBuilder } from '@lokvis/workflow';
 
-const builder = new WorkflowBuilder()
+const builder = new WorkflowBuilder({ id: 'wf_001', name: 'Web 优化' })
+  .setInput({ type: 'image', multiple: true })
+  .setOutput({ type: 'image', format: 'webp' })
   .add('image.resize', { width: 1920, fit: 'inside' })
   .add('image.compress', { format: 'webp', quality: 80 })
   .add('image.watermark', { text: '© 2026', position: 'bottom-right' });
@@ -101,9 +103,24 @@ const builder = new WorkflowBuilder()
 const workflow = builder.build();
 ```
 
+构造参数 `WorkflowBuilderOptions`：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `id` | string | ✓ | 工作流 ID（需全局唯一，用作节点 id 前缀） |
+| `name` | string | ✓ | 工作流名称 |
+| `description` | string | — | 工作流描述 |
+| `author` | `WorkflowAuthor` | — | 作者信息（默认本地用户） |
+| `category` | `WorkflowCategory` | — | 分类（默认 `'image'`） |
+| `tags` | string[] | — | 标签 |
+| `official` | boolean | — | 是否为官方工作流 |
+| `maxSteps` | number | — | 最大节点数（默认 `MAX_WORKFLOW_STEPS = 5`，测试或特殊场景可放宽） |
+
+`setInput` / `setOutput` 必填，`build()` 在未设置时抛错。
+
 > **架构约束**：`WorkflowBuilder` 与 `buildLinearWorkflow` 位于独立的 `@lokvis/workflow` 包,仅依赖 `@lokvis/schema`。Runtime 层不依赖 workflow 包（[AGENTS.md](../AGENTS.md) 五层单向依赖:UI → Workflow → Runtime → Capability → Engine）。
 
-最多 5 步（Year 1 限制）。
+最多 5 步（`MAX_WORKFLOW_STEPS` 常量，Year 1 限制）。`add()` 超过上限时立即抛错。
 
 ---
 

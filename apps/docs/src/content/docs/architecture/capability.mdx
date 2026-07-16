@@ -20,11 +20,13 @@ import MermaidScript from '../../../components/MermaidScript.astro';
 | --- | --- | --- |
 | `names.ts` | `CAPABILITY_DOMAINS`, `CapabilityDomain`, `CAPABILITY_NAMES`, `CapabilityNameKey`, `domainOf`, `actionOf`, `sameDomain` | Naming convention + name constants |
 | `helpers.ts` | `filterByDomain`, `filterByInputType`, `filterByPerformance`, `groupByDomain`, `findCapability`, `isBatchable`, `requiredParams`, `optionalParams`, `defaultParams`, `mergeParams`, `validateParams` | 11 query/filter utilities |
-| `presets/image.ts` | `IMAGE_RESIZE` … `IMAGE_FILTER`, `IMAGE_CAPABILITIES` | 9 image capability presets |
+| `presets/image.generated.ts` | `IMAGE_RESIZE` … `IMAGE_FILTER`, `IMAGE_CAPABILITIES` | 9 image capability presets (codegen) |
 | `presets/asset.ts` | `ASSET_RENAME`, `ASSET_ARCHIVE`, `ASSET_CAPABILITIES` | 2 cross-type asset capabilities |
-| `presets/developer.ts` | `DEV_INSPECT_CAPABILITIES`, `DEV_INSPECT_ASSET`, `DEV_VALIDATE_WORKFLOW`, `DEV_PROFILE`, `DEVELOPER_CAPABILITIES` | 4 developer-tool capabilities |
-| `presets/video.ts` | `VIDEO_COMPRESS` … `VIDEO_TO_GIF`, `VIDEO_CAPABILITIES` | 7 video capability presets (stub-only in Phase 1) |
-| `presets/pdf.ts` | `PDF_MERGE` … `PDF_SIGN`, `PDF_CAPABILITIES` | 7 PDF capability presets (stub-only in Phase 1) |
+| `presets/developer.generated.ts` | `DEV_INSPECT_CAPABILITIES`, `DEV_INSPECT_ASSET`, `DEV_VALIDATE_WORKFLOW`, `DEV_PROFILE`, `DEV_CAPABILITIES` | 4 developer-tool capabilities (codegen) |
+| `presets/video.generated.ts` | `VIDEO_COMPRESS` … `VIDEO_TO_GIF`, `VIDEO_CAPABILITIES` | 7 video capability presets (codegen, stub-only in Phase 1) |
+| `presets/pdf.generated.ts` | `PDF_MERGE` … `PDF_SIGN`, `PDF_CAPABILITIES` | 7 PDF capability presets (codegen, stub-only in Phase 1) |
+| `presets/audio.generated.ts` | `AUDIO_TRIM` … `AUDIO_MERGE`, `AUDIO_CAPABILITIES` | 4 audio capability presets (codegen, stub-only in Phase 1) |
+| `presets/ai.generated.ts` | `AI_OCR` … `AI_OPTIMIZE_WORKFLOW`, `AI_CAPABILITIES` | 5 AI capability presets (codegen, stub-only in Phase 1) |
 | `presets/platform.ts` | `PLATFORM_PRESETS`, `PlatformSizePreset`, `PlatformPresetCategory`, `findPlatformPreset`, `listPlatforms`, `groupPlatformPresetsByCategory`, `groupPlatformPresetsByPlatform`, `PLATFORM_PRESET_CATEGORY_LABELS` | 63 platform size presets + grouping helpers |
 | `presets/builtin.ts` | `BUILTIN_CAPABILITIES` | Aggregated array of all domain presets |
 | `presets/index.ts` | re-exports | Preset aggregator entry |

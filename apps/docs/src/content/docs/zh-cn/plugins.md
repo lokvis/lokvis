@@ -76,6 +76,8 @@ lokvis plugin create my-plugin
 - `@lokvis/plugin-image` — 9 个图像能力(Canvas + createImageBitmap,真实实现)
 - `@lokvis/plugin-video` — 7 个视频能力(ffmpeg.wasm 计划中,stub)
 - `@lokvis/plugin-pdf` — 7 个 PDF 能力(pdf-lib 计划中,stub)
+- `@lokvis/plugin-audio` — 4 个音频能力(Web Audio API + lamejs 计划中,stub)
+- `@lokvis/plugin-ai` — 5 个 AI 能力(transformers + cloud-proxy 计划中,stub)
 - `@lokvis/plugin-dev` — 4 个开发者工具(内置实现,真实实现)
 
 stub 引擎遵循统一约定:`version` 含 `'stub'` 标识,操作抛 `not implemented in stub`,`CapabilityRegistry.resolve()` 自动跳过。UI 层会为 stub-only 能力显示 "Coming Soon" 标记,避免用户执行时才报错。

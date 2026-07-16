@@ -20,11 +20,13 @@ import MermaidScript from '../../../../components/MermaidScript.astro';
 | --- | --- | --- |
 | `names.ts` | `CAPABILITY_DOMAINS`, `CapabilityDomain`, `CAPABILITY_NAMES`, `CapabilityNameKey`, `domainOf`, `actionOf`, `sameDomain` | 命名约定 + 名称常量 |
 | `helpers.ts` | `filterByDomain`, `filterByInputType`, `filterByPerformance`, `groupByDomain`, `findCapability`, `isBatchable`, `requiredParams`, `optionalParams`, `defaultParams`, `mergeParams`, `validateParams` | 11 个查询/过滤工具 |
-| `presets/image.ts` | `IMAGE_RESIZE` … `IMAGE_FILTER`, `IMAGE_CAPABILITIES` | 9 个图像能力预设 |
+| `presets/image.generated.ts` | `IMAGE_RESIZE` … `IMAGE_FILTER`, `IMAGE_CAPABILITIES` | 9 个图像能力预设（codegen） |
 | `presets/asset.ts` | `ASSET_RENAME`, `ASSET_ARCHIVE`, `ASSET_CAPABILITIES` | 2 个跨类型资产能力 |
-| `presets/developer.ts` | `DEV_INSPECT_CAPABILITIES`, `DEV_INSPECT_ASSET`, `DEV_VALIDATE_WORKFLOW`, `DEV_PROFILE`, `DEVELOPER_CAPABILITIES` | 4 个开发者工具能力 |
-| `presets/video.ts` | `VIDEO_COMPRESS` … `VIDEO_TO_GIF`, `VIDEO_CAPABILITIES` | 7 个视频能力预设（Phase 1 仅 stub） |
-| `presets/pdf.ts` | `PDF_MERGE` … `PDF_SIGN`, `PDF_CAPABILITIES` | 7 个 PDF 能力预设（Phase 1 仅 stub） |
+| `presets/developer.generated.ts` | `DEV_INSPECT_CAPABILITIES`, `DEV_INSPECT_ASSET`, `DEV_VALIDATE_WORKFLOW`, `DEV_PROFILE`, `DEV_CAPABILITIES` | 4 个开发者工具能力（codegen） |
+| `presets/video.generated.ts` | `VIDEO_COMPRESS` … `VIDEO_TO_GIF`, `VIDEO_CAPABILITIES` | 7 个视频能力预设（codegen，Phase 1 仅 stub） |
+| `presets/pdf.generated.ts` | `PDF_MERGE` … `PDF_SIGN`, `PDF_CAPABILITIES` | 7 个 PDF 能力预设（codegen，Phase 1 仅 stub） |
+| `presets/audio.generated.ts` | `AUDIO_TRIM` … `AUDIO_MERGE`, `AUDIO_CAPABILITIES` | 4 个音频能力预设（codegen，Phase 1 仅 stub） |
+| `presets/ai.generated.ts` | `AI_OCR` … `AI_OPTIMIZE_WORKFLOW`, `AI_CAPABILITIES` | 5 个 AI 能力预设（codegen，Phase 1 仅 stub） |
 | `presets/platform.ts` | `PLATFORM_PRESETS`, `PlatformSizePreset`, `PlatformPresetCategory`, `findPlatformPreset`, `listPlatforms`, `groupPlatformPresetsByCategory`, `groupPlatformPresetsByPlatform`, `PLATFORM_PRESET_CATEGORY_LABELS` | 63 个平台尺寸预设 + 分组辅助函数 |
 | `presets/builtin.ts` | `BUILTIN_CAPABILITIES` | 所有领域预设聚合而成的数组 |
 | `presets/index.ts` | 重新导出 | 预设聚合入口 |
