@@ -1,7 +1,7 @@
 {
-  "name": "@lokvis/mcp-server",
-  "version": "0.2.2",
-  "description": "Lokvis MCP Server - 把 Lokvis Runtime 的本地处理能力暴露给 AI 客户端(Claude/ChatGPT/Cursor)",
+  "name": "@lokvis/cloud-bridge",
+  "version": "0.1.0",
+  "description": "Lokvis Cloud Bridge - cloud 鉴权与计费逻辑(独立于 mcp-server,可注入)",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -13,9 +13,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
-  },
-  "bin": {
-    "lokvis-mcp": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -34,22 +31,9 @@
     "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist"
   },
-  "dependencies": {
-    "@lokvis/cloud-bridge": "workspace:*",
-    "@lokvis/engine-image": "workspace:*",
-    "@lokvis/engine-pdf": "workspace:*",
-    "@lokvis/runtime": "workspace:*",
-    "@lokvis/schema": "workspace:*",
-    "@lokvis/sdk": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "ws": "^8.18.0"
-  },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "@types/ws": "^8.5.10",
     "@vitest/coverage-v8": "^2.1.0",
-    "pdf-lib": "^1.17.1",
-    "sharp": "^0.33.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   },
@@ -60,6 +44,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/lokvis/lokvis.git",
-    "directory": "packages/mcp-server"
+    "directory": "packages/cloud-bridge"
   }
 }

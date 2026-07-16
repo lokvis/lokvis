@@ -15,7 +15,7 @@
  */
 
 import { createLokvisMcpServer } from './server.js';
-import { McpAuthenticator } from './auth.js';
+import { resolveCloudConfig, createAuthenticator } from '@lokvis/cloud-bridge';
 
 async function main(): Promise<void> {
   const workdir = process.env.LOKVIS_WORKDIR;
@@ -29,12 +29,12 @@ async function main(): Promise<void> {
 
   // 鉴权(可选):验证 API Key,获取用户 plan
   // 计费模块(McpBilling)在 cloud AI tool 接入时启用,本地 tool 无需计费
-  const apiKey = process.env.LOKVIS_API_KEY;
-  const apiBaseUrl = process.env.LOKVIS_API_BASE_URL;
-  const authenticator = new McpAuthenticator({ apiKey, apiBaseUrl });
+  // cloud 配置从 env 读取(apiBaseUrl / upgradeUrl / planQuotas / pricePerCallCents / apiKey)
+  const cloudConfig = resolveCloudConfig();
+  const authenticator = createAuthenticator(cloudConfig);
 
   // 启动时验证 API Key(如果提供)
-  if (apiKey) {
+  if (authenticator.hasApiKey()) {
     const authResult = await authenticator.verify();
     if (authResult.authenticated) {
       console.error(`[lokvis-mcp] Authenticated as ${authResult.user!.email} (plan: ${authResult.user!.plan})`);

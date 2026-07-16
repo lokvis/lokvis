@@ -1,5 +1,5 @@
 /**
- * MCP Server 计费模块。
+ * Cloud 计费模块(从 mcp-server/billing.ts 迁移,问题 A)。
  *
  * 基于 plan 的 AI 调用配额控制。
  * 当前阶段(D1 未完成):仅检查 plan 级别的 aiCallsPerDay 配额。
@@ -9,30 +9,10 @@
  * - 本地 tool(image/pdf)不消耗 credits,无需计费
  * - cloud AI tool(ai.ocr / ai.generate-workflow 等)消耗 credits
  * - 余额不足时返回 402 + 充值链接
- *
- * 环境变量:
- * - LOKVIS_API_KEY: 用于查询 entitlements
- * - LOKVIS_API_BASE_URL: cloud API 地址(默认 https://api.lokvis.com)
  */
 
 import type { AuthenticatedUser } from './auth.js';
-
-/** 默认 API 地址 */
-const DEFAULT_API_BASE_URL = 'https://api.lokvis.com';
-
-/** 充值链接 */
-const UPGRADE_URL = 'https://app.lokvis.com/billing';
-
-/**
- * Plan 级别的 AI 调用配额(与 cloud 侧 PLAN_ENTITLEMENTS 对齐)。
- * D1 完成后改为动态查询。
- */
-const PLAN_AI_QUOTAS: Record<string, number> = {
-  free: 0,
-  pro: 0,
-  cloud_pro: 10,
-  enterprise: Infinity,
-};
+import type { CloudConfig } from './cloud-config.js';
 
 /** Entitlements 响应(D1 完成后会含 credits 余额) */
 interface EntitlementsResponse {
@@ -57,12 +37,20 @@ export interface BillingCheckResult {
 }
 
 /**
- * MCP 计费器。
+ * Cloud 计费器。
  * 检查用户是否有权调用 cloud AI tool。
+ *
+ * 与原 mcp-server/billing.ts 的差异:
+ * - planQuotas / upgradeUrl / pricePerCallCents 来自 CloudConfig(可注入),
+ *   不再硬编码
+ * - 价格文案用 config.pricePerCallCents 动态生成($0.01 → ${price/100})
  */
 export class McpBilling {
   private readonly apiBaseUrl: string;
   private readonly apiKey: string | undefined;
+  private readonly upgradeUrl: string;
+  private readonly planQuotas: Record<string, number>;
+  private readonly pricePerCallCents: number;
   private cachedEntitlements: EntitlementsResponse | undefined;
   private cacheExpiry = 0;
   private readonly dailyCallCount = new Map<string, number>(); // user.id → 今日调用次数
@@ -70,9 +58,20 @@ export class McpBilling {
   constructor(options?: {
     apiKey?: string;
     apiBaseUrl?: string;
+    upgradeUrl?: string;
+    planQuotas?: Record<string, number>;
+    pricePerCallCents?: number;
   }) {
     this.apiKey = options?.apiKey;
-    this.apiBaseUrl = options?.apiBaseUrl ?? DEFAULT_API_BASE_URL;
+    this.apiBaseUrl = options?.apiBaseUrl ?? 'https://api.lokvis.com';
+    this.upgradeUrl = options?.upgradeUrl ?? 'https://app.lokvis.com/billing';
+    this.planQuotas = options?.planQuotas ?? {
+      free: 0,
+      pro: 0,
+      cloud_pro: 10,
+      enterprise: Infinity,
+    };
+    this.pricePerCallCents = options?.pricePerCallCents ?? 1;
   }
 
   /**
@@ -86,12 +85,12 @@ export class McpBilling {
     const entitlements = await this.getEntitlements(user);
 
     // 检查 plan 级别配额
-    const planQuota = PLAN_AI_QUOTAS[user.plan] ?? 0;
+    const planQuota = this.planQuotas[user.plan] ?? 0;
     if (planQuota === 0) {
       return {
         allowed: false,
         reason: `Plan "${user.plan}" does not include AI calls. Upgrade to Cloud Pro.`,
-        upgradeUrl: UPGRADE_URL,
+        upgradeUrl: this.upgradeUrl,
       };
     }
 
@@ -101,17 +100,18 @@ export class McpBilling {
       return {
         allowed: false,
         reason: `Daily AI call limit (${planQuota}) reached. Resets at midnight UTC.`,
-        upgradeUrl: UPGRADE_URL,
+        upgradeUrl: this.upgradeUrl,
         remaining: 0,
       };
     }
 
     // D3:检查 credits 余额
     if (entitlements.credits.ai <= 0) {
+      const priceDollars = (this.pricePerCallCents / 100).toFixed(2);
       return {
         allowed: false,
-        reason: 'Insufficient AI credits. Free $5 credits used up. $0.01/call thereafter.',
-        upgradeUrl: UPGRADE_URL,
+        reason: `Insufficient AI credits. Free $5 credits used up. $${priceDollars}/call thereafter.`,
+        upgradeUrl: this.upgradeUrl,
       };
     }
 
@@ -130,7 +130,7 @@ export class McpBilling {
     const count = this.dailyCallCount.get(user.id) ?? 0;
     this.dailyCallCount.set(user.id, count + 1);
 
-    // D3:调用 cloud API 扣减 credits（1 credit = $0.01）
+    // D3:调用 cloud API 扣减 credits（1 credit = pricePerCallCents 美分）
     if (!this.apiKey) return;
     try {
       await fetch(`${this.apiBaseUrl}/v1/credits/deduct`, {
@@ -158,7 +158,7 @@ export class McpBilling {
       const fallback: EntitlementsResponse = {
         plan: user.plan,
         quotas: {
-          aiCallsPerDay: PLAN_AI_QUOTAS[user.plan] ?? 0,
+          aiCallsPerDay: this.planQuotas[user.plan] ?? 0,
           workflows: 0,
           storageMb: 0,
           maxApiKeys: 0,
@@ -180,7 +180,7 @@ export class McpBilling {
         const fallback: EntitlementsResponse = {
           plan: user.plan,
           quotas: {
-            aiCallsPerDay: PLAN_AI_QUOTAS[user.plan] ?? 0,
+            aiCallsPerDay: this.planQuotas[user.plan] ?? 0,
             workflows: 0,
             storageMb: 0,
             maxApiKeys: 0,
@@ -199,7 +199,7 @@ export class McpBilling {
       const fallback: EntitlementsResponse = {
         plan: user.plan,
         quotas: {
-          aiCallsPerDay: PLAN_AI_QUOTAS[user.plan] ?? 0,
+          aiCallsPerDay: this.planQuotas[user.plan] ?? 0,
           workflows: 0,
           storageMb: 0,
           maxApiKeys: 0,
@@ -214,4 +214,23 @@ export class McpBilling {
   resetDailyCounters(): void {
     this.dailyCallCount.clear();
   }
+}
+
+/**
+ * 从 CloudConfig 构造 McpBilling。
+ *
+ * 便于 mcp-server/cli.ts 等消费方一行注入:
+ * ```ts
+ * const config = resolveCloudConfig();
+ * const billing = createBilling(config);
+ * ```
+ */
+export function createBilling(config: CloudConfig): McpBilling {
+  return new McpBilling({
+    apiKey: config.apiKey,
+    apiBaseUrl: config.apiBaseUrl,
+    upgradeUrl: config.upgradeUrl,
+    planQuotas: config.planQuotas,
+    pricePerCallCents: config.pricePerCallCents,
+  });
 }

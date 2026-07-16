@@ -1,18 +1,16 @@
 /**
- * MCP Server 鉴权模块。
+ * Cloud 鉴权模块(从 mcp-server/auth.ts 迁移,问题 A)。
  *
  * 通过 lokvis-cloud API 验证 `lk_` API Key,获取用户信息与 plan。
  * 本地 tool(image/pdf)无需鉴权即可使用;cloud AI tool 需有效 API Key。
- *
- * 环境变量:
- * - LOKVIS_API_KEY: `lk_` 前缀的 API Key(可选;未提供时仅本地 tool 可用)
- * - LOKVIS_API_BASE_URL: cloud API 地址(默认 https://api.lokvis.com)
  *
  * 验证流程:
  * 1. 启动时调用 GET /v1/users/me(header: x-api-key)
  * 2. 成功 → 缓存用户信息(5 分钟 TTL)
  * 3. 失败 → 警告并降级为"仅本地模式"
  */
+
+import type { CloudConfig } from './cloud-config.js';
 
 /** API Key 格式校验:lk_ + 64 位 hex */
 export function isValidApiKeyFormat(key: string): boolean {
@@ -21,9 +19,6 @@ export function isValidApiKeyFormat(key: string): boolean {
   const hexPart = key.slice(3);
   return /^[0-9a-f]{64}$/.test(hexPart);
 }
-
-/** 默认 API 地址 */
-const DEFAULT_API_BASE_URL = 'https://api.lokvis.com';
 
 /** 缓存 TTL(5 分钟) */
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -45,7 +40,7 @@ export interface AuthResult {
 }
 
 /**
- * MCP 鉴权器。
+ * Cloud 鉴权器。
  * 缓存用户信息,定期重新验证。
  */
 export class McpAuthenticator {
@@ -59,7 +54,7 @@ export class McpAuthenticator {
     apiBaseUrl?: string;
   }) {
     this.apiKey = options?.apiKey;
-    this.apiBaseUrl = options?.apiBaseUrl ?? DEFAULT_API_BASE_URL;
+    this.apiBaseUrl = options?.apiBaseUrl ?? 'https://api.lokvis.com';
   }
 
   /** 是否配置了 API Key */
@@ -112,4 +107,20 @@ export class McpAuthenticator {
     this.cachedUser = undefined;
     this.cacheExpiry = 0;
   }
+}
+
+/**
+ * 从 CloudConfig 构造 McpAuthenticator。
+ *
+ * 便于 mcp-server/cli.ts 等消费方一行注入:
+ * ```ts
+ * const config = resolveCloudConfig();
+ * const authenticator = createAuthenticator(config);
+ * ```
+ */
+export function createAuthenticator(config: CloudConfig): McpAuthenticator {
+  return new McpAuthenticator({
+    apiKey: config.apiKey,
+    apiBaseUrl: config.apiBaseUrl,
+  });
 }

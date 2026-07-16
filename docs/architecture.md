@@ -220,7 +220,8 @@ lokvis-open（MIT）                    lokvis-cloud（闭源）
 | `packages/engine-video` | 🔴 stub | ffmpeg.wasm/webcodecs 占位,8 操作抛 Not Implemented（decode/transcode/compress/trim/screenshot/merge/extractAudio/toGif） |
 | `packages/engine-audio` | 🔴 stub | 空壳,4 操作抛 Not Implemented |
 | `packages/engine-ai` | 🔴 stub | 空壳,5 操作抛 Not Implemented |
-| `packages/mcp-server` | ✅ 已实装 | `createLokvisMcpServer()` 返回真实 McpServerAdapter;stdio/SSE/WebSocket 三传输;5 个 tool（3 image + 2 pdf）真实可用;auth/billing 接 cloud API（含降级） |
+| `packages/mcp-server` | ✅ 已实装 | `createLokvisMcpServer()` 返回真实 McpServerAdapter;stdio/SSE/WebSocket 三传输;5 个 tool（3 image + 2 pdf）真实可用;auth/billing 经 `@lokvis/cloud-bridge` 注入（含降级） |
+| `packages/cloud-bridge` | ✅ 已实装 | cloud 鉴权(McpAuthenticator)与计费(McpBilling);CloudConfig env 覆盖(apiBaseUrl/upgradeUrl/planQuotas/pricePerCallCents);mcp-server 可注入依赖 |
 | `packages/cli` | ✅ 已实现 | `run`/`capabilities`/`plugin create`/`version`/`help` 命令;Node 环境用 `@lokvis/plugin-image/node` |
 | `packages/ui-react` | ✅ 已实现 | Workspace UI + Zustand store + 8 hooks;ToolRunner engine 经 prop 注入 |
 | `packages/ui-core` | ✅ 已实现 | 15 个设计系统组件（badge/button/card/dialog/input/select/slider/spinner/tabs/textarea/toggle/tooltip/icon/confirm-dialog/empty-state） |
