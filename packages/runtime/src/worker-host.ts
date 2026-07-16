@@ -107,6 +107,18 @@ export class WorkerHandshakeError extends Error {
 }
 
 /**
+ * 安全调用 Node.js 的 Timer.unref()。
+ *
+ * `unref` 是 Node.js 对 `setTimeout`/`setInterval` 返回值的扩展
+ * (返回 `NodeJS.Timeout`),浏览器中两者返回 `number`(无 `unref`)。
+ * 用类型断言 + 可选链兼容两种环境,避免跨包 typecheck 时因
+ * `@types/node` 未加载而报错。
+ */
+function maybeUnref(handle: ReturnType<typeof setTimeout> | ReturnType<typeof setInterval>): void {
+  (handle as { unref?: () => void }).unref?.();
+}
+
+/**
  * 请求被 AbortSignal 取消(W3.5 cancel 贯穿)。
  *
  * 与超时/崩溃不同:cancel 是调用方主动发起的,Host 会向 Worker
@@ -358,7 +370,7 @@ export class WorkerHost {
             )
           );
         }, this.opts.readyTimeoutMs);
-        readyTimer.unref?.();
+        maybeUnref(readyTimer);
 
         const off = this.on('ready', () => {
           if (done) return;
@@ -493,7 +505,7 @@ export class WorkerHost {
     this.heartbeatTimer = setInterval(() => {
       this.sendPing();
     }, this.opts.heartbeatIntervalMs);
-    this.heartbeatTimer.unref?.();
+    maybeUnref(this.heartbeatTimer);
   }
 
   private sendPing(): void {
@@ -508,7 +520,7 @@ export class WorkerHost {
     this.pongTimer = setTimeout(() => {
       this.handleCrash(`heartbeat timeout (no pong in ${this.opts.heartbeatTimeoutMs}ms)`);
     }, this.opts.heartbeatTimeoutMs);
-    this.pongTimer.unref?.();
+    maybeUnref(this.pongTimer);
   }
 
   private clearHeartbeat(): void {
