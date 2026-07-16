@@ -292,9 +292,6 @@ importers:
       '@lokvis/plugin-image':
         specifier: workspace:*
         version: link:../plugin-image
-      '@lokvis/runtime':
-        specifier: workspace:*
-        version: link:../runtime
       '@lokvis/schema':
         specifier: workspace:*
         version: link:../schema
@@ -339,10 +336,6 @@ importers:
         version: 5.9.3
 
   packages/engine-core:
-    dependencies:
-      '@lokvis/schema':
-        specifier: workspace:*
-        version: link:../schema
     devDependencies:
       typescript:
         specifier: ^5.6.0
@@ -632,9 +625,6 @@ importers:
 
   packages/ui-core:
     dependencies:
-      '@lokvis/schema':
-        specifier: workspace:*
-        version: link:../schema
       react:
         specifier: ^19.0.0
         version: 19.2.7

@@ -35,7 +35,6 @@
   },
   "dependencies": {
     "@lokvis/schema": "workspace:*",
-    "@lokvis/runtime": "workspace:*",
     "@lokvis/sdk": "workspace:*",
     "@lokvis/capability": "workspace:*",
     "@lokvis/plugin-image": "workspace:*"
