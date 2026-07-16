@@ -33,31 +33,39 @@ const lokvis = await createLokvis({
 
 ### Runtime API
 
+> 类型来源：[`LokvisRuntime` 接口](../packages/runtime/src/types.ts)。下表与接口逐项对齐。
+> 注：`getAssetBlob` 仅在 [PluginContext](plugins.md#plugincontext-api) 内可用（plugin 内部读取资产 Blob），公共 Runtime 不暴露——消费方应使用 `exportAsset(id, format?)` 获取 Blob。
+
 | 方法 | 返回值 | 说明 |
 |------|--------|------|
+| `version` | `string`（readonly 属性） | Runtime 版本 |
+| `status` | `RuntimeStatus`（readonly 属性） | 当前状态 |
+| `eventBus` | `EventBus`（readonly 属性） | 事件总线（订阅/发布） |
+| `isPro` | `boolean`（readonly 属性） | 是否为 Pro 模式（影响批量上限/并发槽位/workflow 数，W6.2） |
+| `batch` | `BatchProcessor`（readonly 属性） | 批量处理器（W6.1：并发控制 + 进度 + 失败重试） |
 | `importAsset(source)` | `Promise<AssetId>` | 导入资产 |
 | `getAsset(id)` | `Promise<Asset>` | 获取资产元数据 |
-| `getAssetBlob(asset)` | `Promise<Blob>` | 获取资产 Blob 数据 |
-| `exportAsset(id, format?)` | `Promise<Blob>` | 导出资产 |
+| `exportAsset(id, format?)` | `Promise<Blob>` | 导出资产为 Blob |
 | `removeAsset(id)` | `Promise<void>` | 删除资产（释放配额） |
 | `listAssets()` | `Promise<Asset[]>` | 列出所有资产 |
-| `readAssetExif(assetId)` | `Promise<ExifData \| null>` | 读取资产 EXIF 元数据 |
-| `run(workflow, inputs)` | `Promise<WorkflowResult>` | 执行工作流 |
+| `readAssetExif(id)` | `Promise<ExifData \| null>` | 读取 image 资产的 EXIF 元数据（非 image / 无 EXIF / reader 未注册返回 null） |
+| `run(workflow, inputs, options?)` | `Promise<WorkflowResult>` | 执行工作流（可选 RunOptions：`appendHistory`） |
 | `cancel(workflowId)` | `Promise<void>` | 取消执行 |
 | `pause(workflowId)` | `Promise<void>` | 暂停执行 |
 | `resume(workflowId)` | `Promise<void>` | 恢复执行 |
-| `disposeWorkflow(workflowId)` | `Promise<void>` | 释放工作流（清理历史栈与中间资产） |
-| `undo()` | `Promise<AssetId \| null>` | 撤销上一步 |
-| `redo()` | `Promise<AssetId \| null>` | 重做 |
-| `jumpTo(workflowId, stepId)` | `Promise<AssetId \| null>` | 跳转到历史栈指定步骤 |
-| `history` | `HistorySnapshot` | 当前历史快照 |
-| `getHistoryState(workflowId)` | `HistoryState` | 获取历史状态（cursor / 总数） |
+| `getCurrentOutputs(workflowId)` | `Promise<AssetId[]>` | 获取工作流当前输出 AssetId（undo/redo 后的"当前"状态） |
+| `disposeWorkflow(workflowId)` | `Promise<void>` | 销毁工作流运行时状态（取消运行 + 清空历史栈 + 回收历史 outputs 资产） |
+| `history(workflowId)` | `Promise<HistoryEntry[]>` | 获取工作流执行历史 |
+| `getHistoryState(workflowId)` | `Promise<{ entries: HistoryEntry[]; cursor: number }>` | 获取历史状态（cursor -1 表示无已应用条目） |
+| `undo(workflowId)` | `Promise<void>` | 撤销一步 |
+| `redo(workflowId)` | `Promise<void>` | 重做一步 |
+| `jumpTo(workflowId, index)` | `Promise<void>` | 跳转到指定历史条目（按时间顺序的索引，-1 回到初始；越界或游标未变为 no-op） |
 | `capabilities()` | `Promise<Capability[]>` | 列出已注册能力 |
-| `hasCapability(name)` | `boolean` | 检查能力是否已注册 |
-| `isStubOnly(name)` | `boolean` | 检查能力是否仅有 stub 实现 |
-| `getStorageUsage()` | `StorageUsage` | 获取存储用量（已用 / 配额） |
-| `toMcpManifest()` | `McpManifest` | 生成 MCP server manifest |
-| `eventBus` | `EventBus` | 事件总线（订阅/发布） |
+| `hasCapability(name)` | `Promise<boolean>` | 检查能力是否可用 |
+| `isStubOnly(name)` | `Promise<boolean>` | 检查能力是否仅有 stub 实现（UI 据此显示 "Coming Soon"） |
+| `getStorageUsage()` | `Promise<{ usage: number; quota: number }>` | 获取存储用量（已用 / 配额，字节） |
+| `toMcpManifest(options?)` | `McpManifest`（同步） | 生成 MCP server manifest（`options.batchMode` 控制 batch-only 能力是否暴露；private 永不暴露） |
+| `installPlugin(plugin)` | `Promise<void>` | 安装插件（注册能力 → 构造 PluginContext → 调用 plugin.install → 发射 `plugin:loaded` 事件；失败抛 PluginLoadError） |
 
 ### loadPlugin
 
@@ -154,7 +162,7 @@ import {
 | `WorkerTimeoutError` | `WORKER_TIMEOUT` | Worker 请求超时 |
 | `WorkerDeadError` | `WORKER_DEAD` | Worker 进入 dead 状态（超过 maxRestarts） |
 | `WorkerRequestAbortedError` | `WORKER_REQUEST_ABORTED` | Worker 请求被取消（AbortController） |
-| `WorkerHandshakeError` | `WORKER_HANDSHAKE` | Worker 握手失败（协议版本不匹配） |
+| `WorkerHandshakeError` | `WORKER_HANDSHAKE_FAILED` | Worker 握手失败（协议版本不匹配） |
 | `DegradationRejectedError` | `DEGRADATION_REJECTED` | 降级被拒绝（携带引导提示） |
 | `PluginLoadError` | `PLUGIN_LOAD_FAILED` | 插件加载失败（携带 pluginName） |
 
