@@ -190,11 +190,11 @@ export class CapabilityNotRegisteredError extends LokvisError {
 /** 能力仅有 stub 实现(需安装真实 engine 插件) */
 export class CapabilityStubOnlyError extends LokvisError {
   readonly capability: string;
-  constructor(capability: string) {
+  constructor(capability: string, cause?: unknown) {
     super(
       `Capability "${capability}" is not yet available (only stub engine registered). ` +
         'Install a real engine plugin to use this capability.',
-      { code: 'CAPABILITY_STUB_ONLY', context: { capability } }
+      { code: 'CAPABILITY_STUB_ONLY', context: { capability }, cause }
     );
     this.name = 'CapabilityStubOnlyError';
     this.capability = capability;
@@ -380,7 +380,7 @@ export function fromLokvisError(value: unknown): LokvisError {
       return new CapabilityNotRegisteredError(value.capability, value);
     }
     if (value instanceof RuntimeCapabilityStubOnlyError) {
-      return new CapabilityStubOnlyError(value.capability);
+      return new CapabilityStubOnlyError(value.capability, value);
     }
 
     return new LokvisError(value.message, { code: 'UNKNOWN', cause: value });

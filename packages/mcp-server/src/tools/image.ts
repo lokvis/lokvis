@@ -15,8 +15,7 @@
  * 输出:处理后的文件路径 + 元数据(尺寸/大小变化)
  */
 
-import { readFile, writeFile, stat } from 'node:fs/promises';
-import { resolve, dirname, basename, extname, join } from 'node:path';
+import { resolve, extname } from 'node:path';
 import {
   resize as engineResize,
   compress as engineCompress,
@@ -24,6 +23,13 @@ import {
   getMetadata,
 } from '@lokvis/engine-image-node';
 import type { McpToolResult } from '../server.js';
+import {
+  fileToBlob,
+  blobToFile,
+  makeOutputPath,
+  getFileSize,
+  formatSize,
+} from './fs-helpers.js';
 
 /** 文件扩展名 → MIME 类型(构造输入 Blob 时使用,engine 据此推断格式) */
 const EXT_TO_MIME: Record<string, string> = {
@@ -39,43 +45,6 @@ const EXT_TO_MIME: Record<string, string> = {
 function extToMime(path: string): string {
   const ext = extname(path).slice(1).toLowerCase();
   return EXT_TO_MIME[ext] ?? 'application/octet-stream';
-}
-
-/** 读取文件为 Blob(带正确 MIME,供 engine 推断格式) */
-async function fileToBlob(path: string): Promise<Blob> {
-  const buffer = await readFile(path);
-  return new Blob([buffer], { type: extToMime(path) });
-}
-
-/** 把 Blob 写入文件 */
-async function blobToFile(blob: Blob, path: string): Promise<void> {
-  const buffer = Buffer.from(await blob.arrayBuffer());
-  await writeFile(path, buffer);
-}
-
-/** 生成输出路径:输入路径加后缀,如 `image.png` → `image_resized.png` */
-function makeOutputPath(
-  inputPath: string,
-  suffix: string,
-  newExt?: string
-): string {
-  const dir = dirname(inputPath);
-  const base = basename(inputPath, extname(inputPath));
-  const ext = newExt || extname(inputPath).slice(1) || 'png';
-  return join(dir, `${base}_${suffix}.${ext}`);
-}
-
-/** 获取文件大小(字节) */
-async function getFileSize(path: string): Promise<number> {
-  const stats = await stat(path);
-  return stats.size;
-}
-
-/** 格式化文件大小(人类可读) */
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
 }
 
 /**
@@ -101,7 +70,7 @@ export async function imageResize(params: {
   const fit = params.fit ?? 'cover';
   const outputPath = params.output_path
     ? resolve(params.output_path)
-    : makeOutputPath(inputPath, 'resized');
+    : makeOutputPath(inputPath, 'resized', 'png');
 
   if (!width && !height) {
     return {
@@ -113,7 +82,7 @@ export async function imageResize(params: {
   }
 
   try {
-    const inputBlob = await fileToBlob(inputPath);
+    const inputBlob = await fileToBlob(inputPath, extToMime(inputPath));
     const outBlob = await engineResize(inputBlob, { width, height, fit });
     await blobToFile(outBlob, outputPath);
 
@@ -163,7 +132,7 @@ export async function imageCompress(params: {
   const quality = params.quality ?? 80;
   const outputPath = params.output_path
     ? resolve(params.output_path)
-    : makeOutputPath(inputPath, 'compressed');
+    : makeOutputPath(inputPath, 'compressed', 'png');
 
   if (quality < 1 || quality > 100) {
     return {
@@ -175,7 +144,7 @@ export async function imageCompress(params: {
   }
 
   try {
-    const inputBlob = await fileToBlob(inputPath);
+    const inputBlob = await fileToBlob(inputPath, extToMime(inputPath));
     // 保持输入格式:从扩展名推断 format 传给 engine
     const inputExt = extname(inputPath).slice(1).toLowerCase();
     const format = (EXT_TO_MIME[inputExt]?.split('/')[1] ?? 'webp') as
@@ -230,7 +199,7 @@ export async function imageConvert(params: {
   const quality = params.quality ?? 90;
   const outputPath = params.output_path
     ? resolve(params.output_path)
-    : makeOutputPath(inputPath, 'converted', format);
+    : makeOutputPath(inputPath, 'converted', 'png', format);
 
   const validFormats = ['jpeg', 'png', 'webp', 'avif'];
   if (!validFormats.includes(format)) {
@@ -246,7 +215,7 @@ export async function imageConvert(params: {
   }
 
   try {
-    const inputBlob = await fileToBlob(inputPath);
+    const inputBlob = await fileToBlob(inputPath, extToMime(inputPath));
     const inputMeta = await getMetadata(inputBlob);
     const outBlob = await engineConvert(inputBlob, { format, quality });
     await blobToFile(outBlob, outputPath);

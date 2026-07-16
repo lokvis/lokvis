@@ -17,54 +17,23 @@
  * 输出:处理后的文件路径 + 元数据(页数/大小变化)
  */
 
-import { readFile, writeFile, stat } from 'node:fs/promises';
-import { resolve, dirname, basename, extname, join } from 'node:path';
+import { resolve } from 'node:path';
 import {
   mergePdfs as engineMergePdfs,
   compressPdf as engineCompressPdf,
   getPdfInfo,
 } from '@lokvis/engine-pdf';
 import type { McpToolResult } from '../server.js';
+import {
+  fileToBlob,
+  blobToFile,
+  makeOutputPath,
+  getFileSize,
+  formatSize,
+} from './fs-helpers.js';
 
 /** PDF 文件的 MIME 类型(构造输入 Blob 时使用) */
 const PDF_MIME = 'application/pdf';
-
-/** 读取文件为 Blob(带 PDF MIME) */
-async function fileToBlob(path: string): Promise<Blob> {
-  const buffer = await readFile(path);
-  return new Blob([buffer], { type: PDF_MIME });
-}
-
-/** 把 Blob 写入文件 */
-async function blobToFile(blob: Blob, path: string): Promise<void> {
-  const buffer = Buffer.from(await blob.arrayBuffer());
-  await writeFile(path, buffer);
-}
-
-/** 生成输出路径:输入路径加后缀 */
-function makeOutputPath(
-  inputPath: string,
-  suffix: string,
-  newExt?: string
-): string {
-  const dir = dirname(inputPath);
-  const base = basename(inputPath, extname(inputPath));
-  const ext = newExt || extname(inputPath).slice(1) || 'pdf';
-  return join(dir, `${base}_${suffix}.${ext}`);
-}
-
-/** 获取文件大小(字节) */
-async function getFileSize(path: string): Promise<number> {
-  const stats = await stat(path);
-  return stats.size;
-}
-
-/** 格式化文件大小(人类可读) */
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
-}
 
 /**
  * lokvis_pdf_merge:合并多个 PDF 文件。
@@ -90,10 +59,12 @@ export async function pdfMerge(params: {
   const resolvedPaths = inputPaths.map((p) => resolve(p));
   const outputPath = params.output_path
     ? resolve(params.output_path)
-    : makeOutputPath(resolvedPaths[0]!, 'merged');
+    : makeOutputPath(resolvedPaths[0]!, 'merged', 'pdf');
 
   try {
-    const inputBlobs = await Promise.all(resolvedPaths.map(fileToBlob));
+    const inputBlobs = await Promise.all(
+      resolvedPaths.map((p) => fileToBlob(p, PDF_MIME))
+    );
     const outBlob = await engineMergePdfs(inputBlobs);
     await blobToFile(outBlob, outputPath);
 
@@ -146,7 +117,7 @@ export async function pdfCompress(params: {
   const level = params.level ?? 6;
   const outputPath = params.output_path
     ? resolve(params.output_path)
-    : makeOutputPath(inputPath, 'compressed');
+    : makeOutputPath(inputPath, 'compressed', 'pdf');
 
   if (level < 0 || level > 9) {
     return {
@@ -158,7 +129,7 @@ export async function pdfCompress(params: {
   }
 
   try {
-    const inputBlob = await fileToBlob(inputPath);
+    const inputBlob = await fileToBlob(inputPath, PDF_MIME);
     const outBlob = await engineCompressPdf(inputBlob, { level });
     await blobToFile(outBlob, outputPath);
 

@@ -275,6 +275,72 @@ describe('Plugin 权限沙箱 (W18.6)', () => {
       r1();
       expect(globalThis.fetch).toBe(origFetch);
     });
+
+    it('嵌套守卫 XHR.open 经 defineProperty 路径正确恢复(LIFO)', () => {
+      const sb = new PluginPermissionSandbox('netless', ['network:none']);
+      const beforeOpen = globalThis.XMLHttpRequest.prototype.open;
+      const r1 = sb.applyNetworkGuard();
+      const r2 = sb.applyNetworkGuard();
+      // 两层守卫下 XHR.open 均抛错
+      const xhr = new XMLHttpRequest();
+      expect(() => xhr.open('GET', 'https://x.com')).toThrow(NetworkGuardError);
+      r2();
+      // 内层恢复后,外层守卫仍生效(XHR.open 仍抛错)
+      expect(() => xhr.open('GET', 'https://x.com')).toThrow(NetworkGuardError);
+      r1();
+      // 外层恢复后,XHR.open 回到原始实现
+      expect(globalThis.XMLHttpRequest.prototype.open).toBe(beforeOpen);
+    });
+
+    it('嵌套守卫 WebSocket 经 defineProperty 路径正确恢复(LIFO)', () => {
+      const sb = new PluginPermissionSandbox('netless', ['network:none']);
+      const beforeWS = globalThis.WebSocket;
+      const r1 = sb.applyNetworkGuard();
+      const r2 = sb.applyNetworkGuard();
+      expect(() => new WebSocket('wss://x.com')).toThrow(NetworkGuardError);
+      r2();
+      // 内层恢复后,外层守卫仍生效
+      expect(() => new WebSocket('wss://x.com')).toThrow(NetworkGuardError);
+      r1();
+      expect(globalThis.WebSocket).toBe(beforeWS);
+    });
+
+    it('嵌套守卫 EventSource 经 defineProperty 路径正确恢复(LIFO)', () => {
+      const sb = new PluginPermissionSandbox('netless', ['network:none']);
+      const beforeES = globalThis.EventSource;
+      const r1 = sb.applyNetworkGuard();
+      const r2 = sb.applyNetworkGuard();
+      expect(() => new EventSource('https://x.com/stream')).toThrow(NetworkGuardError);
+      r2();
+      // 内层恢复后,外层守卫仍生效
+      expect(() => new EventSource('https://x.com/stream')).toThrow(NetworkGuardError);
+      r1();
+      expect(globalThis.EventSource).toBe(beforeES);
+    });
+
+    it('restore 幂等:连续调用两次不破坏全局 API', () => {
+      const sb = new PluginPermissionSandbox('netless', ['network:none']);
+      const beforeFetch = globalThis.fetch;
+      const beforeOpen = globalThis.XMLHttpRequest.prototype.open;
+      const restore = sb.applyNetworkGuard();
+      restore();
+      // 第二次调用应是幂等的(再次赋值为同一 orig 引用)
+      expect(() => restore()).not.toThrow();
+      expect(globalThis.fetch).toBe(beforeFetch);
+      expect(globalThis.XMLHttpRequest.prototype.open).toBe(beforeOpen);
+    });
+
+    it('patch 后全局 API 引用已改变(defineProperty 路径)', () => {
+      const sb = new PluginPermissionSandbox('netless', ['network:none']);
+      const beforeOpen = globalThis.XMLHttpRequest.prototype.open;
+      const beforeWS = globalThis.WebSocket;
+      const beforeES = globalThis.EventSource;
+      restore = sb.applyNetworkGuard();
+      // 验证 defineProperty 确实替换了引用(与 restore 测试的 not.toBe 对应)
+      expect(globalThis.XMLHttpRequest.prototype.open).not.toBe(beforeOpen);
+      expect(globalThis.WebSocket).not.toBe(beforeWS);
+      expect(globalThis.EventSource).not.toBe(beforeES);
+    });
   });
 
   // ─── 错误类字段 ──────────────────────────────────────

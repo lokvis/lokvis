@@ -259,6 +259,71 @@ describe('engine-image-node operations', () => {
     });
   });
 
+  describe('getMetadata', () => {
+    it('应返回正确 width/height/format(200x100 PNG)', async () => {
+      const { getMetadata } = await import('../operations/metadata.js');
+      const meta = await getMetadata(testPng);
+      expect(meta.width).toBe(200);
+      expect(meta.height).toBe(100);
+      expect(meta.format).toBe('png');
+    });
+
+    it('JPEG 输入应返回 jpeg format', async () => {
+      const { getMetadata } = await import('../operations/metadata.js');
+      const jpegBlob = await (async () => {
+        const buffer = await sharp({
+          create: { width: 80, height: 60, channels: 3, background: '#00ff00' },
+        })
+          .jpeg()
+          .toBuffer();
+        return new Blob([buffer], { type: 'image/jpeg' });
+      })();
+      const meta = await getMetadata(jpegBlob);
+      expect(meta.width).toBe(80);
+      expect(meta.height).toBe(60);
+      expect(meta.format).toBe('jpeg');
+    });
+
+    it('WebP 输入应返回 webp format', async () => {
+      const { getMetadata } = await import('../operations/metadata.js');
+      const webpBlob = await (async () => {
+        const buffer = await sharp({
+          create: { width: 50, height: 50, channels: 3, background: '#0000ff' },
+        })
+          .webp()
+          .toBuffer();
+        return new Blob([buffer], { type: 'image/webp' });
+      })();
+      const meta = await getMetadata(webpBlob);
+      expect(meta.width).toBe(50);
+      expect(meta.height).toBe(50);
+      expect(meta.format).toBe('webp');
+    });
+
+    it('损坏数据应抛错(sharp 无法解析)', async () => {
+      const { getMetadata } = await import('../operations/metadata.js');
+      const broken = new Blob([new Uint8Array([0, 1, 2, 3, 4, 5])], {
+        type: 'image/png',
+      });
+      await expect(getMetadata(broken)).rejects.toThrow();
+    });
+
+    it('支持可选 params 占位参数(与 BlobOperation 签名对齐)', async () => {
+      const { getMetadata } = await import('../operations/metadata.js');
+      // 传空 params 不应影响结果
+      const meta = await getMetadata(testPng, {});
+      expect(meta.width).toBe(200);
+      expect(meta.height).toBe(100);
+    });
+
+    it('支持 AbortSignal 取消', async () => {
+      const { getMetadata } = await import('../operations/metadata.js');
+      const ac = new AbortController();
+      ac.abort();
+      await expect(getMetadata(testPng, {}, ac.signal)).rejects.toThrow(/aborted/);
+    });
+  });
+
   describe('sharpEngine descriptor', () => {
     it('sharpEngine 元数据正确', async () => {
       const { sharpEngine } = await import('../sharp-engine.js');

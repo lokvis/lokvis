@@ -18,11 +18,6 @@ import type { AssetType } from '@lokvis/schema';
 /** PDF 引擎名 */
 export type PdfEngineName = 'pdf-lib' | 'pdfjs';
 
-/** PDF 合并参数 */
-export interface PdfMergeParams {
-  // 各输入 PDF 按顺序合并
-}
-
 /** PDF 分割参数 */
 export interface PdfSplitParams {
   /** 每个输出文件包含的页数 */
@@ -44,11 +39,6 @@ export interface PdfWatermarkParams {
   opacity?: number;
   fontSize?: number;
   color?: string;
-}
-
-/** PDF 压缩参数 */
-export interface PdfCompressParams {
-  level?: number; // 0-9
 }
 
 /** PDF OCR 参数 */
@@ -203,12 +193,14 @@ export async function selectBestPdfEngine(): Promise<PdfEngineAdapter> {
 // ─── 独立 Blob↔Blob 操作(供不经能力系统的 Node 消费方直接调用) ───
 // PdfEngineAdapter 仍为 stub(能力系统绑定);本模块为已实装操作,
 // 未来 plugin-pdf/node 实装时 adapter 方法会委托到此(见 TD-1.4)。
-// 注:PdfMergeParams / PdfCompressParams 已在上方定义(adapter 签名用),
-// operations.ts 内部使用同名字面量,此处只导出函数 + 新增 PdfInfo 类型。
+// PdfMergeParams / PdfCompressParams / PdfInfo 定义在 operations.ts,
+// 此处统一 re-export,消除 index.ts 与 operations.ts 的重复定义。
 export {
   mergePdfs,
   compressPdf,
   getPdfInfo,
+  type PdfMergeParams,
+  type PdfCompressParams,
   type PdfInfo,
 } from './operations.js';
 

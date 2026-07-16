@@ -89,6 +89,9 @@ export async function compressPdf(
 ): Promise<Blob> {
   const { PDFDocument } = await import('pdf-lib');
   const level = (params as PdfCompressParams).level ?? 6;
+  if (level < 0 || level > 9) {
+    throw new Error(`compressPdf: level must be between 0 and 9, got ${level}`);
+  }
   const bytes = await blobToArrayBuffer(blob);
   const pdfDoc = await PDFDocument.load(bytes);
 

@@ -98,7 +98,7 @@ function topologicalSort(nodes: WorkflowNode[], edges: WorkflowEdge[]): Workflow
   // 被静默吞掉，进而导致下游节点入度无法归零 → 误判为环）
   for (const edge of edges) {
     if (!nodeMap.has(edge.from)) {
-      throw new Error(
+      throw new WorkflowInvalidError(
         `Workflow edge references unknown source node: "${edge.from}". ` +
           `Edge endpoints must reference existing nodes; ` +
           `reserved sentinel nodes (e.g. "__input__") are not supported ` +
@@ -107,13 +107,13 @@ function topologicalSort(nodes: WorkflowNode[], edges: WorkflowEdge[]): Workflow
       );
     }
     if (!nodeMap.has(edge.to)) {
-      throw new Error(
+      throw new WorkflowInvalidError(
         `Workflow edge references unknown target node: "${edge.to}". ` +
           `Edge endpoints must reference existing nodes.`
       );
     }
     if (edge.from === edge.to) {
-      throw new Error(
+      throw new WorkflowInvalidError(
         `Workflow contains self-loop on node: "${edge.from}". ` +
           `Self-loops create cycles and are not allowed.`
       );

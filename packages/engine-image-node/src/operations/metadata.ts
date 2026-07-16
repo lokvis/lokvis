@@ -28,11 +28,13 @@ async function blobToBuffer(blob: Blob): Promise<Buffer> {
  * 读取图像元数据(width / height / format),不完整解码。
  *
  * @param blob 输入图像 Blob
+ * @param _params 预留参数(当前无配置项),与 BlobOperation 签名对齐
  * @param signal 可选取消信号
  * @throws 图像损坏或格式不支持时抛错
  */
 export async function getMetadata(
   blob: Blob,
+  _params: Record<string, any> = {},
   signal?: AbortSignal
 ): Promise<ImageMetadata> {
   const sharp = (await import('sharp')).default;
