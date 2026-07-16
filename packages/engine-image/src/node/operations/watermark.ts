@@ -5,16 +5,19 @@
  * - 文字水印:生成 SVG <text> 元素,composite 到源图
  * - 图片水印:fetch / data URL → Buffer,composite 到源图
  *
- * 与 engine-image operations/watermark.ts 对齐:
+ * 与浏览器版 operations/watermark.ts 对齐:
  * - 位置 9 宫格 + tile 模式
  * - opacity 透明度
  * - SSRF 校验(同 engine-image)
  *
  * 注:sharp 无原生 canvas 文字渲染,用 SVG 是最稳定的 Node 端方案,
  * libvips 内置 librsvg 渲染 SVG。
+ *
+ * 类型复用自 ../../types.js(问题 B:消除 engine-image-node 双源维护)。
  */
-import type { WatermarkParams, WatermarkPosition } from '../types.js';
+import type { WatermarkParams, WatermarkPosition } from '../../types.js';
 import {
+  bufferToBlobPart,
   inferFormat,
   isSafeImageUrl,
   throwIfAborted,
@@ -32,14 +35,14 @@ async function sharpToBlob(
   quality: number
 ): Promise<Blob> {
   const buffer = await pipeline
-    .toFormat(format as any, { quality })
+    .toFormat(format as keyof import('sharp').FormatEnum, { quality })
     .toBuffer();
-  return new Blob([buffer], {
+  return new Blob([bufferToBlobPart(buffer)], {
     type: `image/${format === 'jpeg' ? 'jpeg' : format}`,
   });
 }
 
-/** 计算水印位置(与 engine-image computeWatermarkPosition 一致,margin=16) */
+/** 计算水印位置(与浏览器版 computeWatermarkPosition 一致,margin=16) */
 function computeWatermarkPosition(
   position: NonNullable<WatermarkPosition>,
   canvasW: number,
@@ -86,7 +89,7 @@ function buildTextWatermarkSvg(
   const safeColor = escapeXml(color);
 
   // 测量文字宽度(粗略估算:fontSize * 0.6 * charCount,实际 SVG 渲染时由 librsvg 精确测量)
-  // tile 模式按此估算 spacing,与 engine-image 的 measureText 有差异,但视觉接近
+  // tile 模式按此估算 spacing,与浏览器版 measureText 有差异,但视觉接近
   const estimatedTextW = text.length * fontSize * 0.6;
   const spacing = Math.max(estimatedTextW, fontSize) * 1.5;
 
@@ -121,7 +124,7 @@ function buildTextWatermarkSvg(
 /**
  * Watermark:水印。
  *
- * 与 engine-image watermark 对齐:
+ * 与浏览器版 watermark 对齐:
  * - text / image 二选一(image 优先,无 text 也无 image 时返回原图)
  * - position 支持 9 宫格 + tile
  * - opacity 默认 0.8
@@ -159,7 +162,7 @@ export async function watermark(
   const wmColor = color ?? '#ffffff';
   const wmPosition: NonNullable<WatermarkPosition> = position ?? 'bottom-right';
 
-  // 无 text 也无 image:返回原图(与 engine-image 行为一致)
+  // 无 text 也无 image:返回原图(与浏览器版行为一致)
   if (!imageUrl && !text) {
     const format = inferFormat(blob, 'png');
     return sharpToBlob(sharp(srcBuffer), toSharpFormat(format), 95);

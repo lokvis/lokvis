@@ -21,8 +21,6 @@
       "@lokvis/engine-core/*": ["packages/engine-core/src/*"],
       "@lokvis/engine-image": ["packages/engine-image/src/index.ts"],
       "@lokvis/engine-image/*": ["packages/engine-image/src/*"],
-      "@lokvis/engine-image-node": ["packages/engine-image-node/src/index.ts"],
-      "@lokvis/engine-image-node/*": ["packages/engine-image-node/src/*"],
       "@lokvis/ui-react": ["packages/ui-react/src/index.ts"],
       "@lokvis/ui-react/*": ["packages/ui-react/src/*"],
       "@lokvis/ui-core": ["packages/ui-core/src/index.ts"],

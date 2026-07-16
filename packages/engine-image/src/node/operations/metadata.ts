@@ -1,14 +1,14 @@
 /**
  * 图像元数据读取(Node 引擎)
  *
- * 与 engine-image 的 decode 返回 { width, height } 对齐:提供轻量级元数据读取,
+ * 与浏览器版的 decode 返回 { width, height } 对齐:提供轻量级元数据读取,
  * 供消费方(如 mcp-server tool)在处理结果文本中报告尺寸/格式。
  *
  * 与浏览器版 decode 的差异:不返回 ImageBitmap(Node 无此类型),只返回纯元数据。
  * sharp 的 .metadata() 不会完整解码图像,开销低。
  *
  * AGENTS.md:Engine 层不感知 Asset/Workflow。本函数为 Blob → 纯元数据,
- * 与 engine-image 的 decode(Blob → DecodedImage)语义一致,属 Engine 层职责。
+ * 与浏览器版 decode(Blob → DecodedImage)语义一致,属 Engine 层职责。
  */
 import { throwIfAborted } from './utils.js';
 

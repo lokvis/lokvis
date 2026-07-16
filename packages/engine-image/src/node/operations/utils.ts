@@ -1,14 +1,16 @@
 /**
  * 图像操作共享工具(Node 引擎)
  *
- * 与 engine-image operations/utils.ts 对齐的纯工具函数:
+ * 与浏览器版 operations/utils.ts 对齐的纯工具函数:
  * - throwIfAborted: signal 检查
  * - inferFormat: Blob MIME → ImageOutputFormat
  * - computeTargetSize: 按 fit 策略计算目标尺寸
  *
  * 不依赖 sharp,纯逻辑可在任何环境运行。
+ *
+ * 类型复用自 ../../types.js(问题 B:消除 engine-image-node 双源维护)。
  */
-import type { ImageOutputFormat, ResizeParams } from '../types.js';
+import type { ImageOutputFormat, ResizeParams } from '../../types.js';
 
 /**
  * 若 signal 已取消则抛出 AbortError(与 engine-image 行为一致)。
@@ -39,7 +41,7 @@ export function inferFormat(
 /**
  * 计算目标尺寸(考虑 fit 策略与宽高比)。
  *
- * 与 engine-image computeTargetSize 完全一致,使 resize 在浏览器与 Node
+ * 与浏览器版 computeTargetSize 完全一致,使 resize 在浏览器与 Node
  * 产出尺寸相同(便于 diff 验证)。
  */
 export function computeTargetSize(
@@ -94,6 +96,21 @@ export function toSharpFormat(format: ImageOutputFormat): string {
   return format;
 }
 
+/**
+ * 把 sharp 输出的 Buffer 转为 Blob 兼容的 ArrayBuffer。
+ *
+ * TS 5.7+ 将 Buffer/Uint8Array 底层类型标为 ArrayBufferLike(可能为
+ * SharedArrayBuffer),而 DOM Blob 构造函数的 BlobPart 要求 ArrayBuffer
+ * 或 ArrayBuffer-backed 视图。slice 出独立 ArrayBuffer 解决类型问题
+ * (与 engine-pdf/src/operations.ts uint8ToBlobPart 同模式)。
+ */
+export function bufferToBlobPart(buffer: Buffer): ArrayBuffer {
+  return buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength
+  ) as ArrayBuffer;
+}
+
 /** 把 quality(1-100)归一化到 sharp 期望的范围 */
 export function normalizeQuality(quality?: number, fallback = 85): number {
   if (typeof quality !== 'number' || !Number.isFinite(quality)) return fallback;
@@ -103,7 +120,7 @@ export function normalizeQuality(quality?: number, fallback = 85): number {
 /**
  * 校验图片水印 URL 是否安全(防 SSRF)。
  *
- * 与 engine-image watermark.ts isSafeImageUrl 一致,额外允许 data: URL
+ * 与浏览器版 watermark.ts isSafeImageUrl 一致,额外允许 data: URL
  * (嵌入式 base64 数据,不发起网络请求,无 SSRF 风险)。
  *
  * 拒绝:

@@ -1,8 +1,9 @@
 /**
- * Billing 模块单元测试
+ * Cloud 计费模块单元测试(从 mcp-server/src/__tests__/billing.test.ts 迁移,问题 A)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { McpBilling } from '../billing.js';
+import { McpBilling, createBilling } from '../index.js';
+import { resolveCloudConfig } from '../cloud-config.js';
 import type { AuthenticatedUser } from '../auth.js';
 
 const makeUser = (overrides?: Partial<AuthenticatedUser>): AuthenticatedUser => ({
@@ -203,5 +204,48 @@ describe('McpBilling', () => {
 
       expect(fetchSpy).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('createBilling', () => {
+  it('应从 CloudConfig 构造 McpBilling,使用 config 的 planQuotas/upgradeUrl', async () => {
+    const config = resolveCloudConfig({
+      LOKVIS_API_BASE_URL: 'https://api.test.com',
+      LOKVIS_UPGRADE_URL: 'https://custom.upgrade.com',
+      LOKVIS_PLAN_QUOTAS_JSON: JSON.stringify({ free: 0, pro: 0, cloud_pro: 5, enterprise: Infinity }),
+      LOKVIS_PRICE_PER_CALL_CENTS: '2',
+    });
+    const billing = createBilling(config);
+
+    // cloud_pro plan 应有 5 次配额(来自自定义 JSON)
+    const result = await billing.checkCloudAiCall(makeUser({ plan: 'cloud_pro' }));
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBe(5);
+
+    // free plan 拒绝时 upgradeUrl 应为自定义值
+    const freeResult = await billing.checkCloudAiCall(makeUser({ plan: 'free' }));
+    expect(freeResult.allowed).toBe(false);
+    expect(freeResult.upgradeUrl).toBe('https://custom.upgrade.com');
+  });
+
+  it('价格文案应使用 config.pricePerCallCents', async () => {
+    const mockEntitlements = {
+      plan: 'cloud_pro',
+      quotas: { aiCallsPerDay: 10, workflows: 50, storageMb: 1024, maxApiKeys: 10 },
+      credits: { ai: 0 },
+    };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify(mockEntitlements), { status: 200 })
+    );
+
+    const config = resolveCloudConfig({
+      LOKVIS_API_KEY: 'lk_' + 'a'.repeat(64),
+      LOKVIS_PRICE_PER_CALL_CENTS: '2',
+    });
+    const billing = createBilling(config);
+
+    const result = await billing.checkCloudAiCall(makeUser({ plan: 'cloud_pro' }));
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain('$0.02/call');
   });
 });

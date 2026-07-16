@@ -1,7 +1,7 @@
 /**
  * PDF Blob↔Blob 操作(基于 pdf-lib)
  *
- * 与 engine-image-node 的 operations/ 模式对齐:暴露独立操作的纯函数,
+ * 与 engine-image/node 的 operations/ 模式对齐:暴露独立操作的纯函数,
  * 供消费方(如 mcp-server tool handler)直接调用。pdf-lib 经动态 import
  * 加载,浏览器侧 plugin-pdf 只导入 PdfEngineAdapter(stub),不会拉入 pdf-lib。
  *

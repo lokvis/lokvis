@@ -26,7 +26,7 @@ Expected tool call: `lokvis_image_convert` with `format: "webp"`.
 
 > Add a "Confidential" watermark to the bottom-right of report.png. Make it semi-transparent.
 
-Expected tool call: `lokvis_image_watermark` *(Phase 2 planned; not yet exposed as an MCP tool — the underlying `image.watermark` capability is implemented in `engine-image` / `engine-image-node` and registered in `plugin-image`, but the MCP tool wrapper is pending).*
+Expected tool call: `lokvis_image_watermark` *(Phase 2 planned; not yet exposed as an MCP tool — the underlying `image.watermark` capability is implemented in `engine-image` (browser) / `engine-image/node` (Node) and registered in `plugin-image`, but the MCP tool wrapper is pending).*
 
 ## 5. Run a workflow
 

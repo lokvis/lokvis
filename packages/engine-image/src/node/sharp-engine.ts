@@ -1,14 +1,14 @@
 /**
  * Sharp 图像引擎(Node.js)
  *
- * 基于 sharp(libvips)实现,与浏览器 canvas 引擎(@lokvis/engine-image)对齐的
+ * 基于 sharp(libvips)实现,与浏览器 canvas 引擎(@lokvis/engine-image 主入口)对齐的
  * 5 个核心操作:resize / compress / convert / crop / watermark。
  *
  * 设计原则:
- * - 操作函数签名与 engine-image 完全一致(Blob → Blob + Record<string,any> + AbortSignal)
+ * - 操作函数签名与浏览器 canvas 引擎完全一致(Blob → Blob + Record<string,any> + AbortSignal)
  * - 不实现 ImageEngineAdapter(decode/encode 与浏览器 API 耦合),
  *   只暴露 sharpEngine 描述符 + 操作函数集
- * - 不修改 engine-image,保持浏览器引擎纯净
+ * - 类型定义共享 ../types.js(消除双源维护,问题 B)
  *
  * 与浏览器 canvas 的差异:
  * - sharp 内置 libvips,直接处理 Buffer,无 Canvas 中间态

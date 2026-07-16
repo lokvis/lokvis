@@ -247,6 +247,7 @@ export {
   type LokvisErrorCode,
   type LokvisErrorOptions,
   AssetNotFoundError,
+  AssetBlobNotFoundError,
   AssetImportError,
   AssetExportError,
   WorkflowInvalidError,

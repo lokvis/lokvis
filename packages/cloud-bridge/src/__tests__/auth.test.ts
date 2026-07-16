@@ -1,8 +1,9 @@
 /**
- * Auth 模块单元测试
+ * Cloud 鉴权模块单元测试(从 mcp-server/src/__tests__/auth.test.ts 迁移,问题 A)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { McpAuthenticator, isValidApiKeyFormat } from '../auth.js';
+import { McpAuthenticator, isValidApiKeyFormat, createAuthenticator } from '../index.js';
+import { resolveCloudConfig } from '../cloud-config.js';
 
 describe('isValidApiKeyFormat', () => {
   it('应接受合法的 lk_ + 64 hex 格式', () => {
@@ -189,6 +190,30 @@ describe('McpAuthenticator', () => {
       expect.objectContaining({
         headers: { 'x-api-key': 'lk_' + 'a'.repeat(64) },
       })
+    );
+  });
+});
+
+describe('createAuthenticator', () => {
+  it('应从 CloudConfig 构造 McpAuthenticator', async () => {
+    const mockUser = {
+      id: 'u', email: 'e', username: 'u', plan: 'free',
+    };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify(mockUser), { status: 200 })
+    );
+
+    const config = resolveCloudConfig({
+      LOKVIS_API_KEY: 'lk_' + 'a'.repeat(64),
+      LOKVIS_API_BASE_URL: 'https://custom.api.lokvis.com',
+    });
+    const auth = createAuthenticator(config);
+
+    expect(auth.hasApiKey()).toBe(true);
+    await auth.verify();
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://custom.api.lokvis.com/v1/users/me',
+      expect.anything()
     );
   });
 });

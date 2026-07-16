@@ -1,14 +1,14 @@
 /**
  * Image tools:MCP tool handlers for image processing.
  *
- * 3 个 tool 经 @lokvis/engine-image-node(Engine 层,Blob↔Blob 纯函数)处理本地图片:
+ * 3 个 tool 经 @lokvis/engine-image/node(Engine 层,Blob↔Blob 纯函数)处理本地图片:
  * - lokvis_image_resize: 调整尺寸
  * - lokvis_image_compress: 压缩(jpeg/png/webp/avif quality)
  * - lokvis_image_convert: 格式转换
  *
  * 架构定位:mcp-server 是 Node 应用,直接消费 Engine 层 Blob↔Blob 操作
  * (与浏览器侧 Runtime→Capability→Engine 链路对齐:Node 侧无需 Asset/Workflow 抽象,
- *  tool handler 自行做 file-path ↔ Blob 翻译)。sharp 仅在 engine-image-node 内使用,
+ *  tool handler 自行做 file-path ↔ Blob 翻译)。sharp 仅在 engine-image/node 内使用,
  * 本文件不直接 import sharp(ADR-011 / AGENTS.md 五层架构)。
  *
  * 输入:文件路径(绝对路径或相对 workdir)
@@ -21,7 +21,7 @@ import {
   compress as engineCompress,
   convert as engineConvert,
   getMetadata,
-} from '@lokvis/engine-image-node';
+} from '@lokvis/engine-image/node';
 import type { McpToolResult } from '../server.js';
 import {
   fileToBlob,

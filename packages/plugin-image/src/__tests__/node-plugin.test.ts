@@ -7,7 +7,7 @@
  * - 5 个真实操作 + 4 个 stub 操作的 isStub 标记
  * - stub 操作执行时抛出明确错误
  *
- * engine-image-node 的 5 个操作通过 vi.mock 替换为桩函数,
+ * engine-image/node 的 5 个操作通过 vi.mock 替换为桩函数,
  * 避免测试依赖真实 sharp/libvips 二进制。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -17,8 +17,8 @@ import type {
   PluginContext,
 } from '@lokvis/schema';
 
-// 桩 engine-image-node 操作,避免依赖真实 sharp
-vi.mock('@lokvis/engine-image-node', () => ({
+// 桩 engine-image/node 操作,避免依赖真实 sharp
+vi.mock('@lokvis/engine-image/node', () => ({
   sharpEngine: { name: 'sharp', version: '0.1.0' },
   resize: vi.fn(async (blob: Blob) => blob),
   compress: vi.fn(async (blob: Blob) => blob),

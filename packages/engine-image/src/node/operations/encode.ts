@@ -2,16 +2,19 @@
  * 编码与格式操作:compress / convert
  *
  * 基于 sharp 的 toFormat + quality 实现,
- * 与 engine-image operations/encode.ts 同名操作对齐。
+ * 与浏览器版 operations/encode.ts 同名操作对齐。
  *
  * 注意:
  * - targetSize(目标体积压缩)由上层二分查找实现,本引擎不内置
- *   (engine-image 用 compressToTargetSize 实现,Node 引擎留待后续)
+ *   (浏览器版用 compressToTargetSize 实现,Node 引擎留待后续)
  * - convert 时若输出为 jpeg,sharp 自动用白底填充透明区域
- *   (与 engine-image convert 一致)
+ *   (与浏览器版 convert 一致)
+ *
+ * 类型复用自 ../../types.js(问题 B:消除 engine-image-node 双源维护)。
  */
-import type { CompressParams, ConvertParams, ImageOutputFormat } from '../types.js';
+import type { CompressParams, ConvertParams, ImageOutputFormat } from '../../types.js';
 import {
+  bufferToBlobPart,
   normalizeQuality,
   throwIfAborted,
   toSharpFormat,
@@ -28,9 +31,9 @@ async function sharpToBlob(
   quality: number
 ): Promise<Blob> {
   const buffer = await pipeline
-    .toFormat(format as any, { quality })
+    .toFormat(format as keyof import('sharp').FormatEnum, { quality })
     .toBuffer();
-  return new Blob([buffer], {
+  return new Blob([bufferToBlobPart(buffer)], {
     type: `image/${format === 'jpeg' ? 'jpeg' : format}`,
   });
 }
@@ -38,7 +41,7 @@ async function sharpToBlob(
 /**
  * Compress:压缩(可同时改变格式)。
  *
- * 与 engine-image compress 对齐:
+ * 与浏览器版 compress 对齐:
  * - 默认输出 webp(quality 85),与浏览器版一致
  * - targetSize 当前不实现(抛错提示),后续可补 compressToTargetSize 等价实现
  */
@@ -52,9 +55,9 @@ export async function compress(
 
   const { format: rawFormat, quality, targetSize } = params as CompressParams;
   if (targetSize) {
-    // Node 引擎暂不内置二分查找,留待后续与 engine-image compressToTargetSize 对齐
+    // Node 引擎暂不内置二分查找,留待后续与浏览器版 compressToTargetSize 对齐
     throw new Error(
-      'compress with targetSize is not yet implemented in engine-image-node ' +
+      'compress with targetSize is not yet implemented in engine-image/node ' +
         '(track M2.2 follow-up)'
     );
   }
@@ -65,7 +68,7 @@ export async function compress(
   const srcBuffer = await blobToBuffer(blob);
   throwIfAborted(signal);
 
-  // jpeg 输出时 sharp 默认用白底(无 alpha),与 engine-image 一致
+  // jpeg 输出时 sharp 默认用白底(无 alpha),与浏览器版一致
   const pipeline = sharp(srcBuffer, { failOn: 'none' });
   if (format === 'jpeg') {
     pipeline.flatten({ background: '#ffffff' });
@@ -78,10 +81,10 @@ export async function compress(
 /**
  * Convert:转换格式。
  *
- * 与 engine-image convert 对齐:
+ * 与浏览器版 convert 对齐:
  * - 必须指定 format(目标格式)
  * - jpeg 输出时用白底填充透明区域
- * - quality 默认 95(与 engine-image 一致)
+ * - quality 默认 95(与浏览器版一致)
  */
 export async function convert(
   blob: Blob,

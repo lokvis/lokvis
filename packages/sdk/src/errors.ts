@@ -47,6 +47,7 @@ import {
 export type LokvisErrorCode =
   // 资产域
   | 'ASSET_NOT_FOUND'
+  | 'ASSET_BLOB_NOT_FOUND'
   | 'ASSET_IMPORT_FAILED'
   | 'ASSET_EXPORT_FAILED'
   // 工作流域
@@ -126,6 +127,20 @@ export class AssetNotFoundError extends LokvisError {
     super(`Asset not found: ${assetId}`, { code: 'ASSET_NOT_FOUND', cause, context: { assetId } });
     this.name = 'AssetNotFoundError';
     this.assetId = assetId;
+  }
+}
+
+/**
+ * 资产 Blob 未找到(资产存在但底层 Blob 数据缺失)。
+ *
+ * 与 AssetExportError 的区别:AssetExportError 表示"导出过程失败"(格式不支持 /
+ * 编码错误),本错误表示"Blob 根本不存在"(如 OPFS/IDB 数据丢失)。消费方可用
+ * `instanceof AssetBlobNotFoundError` 区分两种场景,前者可重试,后者需重新导入。
+ */
+export class AssetBlobNotFoundError extends LokvisError {
+  constructor(message: string, cause?: unknown) {
+    super(message, { code: 'ASSET_BLOB_NOT_FOUND', cause });
+    this.name = 'AssetBlobNotFoundError';
   }
 }
 
@@ -365,7 +380,7 @@ export function fromLokvisError(value: unknown): LokvisError {
       return new AssetNotFoundError(value.assetId, value);
     }
     if (value instanceof RuntimeAssetBlobNotFoundError) {
-      return new AssetExportError(value.message, value);
+      return new AssetBlobNotFoundError(value.message, value);
     }
     if (value instanceof RuntimeWorkflowInvalidError) {
       return new WorkflowInvalidError(value.message, value);

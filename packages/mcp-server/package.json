@@ -35,7 +35,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@lokvis/engine-image-node": "workspace:*",
+    "@lokvis/cloud-bridge": "workspace:*",
+    "@lokvis/engine-image": "workspace:*",
     "@lokvis/engine-pdf": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/schema": "workspace:*",
