@@ -12,7 +12,7 @@
  */
 
 import { definePlugin } from '@lokvis/plugin-sdk';
-import { DEVELOPER_CAPABILITIES } from '@lokvis/capability';
+import { DEV_CAPABILITIES } from '@lokvis/capability';
 import { buildDevCapabilityImplementations } from './capabilities/index.js';
 
 export const PLUGIN_NAME = 'lokvis-dev-tools';
@@ -38,7 +38,7 @@ export function devToolsPlugin() {
       version: PLUGIN_VERSION,
       description:
         'Developer tools: capability introspection / asset inspection / workflow validation / performance profiling',
-      capabilities: DEVELOPER_CAPABILITIES,
+      capabilities: DEV_CAPABILITIES,
       permissions: ['asset:read', 'asset:write', 'network:none'],
     },
     (ctx) => {
@@ -46,7 +46,7 @@ export function devToolsPlugin() {
       for (const impl of impls) {
         ctx.registerCapability(impl);
       }
-      ctx.log('info', `Registered ${DEVELOPER_CAPABILITIES.length} developer capabilities`);
+      ctx.log('info', `Registered ${DEV_CAPABILITIES.length} developer capabilities`);
     }
   );
 }

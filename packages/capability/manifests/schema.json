@@ -33,9 +33,9 @@
       "properties": {
         "action": {
           "type": "string",
-          "description": "动作名,与 domain 拼接为完整能力名(如 resize → image.resize)",
-          "pattern": "^[a-z][a-z0-9-]*$",
-          "examples": ["resize", "compress", "trim", "merge", "generate-workflow"]
+          "description": "动作名,与 domain 拼接为完整能力名(如 resize → image.resize)。允许点分形式以表达子域(如 inspect.capabilities → developer.inspect.capabilities)",
+          "pattern": "^[a-z][a-z0-9-.]*$",
+          "examples": ["resize", "compress", "trim", "merge", "generate-workflow", "inspect.capabilities", "validate.workflow"]
         },
         "description": {
           "type": "string",

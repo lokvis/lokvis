@@ -1,0 +1,57 @@
+{
+  "$schema": "./schema.json",
+  "domain": "developer",
+  "capabilities": [
+    {
+      "action": "inspect.capabilities",
+      "description": "List all registered capabilities",
+      "inputTypes": ["data"],
+      "outputTypes": ["data"],
+      "params": [],
+      "performance": "fast",
+      "batchable": false
+    },
+    {
+      "action": "inspect.asset",
+      "description": "Inspect asset metadata and structure",
+      "inputTypes": ["image", "video", "audio", "pdf", "text", "data"],
+      "outputTypes": ["data"],
+      "params": [
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "default": false,
+          "description": "Include full asset detail (tags, history count, timestamps)"
+        }
+      ],
+      "performance": "fast",
+      "batchable": true
+    },
+    {
+      "action": "validate.workflow",
+      "description": "Validate a workflow without executing it",
+      "inputTypes": ["data"],
+      "outputTypes": ["data"],
+      "params": [],
+      "performance": "fast",
+      "batchable": false
+    },
+    {
+      "action": "profile",
+      "description": "Profile capability execution time",
+      "inputTypes": ["image", "video", "audio", "pdf", "text", "data"],
+      "outputTypes": ["data"],
+      "params": [
+        {
+          "name": "iterations",
+          "type": "number",
+          "default": 1,
+          "min": 1,
+          "description": "Number of profiling iterations per input asset"
+        }
+      ],
+      "performance": "slow",
+      "batchable": true
+    }
+  ]
+}
