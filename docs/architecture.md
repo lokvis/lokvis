@@ -209,8 +209,7 @@ lokvis-open（MIT）                    lokvis-cloud（闭源）
 | `packages/workflow` | ✅ 已实现 | 独立包,仅依赖 `@lokvis/schema`,提供 `WorkflowBuilder` 与 `buildLinearWorkflow` |
 | `packages/sdk` | ✅ 已实现 | createLokvis/loadPlugin + PluginContext + toMcpManifest + auth-pro 软耦合 |
 | `packages/plugin-sdk` | ✅ 已实现 | definePlugin/PluginContext 类型 + 三个工厂（createBlobCapabilityImpl/createMergeCapabilityImpl/createSplitCapabilityImpl） |
-| `packages/engine-image` | ✅ 已实现 | Canvas + createImageBitmap,零 WASM,9 能力 |
-| `packages/engine-image-node` | ✅ 已实现 | sharp 适配,5 能力（resize/compress/convert/crop/watermark） |
+| `packages/engine-image` | ✅ 已实现 | Canvas + createImageBitmap,零 WASM,9 能力;**多导出**(主入口浏览器 canvas 引擎 + `./node` 子路径 sharp 引擎,5 能力 resize/compress/convert/crop/watermark,问题 B 合并) |
 | `packages/plugin-image` | ✅ 已实现 | 9 能力,接 canvas engine（浏览器）+ sharp engine（Node 子路径 `@lokvis/plugin-image/node`）+ 单测 |
 | `packages/plugin-pdf` | 🟡 stub | 接 engine-pdf stub,7 能力声明 |
 | `packages/plugin-video` | 🟡 stub | 接 engine-video stub,7 能力声明 |

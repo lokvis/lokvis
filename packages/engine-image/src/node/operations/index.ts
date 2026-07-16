@@ -1,7 +1,7 @@
 /**
  * 图像操作聚合入口(Node 引擎)
  *
- * 与 engine-image operations/index.ts 对齐,导出 5 个核心操作 + 元数据读取:
+ * 与浏览器版 operations/index.ts 对齐,导出 5 个核心操作 + 元数据读取:
  * - transform.ts: resize / crop
  * - encode.ts:    compress / convert
  * - watermark.ts: watermark

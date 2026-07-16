@@ -350,16 +350,6 @@ importers:
         specifier: workspace:*
         version: link:../schema
     devDependencies:
-      typescript:
-        specifier: ^5.6.0
-        version: 5.9.3
-
-  packages/engine-image-node:
-    dependencies:
-      '@lokvis/schema':
-        specifier: workspace:*
-        version: link:../schema
-    devDependencies:
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.0
@@ -407,9 +397,9 @@ importers:
 
   packages/mcp-server:
     dependencies:
-      '@lokvis/engine-image-node':
+      '@lokvis/engine-image':
         specifier: workspace:*
-        version: link:../engine-image-node
+        version: link:../engine-image
       '@lokvis/engine-pdf':
         specifier: workspace:*
         version: link:../engine-pdf
@@ -513,9 +503,6 @@ importers:
       '@lokvis/engine-image':
         specifier: workspace:*
         version: link:../engine-image
-      '@lokvis/engine-image-node':
-        specifier: workspace:*
-        version: link:../engine-image-node
       '@lokvis/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk

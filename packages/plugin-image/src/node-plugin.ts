@@ -3,7 +3,7 @@
  *
  * 与浏览器版本 `imageToolsPlugin()` 的区别:
  * - engine: 'sharp'(基于 libvips),而非 'canvas'(基于浏览器 Canvas API)
- * - 5 个核心操作由 `@lokvis/engine-image-node` 实现:
+ * - 5 个核心操作由 `@lokvis/engine-image/node` 实现:
  *   resize / compress / convert / crop / watermark
  * - 4 个操作暂未在 Node 引擎实现,注册为 stub(isStub=true),
  *   CapabilityRegistry.resolve() 会跳过 stub,executor 在 stub-only 时
@@ -28,7 +28,7 @@ import {
   convert as opConvert,
   crop as opCrop,
   watermark as opWatermark,
-} from '@lokvis/engine-image-node';
+} from '@lokvis/engine-image/node';
 import { PLUGIN_NAME, PLUGIN_VERSION, EXIF_READER_NAME } from './plugin.js';
 import { readExifFromBlob } from './exif-reader.js';
 import type { ImageOperation } from './operations.js';
@@ -80,7 +80,7 @@ function createUnsupportedNodeOp(capability: string): ImageOperation {
  *
  * 注:本函数为 async,因为 `definePlugin` 接受的 installer 是同步的,
  * 而 Node 引擎的 5 个操作在模块加载时已通过 `import` 静态绑定到
- * `@lokvis/engine-image-node`,无需运行时动态加载。async 仅为保留未来
+ * `@lokvis/engine-image/node`,无需运行时动态加载。async 仅为保留未来
  * 引擎初始化(如 sharp 预热、libvips 缓存配置)的扩展点。
  */
 export async function imageToolsPluginNode() {

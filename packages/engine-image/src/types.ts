@@ -74,7 +74,12 @@ export interface FlipParams {
 /** 水印参数 */
 export interface WatermarkParams {
   text?: string;
-  image?: string; // data URL
+  /**
+   * 水印图片来源(data URL 或 http(s) URL)。
+   * 浏览器版仅接受 data URL(避免跨域/CORS);Node 端(@lokvis/engine-image/node)
+   * 接受 http(s) URL 并做 SSRF 校验。统一为 string(不约束协议,问题 B)。
+   */
+  image?: string;
   position?: WatermarkPosition;
   opacity?: number; // 0-1
   fontSize?: number;

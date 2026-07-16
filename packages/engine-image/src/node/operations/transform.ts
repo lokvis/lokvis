@@ -2,10 +2,13 @@
  * 几何变换操作:resize / crop
  *
  * 基于 sharp 的 resize / extract API 实现,
- * 与 engine-image operations/transform.ts 同名操作对齐。
+ * 与浏览器版 operations/transform.ts 同名操作对齐。
+ *
+ * 类型复用自 ../../types.js(问题 B:消除 engine-image-node 双源维护)。
  */
-import type { CropParams } from '../types.js';
+import type { CropParams } from '../../types.js';
 import {
+  bufferToBlobPart,
   computeTargetSize,
   inferFormat,
   throwIfAborted,
@@ -25,9 +28,9 @@ async function sharpToBlob(
   quality: number
 ): Promise<Blob> {
   const buffer = await pipeline
-    .toFormat(format as any, { quality })
+    .toFormat(format as keyof import('sharp').FormatEnum, { quality })
     .toBuffer();
-  return new Blob([buffer], {
+  return new Blob([bufferToBlobPart(buffer)], {
     type: `image/${format === 'jpeg' ? 'jpeg' : format}`,
   });
 }
@@ -35,7 +38,7 @@ async function sharpToBlob(
 /**
  * Resize:调整尺寸。
  *
- * 与 engine-image resize 对齐:
+ * 与浏览器版 resize 对齐:
  * - 支持 width / height / fit / maintainAspectRatio
  * - inferFormat 推断输出格式(默认 png)
  * - 不嵌入 PNG DPI(Node 引擎暂不支持,留待后续)
@@ -61,9 +64,9 @@ export async function resize(
   const target = computeTargetSize(srcW, srcH, params);
   throwIfAborted(signal);
 
-  // engine-image 的 computeTargetSize 已按 fit 策略计算最终尺寸(不裁剪),
+  // 浏览器版 computeTargetSize 已按 fit 策略计算最终尺寸(不裁剪),
   // sharp resize 用 fit='fill' 强制到 target 尺寸,避免 sharp 再次"智能"调整
-  // (sharp fit='cover' 会裁剪以填满,与 engine-image drawImage 不裁剪行为不一致)
+  // (sharp fit='cover' 会裁剪以填满,与浏览器版 drawImage 不裁剪行为不一致)
   const pipeline = sharp(srcBuffer).resize({
     width: target.width,
     height: target.height,
@@ -79,7 +82,7 @@ export async function resize(
 /**
  * Crop:裁剪(从源图提取矩形区域)。
  *
- * 与 engine-image crop 对齐:
+ * 与浏览器版 crop 对齐:
  * - 接受 { x, y, width, height }(左上角 + 区域大小)
  * - sharp 用 extract({ left, top, width, height })实现
  */
