@@ -14,12 +14,12 @@
 |---|---|---|---|
 | Phase 2 路线 | 2 项 | 中 | 按 Phase 2 路线推进(TD-1.3/TD-1.4 已清偿,见 TD-C14/TD-C15) |
 | 测试时序依赖 | 2 项 | 中 | 需改生产 API 语义,专项评估 |
-| 静默吞错 | 10 处 | 低 | intentional,需 assetStore 错误类型分层才能根治 |
-| 类型层面 workaround | 0 处 | 低 | 已全部清偿(TD-4.5 见 TD-C13,TD-4.6 见 TD-C16) |
+| 静默吞错 | 11 处 | 低 | intentional,需 assetStore 错误类型分层才能根治（TD-3.1/3.2/3.3 已部分修复为 warn,8 处全活动） |
+| 类型层面 workaround | 1 处 | 低 | TD-4.2 活动（schema workflow.ts 强转加字段）;TD-4.1/4.3/4.4/4.5/4.6 已清偿 |
 | UI ObjectURL 生命周期分散 | 2 处 | 中 | 有防护,重构影响面大 |
-| 事件订阅 cleanup 模式分散 | 3 处 | 低 | 各有特殊点,抽象灵活性下降 |
+| 事件订阅 cleanup 模式分散 | 2 处 | 低 | 各有特殊点,抽象灵活性下降（TD-6.1 + TD-6.2） |
 | 测试环境 hack | 3 处 | 低 | 合理写法,非债务(记录备查) |
-| Cloud 耦合泄漏 | 1 项 | 中 | mcp-server 硬编码 cloud URL/plan 名 |
+| Cloud 耦合泄漏 | 1 项 | 中 | mcp-server 硬编码 cloud URL/plan 名（TD-1.5,问题 A 抽 @lokvis/cloud-bridge 处理中） |
 
 **净评估**:无阻塞性债务。Phase 2 路线的 3 项是已知的功能性取舍,Cloud 耦合有 graceful degradation 防护,其余均为"有防护的局部 workaround"或"抽象收益不足"的项目。
 
