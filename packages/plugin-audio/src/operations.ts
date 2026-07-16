@@ -65,9 +65,7 @@ export interface AudioOperationEntry {
 }
 
 // ─── 各操作的参数转换 + 调用 ───────────────────────────────
-// engine-audio 操作函数已接受 Record<string, any>,无需类型断言。
-// 注意:webAudioEngine.merge 签名是 (blobs: Blob[]) → 不接受 params,
-// 用包装层丢弃 params 保持 MergeAudioOperation 签名一致。
+// engine-audio 操作函数已统一接受 Record<string, any>,无需类型断言。
 
 const trimOp: SingleAudioOperation = (blob, params) =>
   webAudioEngine.trim(blob, params);
@@ -78,7 +76,8 @@ const normalizeOp: SingleAudioOperation = (blob, params) =>
 const transcodeOp: SingleAudioOperation = (blob, params) =>
   lamejsEngine.transcode(blob, params);
 
-const mergeOp: MergeAudioOperation = (blobs) => webAudioEngine.merge(blobs);
+const mergeOp: MergeAudioOperation = (blobs, params) =>
+  webAudioEngine.merge(blobs, params);
 
 /** 各引擎 stub 标识(AGENTS.md 约定:version.includes('stub')) */
 const webAudioIsStub = webAudioEngine.version.includes('stub');
