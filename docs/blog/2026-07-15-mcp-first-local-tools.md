@@ -1,6 +1,6 @@
 # Lokvis MCP-first:让 AI 客户端就地处理本地文件
 
-> Phase 2 blog post · 2026-07-15 · 对应任务 [M2.4](../reports/20260712-task-plan.md#m24-claude-desktop--cursor-端到端验证)
+> Phase 2 blog post · 2026-07-15 · 对应任务 [M2.4](../reports/archive/20260712-task-plan.md#m24-claude-desktop--cursor-端到端验证)
 
 AI 客户端在 2025 年发生了一次结构性变化:它们开始能调用本地工具了。Claude Desktop、Cursor、ChatGPT Desktop 都开始支持 Model Context Protocol(MCP),允许第三方把自己的能力以"tool"的形式注入到对话里。这是一个有趣的拐点 ——但前提是有人愿意把"本地文件处理"这一类工具做出来。
 
@@ -22,7 +22,7 @@ MCP 是把 Lokvis 接入这条新路径的标准方式。把它做成 MCP server
 
 ## 二、我们做了什么(Phase 2 轨道 A)
 
-完整任务拆分见 [`reports/20260712-task-plan.md`](../reports/20260712-task-plan.md),这里按叙事顺序串一遍。
+完整任务拆分见 [`reports/archive/20260712-task-plan.md`](../reports/archive/20260712-task-plan.md),这里按叙事顺序串一遍。
 
 ### M2.1 — stdio 传输 + NodeAssetStore
 
@@ -165,7 +165,7 @@ Lokvis Phase 2 把本地文件处理能力做成了 MCP server,AI 客户端(Clau
 ## 相关文档
 
 - [AI 生态冲击调整方案](../AI生态冲击调整方案.md) — MCP-first 战略转型背景
-- [M2.4 任务 brief](../reports/20260712-task-plan.md) — 完整任务拆分
+- [M2.4 任务 brief](../reports/archive/20260712-task-plan.md) — 完整任务拆分
 - [ADR-O1 — MCP 能力提供方定位](../adr/O1-mcp-server定位.md)
 - [ADR-O2 — Plugin SDK 降级](../adr/O2-plugin-sdk降级.md)
 - [ADR-O3 — engine-ai 定位](../adr/O3-engine-ai定位.md)

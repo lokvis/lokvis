@@ -85,9 +85,9 @@
 
 ## Phase 1.5 — 架构优化（2026-07-13 完成）
 
-> 详细任务拆分见 [reports/20260712-task-plan.md](./reports/20260712-task-plan.md)
+> 详细任务拆分见 [reports/archive/20260712-task-plan.md](./reports/archive/20260712-task-plan.md)
 >
-> 触发：[architecture-deep-diagnostic-20260712.md](./reports/architecture-deep-diagnostic-20260712.md)
+> 触发：[architecture-deep-diagnostic-20260712.md](./reports/archive/architecture-deep-diagnostic-20260712.md)
 
 ### W1-W2：Runtime 二次分层 + 单测
 
@@ -129,7 +129,7 @@
 
 ## Phase 2 — MCP / Engine / Workflow（2027.01-06）
 
-> 详细任务拆分见 [reports/20260712-task-plan.md](./reports/20260712-task-plan.md) Phase 2 章节
+> 详细任务拆分见 [reports/archive/20260712-task-plan.md](./reports/archive/20260712-task-plan.md) Phase 2 章节
 
 ### 轨道 A：MCP 主线
 
@@ -232,7 +232,7 @@
 | 文档 | 说明 |
 |------|------|
 | [PROJECT_PLAN.md](./PROJECT_PLAN.md) | Phase 1 W1-W24 小时级任务拆分（详细） |
-| [reports/20260712-task-plan.md](./reports/20260712-task-plan.md) | Phase 1.5 + Phase 2 任务拆分（详细） |
+| [reports/archive/20260712-task-plan.md](./reports/archive/20260712-task-plan.md) | Phase 1.5 + Phase 2 任务拆分（详细,已归档） |
 | [technical-debt.md](./technical-debt.md) | 技术债务登记簿（完整） |
 | [roadmap.md](./roadmap.md) | 三年四阶段战略路线图 |
 | [AI生态冲击调整方案.md](./AI生态冲击调整方案.md) | MCP-first 战略转型背景 |

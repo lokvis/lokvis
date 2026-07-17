@@ -15,7 +15,8 @@
 | 04 | [技术架构设计](./04-技术架构设计.md) | 完整五层架构技术规范：Runtime API、Event Bus、Asset 模型、Workflow Schema、Capability/Engine 层、Plugin 系统、UI、Cloudflare 基础设施、AI 集成 |
 | 05 | [商业模式与收入预测](./05-商业模式与收入预测.md) | 收入模型、定价层级（Free/Pro/Cloud Pro/Enterprise）、三年收入预测 |
 | 06 | [风险评估与应对](./06-风险评估与应对.md) | 20 个风险横跨技术/市场/商业/运营/法律 5 类，4 个 R1 级别风险 |
-| 07 | [路线图与里程碑](./07-路线图与里程碑.md) | 三年四阶段路线图、Go/No-Go 决策点、资源规划、应急预案 |
+
+> **07 已归档**:原《路线图与里程碑》(v1.0, 2026-06-28) 的 Phase 2/3 战略已被更新。现行路线图见 [../roadmap.md](../roadmap.md),调整背景见 [../AI生态冲击调整方案.md](../AI生态冲击调整方案.md)。历史档案见 [archive/](./archive/)。
 
 ---
 
@@ -23,9 +24,18 @@
 
 白皮书 04《技术架构设计》是技术架构的原始完整规范。`lokvis-open/docs/architecture.md` 从中提取了与开源仓库直接相关的核心内容，并补充了实际实现细节。
 
-白皮书 07《路线图与里程碑》是战略路线图。`lokvis-open/docs/roadmap.md` 整合了白皮书 07、PROJECT_PLAN.md 和 AI 调整方案的内容。
+白皮书原 07《路线图与里程碑》是战略路线图的原始规划(v1.0)。`lokvis-open/docs/roadmap.md` 已整合白皮书 07、PROJECT_PLAN.md 和 AI 调整方案的内容,作为现行版本。
+
+---
+
+## 归档
+
+[archive/](./archive/) 子目录保留已过时但有历史档案价值的文档:
+
+- [07-路线图与里程碑.md](./archive/07-路线图与里程碑.md) — v1.0 原始规划,Phase 2/3 已被 roadmap.md 取代
 
 ---
 
 *文档编制日期：2026-06-28*
 *基于 2026 年 6 月公开市场数据与项目内部推演。*
+</content>
