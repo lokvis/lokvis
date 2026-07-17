@@ -30,7 +30,7 @@
 |--------|---------|------|------|
 | M1.1 Alpha | 2026.09.30 | ✅ 已达成 | 2026-07-04 W12.1 Go 决策通过 |
 | M1.2 Beta | 2026.10.31 | 🟡 代码侧就绪 | 待运维部署 + 真实用户反馈 |
-| M1.3 发布 | 2026.12.15 | 🟡 部分启动 | W21.6 + W22.3/22.4/22.5 + W23.2/23.3/23.4 完成 |
+| M1.3 发布 | 2026.12.15 | 🟡 部分启动 | W21.1-21.7 + W22.3/22.4/22.5 + W23.2/23.3/23.4 完成 |
 | M1.4 首个 $1K MRR | 2027.02.28 | ⬜ 待开始 | cloud 侧验证 |
 
 ### 按月进度
@@ -42,7 +42,7 @@
 | M3 | W9-W12 | Workspace UI + Workflow Layer（SPA + 拖拽编辑器 + 5 步编排 + Alpha） | ✅ 代码侧完成 |
 | M4 | W13-W16 | npm 发版 + Playground 5 demo + PWA | ✅ 完成 |
 | M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 26/31 完成（17.2/17.3/17.4/17.5/17.6/17.7/17.8/17.11 + 18.1/18.2/18.3/18.6 + 19.1/19.2/19.3/19.4/19.5/19.6/19.7/19.9 + 20.1-20.6 完成;17.1/17.9/18.7/19.8/20.8 待办） |
-| M6 | W21-W24 | 性能优化 + 跨浏览器测试 + 开源发布 + Product Hunt | 🟡 7/30 完成(W21.6 + W22.3/22.4/22.5 + W23.2/23.3/23.4) |
+| M6 | W21-W24 | 性能优化 + 跨浏览器测试 + 开源发布 + Product Hunt | 🟡 13/30 完成(W21.1-21.7 + W22.3/22.4/22.5 + W23.2/23.3/23.4) |
 
 ### M5/W17-W20 待办明细
 
@@ -59,7 +59,7 @@
 
 | 任务 | 优先级 | 状态 |
 |------|--------|------|
-| 21.1-21.8 LCP<2.5s + WASM<5s + Bundle 分析 + 大文件 streaming + 内存泄漏 + Lighthouse | P0 | 🟡 21.6 完成(内存泄漏修复 6 commit:0fe21b8 + be64b4a / 23d41b9 / 759f858 / cabf02e / ed7b156,涵盖 engine-image bitmap try/finally + AssetStore dispose + Runtime ownsAssetStore + ToolRunner/BatchQueue unmount abort + ObjectURL revoke);21.1/21.2/21.3/21.4/21.5/21.7/21.8 待办 |
+| 21.1-21.8 LCP<2.5s + WASM<5s + Bundle 分析 + 大文件 streaming + 内存泄漏 + Lighthouse | P0 | 🟡 21.1-21.7 完成(21.1 LCP 优化 commit 2605dee / 21.2 WASM 预加载基础设施 commit 8a54826 / 21.3 Bundle 分析+代码分割 commit d5dc713 / 21.4 Worker Transferable 零拷贝+isBlobRef null 修复 commit 4bc6f63 / 21.5 大图 tile-based+4K 阈值切换 commit e19ffb6 / 21.6 内存泄漏 6 commit 0fe21b8+be64b4a+23d41b9+759f858+cabf02e+ed7b156 / 21.7 Lighthouse 基线 62 分+瓶颈诊断 commit 475f2c8);21.8 缓冲任务待办 |
 | 22.1-22.6 Sentry Top20 修复 + 跨浏览器测试 + Safari 降级 + Playwright E2E | P0 | 🟡 22.3/22.4/22.5 完成(browser-detect 14 项能力检测 + Firefox 降级提示 UI + 6 工具 Playwright E2E);22.1/22.2/22.6 待办 |
 | 23.1-23.9 README 终版 + CONTRIBUTING + Issue/PR 模板 + 文档站公开 + GitHub Releases | P0 | 🟡 23.2/23.3/23.4 完成(CONTRIBUTING.md + CODE_OF_CONDUCT.md + Issue/PR 模板 + CODEOWNERS);23.1/23.5/23.6/23.7/23.8/23.9 待办 |
 | 24.1-24.7 Product Hunt + HN + Reddit + 发布日监控 + Phase 1 复盘 | P0 | ⬜ 全部待办 |

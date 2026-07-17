@@ -424,13 +424,13 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 21.1 | 首屏 LCP <2.5s:关键 CSS 内联、字体 swap、图片 lazy | P0 | 6h | ⬜ | apps/playground（apps/web 已删除，PWA 性能优化改由 cloud 仓库负责） |
-| 21.2 | WASM 加载 <5s:分片、HTTP/2、预加载 | P0 | 6h | ⬜ | engine |
-| 21.3 | Bundle 分析 + 代码分割 | P0 | 4h | ⬜ | build |
-| 21.4 | Runtime 性能:Worker 通信开销优化(Transferable) | P0 | 6h | ⬜ | runtime |
-| 21.5 | 大文件 streaming 优化:4K 图/长 PDF | P0 | 4h | ⬜ | engine |
+| 21.1 | 首屏 LCP <2.5s:关键 CSS 内联、字体 swap、图片 lazy | P0 | 6h | ✅ | apps/playground(PlaygroundLayout.astro:preconnect/dns-prefetch/preload + 关键 CSS 内联消除 FOUC/CLS,commit 2605dee) |
+| 21.2 | WASM 加载 <5s:分片、HTTP/2、预加载 | P0 | 6h | ✅ | apps/playground(public/sw.js:WASM 专用 cache-first + Content-Type 修正 + PRELOAD_WASM 消息协议 + PlaygroundLayout wasmPreload prop,Phase 2 接入 Squoosh/ffmpeg.wasm 即可用,commit 8a54826) |
+| 21.3 | Bundle 分析 + 代码分割 | P0 | 4h | ✅ | apps/playground(astro.config.mjs:rollup-plugin-visualizer + manualChunks 分组 codemirror/react-vendor/sentry/vendor + build.target es2022,commit d5dc713) |
+| 21.4 | Runtime 性能:Worker 通信开销优化(Transferable) | P0 | 6h | ✅ | engine-image + runtime(BlobRef 信封:Worker 抽 ArrayBuffer 入 transfer list 零拷贝移交主线程 + unwrapBlobRef 重组 + isBlobRef null bug 修复,8 个测试,commit 4bc6f63) |
+| 21.5 | 大文件 streaming 优化:4K 图/长 PDF | P0 | 4h | ✅ | engine-image(tiles.ts:LARGE_IMAGE_THRESHOLD=4096 + shouldUseTiles + processLargeImageWithTiles 高阶函数;encode.ts:compress/convert 接入 4K 阈值自动切换 tile 路径,16 个测试,commit e19ffb6) |
 | 21.6 | 内存泄漏排查:长时间使用 heap snapshot | P0 | 6h | ✅ | engine-image bitmap try/finally + AssetStore dispose(Memory/OPFS/IDB 三层)+ Runtime ownsAssetStore 清理 + wrapAssetStoreWithQuota 透传 dispose + LokvisRuntime.dispose() 统一入口 + ToolRunner/BatchQueue unmount abort + ObjectURL revoke(6 commit: 0fe21b8 / be64b4a / 23d41b9 / 759f858 / cabf02e / ed7b156) |
-| 21.7 | Lighthouse 跑分验证 | P0 | 4h | ⬜ | 报告 |
+| 21.7 | Lighthouse 跑分验证 | P0 | 4h | ✅ | docs/reports(Performance 62/100,LCP 6.9s 主要瓶颈 CodeMirror 首屏加载,CLS 0.001 完美达标,commit 475f2c8;报告 W21.7-lighthouse-baseline-2026-07-17.md + HTML/JSON 原始数据) |
 | 21.8 | 缓冲 | P0 | 4h | ⬜ | — |
 
 ### W22 · Bug 修复 + 稳定性(40h)

@@ -292,6 +292,32 @@
 
 ## Review 记录
 
+### Review #6 — 2026-07-17 W21 性能优化批次(W21.1-21.5 / W21.7)
+
+- **范围**:W21 性能优化批次——W21.1(首屏 LCP 优化)+ W21.2(WASM 预加载基础设施)+ W21.3(Bundle 分析 + 代码分割)+ W21.4(Worker Transferable 零拷贝 + isBlobRef null 修复)+ W21.5(大图 tile-based + 4K 阈值切换)+ W21.7(Lighthouse 跑分基线 + 瓶颈诊断)
+- **方法**:逐任务实施 + 单元测试(W21.4 新增 8 个测试、W21.5 新增 16 个测试)+ Lighthouse CLI v12 真实跑分(mobile 模拟)+ build 产物体积分析
+- **验证结果**:
+  - 五层架构单向依赖**无违规**:W21.1/W21.2 在 apps/playground 层;W21.3 在 build 配置层;W21.4 跨 engine-image + runtime 两层但仅扩展 worker-protocol 信封格式;W21.5 在 engine-image 层
+  - W21.4 遵循 AGENTS.md "Engine 操作函数签名用 `Record<string, any>`" 约定,BlobRef 信封由 worker-adapter 与 worker-host 协议层处理,未污染 Engine 层 API
+  - W21.4 `isBlobRef` 修复了 `typeof null === 'object'` 导致的误判 bug(meta:null 被错误接受),与 worker-protocol.ts / worker-adapter.ts 两处同步声明
+  - W21.5 `processLargeImageWithTiles` 高阶函数设计:drawCb 回调注入使 compress/convert 各自只关心绘制逻辑,符合"避免过度抽象"原则
+  - W21.7 Lighthouse 真实跑分:Performance 62/100,LCP 6.9s(瓶颈 CodeMirror 首屏加载),CLS 0.001 完美达标(W21.1 关键 CSS 内联效果验证)
+- **新债务登记**:**0 项**——本次批次未引入新技术债
+  - W21.1 仅新增 preload/preconnect/dns-prefetch link 标签 + 内联关键 CSS,无架构变更
+  - W21.2 WASM 预加载为纯增量基础设施(PRELOAD_WASM 消息协议 + sw.js cache-first 分支 + wasmPreload prop),Phase 2 接入 Squoosh/ffmpeg.wasm 时启用,不影响当前代码路径
+  - W21.3 rollup-plugin-visualizer 为 dev 依赖,manualChunks 仅分组不改变运行时行为
+  - W21.4 BlobRef 信封是 Worker postMessage 的传输层优化,主线程 `unwrapBlobRef` 透明重组,上游 Runtime/API 层无感知
+  - W21.5 tile-based 路径仅在 `shouldUseTiles(width, height)` 返回 true(>4096px)时启用,小图走原 single canvas 路径,无回归风险
+  - W21.7 仅产出诊断报告,无代码变更
+- **既有债务状态更新**:
+  - **TD-5.1(UI ObjectURL 生命周期分散)状态保持活动**:W21.1-21.5/21.7 均未触及 assets-slice 或 ObjectURL 创建/释放逻辑,债务维持原状
+  - **TD-6.1 / TD-6.2(事件订阅 cleanup 模式分散)状态保持活动**:本次批次未触及 workflow-slice / runtime-slice,债务维持原状
+  - **TD-3.x 系列(静默吞错)状态保持**:W21.4 worker-protocol 新增的 isBlobRef 类型守卫 + unwrapBlobRef 重组在类型不匹配时直接返回原值,非静默吞错(类型守卫返回 false 时 TypeScript narrowing 自动走原样返回分支)
+- **识别的新优化机会(非债务)**:
+  - **W21.7 LCP 6.9s 瓶颈**:LCP 元素是 CodeMirror `.cm-line`,根因是 Playground 首页直接渲染 CodeEditor(尽管已 lazy + Suspense,但首屏就 mount)。优化方向:延迟到用户交互(点击编辑器区域)后再加载 CodeMirror chunk。此项非债务,留待后续 W21.8 缓冲任务或独立性能优化任务评估
+- **清偿**:本次 review 未清偿任何既有活动债务代码
+- **决定不修**:本次 review 未重构任何既有架构层面债务。理由:W21 批次目标是**性能优化**,而非债务清偿;架构重构应作为独立任务评估
+
 ### Review #5 — 2026-07-17 M6 阶段启动(W21.6 / W22.3-22.5 / W23.2-23.4)
 
 - **范围**:M6 阶段启动批次——W21.6(内存泄漏修复 5 commit)+ W22.3(浏览器能力检测)+ W22.4(Firefox 降级 UI)+ W22.5(Playwright E2E 6 工具)+ W23.2/23.3/23.4(CONTRIBUTING / COC / Issue-PR 模板)
