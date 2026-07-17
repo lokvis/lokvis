@@ -429,7 +429,7 @@
 | 21.3 | Bundle 分析 + 代码分割 | P0 | 4h | ⬜ | build |
 | 21.4 | Runtime 性能:Worker 通信开销优化(Transferable) | P0 | 6h | ⬜ | runtime |
 | 21.5 | 大文件 streaming 优化:4K 图/长 PDF | P0 | 4h | ⬜ | engine |
-| 21.6 | 内存泄漏排查:长时间使用 heap snapshot | P0 | 6h | ✅ | engine-image bitmap try/finally + AssetStore dispose(Memory/OPFS/IDB 三层)+ Runtime ownsAssetStore 清理 + wrapAssetStoreWithQuota 透传 dispose + LokvisRuntime.dispose() 统一入口 + ToolRunner/BatchQueue unmount abort + ObjectURL revoke(5 commit: be64b4a / 23d41b9 / 759f858 / cabf02e / ed7b156) |
+| 21.6 | 内存泄漏排查:长时间使用 heap snapshot | P0 | 6h | ✅ | engine-image bitmap try/finally + AssetStore dispose(Memory/OPFS/IDB 三层)+ Runtime ownsAssetStore 清理 + wrapAssetStoreWithQuota 透传 dispose + LokvisRuntime.dispose() 统一入口 + ToolRunner/BatchQueue unmount abort + ObjectURL revoke(6 commit: 0fe21b8 / be64b4a / 23d41b9 / 759f858 / cabf02e / ed7b156) |
 | 21.7 | Lighthouse 跑分验证 | P0 | 4h | ⬜ | 报告 |
 | 21.8 | 缓冲 | P0 | 4h | ⬜ | — |
 
@@ -449,7 +449,7 @@
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
 | 23.1 | README 终版:GIF 演示、特性矩阵、徽章 | P0 | 4h | ⬜ | README |
-| 23.2 | CONTRIBUTING.md + 贡献者协议 | P0 | 4h | ✅ | `CONTRIBUTING.md` — 环境要求(Node 22+/pnpm 9.12.0)+ 初次启动 + 五层架构约束(指向 AGENTS.md)+ 代码风格(oxlint/prettier)+ 测试约定(Vitest+Playwright)+ Conventional Commits + 分支命名 + PR 流程 + Issue 报告 + License 贡献 |
+| 23.2 | CONTRIBUTING.md + 贡献者协议 | P0 | 4h | ✅ | `CONTRIBUTING.md` — 环境要求(Node 22+/pnpm 9.12.0)+ 初次启动 + 五层架构约束(指向 AGENTS.md)+ 代码风格(oxlint/prettier)+ 测试约定(Vitest+Playwright)+ Conventional Commits + 分支命名 + PR 流程 + Issue 报告 + License 贡献(本批 23.2-23.4 同 commit 7ce9126) |
 | 23.3 | CODE_OF_CONDUCT.md | P0 | 2h | ✅ | `CODE_OF_CONDUCT.md` — Contributor Covenant 2.1,违规报告邮箱 conduct@lokvis.dev |
 | 23.4 | Issue/PR 模板(`.github/`) | P0 | 2h | ✅ | `.github/ISSUE_TEMPLATE/bug_report.yml`(含隐私优先提示)+ `feature_request.yml`(指向 PROJECT_PLAN.md §11 不做清单)+ `config.yml`(blank_issues_enabled: false)+ `PULL_REQUEST_TEMPLATE.md`(变更说明/变更类型/架构影响/验证/Breaking Changes/Checklist)+ `CODEOWNERS`(默认 @lokvis/maintainers,核心架构层显式列)+ README.md 贡献段落精简为 TL;DR 指向 CONTRIBUTING.md |
 | 23.5 | 文档站公开(docs.lokvis.dev 或 lokvis.dev/docs) | P0 | 4h | ⬜ | 部署 |
