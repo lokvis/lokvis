@@ -86,6 +86,17 @@ export function ToolRunner({
   };
  }, [inputUrl, outputUrl]);
 
+ // W21.6: unmount 时 abort 进行中的处理,防止后台泄漏
+ // (engine 函数持有 Worker/Canvas 资源,卸载后继续运行是浪费 + 潜在内存泄漏)
+ React.useEffect(() => {
+  return () => {
+   if (abortRef.current) {
+    abortRef.current.abort();
+    abortRef.current = null;
+   }
+  };
+ }, []);
+
  const accept = capability.inputTypes.join(',');
 
  function handleFiles(files: FileList | File[] | null) {
