@@ -27,8 +27,8 @@ export class AssetNotFoundError extends Error {
 
 /** 资产 Blob 未找到(getBlob 在 store 中找不到对应 blob) */
 export class AssetBlobNotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
     this.name = 'AssetBlobNotFoundError';
   }
 }

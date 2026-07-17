@@ -232,8 +232,13 @@ export async function createOpfsAssetStore(
         try {
           fileHandle = await assetsDir.getFileHandle(fileName(id));
           fileHandles.set(id, fileHandle);
-        } catch {
-          throw new AssetBlobNotFoundError(`Blob not found in OPFS for path: ${handle.path}`);
+        } catch (err) {
+          // 保留原始 error 作为 cause,调用方可据 err.cause instanceof DOMException
+          // 区分 NotFoundError(文件不存在)与权限/IO 错误
+          throw new AssetBlobNotFoundError(
+            `Blob not found in OPFS for path: ${handle.path}`,
+            { cause: err }
+          );
         }
       }
       const file = await fileHandle.getFile();

@@ -210,7 +210,9 @@ function BatchQueueContent() {
       if (!rt) return;
       for (const wfId of processingWfIdsRef.current) {
         // cancel 是 idempotent 的:不存在的 workflowId 安全无副作用
-        void rt.cancel(wfId).catch(() => {});
+        void rt.cancel(wfId).catch((err) => {
+          console.warn(`[lokvis] BatchQueue unmount: cancel(${wfId}) failed:`, err);
+        });
       }
       processingWfIdsRef.current.clear();
     };

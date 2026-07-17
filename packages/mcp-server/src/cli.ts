@@ -71,8 +71,8 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     console.error(`[lokvis-mcp] Received ${signal}, shutting down...`);
-    await bridge.close().catch(() => {});
-    await server.close().catch(() => {});
+    await bridge.close().catch((err) => console.warn('[lokvis-mcp] bridge close failed:', err));
+    await server.close().catch((err) => console.warn('[lokvis-mcp] server close failed:', err));
     process.exit(0);
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
@@ -82,7 +82,7 @@ async function main(): Promise<void> {
     // stdio 模式:启动后阻塞直到 stdin 关闭(客户端断开)
     await server.start();
     console.error('[lokvis-mcp] Server stopped');
-    await bridge.close().catch(() => {});
+    await bridge.close().catch((err) => console.warn('[lokvis-mcp] bridge close failed:', err));
   } else if (mode === 'sse') {
     // SSE 模式:HTTP server 监听,Web 客户端经 /sse 连接
     const sse = await server.startSse(port);

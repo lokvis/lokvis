@@ -155,8 +155,9 @@ export class BatchProcessor {
         const wfId = this.scheduler.itemWorkflowId(job.id, item.id);
         try {
           await this.runtime.cancel(wfId);
-        } catch {
-          // 取消失败不阻断
+        } catch (err) {
+          // 取消失败不阻断后续项的 cancel,但需记录便于调试
+          console.warn(`[lokvis] BatchProcessor.cancel: cancel(${wfId}) failed:`, err);
         }
       }
     }

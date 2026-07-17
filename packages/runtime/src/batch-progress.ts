@@ -99,8 +99,9 @@ export class BatchProgressEmitter {
       for (const fn of [...subs]) {
         try {
           fn(payload);
-        } catch {
-          // 单个订阅者异常不阻断其他订阅者
+        } catch (err) {
+          // 单个订阅者异常不阻断其他订阅者(与 event-bus.ts onAny 隔离策略一致)
+          console.error(`[lokvis] batch-progress subscriber threw for job ${jobId}:`, err);
         }
       }
     }
@@ -219,8 +220,9 @@ export class BatchProgressEmitter {
   private emit(event: LokvisEvent): void {
     try {
       this.eventBus.emit(event);
-    } catch {
-      // EventBus 异常不阻断批量逻辑
+    } catch (err) {
+      // EventBus 异常不阻断批量逻辑,但需记录便于调试
+      console.warn(`[lokvis] batch-progress emit("${event.type}") threw:`, err);
     }
   }
 }
