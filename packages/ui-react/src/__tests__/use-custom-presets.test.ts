@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 /**
  * useCustomPresets 单元测试(W17.5)
  *
@@ -6,6 +5,10 @@
  * genCustomPresetId + FREE/PRO 限制逻辑(不渲染 React 组件,直接调用导出的纯函数)。
  *
  * 限制检查逻辑通过模拟 save 流程测试:读取当前 → 检查长度 → 写入。
+ *
+ * 注:本测试不依赖 jsdom 环境,使用 minimal window mock(仅 localStorage +
+ * CustomEvent dispatch/addEventListener)在 node 环境运行,避免 vitest 2.x
+ * 在 Node 26 下 `// @vitest-environment jsdom` 注解失效的问题。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
@@ -17,9 +20,84 @@ import {
   type CustomSizePreset,
 } from '../hooks/useCustomPresets.js';
 
+/**
+ * Minimal localStorage 实现(基于 Map,不持久化)
+ * 仅覆盖测试用到的 getItem/setItem/clear/removeItem
+ */
+class MemoryLocalStorage {
+  private store = new Map<string, string>();
+
+  getItem(key: string): string | null {
+    return this.store.has(key) ? this.store.get(key)! : null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.store.set(key, String(value));
+  }
+
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
+
+  get length(): number {
+    return this.store.size;
+  }
+
+  key(index: number): string | null {
+    return Array.from(this.store.keys())[index] ?? null;
+  }
+}
+
+/**
+ * Minimal window mock:仅覆盖 useCustomPresets 用到的 API
+ * - localStorage(读写预设)
+ * - dispatchEvent / addEventListener / removeEventListener(SYNC_EVENT 通知)
+ */
+function createWindowMock() {
+  const listeners = new Map<string, Set<EventListenerOrEventListenerObject>>();
+
+  return {
+    localStorage: new MemoryLocalStorage(),
+    dispatchEvent(event: Event): boolean {
+      const set = listeners.get(event.type);
+      if (set) {
+        for (const listener of set) {
+          if (typeof listener === 'function') {
+            listener(event);
+          } else {
+            listener.handleEvent(event);
+          }
+        }
+      }
+      return true;
+    },
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+      if (!listeners.has(type)) {
+        listeners.set(type, new Set());
+      }
+      listeners.get(type)!.add(listener);
+    },
+    removeEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+      listeners.get(type)?.delete(listener);
+    },
+    CustomEvent,
+    Event,
+  };
+}
+
+// 暴露 window 全局,供源码中的 window.localStorage / window.dispatchEvent 使用
+const windowMock = createWindowMock();
+vi.stubGlobal('window', windowMock);
+// 源码中用 new CustomEvent(...),需确保全局可用
+vi.stubGlobal('CustomEvent', CustomEvent);
+
 describe('useCustomPresets 纯函数(W17.5)', () => {
   beforeEach(() => {
-    window.localStorage.clear();
+    windowMock.localStorage.clear();
   });
 
   // ─── readCustomPresetsFromStorage ────────────────────
