@@ -8,7 +8,7 @@
  */
 // oxlint-disable-next-line import/no-unresolved
 import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import Dexie from 'dexie';
 import {
   createIdbAssetStore,
@@ -219,5 +219,46 @@ describe('createIdbAssetStore', () => {
 
   it('IDB_PATH_PREFIX 应为 "idb"', () => {
     expect(IDB_PATH_PREFIX).toBe('idb');
+  });
+});
+
+// ─── W21.6: IdbAssetStore.dispose() ──────────────────────────
+
+describe('IdbAssetStore.dispose() (W21.6)', () => {
+  let dbName: string;
+
+  beforeEach(() => {
+    dbName = `lokvis-test-dispose-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  });
+
+  it('dispose 应调用 db.close() 关闭 Dexie 连接', async () => {
+    const db = new AssetDatabase(dbName);
+    const closeSpy = vi.spyOn(db, 'close');
+    const store = await createIdbAssetStore({ dbInstance: db });
+
+    await store.dispose?.();
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispose 应幂等:重复调用不抛错', async () => {
+    const store = await createIdbAssetStore({ dbName });
+    await store.dispose?.();
+    await expect(store.dispose?.()).resolves.toBeUndefined();
+  });
+
+  it('dispose 后 IDB 数据仍存在(仅关闭连接,不删除数据)', async () => {
+    const db = new AssetDatabase(dbName);
+    const store = await createIdbAssetStore({ dbInstance: db });
+    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' });
+    const asset = await store.import({ kind: 'blob', blob, name: 'a.png' });
+
+    await store.dispose?.();
+
+    // 新 store 实例(新 db 实例,同 db 名)应能读回数据
+    // (db.close() 仅关闭连接,IDB 数据仍持久化)
+    const store2 = await createIdbAssetStore({ dbName });
+    const got = await store2.get(asset.id);
+    expect(got).toBeDefined();
+    expect(got!.id).toBe(asset.id);
   });
 });

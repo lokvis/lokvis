@@ -84,6 +84,13 @@ export interface RuntimeConfig {
    * 默认 512MB。BatchProcessor 据此在内存压力高时收缩并发槽位。
    */
   memoryBudget?: number;
+  /**
+   * 内部 API(W21.6):标记 assetStore 是否由 Runtime 拥有(即 createRuntime 工厂创建)。
+   * - true(默认路径):Runtime.dispose() 会调用 assetStore.dispose?.() 释放底层资源
+   * - false(注入路径):Runtime 不清理 assetStore,由注入方自行管理生命周期
+   * 不对外暴露:SDK 用户不应直接传此字段,由 createRuntime 工厂内部设置。
+   */
+  ownsAssetStore?: boolean;
 }
 
 /** Runtime 状态 */
@@ -157,7 +164,12 @@ export interface LokvisRuntime {
    * - 测试 afterEach 清理
    * - 消费方明确知道不再使用此 runtime 实例时
    *
-   * 注:AssetStore 由消费方注入,不由 dispose() 关闭(外部资源应由其所有者管理)。
+   * AssetStore 的清理策略:
+   * - 若 Runtime 通过 createRuntime 工厂创建 store(默认路径):dispose()
+   *   会调用 assetStore.dispose?.() 关闭 Dexie 连接 / 清空内存 Map
+   * - 若消费方注入 store(config.assetStore):Runtime 不清理,由消费方
+   *   在合适的时机调用 store.dispose?.()
+   *
    * 调用 dispose() 后再调 run()/cancel() 等方法会抛 'Runtime is disposed'。
    * 幂等:重复调用为 no-op。
    */

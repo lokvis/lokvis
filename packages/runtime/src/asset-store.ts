@@ -27,6 +27,19 @@ export interface AssetStore {
   list(): Promise<Asset[]>;
   /** 创建新 Asset（内部用，由 Capability 产出） */
   create(blob: Blob, metadata: AssetMetadata, type: Asset['type']): Promise<Asset>;
+  /**
+   * 释放底层资源(W21.6)。
+   *
+   * - Memory store:清空 Map(数据不可恢复)
+   * - OPFS store:清空内存 Map + 关闭 Dexie 连接(OPFS 文件不删除,
+   *   下次创建 store 时从 IndexedDB metadata 预加载恢复)
+   * - IDB store:关闭 Dexie 连接(IDB 数据不删除)
+   *
+   * 幂等:重复调用为 no-op。
+   * 注:关闭后的 store 调用 import/get/getBlob 等方法行为未定义,
+   * 调用方应仅在不再使用该 store 时调用 dispose。
+   */
+  dispose?(): Promise<void>;
 }
 
 /** 生成唯一 ID */
@@ -274,6 +287,12 @@ export function createMemoryAssetStore(): AssetStore {
       const asset = buildAsset(id, blob, metadata, type, MEMORY_PATH_PREFIX);
       assets.set(id, asset);
       return asset;
+    },
+
+    // W21.6: 清空内存 Map,释放 Blob 引用(数据不可恢复)
+    async dispose() {
+      assets.clear();
+      blobs.clear();
     },
   };
 }

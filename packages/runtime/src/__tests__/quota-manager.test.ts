@@ -184,3 +184,42 @@ describe('wrapAssetStoreWithQuota - 串行化(TOCTOU 防御)', () => {
     expect(store._getQuotaUsage()).toBe(40);
   });
 });
+
+// ─── W21.6: wrapAssetStoreWithQuota 透传 dispose ────────────
+
+describe('wrapAssetStoreWithQuota.dispose() (W21.6)', () => {
+  it('dispose 应透传给 inner store(调用 inner.dispose)', async () => {
+    let innerDisposed = false;
+    const inner: AssetStore = {
+      ...createMemoryAssetStore(),
+      async dispose() {
+        innerDisposed = true;
+      },
+    };
+    const store = wrapAssetStoreWithQuota(inner, 100);
+
+    await store.dispose?.();
+    expect(innerDisposed).toBe(true);
+  });
+
+  it('dispose 后 _getQuotaUsage 应返回 -1(usage/initialized 已重置)', async () => {
+    const store = wrapAssetStoreWithQuota(createMemoryAssetStore(), 100);
+    // 先 import 触发 ensureInit,使 initialized=true
+    await store.import({
+      kind: 'blob',
+      blob: makeBlob(10),
+      name: 'a.png',
+    });
+    expect(store._getQuotaUsage()).toBe(10);
+
+    await store.dispose?.();
+    // dispose 后重置为未初始化状态
+    expect(store._getQuotaUsage()).toBe(-1);
+  });
+
+  it('dispose 应幂等:重复调用不抛错', async () => {
+    const store = wrapAssetStoreWithQuota(createMemoryAssetStore(), 100);
+    await store.dispose?.();
+    await expect(store.dispose?.()).resolves.toBeUndefined();
+  });
+});

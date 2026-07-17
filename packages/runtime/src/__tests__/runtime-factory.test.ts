@@ -196,3 +196,48 @@ describe('runtime.dispose() (W21.6)', () => {
     expect(state).toEqual({ entries: [], cursor: -1 });
   });
 });
+
+// ─── W21.6: Runtime.dispose 调用 assetStore.dispose ──────────
+
+describe('Runtime.dispose 调用 assetStore.dispose (W21.6)', () => {
+  it('工厂创建的 store(默认路径):dispose 应调用 assetStore.dispose', async () => {
+    // 工厂创建路径:ownsAssetStore=true
+    // Node 环境降级到 Memory store(已实现 dispose)
+    const runtime = await createRuntime({ enableOpfs: false });
+    const impl = runtime as LokvisRuntimeImpl;
+    const store = impl._getAssetStore();
+
+    // 导入资产后 list 应非空
+    await runtime.importAsset({
+      kind: 'blob',
+      blob: pngBlob(),
+      name: 'a.png',
+    });
+    expect((await store.list()).length).toBeGreaterThanOrEqual(1);
+
+    await runtime.dispose();
+    // dispose 后 store 内部 Map 应已清空
+    expect((await store.list()).length).toBe(0);
+  });
+
+  it('注入的 store(注入路径):dispose 不应调用 assetStore.dispose', async () => {
+    // 注入路径:ownsAssetStore=false
+    // Runtime 不应越权清理注入的 store,由消费方自行管理生命周期
+    const injected = createMemoryAssetStore();
+    const runtime = await createRuntime({ assetStore: injected });
+    await runtime.importAsset({
+      kind: 'blob',
+      blob: pngBlob(),
+      name: 'a.png',
+    });
+    expect((await injected.list()).length).toBe(1);
+
+    await runtime.dispose();
+    // 注入路径:Runtime 不调用 assetStore.dispose,injected 数据保留
+    expect((await injected.list()).length).toBe(1);
+
+    // 由消费方自行 dispose
+    await injected.dispose?.();
+    expect((await injected.list()).length).toBe(0);
+  });
+});

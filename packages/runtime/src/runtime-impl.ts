@@ -40,7 +40,7 @@ export const RUNTIME_VERSION = '0.1.0';
 export class LokvisRuntimeImpl implements LokvisRuntime {
   readonly version = RUNTIME_VERSION;
   readonly eventBus: EventBus;
-  private config: Required<Omit<RuntimeConfig, 'assetStore' | 'historyStore' | 'historyStoreOptions'>>;
+  private config: Required<Omit<RuntimeConfig, 'assetStore' | 'historyStore' | 'historyStoreOptions' | 'ownsAssetStore'>>;
   private assetStore: QuotaAwareAssetStore; // wrapAssetStoreWithQuota 无条件包裹(含注入路径)
   private assetManager: AssetManager;
   private capabilityRegistry: CapabilityRegistry;
@@ -53,6 +53,9 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   private metadataReaders = new Map<string, MetadataReader>(); // W7.3/7.4 MetadataReader 依赖反转
   // W21.6: dispose 守卫,防止重复 dispose + 阻止后续 run/cancel 调用
   private disposed = false;
+  // W21.6: 标记 assetStore 是否由 Runtime 拥有(工厂创建而非注入)。
+  // 仅在 ownsAssetStore=true 时 dispose() 才会调用 assetStore.dispose?.()。
+  private readonly ownsAssetStore: boolean;
 
   /** 注册元数据读取器(由 PluginContext.registerMetadataReader 转发,内部 API) */
   _registerMetadataReader(name: string, reader: MetadataReader): void {
@@ -81,6 +84,9 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       );
     }
     const rawStore = config.assetStore ?? createMemoryAssetStore();
+    // W21.6: 若消费方未注入 assetStore,Runtime 拥有创建的 store,
+    // dispose() 时负责调用 assetStore.dispose?.() 释放底层资源。
+    this.ownsAssetStore = config.ownsAssetStore ?? !config.assetStore;
     this.assetStore = wrapAssetStoreWithQuota(rawStore, this.config.storageQuota);
     // AssetManager:metadataReaders 由 Runtime 持有,Plugin 注册后立即可见
     this.assetManager = new AssetManager({
@@ -147,10 +153,11 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
    * 4. historyManager.disposeAll() —— 清空所有历史栈(reset 触发 onEvict
    *    → assetStore.remove 回收 outputs 资产)
    * 5. 清理 metadataReaders
+   * 6. 若 ownsAssetStore(工厂创建而非注入):调用 assetStore.dispose?.()
+   *    关闭 Dexie 连接 / 清空内存 Map。注入路径由消费方自行管理。
    *
    * 不清理:
-   * - assetStore(由消费方注入,由其所有者管理生命周期)
-   * - historyStore(同上,且 Dexie 连接由浏览器 GC 处理)
+   * - historyStore(由消费方注入或工厂创建,Dexie 连接由浏览器 GC 处理)
    * - eventBus listeners(允许外部已订阅的 listener 仍收到最后一批
    *   workflow:cancelled 等事件;若需要清空可单独调 eventBus.clear)
    *
@@ -167,6 +174,11 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     this.historyManager.disposeAll();
     // 4. 清理 metadataReaders(释放插件注册的 reader 引用)
     this.metadataReaders.clear();
+    // 5. 若 Runtime 拥有 assetStore(工厂创建),释放底层资源
+    //    (注入路径由消费方自行管理生命周期,避免越权清理)
+    if (this.ownsAssetStore) {
+      await this.assetStore.dispose?.();
+    }
   }
 
   // ─── 历史与撤销(委托 HistoryManager) ──────────────────
@@ -249,8 +261,11 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
  * config.assetStore 注入自定义 store。async(工厂需异步探测环境)。
  */
 export async function createRuntime(config?: RuntimeConfig): Promise<LokvisRuntime> {
+  // W21.6: 判断 assetStore 是否由工厂创建(未注入即工厂创建)。
+  // 工厂创建的 store 由 Runtime 拥有,dispose() 时负责调用 assetStore.dispose?.()。
+  const injectedAssetStore = config?.assetStore;
   const assetStore =
-    config?.assetStore ??
+    injectedAssetStore ??
     (await createAssetStore({ preferOpfs: config?.enableOpfs ?? true }));
   // W7.2 历史持久化:优先用注入的 historyStore;否则在 enableIndexedDB 时
   // 通过 createHistoryStore 自动创建(IDB 不可用时返回 undefined,退化仅内存)
@@ -259,7 +274,12 @@ export async function createRuntime(config?: RuntimeConfig): Promise<LokvisRunti
     ((config?.enableIndexedDB ?? true)
       ? createHistoryStore(config?.historyStoreOptions)
       : undefined);
-  const impl = new LokvisRuntimeImpl({ ...config, assetStore, historyStore });
+  const impl = new LokvisRuntimeImpl({
+    ...config,
+    assetStore,
+    historyStore,
+    ownsAssetStore: !injectedAssetStore,
+  });
   await impl.loadPersistedHistory(); // 预加载持久化历史快照(跨会话恢复 undo/redo 链)
   return impl;
 }

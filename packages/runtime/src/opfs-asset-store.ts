@@ -272,5 +272,13 @@ export async function createOpfsAssetStore(
       await persistMetadata(db, id, asset);
       return asset;
     },
+
+    // W21.6: 清空内存 Map + 关闭 Dexie 连接。
+    // OPFS 文件不删除(下次创建 store 时从 IndexedDB metadata 预加载恢复)。
+    async dispose() {
+      assets.clear();
+      fileHandles.clear();
+      db?.close();
+    },
   };
 }
