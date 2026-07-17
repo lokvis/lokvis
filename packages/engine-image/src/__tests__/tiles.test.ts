@@ -23,9 +23,15 @@ vi.mock('../canvas-engine.js', () => ({
   get2DContext: mockGet2DContext,
 }));
 
-const { splitIntoTiles, mergeChunks, isDownscale, DEFAULT_TILE_SIZE } = await import(
-  '../operations/tiles.js'
-);
+const {
+  splitIntoTiles,
+  mergeChunks,
+  isDownscale,
+  processLargeImageWithTiles,
+  shouldUseTiles,
+  LARGE_IMAGE_THRESHOLD,
+  DEFAULT_TILE_SIZE,
+} = await import('../operations/tiles.js');
 
 // ─── splitIntoTiles ─────────────────────────────────────────────
 
@@ -206,5 +212,150 @@ describe('mergeChunks', () => {
     );
     // decode 不应被调用(signal 在循环首步即检查)
     expect(mockDecode).not.toHaveBeenCalled();
+  });
+});
+
+// ─── W21.5: shouldUseTiles / LARGE_IMAGE_THRESHOLD ──────────────
+
+describe('W21.5: shouldUseTiles / LARGE_IMAGE_THRESHOLD', () => {
+  it('LARGE_IMAGE_THRESHOLD 应为 4096(4K 对齐)', () => {
+    expect(LARGE_IMAGE_THRESHOLD).toBe(4096);
+  });
+
+  it('两边都 <= 阈值应返回 false(小图走单 canvas 路径)', () => {
+    expect(shouldUseTiles(100, 100)).toBe(false);
+    expect(shouldUseTiles(4096, 4096)).toBe(false); // 边界:等于阈值不算大图
+    expect(shouldUseTiles(4096, 2160)).toBe(false); // 4K UHD 不触发
+  });
+
+  it('任一边 > 阈值应返回 true(大图走 tile 路径)', () => {
+    expect(shouldUseTiles(4097, 100)).toBe(true); // 宽刚超阈值
+    expect(shouldUseTiles(100, 4097)).toBe(true); // 高刚超阈值
+    expect(shouldUseTiles(8192, 8192)).toBe(true); // 8K
+    expect(shouldUseTiles(7680, 4320)).toBe(true); // 8K UHD
+  });
+
+  it('零或负尺寸应返回 false(异常输入不触发 tile)', () => {
+    expect(shouldUseTiles(0, 0)).toBe(false);
+    expect(shouldUseTiles(-1, 100)).toBe(false);
+    expect(shouldUseTiles(100, -1)).toBe(false);
+  });
+});
+
+// ─── W21.5: processLargeImageWithTiles ──────────────────────────
+
+describe('W21.5: processLargeImageWithTiles', () => {
+  beforeEach(() => {
+    mockDecode.mockReset();
+    mockEncode.mockReset();
+    mockGet2DContext.mockReset();
+  });
+
+  it('非法 width/height 应抛错', async () => {
+    const bitmap = { width: 0, height: 0 } as unknown as ImageBitmap;
+    await expect(
+      processLargeImageWithTiles(bitmap, 0, 100, 'png', 90, () => {})
+    ).rejects.toThrow(/invalid dimensions/);
+    await expect(
+      processLargeImageWithTiles(bitmap, 100, -1, 'png', 90, () => {})
+    ).rejects.toThrow(/invalid dimensions/);
+  });
+
+  it('应按 tile 切分逐个 encode,最后 mergeChunks 合并', async () => {
+    // 1024x1024 / tileSize 512 → 4 个 tile
+    // 每个 tile encode 返回独立 Blob,mergeChunks 把 4 个 chunk 合并
+    const bitmap = { width: 1024, height: 1024, close: vi.fn() } as unknown as ImageBitmap;
+    mockGet2DContext.mockReturnValue({ drawImage: vi.fn() });
+    // 每个 tile encode 返回不同 Blob,便于断言被调用 4 次
+    mockEncode.mockImplementation(async (_canvas, _fmt, _q) => new Blob([_fmt as string]));
+    // mergeChunks 内部也会调 decode + encode,先 mock decode 返回 bitmap
+    mockDecode.mockResolvedValue({ bitmap, width: 512, height: 512 });
+
+    const drawCb = vi.fn();
+    const result = await processLargeImageWithTiles(
+      bitmap,
+      1024,
+      1024,
+      'webp',
+      80,
+      drawCb,
+      undefined,
+      512
+    );
+
+    expect(result).toBeInstanceOf(Blob);
+    // drawCb 被调用 4 次(每个 tile 一次)
+    expect(drawCb).toHaveBeenCalledTimes(4);
+    // tile encode 调用 4 次(每个 tile 一次)+ mergeChunks 最后 encode 1 次 = 5 次
+    // 但 mergeChunks 的 encode 与 tile 的 encode 都走 mockEncode
+    expect(mockEncode.mock.calls.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('tileSize 默认为 DEFAULT_TILE_SIZE(512)', async () => {
+    // 600x600 / 512 → 4 个 tile(2x2 网格,边缘 tile 88x88 / 88x88)
+    const bitmap = { width: 600, height: 600, close: vi.fn() } as unknown as ImageBitmap;
+    mockGet2DContext.mockReturnValue({ drawImage: vi.fn() });
+    mockEncode.mockResolvedValue(new Blob(['t']));
+    mockDecode.mockResolvedValue({ bitmap, width: 512, height: 512 });
+
+    const drawCb = vi.fn();
+    await processLargeImageWithTiles(bitmap, 600, 600, 'png', 90, drawCb);
+
+    // 不传 tileSize → 默认 512 → 600/512 向上取整 = 2 列 2 行 = 4 tile
+    expect(drawCb).toHaveBeenCalledTimes(4);
+    // 第一个 tile 应是 (0,0,512,512)
+    const firstTile = drawCb.mock.calls[0]![2] as { x: number; y: number; width: number; height: number };
+    expect(firstTile).toEqual({ x: 0, y: 0, width: 512, height: 512 });
+    // 第二个 tile(同一行右邻)应是 (512,0,88,512)
+    const secondTile = drawCb.mock.calls[1]![2] as { x: number; y: number; width: number; height: number };
+    expect(secondTile).toEqual({ x: 512, y: 0, width: 88, height: 512 });
+  });
+
+  it('signal 已 abort 应在首个 tile 开始前抛 AbortError', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const bitmap = { width: 100, height: 100 } as unknown as ImageBitmap;
+    const drawCb = vi.fn();
+    await expect(
+      processLargeImageWithTiles(bitmap, 100, 100, 'png', 90, drawCb, controller.signal, 50)
+    ).rejects.toThrow(/aborted/i);
+    // drawCb / encode 都不应被调用(signal 在首个 tile 前即抛)
+    expect(drawCb).not.toHaveBeenCalled();
+    expect(mockEncode).not.toHaveBeenCalled();
+  });
+
+  it('signal 在中途 abort 应在下一个 tile 开始前抛 AbortError', async () => {
+    // 100x100 / tileSize 50 → 4 个 tile,在第 2 个 tile 后 abort
+    const bitmap = { width: 100, height: 100 } as unknown as ImageBitmap;
+    mockGet2DContext.mockReturnValue({ drawImage: vi.fn() });
+    mockEncode.mockResolvedValue(new Blob(['t']));
+
+    const controller = new AbortController();
+    const drawCb = vi.fn(() => {
+      // 第 2 个 tile 绘制完后 abort
+      if (drawCb.mock.calls.length === 2) controller.abort();
+    });
+    await expect(
+      processLargeImageWithTiles(bitmap, 100, 100, 'png', 90, drawCb, controller.signal, 50)
+    ).rejects.toThrow(/aborted/i);
+    // 应只处理了 2 个 tile(第 3 个 tile 开始前 abort)
+    expect(drawCb).toHaveBeenCalledTimes(2);
+  });
+
+  it('drawCb 应收到 ctx / bitmap / tile 三个参数', async () => {
+    const bitmap = { width: 50, height: 50, close: vi.fn() } as unknown as ImageBitmap;
+    const fakeCtx = { drawImage: vi.fn() };
+    mockGet2DContext.mockReturnValue(fakeCtx);
+    mockEncode.mockResolvedValue(new Blob(['t']));
+    mockDecode.mockResolvedValue({ bitmap, width: 50, height: 50 });
+
+    const drawCb = vi.fn();
+    await processLargeImageWithTiles(bitmap, 50, 50, 'png', 90, drawCb, undefined, 50);
+
+    expect(drawCb).toHaveBeenCalledTimes(1);
+    const [ctxArg, bitmapArg, tileArg] = drawCb.mock.calls[0]!;
+    expect(ctxArg).toBe(fakeCtx);
+    expect(bitmapArg).toBe(bitmap);
+    expect(tileArg).toEqual({ x: 0, y: 0, width: 50, height: 50 });
   });
 });
