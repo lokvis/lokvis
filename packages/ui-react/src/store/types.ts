@@ -84,8 +84,20 @@ export interface WorkspaceActions {
   importFiles(files: File[]): Promise<void>;
   /** 选择资产 */
   selectAsset(id: string | null): void;
-  /** 设置缩略图 */
+  /**
+   * 设置缩略图(TD-5.1:替换时自动 revoke 旧 ObjectURL,集中管理生命周期)。
+   * 主要由 ensureThumbnails 内部调用,外部一般不直接使用。
+   */
   setThumbnail(id: string, url: string): void;
+  /**
+   * 为所有缺少缩略图的 image 资产异步生成 ObjectURL 缩略图(TD-5.1 长期方案)。
+   *
+   * 集中管理缩略图 ObjectURL 的创建:iterate assets → exportAsset →
+   * createObjectURL → setThumbnail(revoke 旧 URL)。inflight 去重 + 资产
+   * 存在性检查避免孤儿 URL。AssetPanel 只需在 effect 中调用此方法并读取
+   * store.thumbnails,创建/替换/释放全部在 store 内统一。
+   */
+  ensureThumbnails(): void;
   /** 删除资产 */
   removeAsset(id: string): Promise<void>;
 

@@ -32,15 +32,12 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  const importFiles = useWorkspaceStore((s) => s.importFiles);
  const selectAsset = useWorkspaceStore((s) => s.selectAsset);
  const removeAsset = useWorkspaceStore((s) => s.removeAsset);
- const setThumbnail = useWorkspaceStore((s) => s.setThumbnail);
- const runtime = useWorkspaceStore((s) => s.runtime);
+ const ensureThumbnails = useWorkspaceStore((s) => s.ensureThumbnails);
 
  const [dragging, setDragging] = React.useState(false);
  // W6.5 筛选:类型 + 关键词(纯 UI 状态,不入 store)
  const [filterType, setFilterType] = React.useState<'all' | AssetType>('all');
  const [searchQuery, setSearchQuery] = React.useState('');
- // B2 修复:跟踪 in-flight exportAsset,避免同一 asset 跨 effect 重跑并发发起
- const inflightRef = React.useRef<Set<string>>(new Set());
 
  async function handleFiles(files: FileList | File[] | null) {
  if (!files) return;
@@ -48,45 +45,11 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  if (arr.length > 0) await importFiles(arr);
  }
 
- // 自动生成缩略图
- // B2 修复:
- // - cancelled flag:effect 重跑/卸载时,await 完成的 exportAsset 不再创建
- // ObjectURL 也不 setThumbnail,避免覆盖更新值与孤儿 URL
- // - inflightRef:同一 asset 在上一轮 effect 还在 await 时,新一轮 effect
- // 不再重复发起(批量导入 assets 频繁变化场景)
+ // TD-5.1:缩略图生成统一在 store.ensureThumbnails 中管理(创建/替换/释放闭环)。
+ // 组件只需在 assets 变化时触发一次,inflight 去重 + 资产存在性检查在 store 内完成。
  React.useEffect(() => {
- if (!runtime) return;
- let cancelled = false;
- const inflight = inflightRef.current;
- for (const asset of assets) {
- if (thumbnails[asset.id]) continue;
- if (asset.type !== 'image') continue;
- if (inflight.has(asset.id)) continue;
- inflight.add(asset.id);
- (async () => {
- try {
- const blob = await runtime.exportAsset(asset.id);
- // effect 已过期或资产已删除:不创建 ObjectURL(零泄漏)
- if (cancelled) return;
- const url = URL.createObjectURL(blob);
- if (cancelled) {
- // 双重检查:await 与 createObjectURL 之间可能被取消
- URL.revokeObjectURL(url);
- return;
- }
- setThumbnail(asset.id, url);
- } catch {
- // ignore export 失败
- } finally {
- inflight.delete(asset.id);
- }
- })();
- }
- return () => {
- cancelled = true;
- };
- // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [assets, runtime]);
+ ensureThumbnails();
+ }, [assets, ensureThumbnails]);
 
  // 资产中实际存在的类型(仅展示有意义的 chip,避免空类型噪音)
  const availableTypes = React.useMemo(() => {
