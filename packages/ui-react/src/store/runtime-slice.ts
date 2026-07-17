@@ -7,6 +7,7 @@
 import type { StateCreator } from 'zustand';
 import type { LokvisEvent } from '@lokvis/schema';
 import type { WorkspaceStore, WorkspaceState, WorkspaceActions } from './types.js';
+import { reuseSubscription } from './subscribe-utils.js';
 
 export interface RuntimeSlice
   extends Pick<
@@ -38,8 +39,23 @@ export const createRuntimeSlice: StateCreator<
   [],
   RuntimeSlice
 > = (set, get) => {
-  /** 当前 store 实例的历史订阅解除函数(闭包私有,实例间隔离) */
-  let offHistoryChanged: (() => void) | null = null;
+  /**
+   * 当前 store 实例的历史订阅(TD-6.2 重入安全订阅)。
+   * reuseSubscription 在 subscribe() 时自动清理上一个订阅,避免重复订阅泄漏。
+   * 每个闭包持有独立实例,多个 store 实例(测试 / 多 Workspace)互不干扰。
+   */
+  const historySub = reuseSubscription(() => {
+    const { runtime } = get();
+    if (!runtime) return () => {};
+    return runtime.eventBus.on('history:changed', (e: LokvisEvent) => {
+      if (e.type !== 'history:changed') return;
+      set({
+        historyEntries: e.entries,
+        historyCursor: e.currentIndex,
+        historyWorkflowId: e.workflowId,
+      });
+    });
+  });
 
   return {
     runtime: null,
@@ -52,25 +68,14 @@ export const createRuntimeSlice: StateCreator<
     storageUsage: null,
 
     async init(runtime) {
-      // 重入 init 时先清理上一次的历史订阅(避免重复订阅泄漏)
-      if (offHistoryChanged) {
-        offHistoryChanged();
-        offHistoryChanged = null;
-      }
       set({ runtime, initializing: true, initError: null });
       try {
         // W7.1: 订阅 history:changed,把 runtime 历史事件桥接到 store,
         // 使 HistoryPanel 无需各自订阅,store 成为历史状态单一来源。
         // workspace 单工作流场景下直接采用事件携带的 workflowId/entries/cursor
         // 覆盖 store,无需额外过滤。
-        offHistoryChanged = runtime.eventBus.on('history:changed', (e: LokvisEvent) => {
-          if (e.type !== 'history:changed') return;
-          set({
-            historyEntries: e.entries,
-            historyCursor: e.currentIndex,
-            historyWorkflowId: e.workflowId,
-          });
-        });
+        // TD-6.2: reuseSubscription 在重入 init 时自动清理上一次订阅
+        historySub.subscribe();
         await get().refreshAssets();
         await get().refreshCapabilities();
         await get().refreshStorageUsage();

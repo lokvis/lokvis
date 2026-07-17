@@ -13,6 +13,7 @@ import { MAX_WORKFLOW_STEPS, type Asset } from '@lokvis/schema';
 import { buildLinearWorkflow } from '@lokvis/workflow';
 import type { WorkspaceNode } from '../types.js';
 import type { WorkspaceStore, WorkspaceState, WorkspaceActions } from './types.js';
+import { subscribeAll } from './subscribe-utils.js';
 import { genNodeId } from './types.js';
 
 export interface WorkflowSlice
@@ -194,15 +195,13 @@ export const createWorkflowSlice: StateCreator<
     //
     // 修复：订阅 node:started / node:finished / node:failed 事件实时更新节点状态，
     //       这样 completed/failed/cancelled 三种情况下节点状态都精确
-    const offStarted = runtime.eventBus.on('node:started', (e) => {
-      get().setNodeStatus(e.nodeId, 'running');
-    });
-    const offFinished = runtime.eventBus.on('node:finished', (e) => {
-      get().setNodeStatus(e.nodeId, 'success', undefined, e.duration);
-    });
-    const offNodeFailed = runtime.eventBus.on('node:failed', (e) => {
-      const errMsg = e.error instanceof Error ? e.error.message : String(e.error);
-      get().setNodeStatus(e.nodeId, 'failed', errMsg);
+    const offAll = subscribeAll(runtime.eventBus, {
+      'node:started': (e) => get().setNodeStatus(e.nodeId, 'running'),
+      'node:finished': (e) => get().setNodeStatus(e.nodeId, 'success', undefined, e.duration),
+      'node:failed': (e) => {
+        const errMsg = e.error instanceof Error ? e.error.message : String(e.error);
+        get().setNodeStatus(e.nodeId, 'failed', errMsg);
+      },
     });
 
     try {
@@ -285,9 +284,7 @@ export const createWorkflowSlice: StateCreator<
     } finally {
       // W11.6: 清除 currentRunId(成功/失败/取消都应清除)
       set({ currentRunId: null });
-      offStarted();
-      offFinished();
-      offNodeFailed();
+      offAll();
     }
   },
 
