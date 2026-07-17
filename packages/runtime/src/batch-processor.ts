@@ -167,6 +167,29 @@ export class BatchProcessor {
     this.pruneJobs();
   }
 
+  /**
+   * 取消所有非终态 job + 清理 progress 订阅(W21.6 runtime.dispose 用)。
+   *
+   * 与单 job cancel 不同:不等待 runtime.cancel(wfId) 完成 —— runtime
+   * 自身的 dispose 会通过 executor.cancelAll 统一取消所有 workflow,
+   * 这里只做 batch 层面的状态标记 + 订阅清理,避免双 await 死锁。
+   */
+  async dispose(): Promise<void> {
+    for (const job of [...this.jobs.values()]) {
+      if (this.scheduler.isTerminal(job.status)) continue;
+      job.cancelled = true;
+      job.paused = false;
+      for (const item of job.items) {
+        if (item.status === 'processing' || item.status === 'pending') {
+          item.status = 'cancelled';
+        }
+      }
+      job.status = 'cancelled';
+      job.endedAt = Date.now();
+      this.progress.cleanupJobSubs(job.id);
+    }
+  }
+
   async pause(jobId: string): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) return;

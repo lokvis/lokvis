@@ -159,3 +159,40 @@ describe('runtime.run schema 校验（修复 review：__input__ 哨兵边误判�
     expect(runtime.status).toBe('error');
   });
 });
+
+// ─── W21.6: runtime.dispose() ─────────────────────────────────
+
+describe('runtime.dispose() (W21.6)', () => {
+  it('dispose 后再调 run/cancel/pause/resume/disposeWorkflow 应抛 disposed 错', async () => {
+    const runtime = await createRuntime({ enableOpfs: false });
+    await runtime.dispose();
+
+    const wf: Workflow = {
+      id: 'wf-x', version: '1.0.0', name: 'x', description: 'd',
+      author: { id: 'a', name: 'tester' }, category: 'image', tags: [],
+      nodes: [], edges: [],
+      inputs: { type: 'image', multiple: false },
+      outputs: { type: 'image' },
+    };
+    await expect(runtime.run(wf, [])).rejects.toThrow(/disposed/);
+    await expect(runtime.cancel('any')).rejects.toThrow(/disposed/);
+    await expect(runtime.pause('any')).rejects.toThrow(/disposed/);
+    await expect(runtime.resume('any')).rejects.toThrow(/disposed/);
+    await expect(runtime.disposeWorkflow('any')).rejects.toThrow(/disposed/);
+  });
+
+  it('dispose 应幂等:重复调用不抛错', async () => {
+    const runtime = await createRuntime({ enableOpfs: false });
+    await runtime.dispose();
+    await expect(runtime.dispose()).resolves.toBeUndefined();
+  });
+
+  it('dispose 后 history 应返回空数组(历史栈已清空)', async () => {
+    const runtime = await createRuntime({ enableOpfs: false });
+    // 先 dispose 一个未存在的 workflowId 不会抛错(disposeHistory 内 stack 为 undefined 时 no-op)
+    await runtime.dispose();
+    await expect(runtime.history('any-wf')).resolves.toEqual([]);
+    const state = await runtime.getHistoryState('any-wf');
+    expect(state).toEqual({ entries: [], cursor: -1 });
+  });
+});

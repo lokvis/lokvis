@@ -51,6 +51,8 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   private workflowCoordinator: WorkflowCoordinator; // W1.4:status 状态机 + run/cancel/pause/resume/disposeWorkflow
   private historyStore: HistoryStore | undefined; // W7.2 历史持久化;undefined 时退化为仅内存历史
   private metadataReaders = new Map<string, MetadataReader>(); // W7.3/7.4 MetadataReader 依赖反转
+  // W21.6: dispose 守卫,防止重复 dispose + 阻止后续 run/cancel 调用
+  private disposed = false;
 
   /** 注册元数据读取器(由 PluginContext.registerMetadataReader 转发,内部 API) */
   _registerMetadataReader(name: string, reader: MetadataReader): void {
@@ -115,12 +117,57 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
 
   // ─── 工作流执行(委托 WorkflowCoordinator) ──────────────
   async run(workflow: Workflow, inputs: AssetId[] | Asset[], options?: RunOptions): Promise<WorkflowResult> {
+    if (this.disposed) throw new Error('LokvisRuntime is disposed');
     return this.workflowCoordinator.run(workflow, inputs, options);
   }
-  async cancel(workflowId: string): Promise<void> { return this.workflowCoordinator.cancel(workflowId); }
-  async pause(workflowId: string): Promise<void> { return this.workflowCoordinator.pause(workflowId); }
-  async resume(workflowId: string): Promise<void> { return this.workflowCoordinator.resume(workflowId); }
-  async disposeWorkflow(workflowId: string): Promise<void> { return this.workflowCoordinator.disposeWorkflow(workflowId); }
+  async cancel(workflowId: string): Promise<void> {
+    if (this.disposed) throw new Error('LokvisRuntime is disposed');
+    return this.workflowCoordinator.cancel(workflowId);
+  }
+  async pause(workflowId: string): Promise<void> {
+    if (this.disposed) throw new Error('LokvisRuntime is disposed');
+    return this.workflowCoordinator.pause(workflowId);
+  }
+  async resume(workflowId: string): Promise<void> {
+    if (this.disposed) throw new Error('LokvisRuntime is disposed');
+    return this.workflowCoordinator.resume(workflowId);
+  }
+  async disposeWorkflow(workflowId: string): Promise<void> {
+    if (this.disposed) throw new Error('LokvisRuntime is disposed');
+    return this.workflowCoordinator.disposeWorkflow(workflowId);
+  }
+
+  /**
+   * 销毁整个 Runtime(W21.6)。
+   *
+   * 顺序:
+   * 1. 标记 disposed(阻止后续 run/cancel,防止清理期间新请求进入)
+   * 2. executor.cancelAll() —— 取消所有运行中 workflow 的 AbortController
+   * 3. batchProcessor.dispose() —— 标记所有非终态 job 为 cancelled + 清理订阅
+   * 4. historyManager.disposeAll() —— 清空所有历史栈(reset 触发 onEvict
+   *    → assetStore.remove 回收 outputs 资产)
+   * 5. 清理 metadataReaders
+   *
+   * 不清理:
+   * - assetStore(由消费方注入,由其所有者管理生命周期)
+   * - historyStore(同上,且 Dexie 连接由浏览器 GC 处理)
+   * - eventBus listeners(允许外部已订阅的 listener 仍收到最后一批
+   *   workflow:cancelled 等事件;若需要清空可单独调 eventBus.clear)
+   *
+   * 幂等:重复调用为 no-op。
+   */
+  async dispose(): Promise<void> {
+    if (this.disposed) return;
+    this.disposed = true;
+    // 1. 取消所有运行中 workflow(同步 abort + 唤醒 resume resolver)
+    this.executor.cancelAll();
+    // 2. 取消所有非终态 batch job + 清理 progress 订阅
+    await this.batchProcessor.dispose();
+    // 3. 清空所有历史栈(触发 outputs 资产回收)
+    this.historyManager.disposeAll();
+    // 4. 清理 metadataReaders(释放插件注册的 reader 引用)
+    this.metadataReaders.clear();
+  }
 
   // ─── 历史与撤销(委托 HistoryManager) ──────────────────
   async history(workflowId: string): Promise<HistoryEntry[]> { return this.historyManager.history(workflowId); }

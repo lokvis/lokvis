@@ -148,6 +148,20 @@ export interface LokvisRuntime {
    * 与 AssetStore 中孤儿资产泄漏。ui-react 应在 Workspace 卸载时调用。
    */
   disposeWorkflow(workflowId: string): Promise<void>;
+  /**
+   * 销毁整个 Runtime:取消所有运行中 workflow + 批处理任务,
+   * 清空所有历史栈(触发 outputs 资产回收),清理 eventBus 订阅。
+   *
+   * W21.6: 修复长会话 / SPA 卸载场景的资源泄漏。在以下时机调用:
+   * - SPA 整体卸载(window beforeunload 或 React root unmount)
+   * - 测试 afterEach 清理
+   * - 消费方明确知道不再使用此 runtime 实例时
+   *
+   * 注:AssetStore 由消费方注入,不由 dispose() 关闭(外部资源应由其所有者管理)。
+   * 调用 dispose() 后再调 run()/cancel() 等方法会抛 'Runtime is disposed'。
+   * 幂等:重复调用为 no-op。
+   */
+  dispose(): Promise<void>;
 
   // ─── 历史与撤销 ──────────────────────────────────────
   /** 获取工作流的执行历史 */

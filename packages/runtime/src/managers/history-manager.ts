@@ -224,6 +224,21 @@ export class HistoryManager {
   }
 
   /**
+   * 清理所有工作流的历史栈(W21.6 runtime.dispose 用)。
+   *
+   * 复制 keys 后逐个 disposeHistory,触发 onEvict 回收 outputs 资产。
+   * 与 disposeHistory 一样是同步操作(persistHistory 是 fire-and-forget)。
+   */
+  disposeAll(): void {
+    // 复制一份:disposeHistory 内 stack.reset() → onEvict → assetStore.remove
+    // 可能间接触发其他 listener 改动 historyStacks(理论上不会,但防御性写法)
+    for (const workflowId of [...this.historyStacks.keys()]) {
+      this.disposeHistory(workflowId);
+    }
+    this.dirtyDuringLoad.clear();
+  }
+
+  /**
    * 把工作流当前历史快照写入 historyStore(W7.2)。
    *
    * 时序:currentOutputs 从 stack snapshot 派生(cursor === -1 用 initialInputs,
