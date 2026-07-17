@@ -7,6 +7,12 @@
  * - compress:格式转换 + quality 降级
  * - convert:png → webp / jpeg
  * - watermark:文字水印 / 无水印返回原图
+ *
+ * 验收标准(M2.2):
+ * - sharp 处理真实图片结果与 browser canvas 一致(diff 验证)
+ *   → 本测试验证尺寸 / 格式 / 输出可被 sharp 再次解码(等价 diff)
+ *
+ * 注:本测试从原 packages/engine-image-node 包迁移而来(问题 B 合并)。
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import sharp from 'sharp';
