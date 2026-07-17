@@ -66,6 +66,7 @@ const langBase = `${base}${lang}/`;
 import InstallPrompt from '@/components/pwa/InstallPrompt.tsx';
 import OfflineIndicator, { OfflineStatusDot } from '@/components/pwa/OfflineIndicator.tsx';
 import EngineLoader from '@/components/pwa/EngineLoader.tsx';
+import BrowserSupportBanner from '@/components/pwa/BrowserSupportBanner.tsx';
 
 // 导航分三组（label/desc 改为翻译 key，href 加 lang 前缀）
 interface NavItem {
@@ -166,6 +167,10 @@ const currentPath = Astro.url.pathname;
   <body class="h-screen overflow-hidden bg-zinc-950 text-zinc-100">
     {/* PWA OfflineIndicator banner（W15.5）—— 顶部固定，离线时滑入 */}
     <OfflineIndicator client:only="react" />
+
+    {/* 浏览器支持降级提示（W22.4）—— Firefox / OPFS / OffscreenCanvas 缺失时显示
+        client:only="react"：依赖 navigator / sessionStorage,SSR 不可用 */}
+    <BrowserSupportBanner client:only="react" />
 
     <div class="flex h-full flex-col">
       {/* 顶部品牌条 */}
