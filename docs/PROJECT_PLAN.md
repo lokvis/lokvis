@@ -448,7 +448,7 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 23.1 | README 终版:GIF 演示、特性矩阵、徽章 | P0 | 4h | ⬜ | README |
+| 23.1 | README 终版:GIF 演示、特性矩阵、徽章 | P0 | 4h | ✅ | README.md 终版(Why Lokvis 痛点对比表 + 特性矩阵图像能力 11 项/基础设施 9 项/Phase 2 路线图 + 徽章扩展 9 个 PRs Welcome/Discord/Discussions/Astro/React + Hero GIF 占位 + 文档社区章节 + Star History + 数字校正 787 测试/91.62% 覆盖率/23 包/7 示例 + npm 未发布说明 + 在线体验链接 docs/playground.lokvis.dev,495 行) |
 | 23.2 | CONTRIBUTING.md + 贡献者协议 | P0 | 4h | ✅ | `CONTRIBUTING.md` — 环境要求(Node 22+/pnpm 9.12.0)+ 初次启动 + 五层架构约束(指向 AGENTS.md)+ 代码风格(oxlint/prettier)+ 测试约定(Vitest+Playwright)+ Conventional Commits + 分支命名 + PR 流程 + Issue 报告 + License 贡献(本批 23.2-23.4 同 commit 7ce9126) |
 | 23.3 | CODE_OF_CONDUCT.md | P0 | 2h | ✅ | `CODE_OF_CONDUCT.md` — Contributor Covenant 2.1,违规报告邮箱 conduct@lokvis.dev |
 | 23.4 | Issue/PR 模板(`.github/`) | P0 | 2h | ✅ | `.github/ISSUE_TEMPLATE/bug_report.yml`(含隐私优先提示)+ `feature_request.yml`(指向 PROJECT_PLAN.md §11 不做清单)+ `config.yml`(blank_issues_enabled: false)+ `PULL_REQUEST_TEMPLATE.md`(变更说明/变更类型/架构影响/验证/Breaking Changes/Checklist)+ `CODEOWNERS`(默认 @lokvis/maintainers,核心架构层显式列)+ README.md 贡献段落精简为 TL;DR 指向 CONTRIBUTING.md |
