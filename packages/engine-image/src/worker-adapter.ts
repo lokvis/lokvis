@@ -204,6 +204,10 @@ export function isBlobRef(v: unknown): v is BlobRef {
     typeof v === 'object' &&
     v !== null &&
     (v as { kind?: unknown }).kind === 'blob' &&
+    // 注意:typeof null === 'object'(JS 历史遗留),必须显式排除 null,
+    // 否则 { kind:'blob', meta:null, buffer:ArrayBuffer } 会被误判为 BlobRef。
+    // 与 packages/runtime/src/worker-protocol.ts 的 isBlobRef 同步。
+    (v as { meta?: unknown }).meta !== null &&
     typeof (v as { meta?: unknown }).meta === 'object' &&
     (v as { buffer?: unknown }).buffer instanceof ArrayBuffer
   );

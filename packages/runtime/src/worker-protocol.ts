@@ -109,6 +109,10 @@ export function isBlobRef(data: unknown): data is BlobRef {
     typeof data === 'object' &&
     data !== null &&
     (data as { kind?: unknown }).kind === 'blob' &&
+    // 注意:typeof null === 'object'(JS 历史遗留),必须显式排除 null,
+    // 否则 { kind:'blob', meta:null, buffer:ArrayBuffer } 会被误判为 BlobRef,
+    // 导致 unwrapBlobRef 访问 meta.type 时抛 TypeError。
+    (data as { meta?: unknown }).meta !== null &&
     typeof (data as { meta?: unknown }).meta === 'object' &&
     (data as { buffer?: unknown }).buffer instanceof ArrayBuffer
   );
