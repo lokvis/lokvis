@@ -90,6 +90,10 @@ function BatchQueueContent() {
   // 调度器引用(打破 processItem ↔ schedule 的循环依赖)
   const scheduleRef = useRef<() => void>(() => {});
 
+  // W21.6: 跟踪进行中的 workflow id + 组件挂载状态,unmount 时 cancel 避免后台泄漏
+  const processingWfIdsRef = useRef<Set<string>>(new Set());
+  const mountedRef = useRef(true);
+
   // ref 与 state 同步更新:ref 为源,触发 re-render
   const commit = useCallback((next: QueueItem[]) => {
     queueRef.current = next;
@@ -103,10 +107,10 @@ function BatchQueueContent() {
     [commit]
   );
 
-  // 构造 compress workflow(每次 run 唯一 id,便于 cancel/history)
+  // 构造 compress workflow(id 由调用方传入,便于 processItem 提前登记到 cancel 跟踪)
   const buildWorkflow = useCallback(
-    (item: QueueItem): Workflow => ({
-      id: `batch-${item.id}-${Date.now()}`,
+    (workflowId: string): Workflow => ({
+      id: workflowId,
       version: '1.0',
       name: 'Batch Compress',
       description: 'Batch compress images',
@@ -128,22 +132,31 @@ function BatchQueueContent() {
     async (item: QueueItem) => {
       const rt = runtimeRef.current;
       if (!rt) return;
+      // W21.6: workflowId 提前生成并登记,unmount 时可统一 cancel
+      const workflowId = `batch-${item.id}-${Date.now()}`;
+      processingWfIdsRef.current.add(workflowId);
       try {
         const assetId = await rt.importAsset({ kind: 'file', file: item.file });
-        const result = await rt.run(buildWorkflow(item), [assetId]);
+        // 已 unmount:不再 patch state,也不再调度后续(避免泄漏 + 无效更新)
+        if (!mountedRef.current) return;
+        const result = await rt.run(buildWorkflow(workflowId), [assetId]);
+        if (!mountedRef.current) return;
         if (result.status === 'completed' && result.outputs[0]) {
           const blob = await rt.exportAsset(result.outputs[0]);
+          if (!mountedRef.current) return;
           patchItem(item.id, { status: 'done', outputBlob: blob, outputSize: blob.size });
         } else {
           patchItem(item.id, { status: 'error', error: result.error ?? t('batch.processFailed') });
         }
       } catch (err) {
+        if (!mountedRef.current) return;
         patchItem(item.id, {
           status: 'error',
           error: err instanceof Error ? err.message : String(err),
         });
       } finally {
-        scheduleRef.current();
+        processingWfIdsRef.current.delete(workflowId);
+        if (mountedRef.current) scheduleRef.current();
       }
     },
     [buildWorkflow, patchItem, t]
@@ -186,6 +199,22 @@ function BatchQueueContent() {
   useEffect(() => {
     scheduleRef.current = schedule;
   }, [schedule]);
+
+  // W21.6: unmount 时 cancel 所有进行中 workflow,防止 fire-and-forget 的
+  // processItem 在后台继续执行(rt.run 持有 Worker + 内存,泄漏风险 P0)
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const rt = runtimeRef.current;
+      if (!rt) return;
+      for (const wfId of processingWfIdsRef.current) {
+        // cancel 是 idempotent 的:不存在的 workflowId 安全无副作用
+        void rt.cancel(wfId).catch(() => {});
+      }
+      processingWfIdsRef.current.clear();
+    };
+  }, []);
 
   const handleFiles = useCallback(
     (files: File[]) => {
