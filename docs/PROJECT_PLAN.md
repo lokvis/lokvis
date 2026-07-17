@@ -429,7 +429,7 @@
 | 21.3 | Bundle 分析 + 代码分割 | P0 | 4h | ⬜ | build |
 | 21.4 | Runtime 性能:Worker 通信开销优化(Transferable) | P0 | 6h | ⬜ | runtime |
 | 21.5 | 大文件 streaming 优化:4K 图/长 PDF | P0 | 4h | ⬜ | engine |
-| 21.6 | 内存泄漏排查:长时间使用 heap snapshot | P0 | 6h | ⬜ | 全栈 |
+| 21.6 | 内存泄漏排查:长时间使用 heap snapshot | P0 | 6h | ✅ | engine-image bitmap try/finally + AssetStore dispose(Memory/OPFS/IDB 三层)+ Runtime ownsAssetStore 清理 + wrapAssetStoreWithQuota 透传 dispose + LokvisRuntime.dispose() 统一入口 + ToolRunner/BatchQueue unmount abort + ObjectURL revoke(5 commit: be64b4a / 23d41b9 / 759f858 / cabf02e / ed7b156) |
 | 21.7 | Lighthouse 跑分验证 | P0 | 4h | ⬜ | 报告 |
 | 21.8 | 缓冲 | P0 | 4h | ⬜ | — |
 
@@ -439,9 +439,9 @@
 |---|---|---|---|---|---|
 | 22.1 | Sentry 错误聚合 Top 20 修复 | P0 | 12h | ⬜ | 多处 |
 | 22.2 | 跨浏览器测试:Chrome/Edge P0、Safari P1、Firefox P2 | P0 | 8h | ⬜ | 测试报告 |
-| 22.3 | Safari 降级路径:WebCodecs→Canvas、OPFS→IndexedDB | P0 | 6h | ⬜ | engine/runtime |
-| 22.4 | Firefox 降级提示 UI | P1 | 2h | ⬜ | apps/playground |
-| 22.5 | 端到端测试(Playwright)覆盖 6 工具主流程 | P0 | 8h | ⬜ | e2e |
+| 22.3 | Safari 降级路径:WebCodecs→Canvas、OPFS→IndexedDB | P0 | 6h | ✅ | `packages/runtime/src/browser-detect.ts` — 14 项能力检测(createImageBitmap/OffscreenCanvas/OPFS/WebCodecs/WebGL2/IndexedDB/crypto.randomUUID 等)+ UA 嗅探 + 缓存机制 + force 选项重算(commit d40247c) |
+| 22.4 | Firefox 降级提示 UI | P1 | 2h | ✅ | `apps/playground/src/components/pwa/BrowserSupportBanner.tsx` + `computeBanners.ts`(纯逻辑抽离便于测试)+ sessionStorage dismiss 模式 + 7 单测覆盖全部逻辑分支(commit 807fd44) |
+| 22.5 | 端到端测试(Playwright)覆盖 6 工具主流程 | P0 | 8h | ✅ | `playwright.config.ts`(baseURL 5601 + webServer 自动拉起 astro dev + 仅 chromium)+ `tests/fixtures/images.ts`(Node zlib 手工 PNG 编码,不依赖 sharp/canvas)+ `tests/e2e/helpers.ts`(uploadImage + runToolAndExpectOutput)+ 6 工具 spec(resize/crop/convert/compress/watermark/watermark-batch)+ .gitignore + package.json test:e2e 脚本(commit 9e17eb3) |
 | 22.6 | 缓冲 | P0 | 4h | ⬜ | — |
 
 ### W23 · 文档定稿 + 开源发布准备(40h)
@@ -449,9 +449,9 @@
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
 | 23.1 | README 终版:GIF 演示、特性矩阵、徽章 | P0 | 4h | ⬜ | README |
-| 23.2 | CONTRIBUTING.md + 贡献者协议 | P0 | 4h | ⬜ | docs |
-| 23.3 | CODE_OF_CONDUCT.md | P0 | 2h | ⬜ | docs |
-| 23.4 | Issue/PR 模板(`.github/`) | P0 | 2h | ⬜ | .github |
+| 23.2 | CONTRIBUTING.md + 贡献者协议 | P0 | 4h | ✅ | `CONTRIBUTING.md` — 环境要求(Node 22+/pnpm 9.12.0)+ 初次启动 + 五层架构约束(指向 AGENTS.md)+ 代码风格(oxlint/prettier)+ 测试约定(Vitest+Playwright)+ Conventional Commits + 分支命名 + PR 流程 + Issue 报告 + License 贡献 |
+| 23.3 | CODE_OF_CONDUCT.md | P0 | 2h | ✅ | `CODE_OF_CONDUCT.md` — Contributor Covenant 2.1,违规报告邮箱 conduct@lokvis.dev |
+| 23.4 | Issue/PR 模板(`.github/`) | P0 | 2h | ✅ | `.github/ISSUE_TEMPLATE/bug_report.yml`(含隐私优先提示)+ `feature_request.yml`(指向 PROJECT_PLAN.md §11 不做清单)+ `config.yml`(blank_issues_enabled: false)+ `PULL_REQUEST_TEMPLATE.md`(变更说明/变更类型/架构影响/验证/Breaking Changes/Checklist)+ `CODEOWNERS`(默认 @lokvis/maintainers,核心架构层显式列)+ README.md 贡献段落精简为 TL;DR 指向 CONTRIBUTING.md |
 | 23.5 | 文档站公开(docs.lokvis.dev 或 lokvis.dev/docs) | P0 | 4h | ⬜ | 部署 |
 | 23.6 | 开源协议审计终版:THIRD_PARTY_LICENSES | P0 | 4h | ⬜ | docs |
 | 23.7 | GitHub Releases v0.1.0 changelog | P0 | 4h | ⬜ | release |

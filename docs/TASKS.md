@@ -4,7 +4,7 @@
 >
 > 详细任务拆分见交叉引用文档，本文档聚焦**状态追踪与下一步行动**。
 >
-> 最后更新：2026-07-15
+> 最后更新：2026-07-17
 
 ---
 
@@ -12,11 +12,11 @@
 
 | 阶段 | 总任务数 | ✅ 完成 | ⬜ 待办 | ⛔ 废弃 | ⏭️ 延后 | 完成率 |
 |------|---------|---------|---------|---------|---------|--------|
-| **Phase 1** (W1-W24) | ~90 | ~85 | 0 | 4 | 3 | 94% |
+| **Phase 1** (W1-W24) | ~95 | ~92 | 0 | 4 | 3 | 97% |
 | **Phase 1.5** (架构优化) | 21 | 21 | 0 | 0 | 0 | 100% |
 | **Phase 2** (MCP/Engine/Workflow) | 9 | 6 | 0 | 0 | 3 | 67% |
 | **技术债务** | 16 | 9 | 7 | — | — | 56% |
-| **合计** | ~136 | ~121 | 0 | 4 | 6 | 89% |
+| **合计** | ~141 | ~128 | 0 | 4 | 6 | 91% |
 
 ---
 
@@ -30,7 +30,7 @@
 |--------|---------|------|------|
 | M1.1 Alpha | 2026.09.30 | ✅ 已达成 | 2026-07-04 W12.1 Go 决策通过 |
 | M1.2 Beta | 2026.10.31 | 🟡 代码侧就绪 | 待运维部署 + 真实用户反馈 |
-| M1.3 发布 | 2026.12.15 | ⬜ 待开始 | W21-W24 全部待启动 |
+| M1.3 发布 | 2026.12.15 | 🟡 部分启动 | W21.6 + W22.3/22.4/22.5 + W23.2/23.3/23.4 完成 |
 | M1.4 首个 $1K MRR | 2027.02.28 | ⬜ 待开始 | cloud 侧验证 |
 
 ### 按月进度
@@ -42,7 +42,7 @@
 | M3 | W9-W12 | Workspace UI + Workflow Layer（SPA + 拖拽编辑器 + 5 步编排 + Alpha） | ✅ 代码侧完成 |
 | M4 | W13-W16 | npm 发版 + Playground 5 demo + PWA | ✅ 完成 |
 | M5 | W17-W20 | SDK 公开 + 文档 + Plugin SDK Alpha + CLI 最小版 | 🟡 26/31 完成（17.2/17.3/17.4/17.5/17.6/17.7/17.8/17.11 + 18.1/18.2/18.3/18.6 + 19.1/19.2/19.3/19.4/19.5/19.6/19.7/19.9 + 20.1-20.6 完成;17.1/17.9/18.7/19.8/20.8 待办） |
-| M6 | W21-W24 | 性能优化 + 跨浏览器测试 + 开源发布 + Product Hunt | ⬜ 全部待开始 |
+| M6 | W21-W24 | 性能优化 + 跨浏览器测试 + 开源发布 + Product Hunt | 🟡 7/30 完成(W21.6 + W22.3/22.4/22.5 + W23.2/23.3/23.4) |
 
 ### M5/W17-W20 待办明细
 
@@ -59,10 +59,10 @@
 
 | 任务 | 优先级 | 状态 |
 |------|--------|------|
-| 21.1-21.8 LCP<2.5s + WASM<5s + Bundle 分析 + 大文件 streaming + 内存泄漏 + Lighthouse | P0 | ⬜ |
-| 22.1-22.6 Sentry Top20 修复 + 跨浏览器测试 + Safari 降级 + Playwright E2E | P0 | ⬜ |
-| 23.1-23.9 README 终版 + CONTRIBUTING + Issue/PR 模板 + 文档站公开 + GitHub Releases | P0 | ⬜ |
-| 24.1-24.7 Product Hunt + HN + Reddit + 发布日监控 + Phase 1 复盘 | P0 | ⬜ |
+| 21.1-21.8 LCP<2.5s + WASM<5s + Bundle 分析 + 大文件 streaming + 内存泄漏 + Lighthouse | P0 | 🟡 21.6 完成(内存泄漏修复 5 commit:engine-image bitmap try/finally + AssetStore dispose + Runtime ownsAssetStore + ToolRunner/BatchQueue unmount abort + ObjectURL revoke);21.1/21.2/21.3/21.4/21.5/21.7/21.8 待办 |
+| 22.1-22.6 Sentry Top20 修复 + 跨浏览器测试 + Safari 降级 + Playwright E2E | P0 | 🟡 22.3/22.4/22.5 完成(browser-detect 14 项能力检测 + Firefox 降级提示 UI + 6 工具 Playwright E2E);22.1/22.2/22.6 待办 |
+| 23.1-23.9 README 终版 + CONTRIBUTING + Issue/PR 模板 + 文档站公开 + GitHub Releases | P0 | 🟡 23.2/23.3/23.4 完成(CONTRIBUTING.md + CODE_OF_CONDUCT.md + Issue/PR 模板 + CODEOWNERS);23.1/23.5/23.6/23.7/23.8/23.9 待办 |
+| 24.1-24.7 Product Hunt + HN + Reddit + 发布日监控 + Phase 1 复盘 | P0 | ⬜ 全部待办 |
 
 ### 废弃任务（ADR-012 商业资产迁出）
 
@@ -202,6 +202,11 @@
 
 ### 已完成（最近）
 
+- ✅ **W23.2 / W23.3 / W23.4**（2026-07-17,commit 7ce9126）— 开源发布文档体系:`CONTRIBUTING.md`(环境要求 Node 22+/pnpm 9.12.0 + 初次启动 + 五层架构约束指向 AGENTS.md + oxlint/prettier + Vitest+Playwright 测试约定 + Conventional Commits + 分支命名 + PR 流程 + Issue 报告 + License 贡献,关键红线:Engine 函数签名用 Record<string,any>、禁止 as unknown as 双断言、fetch 必须检查 ok、EventBus emit 遍历副本+try/catch、File 用 new File([blob],name,{type}))+ `CODE_OF_CONDUCT.md`(Contributor Covenant 2.1,违规报告邮箱 conduct@lokvis.dev)+ `.github/ISSUE_TEMPLATE/bug_report.yml`(含隐私优先提示:不用真实用户文件)+ `feature_request.yml`(指向 PROJECT_PLAN.md §11 不做清单)+ `config.yml`(blank_issues_enabled: false)+ `PULL_REQUEST_TEMPLATE.md`(变更说明/变更类型/架构影响/验证/Breaking Changes/Checklist)+ `CODEOWNERS`(默认 @lokvis/maintainers,schema/runtime/capability/engine-image + CI/工具链显式列)+ README.md 贡献段落精简为 TL;DR 指向 CONTRIBUTING.md。
+- ✅ **W22.5**（2026-07-17,commit 9e17eb3）— Playwright E2E 覆盖 6 工具主流程:`playwright.config.ts`(baseURL 5601 + webServer 自动拉起 astro dev + reuseExistingServer=!CI + 仅 chromium project + retry/trace/screenshot 配置)+ `tests/fixtures/images.ts`(Node zlib + 手工 PNG 编码生成 256×256 纯色 PNG,不依赖 sharp/canvas:CRC32 表懒初始化 + chunk(type,data) 函数 + IHDR/IDAT/IEND 三段编码,导出 makePng + TEST_PNG 红 + TEST_PNG_BLUE 蓝)+ `tests/e2e/helpers.ts`(uploadImage:对 hidden input[type=file] setInputFiles;runToolAndExpectOutput:waitForFunction 等按钮启用 + 等 Download 按钮出现)+ 6 工具 spec(resize/crop/convert/compress/watermark 单图工具用 runToolAndExpectOutput;watermark-batch 不同:先等 input attached → 上传 3 文件 → 等文件名可见 → 等 "Watermark all" 按钮启用 → 点击 → 等 3 个 Done 状态徽章)+ .gitignore 新增 test-results/playwright-report/playwright/.cache + package.json 新增 test:e2e 脚本。验证:6 工具 spec 全部通过。
+- ✅ **W22.4**（2026-07-17,commit 807fd44）— Firefox / 浏览器能力降级提示 UI:`apps/playground/src/components/pwa/BrowserSupportBanner.tsx`(React useEffect + sessionStorage dismiss 模式,首次会话显示横幅,用户 dismiss 后本会话不再显示)+ `computeBanners.ts`(纯逻辑抽离:把 detectBrowserSupport() 结果映射为 banner 类型数组,便于单测)+ 7 单测覆盖全部逻辑分支(Firefox 显示提示/Chrome 不显示/dismiss 后隐藏/会话边界等)。
+- ✅ **W22.3**（2026-07-17,commit d40247c）— 浏览器能力检测 + Safari 降级路径基础设施:`packages/runtime/src/browser-detect.ts`(14 项能力检测:createImageBitmap / OffscreenCanvas / OPFS / WebCodecs / WebGL2 / IndexedDB / crypto.randomUUID / WebSocket / SharedArrayBuffer / WebAssembly SIMD / ImageBitmap fullSupport / Worker module support / crossOriginIsolated / serviceWorker)+ UA 嗅探辅助(浏览器名/版本/平台/移动端/iOS Safari 特例)+ 缓存机制(默认单次检测缓存,force=true 强制重算)+ 纯函数导出 detectBrowserSupport / detectBrowser / isFirefox / isSafari / isIOS。为 22.4 降级 UI 与未来 Safari 降级路径提供基础。
+- ✅ **W21.6**（2026-07-17,5 commit:be64b4a / 23d41b9 / 759f858 / cabf02e / ed7b156 + 0fe21b8）— 内存泄漏修复(5 项子任务):(1) ObjectURL revoke + 监听器/timer cleanup(be64b4a);(2) BatchQueue unmount abort — 跟踪 workflowId + mountedRef(23d41b9);(3) ToolRunner unmount abort — abortRef 清理遗漏(759f858);(4) LokvisRuntime.dispose() — 统一资源释放入口(cabf02e);(5) AssetStore dispose 方法 + Runtime ownsAssetStore 清理(ed7b156:asset-store.ts / opfs-asset-store.ts / idb-asset-store.ts 三层 + wrapAssetStoreWithQuota 透传 dispose + 内部 usage/initialized/chain 重置 + types.ts ownsAssetStore 标志 + runtime-impl.ts dispose 调用,幂等设计 + disposed 守卫);(6) engine-image bitmap try/finally 释放避免异常路径泄漏(0fe21b8:6 个操作文件 11 个操作改为 try/finally)。
 - ✅ **W17.6**（2026-07-15）— examples 升级:embedding 示例接 cloud auth:`UseLokvisOptions` 新增 `auth?: LokvisAuthSession` 字段,透传到 `createLokvis({ auth })`,使 `<Workspace auth={...} />` 自动支持 auth prop(WorkspaceProps extends UseLokvisOptions);`examples/embedding/App.tsx` 升级为 3 模式切换(free/pro/guest)+ 侧边栏 Auth Mode 切换器 + `key={authMode}` remount(useLokvis 只在挂载时初始化一次);README 重写新增 "Cloud auth integration" 章节(3 模式对比表 + 真实集成代码 + guest override + API token);changeset `w17-embed-cloud-auth.md` 标记 ui-react minor bump。验证:typecheck 0 errors + 78 test files / 1350 tests passed。
 - ✅ **W18.1**（2026-07-15）— `@lokvis/plugin-sdk` npm 发版准备(Alpha):`package.json` 补全 npm 元数据(author/homepage/bugs.url/keywords 8 个:lokvis/plugin/sdk/image-processing/browser/local-first/capability/runtime);README "Status: Alpha" 章节更新(权限模型从 "partially enforced (advisory)" 改为 "enforced as of W18.6");新建 changeset `w18-plugin-sdk-alpha-release.md`(minor bump 0.2.2 → 0.3.0,说明 W18.1 元数据 + W18.2 文档 + W18.6 sandbox 接口);新建发版就绪度报告 `docs/reports/W18.1-plugin-sdk-npm-release-readiness.md`(6 章:发版范围 / 20 字段检查表 / changeset 状态 / 6 步运维流程 / Go 结论 / 验证记录)。实际 npm publish 由 release.yml 在 `v*` tag 推送时自动执行,运维侧待执行 changeset version + NPM_TOKEN + tag 触发。
 - ✅ **W19.6**（2026-07-15）— 交互式 Playground 增强:`Playground.tsx` 新增 snippet 选择器(5 例:hello/resize/eventbus/factory/batch)+ localStorage 持久化(代码 + snippetId)+ URL hash 分享(`#code=<base64>`,URL-safe base64 + UTF-8 支持)+ Cmd/Ctrl+Enter 运行快捷键 + 运行耗时显示(ms)+ 重置/复制/分享按钮 + snippet 描述行 + modified 徽标;提取 `playground/snippets.ts` 与 `playground/share.ts` 纯函数模块;新增 9 个 i18n key(snippet/copy/share/reset/modified + 4 个 hint)中英两版;30 单测覆盖(16 share encode/decode/extract/buildShareUrl + 14 snippets 字段/查找/默认/fallback)。

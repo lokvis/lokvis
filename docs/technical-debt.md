@@ -16,7 +16,7 @@
 | 测试时序依赖 | 2 项 | 中 | 需改生产 API 语义,专项评估 |
 | 静默吞错 | 11 处 | 低 | intentional,需 assetStore 错误类型分层才能根治（TD-3.1/3.2/3.3 已部分修复为 warn,8 处全活动） |
 | 类型层面 workaround | 1 处 | 低 | TD-4.2 活动（schema workflow.ts 强转加字段）;TD-4.1/4.3/4.4/4.5/4.6 已清偿 |
-| UI ObjectURL 生命周期分散 | 2 处 | 中 | 有防护,重构影响面大 |
+| UI ObjectURL 生命周期分散 | 2 处 | 中 | 有防护(W21.6 已修复具体泄漏点:ObjectURL revoke + 监听器/timer cleanup + ToolRunner/BatchQueue unmount abort,但架构层面"创建/释放跨边界"未重构,见 Review #5),重构影响面大 |
 | 事件订阅 cleanup 模式分散 | 2 处 | 低 | 各有特殊点,抽象灵活性下降（TD-6.1 + TD-6.2） |
 | 测试环境 hack | 3 处 | 低 | 合理写法,非债务(记录备查) |
 | Cloud 耦合泄漏 | 1 项 | 中 | mcp-server 硬编码 cloud URL/plan 名（TD-1.5,问题 A 抽 @lokvis/cloud-bridge 处理中） |
@@ -291,6 +291,30 @@
 ---
 
 ## Review 记录
+
+### Review #5 — 2026-07-17 M6 阶段启动(W21.6 / W22.3-22.5 / W23.2-23.4)
+
+- **范围**:M6 阶段启动批次——W21.6(内存泄漏修复 5 commit)+ W22.3(浏览器能力检测)+ W22.4(Firefox 降级 UI)+ W22.5(Playwright E2E 6 工具)+ W23.2/23.3/23.4(CONTRIBUTING / COC / Issue-PR 模板)
+- **方法**:逐任务实施 + 单元测试 + E2E 验证(6 工具 spec 全绿)+ 文档与代码同步检查
+- **验证结果**:
+  - 五层架构单向依赖**无违规**(W21.6 仅扩展 runtime 内部 AssetStore 接口,未跨层;W22.3 browser-detect.ts 位于 runtime 层,被 apps/playground 消费,符合 UI→Runtime 单向依赖)
+  - W22.3 `browser-detect.ts` 用 feature detection 优先 + UA 嗅探辅助,符合 AGENTS.md 不直接依赖具体浏览器的精神
+  - W22.5 Playwright 配置 webServer.reuseExistingServer=!CI,CI 与本地复用策略分离合理
+  - W23.4 Issue 模板含隐私优先提示(不粘贴真实用户文件/token),与项目 local-first 隐私定位一致
+- **新债务登记**:**0 项**——本次批次未引入新技术债
+  - W21.6 各 commit 均遵循 AGENTS.md 约定:engine-image bitmap 用 try/finally 释放、AssetStore dispose 幂等设计、wrapAssetStoreWithQuota 透传 dispose、File 用 `new File([blob], name, { type })`、EventBus emit 遍历副本 + try/catch
+  - W22.3/W22.4 新增文件均为纯函数或 React 组件,无架构违规
+  - W22.5 PNG fixture 用 Node zlib + 手工编码,不引入 sharp/canvas 测试依赖
+  - W23.2-23.4 文档/模板/规范类工作,不涉及代码层
+- **既有债务状态更新**:
+  - **TD-5.1(UI ObjectURL 生命周期分散)状态保持活动,但已有防护加强**:W21.6 修复了 ObjectURL revoke 与监听器/timer cleanup 的具体泄漏点(be64b4a),ToolRunner/BatchQueue unmount abort 修复(23d41b9 / 759f858),但 TD-5.1 描述的"创建在组件 effect、释放在 store action,跨边界协调脆弱"的**架构层面**问题未重构,债务仍活动。长期方案(抽象 `useObjectUrl(blob)` hook 或 store 内集中管理 `Map<id, url>`)未落地,触发条件("出现 ObjectURL 泄漏相关的生产问题,或重构 assets-slice 时")未达
+  - **TD-6.1 / TD-6.2(事件订阅 cleanup 模式分散)状态保持活动**:W21.6 未触及 workflow-slice / runtime-slice 的事件订阅 cleanup 模式,债务维持原状
+  - **TD-3.x 系列(静默吞错)状态保持**:W21.6 新增的 `LokvisRuntime.dispose()` 内 cancel 调用复用 TD-3.1 的 `await this.cancel(workflowId).catch((err) => console.warn(...))` 模式,与既有 warn 模式一致,未引入新的静默吞错点
+- **清偿**(见「已清偿」章节):本次 review 未清偿任何既有活动债务代码
+- **决定不修**:本次 review 未重构 TD-5.1 / TD-6.1 / TD-6.2 的架构层面问题。理由:W21.6 的目标是修复**具体泄漏点**(异常路径 bitmap 未释放、unmount 时 workflow 未 abort、ObjectURL 未 revoke),而非重构架构;架构重构影响面大(需改 assets-slice + AssetPanel + 多个消费组件),应作为独立任务评估,不在 M6 启动批次范围内
+- **下一步建议**:
+  - TD-5.1 架构重构可考虑在 W21.6 全部子任务完成后作为单独 PR 评估
+  - TD-3.x 系列建议接入 Sentry 后统一处理(W22.1 Sentry Top20 修复任务触发)
 
 ### Review #4 — 2026-07-15 全包审计与 TD 状态复核
 
