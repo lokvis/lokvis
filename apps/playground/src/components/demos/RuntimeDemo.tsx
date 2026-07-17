@@ -48,6 +48,7 @@ function RuntimeDemoContent() {
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logBoxRef = useRef<HTMLDivElement>(null);
+  const outputUrlRef = useRef<string | null>(null);
 
   const addLog = useCallback((text: string, type: LogEntry['type'] = 'log') => {
     setLogs((prev) => [...prev.slice(-200), { id: ++counter, text, type }]);
@@ -75,8 +76,13 @@ function RuntimeDemoContent() {
     return () => {
       unsub?.();
       void rt?.cancel('all');
+      if (outputUrlRef.current) URL.revokeObjectURL(outputUrlRef.current);
     };
   }, [addLog]);
+
+  useEffect(() => {
+    outputUrlRef.current = outputUrl;
+  }, [outputUrl]);
 
   useEffect(() => {
     if (logBoxRef.current) logBoxRef.current.scrollTop = logBoxRef.current.scrollHeight;

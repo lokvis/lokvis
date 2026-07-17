@@ -60,6 +60,8 @@ function WorkflowDemoContent() {
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('webp');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputUrlRef = useRef<string | null>(null);
+  const outputUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     let rt: LokvisRuntime | undefined;
@@ -75,8 +77,18 @@ function WorkflowDemoContent() {
     return () => {
       unsub?.();
       void rt?.cancel('all');
+      if (inputUrlRef.current) URL.revokeObjectURL(inputUrlRef.current);
+      if (outputUrlRef.current) URL.revokeObjectURL(outputUrlRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    inputUrlRef.current = inputUrl;
+  }, [inputUrl]);
+
+  useEffect(() => {
+    outputUrlRef.current = outputUrl;
+  }, [outputUrl]);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!runtime || !e.target.files?.length) return;

@@ -347,6 +347,7 @@ export class WorkerHost {
 
     // 等待 ready 握手(超时或协议不匹配则拒绝,由 catch 清理 transport)
     let readyTimer: ReturnType<typeof setTimeout>;
+    let readyOff: (() => void) | undefined;
     try {
       await new Promise<void>((resolve, reject) => {
         let done = false;
@@ -361,15 +362,17 @@ export class WorkerHost {
         }, this.opts.readyTimeoutMs);
         readyTimer.unref?.();
 
-        const off = this.on('ready', () => {
+        readyOff = this.on('ready', () => {
           if (done) return;
           done = true;
           clearTimeout(readyTimer);
-          off();
+          readyOff?.();
           resolve();
         });
       });
     } catch (err) {
+      // W21.6: 失败时也移除 ready 监听器,避免 stale 闭包累积
+      readyOff?.();
       clearTimeout(readyTimer!);
       // this.transport 在 spawn 顶部已赋值,teardownTransport 可安全清理
       // (clearHeartbeat 对未启动的心跳是无害 no-op)

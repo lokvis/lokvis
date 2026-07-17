@@ -76,6 +76,8 @@ export function GlobalDropzone({
  // dragCounter:用计数器而非布尔,避免子元素 dragenter/dragleave 触发抖动
  const [dragCounter, setDragCounter] = React.useState(0);
  const [rejectedFiles, setRejectedFiles] = React.useState<string[]>([]);
+ // W21.6: 持有 rejectedFiles 自动清除定时器,unmount 时 cleanup
+ const rejectTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
  React.useEffect(() => {
  // 阻止浏览器默认行为(打开文件 / 下载),否则 drop 不会触发
@@ -134,8 +136,9 @@ export function GlobalDropzone({
  }
  if (rejected.length > 0) {
  setRejectedFiles(rejected);
- // 5 秒后自动清空拒绝提示
- setTimeout(() => setRejectedFiles([]), 5000);
+ // W21.6: 5 秒后自动清空拒绝提示,clear 旧 timer 避免重叠
+ if (rejectTimerRef.current) clearTimeout(rejectTimerRef.current);
+ rejectTimerRef.current = setTimeout(() => setRejectedFiles([]), 5000);
  }
  if (accepted.length > 0) {
  void importFiles(accepted);
@@ -154,6 +157,8 @@ export function GlobalDropzone({
  window.removeEventListener('dragover', onDragOver);
  window.removeEventListener('dragleave', onDragLeave);
  window.removeEventListener('drop', onDrop);
+ // W21.6: 清理 rejectedFiles 自动清除定时器
+ if (rejectTimerRef.current) clearTimeout(rejectTimerRef.current);
  };
  }, [accept, importFiles, setStatus, setError]);
 

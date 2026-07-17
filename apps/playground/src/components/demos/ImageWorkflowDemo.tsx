@@ -40,6 +40,7 @@ function ImageWorkflowDemoContent() {
   const [watermarkText, setWatermarkText] = useState('Lokvis');
   const [targetWidth, setTargetWidth] = useState(800);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const outputUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     let rt: LokvisRuntime | undefined;
@@ -47,8 +48,15 @@ function ImageWorkflowDemoContent() {
       rt = await createLokvis({ plugins: [imageToolsPlugin()] });
       setRuntime(rt);
     })();
-    return () => void rt?.cancel('all');
+    return () => {
+      void rt?.cancel('all');
+      if (outputUrlRef.current) URL.revokeObjectURL(outputUrlRef.current);
+    };
   }, []);
+
+  useEffect(() => {
+    outputUrlRef.current = outputUrl;
+  }, [outputUrl]);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!runtime || !e.target.files?.length) return;
@@ -56,7 +64,10 @@ function ImageWorkflowDemoContent() {
       const file = e.target.files[0];
       const id = await runtime.importAsset({ kind: 'file', file });
       setInputId(id);
-      setOutputUrl(null);
+      setOutputUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
       setResult(null);
       setError(null);
       setStage('idle');
@@ -70,7 +81,10 @@ function ImageWorkflowDemoContent() {
     if (!runtime || !inputId) return;
     setStage('running');
     setError(null);
-    setOutputUrl(null);
+    setOutputUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
 
     const workflow: Workflow = {
       id: `demo-img-${Date.now()}`,
@@ -96,7 +110,10 @@ function ImageWorkflowDemoContent() {
       setResult(res);
       if (res.status === 'completed' && res.outputs.length > 0) {
         const blob = await runtime.exportAsset(res.outputs[0]);
-        setOutputUrl(URL.createObjectURL(blob));
+        setOutputUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(blob);
+        });
         setStage('done');
       } else if (res.status === 'failed') {
         setError(res.error ?? 'Workflow failed');
