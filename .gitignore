@@ -36,6 +36,11 @@ pnpm-debug.log*
 # Test coverage
 coverage/
 
+# Playwright E2E 产物(W22.5)
+test-results/
+playwright-report/
+playwright/.cache/
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
