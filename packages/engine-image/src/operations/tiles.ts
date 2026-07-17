@@ -90,8 +90,13 @@ export async function mergeChunks(
   for (const chunk of chunks) {
     throwIfAborted(signal);
     const { bitmap } = await canvasEngine.decode(chunk.blob);
-    ctx.drawImage(bitmap, chunk.tile.x, chunk.tile.y, chunk.tile.width, chunk.tile.height);
-    bitmap.close?.();
+    // W21.6: 每个 chunk 的 bitmap 用 try/finally 释放,确保 throwIfAborted
+    // 在下一次循环前抛错时当前 bitmap 不泄漏
+    try {
+      ctx.drawImage(bitmap, chunk.tile.x, chunk.tile.y, chunk.tile.width, chunk.tile.height);
+    } finally {
+      bitmap.close?.();
+    }
   }
 
   return canvasEngine.encode(canvas, format, quality);
