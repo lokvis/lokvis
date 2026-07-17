@@ -10,6 +10,7 @@
     "dev": "astro dev",
     "dev:stop": "astro dev stop",
     "build": "astro build",
+    "build:analyze": "ANALYZE=1 astro build",
     "preview": "astro preview",
     "typecheck": "astro check && tsc --noEmit",
     "test": "vitest run",
@@ -47,6 +48,7 @@
     "@playwright/test": "^1.61.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "rollup-plugin-visualizer": "^7.0.1",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   }
