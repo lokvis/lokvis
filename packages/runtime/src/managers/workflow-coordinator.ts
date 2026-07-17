@@ -133,9 +133,10 @@ export class WorkflowCoordinator {
    */
   async disposeWorkflow(workflowId: string): Promise<void> {
     await this.deps.executor.cancel(workflowId).catch((err) => {
-      // 工作流可能未在运行(常见情况,不抛错);其他真实错误(Worker 崩溃 /
-      // executor 异常)只 warn 不阻断 dispose 流程,避免清理路径被卡住
-      console.warn(
+      // executor.cancel 对未运行的 workflowId 直接 return(不抛错),因此此处
+      // catch 到的都是真实错误(Worker 崩溃 / executor 异常 / abort 竞态)。
+      // TD-3.1 长期方案:真实错误用 error 级别记录,便于 Sentry 上报与调试。
+      console.error(
         `[lokvis] disposeWorkflow: cancel(${workflowId}) failed:`,
         err
       );

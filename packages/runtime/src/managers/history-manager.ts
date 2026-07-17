@@ -190,9 +190,12 @@ export class HistoryManager {
         maxEntries: DEFAULT_MAX_HISTORY,
         onEvict: (entry) => {
           // 淘汰条目时清理其 outputs 资产(避免 OPFS 泄漏)
+          // TD-3.2: opfs/idb asset-store 的 remove 已对 NotFoundError 静默忽略
+          // (幂等删除),因此此处 catch 到的都是真实错误(权限/IO/quota 等),
+          // 用 error 级别记录,便于 Sentry 上报与孤儿资产排查
           for (const assetId of entry.outputs) {
             this.deps.assetStore.remove(assetId).catch((err) => {
-              console.warn(`[lokvis] onEvict: remove(${assetId}) failed:`, err);
+              console.error(`[lokvis] onEvict: remove(${assetId}) failed:`, err);
             });
           }
         },
