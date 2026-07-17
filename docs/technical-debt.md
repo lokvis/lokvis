@@ -14,7 +14,7 @@
 |---|---|---|---|
 | Phase 2 路线 | 2 项 | 中 | 按 Phase 2 路线推进(TD-1.3/TD-1.4 已清偿,见 TD-C14/TD-C15) |
 | 测试时序依赖 | 2 项 | 中 | 需改生产 API 语义,专项评估 |
-| 静默吞错 | 11 处 | 低 | intentional,需 assetStore 错误类型分层才能根治（TD-3.1/3.2/3.3 已部分修复为 warn,8 处全活动） |
+| 静默吞错 | 12 处 | 低 | intentional,需 assetStore 错误类型分层才能根治（TD-3.1/3.2/3.3 已部分修复为 warn,9 处全活动） |
 | 类型层面 workaround | 1 处 | 低 | TD-4.2 活动（schema workflow.ts 强转加字段）;TD-4.1/4.3/4.4/4.5/4.6 已清偿 |
 | UI ObjectURL 生命周期分散 | 2 处 | 中 | 有防护(W21.6 已修复具体泄漏点:ObjectURL revoke + 监听器/timer cleanup + ToolRunner/BatchQueue unmount abort,但架构层面"创建/释放跨边界"未重构,见 Review #5),重构影响面大 |
 | 事件订阅 cleanup 模式分散 | 2 处 | 低 | 各有特殊点,抽象灵活性下降（TD-6.1 + TD-6.2） |
@@ -208,6 +208,16 @@
 - **为何暂不修**:cleanup 路径,intentional
 - **触发条件**:接入 Sentry 后统一处理
 
+### TD-3.12 BatchQueue unmount cancel 静默吞错(W21.6)
+
+- **位置**:`apps/playground/src/components/tools/BatchQueue.tsx:213`
+- **代码**:`void rt.cancel(wfId).catch(() => {});`
+- **问题**:W21.6 新增的组件 unmount cleanup 路径,与 TD-3.x 系列同模式 —— unmount 时 cancel 所有进行中 workflow,防止 fire-and-forget 的 processItem 在后台继续执行(持 Worker + 内存,P0 泄漏风险)。cancel 失败完全静默
+- **影响**:cancel 失败无日志;但 unmount 后无 UI 反馈通道,且 cancel 是 idempotent 的(不存在的 workflowId 安全无副作用)
+- **长期方案**:同 TD-3.1,改为 warn + 不区分错误类型
+- **为何暂不修**:与 TD-3.x 系列同根的 intentional cleanup 模式,代码注释明确说明 W21.6 unmount 防泄漏意图
+- **触发条件**:接入 Sentry 后统一处理 TD-3.x 系列
+
 ---
 
 ## 4. 类型层面 workaround
@@ -291,6 +301,34 @@
 ---
 
 ## Review 记录
+
+### Review #8 — 2026-07-17 PR #31 lint 修复 + merge conflict review
+
+- **范围**:修复 PR #31 CI lint 错误(`no-new-array`)+ 解决 PR #31 与 dev 分支的 4 个 merge conflict + 全量 review PR #31 是否存在 workaround
+- **方法**:
+  1. 定位 lint 错误 `apps/playground/tests/fixtures/images.ts:13` `new Array(256)`,改为 `Array.from({ length: 256 })`(lint 规则推荐写法,语义等价)
+  2. 解决 4 个 merge conflict:
+     - `vitest.config.ts`:保留 HEAD 的宽泛 include `packages/engine-image/src/**/*.ts`(已覆盖 src/node),移除 dev 冗余条目
+     - `packages/engine-image/package.json`:`./lazy.js` exports 指向 `./src/lazy.ts`(与 main/index 一致)
+     - `packages/engine-image/src/__tests__/node-operations.test.ts`:采用 dev 的更完整注释(M2.2 验收标准 + 迁移来源)
+     - `packages/mcp-server/src/cli.ts`:采用 HEAD 架构(createLokvisMcpServer 接受 cloud 参数,内部封装 authenticator/billing)
+  3. 用 search subagent 扫描 PR #31 范围(origin/dev..HEAD)内 5 类 workaround 模式:`as unknown as` 双断言 / TODO-FIXME-HACK 注释 / eslint-disable-ts-ignore / `.catch(() => {})` 静默吞错 / `new Array(` 单参数
+- **验证结果**:
+  - lint 修复后 `pnpm lint` 全绿(0 warnings, 0 errors)
+  - merge conflict 解决后 `pnpm typecheck` 48 tasks 0 errors;`pnpm test:fast` 83 files / 1480 tests / 0 failed
+  - PR #31 范围内 5 类 workaround 模式扫描结论:**0 处需修复**
+    - `as unknown as` 双断言:0 处(T8 已主动清偿 plugin-permissions 三处历史违规,TD-4.5 已清偿)
+    - TODO/FIXME/HACK/XXX:0 处新增
+    - eslint-disable/ts-ignore:0 处违规(均为 useEffect mount-once 合理用法)
+    - `.catch(() => {})` 静默吞错:1 处新增(BatchQueue.tsx:213,W21.6 unmount cleanup),属 intentional cleanup 模式
+    - `new Array(` 单参数:0 处(本次已修复)
+- **新债务登记**:**1 项**——TD-3.12(BatchQueue.tsx:213 W21.6 unmount cancel 静默吞错,与 TD-3.x 同模式)
+- **既有债务状态更新**:
+  - TD-3 系列:11 处 → 12 处(新增 TD-3.12),9 处全活动(TD-3.1/3.2/3.3 已部分修复为 warn)
+- **清偿**:本次 review 未清偿任何既有活动债务代码
+- **决定不修**:
+  - BatchQueue.tsx:213 `.catch(() => {})`:intentional cleanup 模式,与 TD-3.x 同根,unmount 后无 UI 反馈通道且 cancel idempotent。登记为 TD-3.12 待接入 Sentry 后统一处理
+  - 不升级 vitest 3.x:沿用 Review #7 决定
 
 ### Review #7 — 2026-07-17 W23.1 README review + pre-existing 测试修复
 

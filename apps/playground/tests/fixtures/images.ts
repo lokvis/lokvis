@@ -10,7 +10,7 @@ import { deflateSync } from 'node:zlib';
 
 // CRC32 表(懒初始化一次)
 const CRC_TABLE: number[] = (() => {
-  const table = new Array(256);
+  const table = Array.from({ length: 256 });
   for (let n = 0; n < 256; n++) {
     let c = n;
     for (let k = 0; k < 8; k++) {
