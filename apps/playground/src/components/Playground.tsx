@@ -1,14 +1,18 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime } from '@lokvis/runtime';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
 import { devToolsPlugin } from '@lokvis/plugin-dev';
-import { CodeEditor } from './CodeEditor';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useLang } from '@/i18n/useLang';
 import { useTranslations } from '@/i18n/utils';
 import { SNIPPETS, DEFAULT_SNIPPET_ID, findSnippet } from './playground/snippets';
 import { extractCodeFromHash, buildShareUrl } from './playground/share';
+
+// W21.3: CodeEditor(含 CodeMirror ~335KB)懒加载,不进首页首屏 chunk
+const CodeEditor = lazy(() =>
+  import('./CodeEditor').then(m => ({ default: m.CodeEditor }))
+);
 
 /**
  * Lokvis Playground(W19.6 增强)
@@ -337,11 +341,17 @@ function PlaygroundContent() {
             <span className="text-[11px] text-zinc-600">{t('playground.javascript')}</span>
           </div>
           <div className="flex-1 overflow-auto bg-[#282c34]">
-            <CodeEditor
-              value={code}
-              onChange={setCode}
-              placeholder={t('playground.placeholder')}
-            />
+            <Suspense fallback={
+              <div className="flex h-full items-center justify-center text-[11px] text-zinc-600">
+                {t('playground.editorJs')}…
+              </div>
+            }>
+              <CodeEditor
+                value={code}
+                onChange={setCode}
+                placeholder={t('playground.placeholder')}
+              />
+            </Suspense>
           </div>
         </div>
 

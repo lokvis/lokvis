@@ -40,5 +40,17 @@ export default defineConfig({
     optimizeDeps: {
       exclude: ['@lokvis/runtime', '@lokvis/sdk'],
     },
+    build: {
+      // W21.3: 代码分割 — 把 vendor 分组,避免单个 chunk 过大
+      // CodeMirror 已通过 React.lazy 懒加载(CodeEditor 组件),自然分到独立 chunk
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/@codemirror/')) return 'codemirror';
+            if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react-vendor';
+          },
+        },
+      },
+    },
   },
 });
