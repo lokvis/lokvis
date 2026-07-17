@@ -10,7 +10,7 @@
  *
  * 批量工具(watermark-batch)流程不同,在各自 spec 内独立编写。
  */
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { TEST_PNG } from '../fixtures/images';
 
 /**
@@ -40,23 +40,11 @@ export async function runToolAndExpectOutput(
 ): Promise<void> {
   // action 按钮位于参数面板下方的居中 div,文本即 buttonText
   const actionBtn = page.getByRole('button', { name: buttonText });
-  await actionBtn.waitFor({ state: 'visible' });
-  // 等待按钮启用(runtime 初始化 + importAsset 完成后 disabled=false)
-  await actionBtn.waitFor({ state: 'attached' });
-
-  // 等待按钮不再 disabled(setInputFiles 后异步 import,可能有短暂窗口)
-  await page.waitForFunction(
-    (text) => {
-      const btns = document.querySelectorAll('button');
-      for (const b of btns) {
-        if (b.textContent?.trim() === text) return !b.disabled;
-      }
-      return false;
-    },
-    buttonText,
-    { timeout: 15_000 },
-  );
-
+  // 等待按钮可见且启用(runtime 初始化 + importAsset 完成后 disabled=false)。
+  // 用 Playwright 原生 expect(locator).toBeEnabled() 而非手工 waitForFunction,
+  // 让 auto-retrying + ARIA 引擎接管,避免在 DOM 结构变化时脆性匹配。
+  await expect(actionBtn).toBeVisible({ timeout: 15_000 });
+  await expect(actionBtn).toBeEnabled({ timeout: 15_000 });
   await actionBtn.click();
 
   // Output PreviewBox 的 Download 按钮(由 ToolResultPanel 渲染,
@@ -65,5 +53,5 @@ export async function runToolAndExpectOutput(
   const downloadBtn = page
     .getByRole('button', { name: 'Download' })
     .first();
-  await downloadBtn.waitFor({ state: 'visible', timeout: 20_000 });
+  await expect(downloadBtn).toBeVisible({ timeout: 20_000 });
 }

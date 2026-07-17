@@ -118,10 +118,10 @@ export default function BrowserSupportBanner() {
             />
             <div className="flex min-w-0 flex-col gap-0.5">
               <span className="text-[12px] font-semibold text-amber-100">
-                {t(item.titleKey as any)}
+                {t(item.titleKey)}
               </span>
               <span className="text-[11px] text-amber-300/80">
-                {t(item.msgKey as any)}
+                {t(item.msgKey)}
               </span>
             </div>
           </div>
@@ -129,9 +129,9 @@ export default function BrowserSupportBanner() {
             type="button"
             onClick={() => dismiss(item.kind)}
             className="flex-shrink-0 rounded px-2 py-1 text-[10px] font-medium text-amber-300/80 transition-colors hover:bg-amber-900/60 hover:text-amber-100"
-            aria-label={t('browserSupport.dismiss' as any)}
+            aria-label={t('browserSupport.dismiss')}
           >
-            {t('browserSupport.dismiss' as any)}
+            {t('browserSupport.dismiss')}
           </button>
         </div>
       ))}

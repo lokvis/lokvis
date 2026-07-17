@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import type { LokvisEvent } from '@lokvis/schema';
 import { createRuntime, LokvisRuntimeImpl } from '../runtime.js';
+import type { RuntimeConfig } from '../types.js';
 import {
   createAssetStore,
   createMemoryAssetStore,
@@ -234,6 +235,33 @@ describe('Runtime.dispose 调用 assetStore.dispose (W21.6)', () => {
 
     await runtime.dispose();
     // 注入路径:Runtime 不调用 assetStore.dispose,injected 数据保留
+    expect((await injected.list()).length).toBe(1);
+
+    // 由消费方自行 dispose
+    await injected.dispose?.();
+    expect((await injected.list()).length).toBe(0);
+  });
+
+  it('review fix: createRuntime 注入 store 时,JS 用户绕过类型传 ownsAssetStore:true 应被工厂覆盖为 false', async () => {
+    // TypeScript 层面 RuntimeConfig 已不含 ownsAssetStore(移到 InternalRuntimeInit),
+    // SDK 用户类型层面无法传此字段。但 JS 用户可绕过类型系统传 ownsAssetStore:true,
+    // 工厂 createRuntime 用 `ownsAssetStore: !injectedAssetStore` 覆盖,确保注入路径
+    // 下 ownsAssetStore 始终为 false,防止 Runtime 越权清理注入的 store。
+    const injected = createMemoryAssetStore();
+    // 模拟 JS 用户绕过类型系统(类型断言模拟运行时行为)
+    const runtime = await createRuntime({
+      assetStore: injected,
+      ownsAssetStore: true,
+    } as RuntimeConfig & { ownsAssetStore?: boolean });
+    await runtime.importAsset({
+      kind: 'blob',
+      blob: pngBlob(),
+      name: 'a.png',
+    });
+    expect((await injected.list()).length).toBe(1);
+
+    await runtime.dispose();
+    // 工厂覆盖 ownsAssetStore 为 false,injected 数据保留
     expect((await injected.list()).length).toBe(1);
 
     // 由消费方自行 dispose

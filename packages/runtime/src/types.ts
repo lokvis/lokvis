@@ -84,12 +84,22 @@ export interface RuntimeConfig {
    * 默认 512MB。BatchProcessor 据此在内存压力高时收缩并发槽位。
    */
   memoryBudget?: number;
-  /**
-   * 内部 API(W21.6):标记 assetStore 是否由 Runtime 拥有(即 createRuntime 工厂创建)。
-   * - true(默认路径):Runtime.dispose() 会调用 assetStore.dispose?.() 释放底层资源
-   * - false(注入路径):Runtime 不清理 assetStore,由注入方自行管理生命周期
-   * 不对外暴露:SDK 用户不应直接传此字段,由 createRuntime 工厂内部设置。
-   */
+}
+
+/**
+ * Runtime 内部构造参数(W21.6)。
+ *
+ * `ownsAssetStore` 不出现在公共 `RuntimeConfig` 上,仅供 `createRuntime` 工厂
+ * 内部向 `LokvisRuntimeImpl` 传递"assetStore 是否由工厂创建"的标记 —— 工厂
+ * 创建的 store 由 Runtime 拥有,dispose() 时负责调用 assetStore.dispose?.();
+ * 注入路径由消费方自行管理生命周期。
+ *
+ * 类型层面 SDK 用户传不进此字段;`LokvisRuntimeImpl` 构造函数另有运行时
+ * 守卫,即使 JS 用户绕过类型系统传 `assetStore + ownsAssetStore:true`,
+ * 仍会被强制为 false(防止越权清理注入的 store)。
+ */
+export interface InternalRuntimeInit {
+  /** assetStore 是否由 Runtime 拥有(工厂创建路径)。注入路径强制为 false。 */
   ownsAssetStore?: boolean;
 }
 

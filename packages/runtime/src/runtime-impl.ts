@@ -12,7 +12,7 @@ import type {
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { EventBus } from '@lokvis/schema';
 import type {
-  LokvisRuntime, PluginInstallEntry, RunOptions, RuntimeConfig,
+  InternalRuntimeInit, LokvisRuntime, PluginInstallEntry, RunOptions, RuntimeConfig,
   RuntimeStatus, ToMcpManifestOptions,
 } from './types.js';
 import { createEventBus } from './event-bus.js';
@@ -40,7 +40,7 @@ export const RUNTIME_VERSION = '0.1.0';
 export class LokvisRuntimeImpl implements LokvisRuntime {
   readonly version = RUNTIME_VERSION;
   readonly eventBus: EventBus;
-  private config: Required<Omit<RuntimeConfig, 'assetStore' | 'historyStore' | 'historyStoreOptions' | 'ownsAssetStore'>>;
+  private config: Required<Omit<RuntimeConfig, 'assetStore' | 'historyStore' | 'historyStoreOptions'>>;
   private assetStore: QuotaAwareAssetStore; // wrapAssetStoreWithQuota 无条件包裹(含注入路径)
   private assetManager: AssetManager;
   private capabilityRegistry: CapabilityRegistry;
@@ -62,7 +62,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     this.metadataReaders.set(name, reader);
   }
 
-  constructor(config: RuntimeConfig = {}) {
+  constructor(config: RuntimeConfig & InternalRuntimeInit = {}) {
     this.config = {
       enableOpfs: config.enableOpfs ?? true,
       enableIndexedDB: config.enableIndexedDB ?? true,
@@ -84,8 +84,11 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       );
     }
     const rawStore = config.assetStore ?? createMemoryAssetStore();
-    // W21.6: 若消费方未注入 assetStore,Runtime 拥有创建的 store,
-    // dispose() 时负责调用 assetStore.dispose?.() 释放底层资源。
+    // W21.6 + review fix: ownsAssetStore 已从公共 RuntimeConfig 移到
+    // InternalRuntimeInit,SDK 用户类型层面无法传此字段。工厂 createRuntime
+    // 在工厂创建路径下显式传 ownsAssetStore: true,注入路径下显式传 false,
+    // 并用 `ownsAssetStore: !injectedAssetStore` 覆盖用户传入的值(防止 JS
+    // 用户绕过类型系统)。Impl 信任工厂传入的 ownsAssetStore,不再做冗余守卫。
     this.ownsAssetStore = config.ownsAssetStore ?? !config.assetStore;
     this.assetStore = wrapAssetStoreWithQuota(rawStore, this.config.storageQuota);
     // AssetManager:metadataReaders 由 Runtime 持有,Plugin 注册后立即可见
@@ -261,8 +264,13 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
  * config.assetStore 注入自定义 store。async(工厂需异步探测环境)。
  */
 export async function createRuntime(config?: RuntimeConfig): Promise<LokvisRuntime> {
-  // W21.6: 判断 assetStore 是否由工厂创建(未注入即工厂创建)。
+  // W21.6 + review fix: 判断 assetStore 是否由工厂创建(未注入即工厂创建)。
   // 工厂创建的 store 由 Runtime 拥有,dispose() 时负责调用 assetStore.dispose?.()。
+  //
+  // 运行时守卫:此处的 `ownsAssetStore: !injectedAssetStore` 会覆盖 `...config`
+  // 中可能存在的 ownsAssetStore 字段(虽然 TypeScript 层面 RuntimeConfig 已不含
+  // 此字段,但 JS 用户可能绕过类型系统传入)。这样确保注入路径下 ownsAssetStore
+  // 始终为 false,防止 Runtime 越权清理注入的 store。
   const injectedAssetStore = config?.assetStore;
   const assetStore =
     injectedAssetStore ??

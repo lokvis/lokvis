@@ -38,17 +38,10 @@ test.describe('Watermark Batch 工具', () => {
     // 此时 hasPending=true,action 按钮文本为 "Watermark all"。
     // 等其启用(runtime ready + hasPending + !processing + !textEmpty)
     const processBtn = page.getByRole('button', { name: 'Watermark all' });
-    await processBtn.waitFor({ state: 'visible', timeout: 15_000 });
-    await page.waitForFunction(
-      () => {
-        const btns = document.querySelectorAll('button');
-        for (const b of btns) {
-          if (b.textContent?.trim() === 'Watermark all') return !b.disabled;
-        }
-        return false;
-      },
-      { timeout: 15_000 },
-    );
+    // 用 Playwright 原生 expect(locator).toBeEnabled() 而非手工 waitForFunction,
+    // 让 auto-retrying + ARIA 引擎接管,避免在 DOM 结构变化时脆性匹配。
+    await expect(processBtn).toBeVisible({ timeout: 15_000 });
+    await expect(processBtn).toBeEnabled({ timeout: 15_000 });
     await processBtn.click();
 
     // 等待 3 个 Done 状态徽章出现(每个 item 完成时状态由 Pending → Processing → Done)
