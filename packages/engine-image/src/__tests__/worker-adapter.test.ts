@@ -16,15 +16,18 @@ import {
   IMAGE_WORKER_PROTOCOL_VERSION,
 } from '../worker-adapter.js';
 
-/** 假 Worker 作用域 */
+/** 假 Worker 作用域(W21.4: 记录 transfer list) */
 class FakeScope {
   posted: unknown[] = [];
+  /** W21.4: 每条消息对应的 transfer list(undefined 表示未传) */
+  transfers: (Transferable[] | undefined)[] = [];
   private handlers: Record<'message' | 'messageerror', Array<(ev: MessageEvent) => void>> = {
     message: [],
     messageerror: [],
   };
-  postMessage(message: unknown): void {
+  postMessage(message: unknown, transfer?: Transferable[]): void {
     this.posted.push(message);
+    this.transfers.push(transfer);
   }
   addEventListener(
     type: 'message' | 'messageerror',
@@ -38,6 +41,10 @@ class FakeScope {
   }
   get last(): unknown {
     return this.posted[this.posted.length - 1];
+  }
+  /** W21.4: 最后一条消息的 transfer list */
+  get lastTransfer(): Transferable[] | undefined {
+    return this.transfers[this.transfers.length - 1];
   }
 }
 
@@ -85,13 +92,25 @@ describe('listImageWorkerMethods / dispatchImageMethod', () => {
 describe('createImageWorkerHandler', () => {
   it('未知方法应返回 ok=false 响应,携带原 id', async () => {
     const handle = createImageWorkerHandler();
-    const res = await handle({ id: 'r1', type: 'request', method: 'nope', params: {} });
-    expect(res).toEqual({
+    const { response } = await handle({ id: 'r1', type: 'request', method: 'nope', params: {} });
+    expect(response).toEqual({
       id: 'r1',
       type: 'response',
       ok: false,
       error: expect.objectContaining({ message: expect.stringMatching(/Unknown/) }),
     });
+  });
+
+  it('W21.4: 非 Blob 结果 transfer 应为空数组', async () => {
+    const handle = createImageWorkerHandler();
+    // image.probe 返回元数据(非 Blob),transfer 应为空
+    const { transfer } = await handle({
+      id: 'probe-1',
+      type: 'request',
+      method: 'image.probe',
+      params: { input: new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' }) },
+    });
+    expect(transfer).toEqual([]);
   });
 
   it('缺失 input 应返回 ok=false 响应', async () => {
@@ -102,8 +121,8 @@ describe('createImageWorkerHandler', () => {
       method: 'image.resize',
       params: { options: { width: 10 } },
     });
-    expect(res.id).toBe('r2');
-    expect(res.ok).toBe(false);
+    expect(res.response.id).toBe('r2');
+    expect(res.response.ok).toBe(false);
   });
 });
 

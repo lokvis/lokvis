@@ -100,7 +100,7 @@ describe('createImageWorkerHandler AbortSignal', () => {
       { id: 'r1', type: 'request', method: 'nope', params: {} },
       new AbortController().signal
     );
-    expect(res.ok).toBe(false);
+    expect(res.response.ok).toBe(false);
   });
 
   it('AbortError 应被捕获为 ok=false 响应(error.message 含 aborted)', async () => {
@@ -116,8 +116,8 @@ describe('createImageWorkerHandler AbortSignal', () => {
       { id: 'r2', type: 'request', method: 'image.resize', params: {} },
       controller.signal
     );
-    expect(res.ok).toBe(false);
-    expect((res as { error: { message: string } }).error.message).toMatch(/input/);
+    expect(res.response.ok).toBe(false);
+    expect((res.response as { error: { message: string } }).error.message).toMatch(/input/);
   });
 });
 

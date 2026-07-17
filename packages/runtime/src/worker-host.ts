@@ -26,6 +26,7 @@ import {
   isWorkerReady,
   isWorkerEvent,
   isWorkerFatalError,
+  unwrapBlobRef,
   type WorkerRequest,
   type WorkerPing,
   type WorkerCancel,
@@ -408,7 +409,7 @@ export class WorkerHost {
       if (!pending) return; // 已超时或已取消
       this.pending.delete(data.id);
       clearTimeout(pending.timer);
-      if (data.ok) pending.resolve(data.result);
+      if (data.ok) pending.resolve(unwrapBlobRef(data.result));
       else {
         const e = data.error;
         const err = new Error(e.message);
