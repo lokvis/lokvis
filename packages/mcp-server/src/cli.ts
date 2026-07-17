@@ -12,10 +12,13 @@
  *   LOKVIS_BRIDGE_PORT  - BrowserBridge 端口(混合架构 E,浏览器可连接接管 tool 调用)
  *   LOKVIS_API_KEY      - API Key(可选;未提供时仅本地 tool 可用,cloud AI tool 不可用)
  *   LOKVIS_API_BASE_URL - cloud API 地址(默认 https://api.lokvis.com)
+ *   LOKVIS_UPGRADE_URL  - 充值链接(默认 https://app.lokvis.com/billing)
+ *   LOKVIS_PLAN_QUOTAS_JSON - plan 配额表 JSON(默认内置 free/pro/cloud_pro/enterprise)
+ *   LOKVIS_PRICE_PER_CALL_CENTS - 每次 AI 调用价格美分(默认 1)
  */
 
 import { createLokvisMcpServer } from './server.js';
-import { resolveCloudConfig, createAuthenticator } from '@lokvis/cloud-bridge';
+import { resolveCloudConfig } from '@lokvis/cloud-bridge';
 
 async function main(): Promise<void> {
   const workdir = process.env.LOKVIS_WORKDIR;
@@ -27,14 +30,23 @@ async function main(): Promise<void> {
   const bridgePortEnv = process.env.LOKVIS_BRIDGE_PORT;
   const bridgePort = bridgePortEnv ? Number(bridgePortEnv) : undefined;
 
-  // 鉴权(可选):验证 API Key,获取用户 plan
-  // 计费模块(McpBilling)在 cloud AI tool 接入时启用,本地 tool 无需计费
   // cloud 配置从 env 读取(apiBaseUrl / upgradeUrl / planQuotas / pricePerCallCents / apiKey)
+  // 注入 createLokvisMcpServer 后,server 侧创建 authenticator + billing:
+  // - authenticator 用于启动时验证 API Key(下方日志)
+  // - billing 在 Phase 2 cloud AI tool 接入时由 tool handler 消费
   const cloudConfig = resolveCloudConfig();
-  const authenticator = createAuthenticator(cloudConfig);
+
+  const { server, manifest, bridge, authenticator } = await createLokvisMcpServer({
+    workdir,
+    domains,
+    mode,
+    port,
+    bridgePort,
+    cloud: cloudConfig,
+  });
 
   // 启动时验证 API Key(如果提供)
-  if (authenticator.hasApiKey()) {
+  if (authenticator?.hasApiKey()) {
     const authResult = await authenticator.verify();
     if (authResult.authenticated) {
       console.error(`[lokvis-mcp] Authenticated as ${authResult.user!.email} (plan: ${authResult.user!.plan})`);
@@ -45,14 +57,6 @@ async function main(): Promise<void> {
   } else {
     console.error('[lokvis-mcp] No API key provided, running in local-only mode');
   }
-
-  const { server, manifest, bridge } = await createLokvisMcpServer({
-    workdir,
-    domains,
-    mode,
-    port,
-    bridgePort,
-  });
 
   console.error(`[lokvis-mcp] Manifest ready: ${manifest.tools.length} tools`);
   console.error(`[lokvis-mcp] Registered tools: ${server.getRegisteredToolNames().join(', ')}`);
