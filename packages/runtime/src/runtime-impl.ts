@@ -154,7 +154,8 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
    * 2. executor.cancelAll() —— 取消所有运行中 workflow 的 AbortController
    * 3. batchProcessor.dispose() —— 标记所有非终态 job 为 cancelled + 清理订阅
    * 4. historyManager.disposeAll() —— 清空所有历史栈(reset 触发 onEvict
-   *    → assetStore.remove 回收 outputs 资产)
+   *    → assetStore.remove 回收 outputs 资产);TD-2.1 改为 await 等待
+   *    persistHistory 删除 IDB 记录落地
    * 5. 清理 metadataReaders
    * 6. 若 ownsAssetStore(工厂创建而非注入):调用 assetStore.dispose?.()
    *    关闭 Dexie 连接 / 清空内存 Map。注入路径由消费方自行管理。
@@ -173,8 +174,8 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     this.executor.cancelAll();
     // 2. 取消所有非终态 batch job + 清理 progress 订阅
     await this.batchProcessor.dispose();
-    // 3. 清空所有历史栈(触发 outputs 资产回收)
-    this.historyManager.disposeAll();
+    // 3. 清空所有历史栈(触发 outputs 资产回收);TD-2.1: await 等待持久化删除落地
+    await this.historyManager.disposeAll();
     // 4. 清理 metadataReaders(释放插件注册的 reader 引用)
     this.metadataReaders.clear();
     // 5. 若 Runtime 拥有 assetStore(工厂创建),释放底层资源

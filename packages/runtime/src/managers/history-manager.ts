@@ -215,8 +215,15 @@ export class HistoryManager {
     return stack;
   }
 
-  /** 清理指定工作流的历史栈(reset 触发 onEvict 回收资产),不取消运行中执行。 */
-  disposeHistory(workflowId: string): void {
+  /**
+   * 清理指定工作流的历史栈(reset 触发 onEvict 回收资产),不取消运行中执行。
+   *
+   * TD-2.1 长期方案:返回 Promise 并在末尾 `await persistHistory`,使调用方
+   * (disposeWorkflow / disposeAll)能在持久化完成后才返回,消除测试轮询。
+   * stack.reset() 触发 onChanged → fire-and-forget persistHistory(删除空记录),
+   * 此处显式 await 保证 IDB 删除已落地;两次 delete 幂等,无副作用。
+   */
+  async disposeHistory(workflowId: string): Promise<void> {
     const stack = this.historyStacks.get(workflowId);
     if (stack) {
       stack.reset();
@@ -224,19 +231,21 @@ export class HistoryManager {
     }
     this.initialInputsMap.delete(workflowId);
     this.currentOutputsMap.delete(workflowId);
+    await this.persistHistory(workflowId);
   }
 
   /**
    * 清理所有工作流的历史栈(W21.6 runtime.dispose 用)。
    *
-   * 复制 keys 后逐个 disposeHistory,触发 onEvict 回收 outputs 资产。
-   * 与 disposeHistory 一样是同步操作(persistHistory 是 fire-and-forget)。
+   * 复制 keys 后逐个 await disposeHistory,触发 onEvict 回收 outputs 资产。
+   * TD-2.1:改为 async 顺序 await,确保 runtime.dispose() 返回前所有持久化
+   * 删除已落地(避免 dispose 后 IDB 仍有残留记录的竞态)。
    */
-  disposeAll(): void {
+  async disposeAll(): Promise<void> {
     // 复制一份:disposeHistory 内 stack.reset() → onEvict → assetStore.remove
     // 可能间接触发其他 listener 改动 historyStacks(理论上不会,但防御性写法)
     for (const workflowId of [...this.historyStacks.keys()]) {
-      this.disposeHistory(workflowId);
+      await this.disposeHistory(workflowId);
     }
     this.dirtyDuringLoad.clear();
   }

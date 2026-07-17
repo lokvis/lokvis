@@ -141,7 +141,8 @@ export class WorkflowCoordinator {
         err
       );
     });
-    this.deps.historyManager.disposeHistory(workflowId);
+    // TD-2.1:await disposeHistory 等待 persistHistory 落地,使调用方拿到确定结果
+    await this.deps.historyManager.disposeHistory(workflowId);
   }
 
   /** 将输入归一化为 AssetId[](run() 入参可为 AssetId[] 或 Asset[]) */
