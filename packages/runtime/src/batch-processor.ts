@@ -68,6 +68,7 @@ function generateJobId(): string {
 export class BatchProcessor {
   private readonly runtime: LokvisRuntime;
   private readonly isPro: boolean;
+  private readonly eventBus: EventBus;
   private readonly jobs = new Map<string, BatchJobInternal>();
   private readonly scheduler: BatchScheduler;
   private readonly progress: BatchProgressEmitter;
@@ -80,6 +81,7 @@ export class BatchProcessor {
   }) {
     this.runtime = opts.runtime;
     this.isPro = opts.isPro;
+    this.eventBus = opts.eventBus;
     this.progress = new BatchProgressEmitter(opts.eventBus);
     const concurrency = new ConcurrencyController({ memoryGuard: opts.memoryGuard });
     this.scheduler = new BatchScheduler({
@@ -229,6 +231,56 @@ export class BatchProcessor {
 
   onProgress(jobId: string, handler: (p: BatchProgress) => void): () => void {
     return this.progress.onProgress(jobId, handler);
+  }
+
+  /**
+   * 等待 job 中至少 count 项进入 processing 状态(TD-2.2 长期方案)。
+   *
+   * 替代测试中固定 setTimeout 赌注:基于"当前状态快照 + batch:item:started
+   * 事件订阅"双重判定,确定性等待而非时间赌注。
+   *
+   * - 先快照当前 processing 数,若已 >= count 立即 resolve(schedule 循环内
+   *   同步设置 item.status='processing' + 发 batch:item:started,enqueue
+   *   返回时首批项通常已进入 processing)
+   * - 否则订阅 batch:item:started,累计到 count 时 resolve(兜底异步场景)
+   * - 超时(默认 5s)reject,避免坏 job 永久挂起
+   */
+  async waitForItemsStarted(
+    jobId: string,
+    count: number,
+    timeoutMs = 5000
+  ): Promise<void> {
+    const job = this.jobs.get(jobId);
+    if (!job) throw new Error(`Batch job not found: ${jobId}`);
+    const current = job.items.filter((i) => i.status === 'processing').length;
+    if (current >= count) return;
+    let seen = current;
+    return new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let off: () => void;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        off();
+        reject(
+          new Error(
+            `waitForItemsStarted timed out after ${timeoutMs}ms ` +
+              `(jobId=${jobId}, expected=${count}, seen=${seen})`
+          )
+        );
+      }, timeoutMs);
+      off = this.eventBus.on('batch:item:started', (e) => {
+        if (e.jobId !== jobId) return;
+        seen++;
+        if (seen >= count) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          off();
+          resolve();
+        }
+      });
+    });
   }
 
   async waitForCompletion(jobId: string, timeoutMs = 5 * 60 * 1000): Promise<BatchJob> {
