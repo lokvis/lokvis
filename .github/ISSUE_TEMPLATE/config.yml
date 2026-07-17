@@ -1,0 +1,14 @@
+# Issue 模板配置
+# 控制在 https://github.com/lokvis/lokvis/issues/new 页面显示的选项
+
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 文档与指南
+    url: https://lokvis.dev/docs
+    about: 先看文档,可能已有答案(getting-started / sdk / architecture / guides)
+  - name: 💬 Discord 社区
+    url: https://discord.gg/lokvis
+    about: 使用问题、想法讨论、找搭子(社区频道待 W23.8 搭建,链接待更新)
+  - name: 🔒 安全报告
+    url: mailto:security@lokvis.dev
+    about: 安全漏洞请私下邮件报告,不要公开 Issue

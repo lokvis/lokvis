@@ -1,0 +1,22 @@
+# CODEOWNERS(W23.4)
+#
+# 默认 reviewer:对于未匹配的路径,GitHub 会请求这里指定的所有者 review。
+# 各包维护者可按需追加自己的条目。
+
+# 默认所有者(项目 maintainer 团队)
+*                       @lokvis/maintainers
+
+# 核心架构层(schema 是稳定核心,改动需 maintainer 批准)
+/packages/schema/       @lokvis/maintainers
+/packages/runtime/      @lokvis/maintainers
+/packages/capability/   @lokvis/maintainers
+
+# Engine 层(engine-image 是 Phase 1 核心,其他为 stub)
+/packages/engine-image/ @lokvis/maintainers
+
+# CI / 部署 / 工具链
+/.github/               @lokvis/maintainers
+/.changeset/            @lokvis/maintainers
+/AGENTS.md              @lokvis/maintainers
+/CONTRIBUTING.md        @lokvis/maintainers
+/CODE_OF_CONDUCT.md     @lokvis/maintainers

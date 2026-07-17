@@ -1,0 +1,124 @@
+name: 🐛 Bug 报告
+description: 报告一个可复现的 Bug,帮助我们改进 Lokvis
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你抽出时间报告 Bug!请先**搜索现有 Issue**避免重复。
+
+        🔒 **隐私优先**:请勿在 Issue 中粘贴真实用户文件 / API token / Sentry DSN。
+        如需复现特定图片场景,请用 256×256 纯色 PNG 代替。
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug 描述
+      description: 简明描述这个 Bug 是什么。
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 详细步骤,让别人能复现这个问题。
+      placeholder: |
+        1. 进入 playground:https://playground.lokvis.dev/en/tools/compress
+        2. 上传一张 256×256 PNG
+        3. 选择 "目标体积" 模式,目标 50KB
+        4. 点击 "Compress" 按钮
+        5. 看到 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      description: 你期望发生什么?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 实际发生了什么?(可贴截图 / 控制台错误堆栈)
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: 出现问题的 URL
+      placeholder: https://playground.lokvis.dev/en/tools/...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: 浏览器
+      options:
+        - Chrome
+        - Edge
+        - Brave
+        - Safari
+        - Firefox
+        - 其他(请在环境信息中说明)
+    validations:
+      required: true
+
+  - type: input
+    id: browser-version
+    attributes:
+      label: 浏览器版本
+      placeholder: "如 Chrome 130.0.6723.70"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Android
+        - iOS
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: 其他环境信息
+      description: 如有特殊配置(扩展 / DevTools 打开 / Service Worker 状态等)请说明。
+      placeholder: "如:DevTools 开启 / 网络限速 3G / 已安装 uBlock 等"
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 控制台日志
+      description: 浏览器 DevTools Console 的相关错误(贴文本,不要截图)。已自动忽略隐私路径。
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: 确认
+      options:
+        - label: 我已搜索现有 Issue,确认这是新问题
+          required: true
+        - label: 我没有在 Issue 中包含真实用户文件 / token / DSN
+          required: true
+        - label: 我使用的是最新版本(dev 分支或最新 playground 部署)
+          required: true

@@ -277,75 +277,24 @@ lokvis version                            # 查看版本
 
 ## 🤝 贡献指南
 
-我们欢迎贡献!请遵循以下流程:
+我们欢迎贡献!详见 **[CONTRIBUTING.md](CONTRIBUTING.md)**(环境要求 / 架构约束 / 测试约定 / Conventional Commits / PR 流程)。
 
-### 1. Fork & Clone
+**TL;DR**:
 
 ```bash
 git clone https://github.com/<your-username>/lokvis.git
-cd lokvis
-git remote add upstream https://github.com/lokvis/lokvis.git
-pnpm install
+cd lokvis && pnpm install && pnpm build
+pnpm test:fast && pnpm typecheck && pnpm lint
+# Conventional Commits → PR 到 dev 分支
 ```
 
-### 2. 创建分支
+关键约定:
 
-```bash
-git checkout -b feat/your-feature   # 特性
-git checkout -b fix/your-bugfix     # 修复
-git checkout -b docs/your-docs      # 文档
-```
-
-### 3. 开发
-
-```bash
-# 写代码 + 测试
-pnpm test:fast        # 快速验证(跳过覆盖率)
-pnpm typecheck        # 类型检查
-pnpm lint             # 代码规范(oxlint)
-```
-
-**架构约束**(详见 [AGENTS.md](AGENTS.md)):
-
-- 五层架构**单向依赖**:`UI → Workflow → Runtime → Capability → Engine`,禁止跨层引用
-- Engine 层只暴露 Blob ↔ Blob 纯函数,接受 `Record<string, any>` 参数(非具体 interface)
-- 禁止 `as unknown as` 双断言(Worker scope 等跨边界场景例外)
-- 所有 `fetch()` 必须检查 `response.ok`,失败抛出明确错误
-- EventBus `emit()` 必须遍历 `[...set]` 副本 + try/catch 包裹每个 handler
-
-**测试约定**(详见 [AGENTS.md](AGENTS.md)):
-
-- 框架:Vitest,`globals: false`(显式 import)
-- 位置:`src/__tests__/<module>.test.ts`
-- 中文测试描述
-- 浏览器 API(Canvas / OPFS / IndexedDB)用 fake 实现
-- 覆盖率目标:lines 60%+,branches 75%+
-
-### 4. 提交(Conventional Commits)
-
-遵循 [Conventional Commits](https://www.conventionalcommits.org/):
-
-```bash
-git commit -m "feat(runtime): add new capability 'image.filter'"
-git commit -m "fix(ui-react): Canvas useEffect deps missing canCompare"
-git commit -m "docs(w12.4): Starlight 文档三页定稿"
-```
-
-类型(7 种):`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `perf`
-
-### 5. PR 流程
-
-- 推到你的 fork,向 `dev` 分支发起 PR
-- PR 标题遵循 Conventional Commits
-- 描述变更内容 + 验证方式(typecheck / test / build)
-- CI 必须全绿(lint + typecheck + build + test)
-- 至少 1 位 reviewer 批准
-
-### 6. 行为准则
-
-- 友善、包容、对事不对人
-- 中文 / 英文均可,技术术语保留英文
-- 隐私优先:不在 PR 中提交真实用户文件 / DSN / token
+- **五层架构单向依赖**:`UI → Workflow → Runtime → Capability → Engine`,禁止跨层引用(详见 [AGENTS.md](AGENTS.md))
+- **Conventional Commits**:`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `perf`
+- **行为准则**:见 [Code of Conduct](CODE_OF_CONDUCT.md)——友善、包容、对事不对人
+- **隐私优先**:不在 PR / Issue 中提交真实用户文件 / DSN / token
+- **License**:MIT,不要求 DCO / CLA,但禁止 GPL/AGPL 进入主 bundle(详见 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md))
 
 ## 📄 License
 
