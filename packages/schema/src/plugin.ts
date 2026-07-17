@@ -93,7 +93,7 @@ export interface PanelDefinition {
  * 元数据读取函数(依赖反转)。
  *
  * 某些 Plugin 能力本质是"元数据查询"而非"资产变换"(如 EXIF 读取:
- * Blob → ExifData),既不符合 Engine 层 Blob↔Blob 约束,也不符合
+ * Blob → ExifData),既不符合 Engine 层 Blob↔Blob 纯函数约束,也不符合
  * CapabilityImplementation 的 Asset[]→Asset[] 契约。这类能力通过
  * MetadataReader 注册:Plugin 提供读取函数,Runtime 持有引用并按名调用。
  *
@@ -107,11 +107,32 @@ export interface PanelDefinition {
  * - 类型直接透传(ExifData),无需序列化
  *
  * @param asset 输入资产
+ * @param ctx 读取上下文(提供 log 可观测信号;TD-3.4 长期方案)
  * @returns 读取结果;无数据 / 解析失败返回 null
  */
 export type MetadataReader<T = unknown> = (
-  asset: import('./asset.js').Asset
+  asset: import('./asset.js').Asset,
+  ctx: MetadataReaderContext
 ) => Promise<T | null>;
+
+/**
+ * 元数据读取上下文(TD-3.4 长期方案)。
+ *
+ * 为 MetadataReader 提供可观测信号,使其能区分"无数据"(返回 null)
+ * 与"解析异常"(log warn 后返回 null),避免静默吞错。
+ *
+ * 与 ExecutionContext 的关系:
+ * - ExecutionContext 用于 Capability execute,含 workflowId / nodeId /
+ *   signal / onProgress(走 WorkflowExecutor)
+ * - MetadataReaderContext 用于 MetadataReader,只含 log(走 Runtime
+ *   直接调用,无 workflow 上下文)
+ *
+ * log 签名与 ExecutionContext.log 一致,便于 Plugin 复用日志逻辑。
+ */
+export interface MetadataReaderContext {
+  /** 日志函数(与 ExecutionContext.log 一致签名) */
+  log: (level: 'info' | 'warn' | 'error', message: string) => void;
+}
 
 /**
  * Plugin 上下文（Plugin 能访问的全部 API）

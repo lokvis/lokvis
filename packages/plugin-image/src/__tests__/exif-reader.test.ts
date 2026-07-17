@@ -41,10 +41,31 @@ describe('readExifFromBlob', () => {
     expect(result).toBeNull();
   });
 
-  it('exifr 抛错应静默返回 null', async () => {
+  it('exifr 抛错应 log warn 后返回 null(TD-3.4:不再静默吞错)', async () => {
     mockParse.mockRejectedValue(new Error('parse boom'));
+    const log = vi.fn();
+    const result = await readExifFromBlob(new Blob([]), { log });
+    expect(result).toBeNull();
+    expect(log).toHaveBeenCalledWith('warn', expect.stringContaining('parse boom'));
+  });
+
+  it('exifr 抛错未注入 log 时走默认 console.warn(TD-3.4)', async () => {
+    mockParse.mockRejectedValue(new Error('default console boom'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const result = await readExifFromBlob(new Blob([]));
     expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[lokvis:exif-reader] EXIF parse failed: default console boom')
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('无 EXIF(parse 返回 null)不应调用 log(TD-3.4:区分"无 EXIF"与"解析异常")', async () => {
+    mockParse.mockResolvedValue(null);
+    const log = vi.fn();
+    const result = await readExifFromBlob(new Blob([]), { log });
+    expect(result).toBeNull();
+    expect(log).not.toHaveBeenCalled();
   });
 
   it('应解析全字段并返回 ExifData(不含 raw)', async () => {

@@ -110,6 +110,11 @@ interface RichMetadata {
  *
  * 所有提取均 try/catch:失败时返回空对象,不阻断 import。
  * Node.js / 测试环境可能无 createImageBitmap / document,自然降级为空。
+ *
+ * TD-3.9 长期方案:catch 不再静默吞错,console.warn 记录异常(区分"无元数据"
+ * 与"提取异常")。asset-store 位于 Runtime 层,无 ctx.log 上下文(不像
+ * plugin/capability 走 ExecutionContext / MetadataReaderContext),与
+ * opfs-asset-store.ts 的错误日志策略一致(见 L155/L170/L183/L205/L258)。
  */
 async function extractRichMetadata(
   blob: Blob,
@@ -125,7 +130,12 @@ async function extractRichMetadata(
       default:
         return {};
     }
-  } catch {
+  } catch (err) {
+    // TD-3.9:区分"无元数据"(default 分支返回 {},无日志)与"提取异常"(此处 warn)
+    console.warn(
+      `[lokvis:asset-store] extractRichMetadata failed for ${type} blob (${blob.size} bytes):`,
+      err
+    );
     return {};
   }
 }

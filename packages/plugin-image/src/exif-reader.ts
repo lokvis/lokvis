@@ -9,18 +9,44 @@
  * 类型说明(见 schema/src/exif.ts):
  * - 本函数返回 ExifData(无 raw),直接构造,不做"先填 RawExifData 再删 raw"的 patch
  * - RawExifData 仅供调试 / 高级面板场景在 Plugin 内部其他地方使用(本函数不需要)
+ *
+ * TD-3.4 长期方案:catch 不再静默吞错,通过 options.log('warn', ...) 上报
+ * 解析异常,与"无 EXIF"(parse 返回 null)区分。options.log 默认为 console.warn,
+ * Plugin 注册时通过 MetadataReaderContext.log 透传 runtime 侧日志通道。
  */
 
 import exifr from 'exifr';
 import type { ExifData } from '@lokvis/schema';
 
+/** readExifFromBlob 选项(TD-3.4 长期方案:可观测信号) */
+export interface ExifReaderOptions {
+  /**
+   * 日志函数,签名与 MetadataReaderContext.log / ExecutionContext.log 一致。
+   * 未提供时默认为 `(level, msg) => console[level]('[lokvis:exif-reader] ' + msg)`。
+   * Plugin 注册路径通过 MetadataReaderContext.log 透传;独立调用(测试 / 脚本)
+   * 可不传,走 console 默认通道。
+   */
+  log?: (level: 'info' | 'warn' | 'error', message: string) => void;
+}
+
+/** 默认日志:未注入 logger 时走 console(独立调用场景) */
+const defaultLog = (level: 'info' | 'warn' | 'error', message: string): void => {
+  const fn = level === 'info' ? console.info : level === 'warn' ? console.warn : console.error;
+  fn(`[lokvis:exif-reader] ${message}`);
+};
+
 /**
  * 从图像 Blob 解析 EXIF 元数据。
  *
  * @param blob 图像 Blob(JPEG / TIFF / HEIC 等含 EXIF 的格式)
+ * @param options 选项(可选);提供 log 以接收解析异常日志
  * @returns ExifData(无 raw);无 EXIF / 解析失败 / 非图像返回 null
  */
-export async function readExifFromBlob(blob: Blob): Promise<ExifData | null> {
+export async function readExifFromBlob(
+  blob: Blob,
+  options: ExifReaderOptions = {}
+): Promise<ExifData | null> {
+  const log = options.log ?? defaultLog;
   try {
     const parsed = await exifr.parse(blob, {
       tiff: true,
@@ -72,8 +98,13 @@ export async function readExifFromBlob(blob: Blob): Promise<ExifData | null> {
     if (typeof parsed.Software === 'string') exifData.software = parsed.Software;
 
     return exifData;
-  } catch {
-    // exifr 解析失败(损坏数据 / 不支持的格式)静默返回 null
+  } catch (err) {
+    // TD-3.4 长期方案:不静默吞错。区分"无 EXIF"(parse 返回 null,无日志)
+    // 与"解析异常"(exifr 抛错,log warn 后返回 null)。便于 Sentry 上报与调试。
+    log(
+      'warn',
+      `EXIF parse failed: ${err instanceof Error ? err.message : String(err)}`
+    );
     return null;
   }
 }

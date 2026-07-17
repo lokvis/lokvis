@@ -8,9 +8,9 @@
  *
  * 不依赖真实 exifr / Canvas:reader 函数直接 mock。
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LokvisRuntimeImpl } from '../runtime.js';
-import type { ExifData } from '@lokvis/schema';
+import type { ExifData, MetadataReaderContext } from '@lokvis/schema';
 
 /** 构造一个内存 runtime(不依赖 OPFS/IDB) */
 function makeRuntime(): LokvisRuntimeImpl {
@@ -97,5 +97,37 @@ describe('Runtime.readAssetExif', () => {
 
     const result = await runtime.readAssetExif(id);
     expect(result?.make).toBe('New');
+  });
+
+  it('TD-3.4: 应为 reader 传入含 log 函数的 MetadataReaderContext', async () => {
+    const id = await importImageAsset(runtime);
+    // 用对象包装避免 TS 控制流把 captured.ctx 收窄为 null
+    const captured: { ctx: MetadataReaderContext | null } = { ctx: null };
+    runtime._registerMetadataReader('image.read-exif', async (_asset, ctx) => {
+      captured.ctx = ctx;
+      return null;
+    });
+
+    await runtime.readAssetExif(id);
+    expect(captured.ctx).not.toBeNull();
+    expect(typeof captured.ctx?.log).toBe('function');
+  });
+
+  it('TD-3.4: reader 调用 ctx.log("warn", ...) 应不抛错(runtime 侧 log 走 console.warn)', async () => {
+    const id = await importImageAsset(runtime);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    runtime._registerMetadataReader('image.read-exif', async (_asset, ctx) => {
+      ctx.log('warn', 'test warning from reader');
+      return null;
+    });
+
+    await runtime.readAssetExif(id);
+    // log 实现拼接 prefix + message 成单字符串(与 ExecutionContext.log 一致)
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[lokvis:read-asset-exif')
+    );
+    expect(warnSpy.mock.calls[0]?.[0]).toContain('test warning from reader');
+    warnSpy.mockRestore();
   });
 });

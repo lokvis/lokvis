@@ -55,9 +55,11 @@ export function imageToolsPlugin() {
 
       // 元数据读取(Asset→ExifData,经 MetadataReader,不经 WorkflowExecutor)
       // Runtime.readAssetExif 通过此 reader 调用,UI 不直接依赖 plugin / engine
-      ctx.registerMetadataReader<ExifData>(EXIF_READER_NAME, async (asset) => {
+      // TD-3.4:reader 接收 MetadataReaderContext,透传 log 给 readExifFromBlob,
+      // 使解析异常可经 ctx.log('warn', ...) 上报(与"无 EXIF"区分)
+      ctx.registerMetadataReader<ExifData>(EXIF_READER_NAME, async (asset, readerCtx) => {
         const blob = await ctx.runtime.getAssetBlob(asset);
-        return readExifFromBlob(blob);
+        return readExifFromBlob(blob, { log: readerCtx.log });
       });
 
       ctx.log(
