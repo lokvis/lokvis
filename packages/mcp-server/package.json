@@ -38,6 +38,7 @@
     "@lokvis/cloud-bridge": "workspace:*",
     "@lokvis/engine-image": "workspace:*",
     "@lokvis/engine-pdf": "workspace:*",
+    "@lokvis/plugin-image": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/schema": "workspace:*",
     "@lokvis/sdk": "workspace:*",

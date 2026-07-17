@@ -9,6 +9,7 @@
 import type { LokvisRuntime, RuntimeConfig } from '@lokvis/sdk';
 import type { McpManifest } from '@lokvis/schema';
 import { createLokvis } from '@lokvis/sdk';
+import { imageToolsPluginNode } from '@lokvis/plugin-image/node';
 import type { CloudConfig } from '@lokvis/cloud-bridge';
 import { createAuthenticator, createBilling } from '@lokvis/cloud-bridge';
 import type { McpAuthenticator, McpBilling } from '@lokvis/cloud-bridge';
@@ -17,13 +18,14 @@ import { NodeAssetStore } from './node-asset-store.js';
 import { getImageToolRegistrations } from './tools/image.js';
 import { getPdfToolRegistrations } from './tools/pdf.js';
 import { BrowserBridge } from './browser-bridge.js';
-import { ImageNodeEngineAdapter } from './node-engine-adapter.js';
 import { ToolRouter } from './router.js';
+import type { ToolHandler } from './router.js';
 
 /**
  * 能力域(决定注册哪些 tools)。
- * 当前 'image' 与 'pdf' 已实装(各 3/2 个 tool);'video'/'audio'/'ai' 为占位
- * (待对应 engine 实装后补 tool handler)。
+ * 当前 'image'(5 个 tool:resize/compress/convert/crop/watermark,经 runtime.run
+ * 走 capability 系统)与 'pdf'(2 个 tool:merge/compress,直调 engine-pdf)已实装;
+ * 'video'/'audio'/'ai' 为占位(待对应 engine 实装后补 tool handler)。
  */
 export type LokvisMcpDomain = 'image' | 'pdf' | 'video' | 'audio' | 'ai';
 
@@ -146,9 +148,11 @@ export interface LokvisMcpOptions {
  * 流程:
  * 1. 创建 NodeAssetStore(如果 workdir 提供)并注入 RuntimeConfig
  * 2. 创建 Lokvis Runtime(通过 createLokvis)
- * 3. 创建 McpServerAdapter(包装 @modelcontextprotocol/sdk Server)
- * 4. 按 domains 注册 image / pdf 等 tools(workflow 执行 tool 留待 Phase 2)
- * 5. 返回 server + runtime + manifest(transport 启动由调用方触发)
+ * 3. 安装 imageToolsPluginNode(domains 含 image 时,注册 image capabilities)
+ * 4. 创建 McpServerAdapter(包装 @modelcontextprotocol/sdk Server)
+ * 5. 按 domains 收集 tool registrations,构造 toolHandlers Map + ToolRouter
+ * 6. 注册 tools 到 server(handler 经 ToolRouter 路由:浏览器优先 → Node 降级)
+ * 7. 返回 server + runtime + manifest(transport 启动由调用方触发)
  *
  * tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/\./g, '_')}`
  */
@@ -200,6 +204,14 @@ export async function createLokvisMcpServer(
   }
 
   const runtime = await createLokvis(resolvedRuntimeConfig);
+
+  // TD-1.1:安装 imageToolsPluginNode,注册 image capabilities(resize/compress/
+  // convert/crop/watermark + 4 stub),让 runtime.run(workflow) 能经 CapabilityRegistry
+  // 解析到 sharp engine 实现。仅当 domains 含 image 时安装(避免无用依赖)。
+  if (domains.includes('image')) {
+    await runtime.installPlugin(await imageToolsPluginNode());
+  }
+
   const manifest = runtime.toMcpManifest();
 
   // 创建 MCP server adapter
@@ -215,18 +227,24 @@ export async function createLokvisMcpServer(
     await bridge.start();
   }
 
-  // NodeEngineAdapter:image 域用 sharp、pdf 域用 pdf-lib 支撑降级路径
+  // 收集 tool registration:image handler 接收 runtime(走 capability 系统),
+  // pdf handler 直接调 engine-pdf(TD-1.4 待 plugin-pdf/node 实装后清偿)。
   const imageRegistrations = domains.includes('image')
-    ? getImageToolRegistrations()
+    ? getImageToolRegistrations(runtime)
     : [];
   const pdfRegistrations = domains.includes('pdf')
     ? getPdfToolRegistrations()
     : [];
   const allRegistrations = [...imageRegistrations, ...pdfRegistrations];
-  const nodeEngine = new ImageNodeEngineAdapter(allRegistrations);
 
-  // ToolRouter:浏览器优先(完整能力)→ Node 降级(基础能力)
-  const router = new ToolRouter(bridge, nodeEngine);
+  // 构造 toolHandlers Map:tool name → handler(Node 降级路径直接调用)
+  const toolHandlers = new Map<string, ToolHandler>();
+  for (const tool of allRegistrations) {
+    toolHandlers.set(tool.name, tool.handler as ToolHandler);
+  }
+
+  // ToolRouter:浏览器优先(完整能力)→ Node 降级(直接调 tool handler)
+  const router = new ToolRouter(bridge, toolHandlers);
 
   // 按 domains 注册 tools(handler 经 ToolRouter 路由)
   for (const tool of allRegistrations) {

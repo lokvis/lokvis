@@ -12,24 +12,24 @@
 
 | 类别 | 数量 | 严重度 | 处理策略 |
 |---|---|---|---|
-| Phase 2 路线 | 2 项 | 中 | 按 Phase 2 路线推进(TD-1.3/TD-1.4/TD-1.5 已清偿) |
+| Phase 2 路线 | 2 项 | 中 | 按 Phase 2 路线推进(TD-1.1 image 部分已清偿,TD-1.3/TD-1.4/TD-1.5 已清偿) |
 | 测试环境 hack | 3 处 | 低 | 合理写法,非债务(记录备查) |
 
-**净评估**:无阻塞性债务。剩余 2 项是已知的功能性取舍(Phase 2 路线),其余技术债已全部清偿(详见 Review #9)。
+**净评估**:无阻塞性债务。剩余 2 项是已知的功能性取舍(Phase 2 路线),其余技术债已全部清偿(详见 Review #9 / #10)。
 
 ---
 
 ## 1. Phase 2 路线(功能性短期取舍)
 
-### TD-1.1 mcp-server Node 降级模式无法读写本地文件
+### TD-1.1 mcp-server pdf tool 未走 capability 系统(image 已清偿)
 
-- **状态**:🟡 部分修复(NodeAssetStore 已实装,但未完全替代默认 store)
-- **位置**:`packages/mcp-server/src/server.ts:144`、`packages/mcp-server/src/node-asset-store.ts:74-144`
-- **问题**:原描述"使用默认内存/OPFS store,无法读写本地文件"已部分修复 —— `NodeAssetStore` 基于 `fs/promises` + `workdir` 实装,但未完全替代默认 store 路径。
-- **影响**:Node 环境已可读写本地文件,但与 runtime capability 系统的集成未完成(image/pdf 已改经 Engine 层直接消费;capability 系统对接仍待 Phase 2)
-- **长期方案**:完成 mcp-server 与 runtime capability 系统的对接(image/pdf 侧已走 Engine 层 Blob↔Blob 直接消费)
-- **为何暂不修**:已明确记入 Phase 2 路线,NodeAssetStore 已满足当前 5 个 tool 的文件读写需求
-- **触发条件**:Phase 2 MCP Server v1 与 runtime capability 系统对接完成时
+- **状态**:🟡 部分清偿(image 5 个 tool 已走 runtime.run + capability 系统;pdf 2 个 tool 仍直调 engine-pdf)
+- **位置**:`packages/mcp-server/src/tools/pdf.ts`(pdf 侧未对接)、`packages/mcp-server/src/tools/image.ts`(image 侧已对接,见 Review #10)
+- **问题**:image tool 已通过 `runtime.run(workflow, inputs)` 走完整 capability 系统(CapabilityRegistry.resolve → createBlobCapabilityImpl → engine operation);pdf tool 仍直接调 `@lokvis/engine-pdf` 的 Blob↔Blob 操作,未经 capability 系统
+- **影响**:pdf tool 缺少 capability 系统的统一调度/进度/取消/registry 路径;`plugin-pdf/node` 未实装,无法对接
+- **长期方案**:实装 `@lokvis/plugin-pdf/node`(基于 pdf-lib 的 PdfEngineAdapter),注册 pdf.merge / pdf.compress capability;pdf tool handler 改为接收 runtime 参数,经 `runtime.run()` 走 capability 系统(与 image tool 模式一致)
+- **为何暂不修**:`plugin-pdf/node` 尚未实装,需先完成 Node 端 PDF 引擎适配器
+- **触发条件**:`@lokvis/plugin-pdf/node` 实装完成时
 
 ### TD-1.2 批量队列状态不持久化
 
@@ -64,6 +64,34 @@
 ---
 
 ## Review 记录
+
+### Review #10 — 2026-07-17 TD-1.1 image 部分清偿(mcp-server capability 系统对接)
+
+- **范围**:按用户指令"忽略 phase2 的限制,执行 TD-1.1 mcp-server capability 系统对接"——将 mcp-server image tool handler 从直接消费 Engine 层改为经 `runtime.run(workflow, inputs)` 走完整 Capability 系统
+- **方法**:
+  1. `packages/mcp-server/package.json`:新增 `@lokvis/plugin-image` workspace 依赖
+  2. `packages/mcp-server/src/tools/image.ts`:完整重写——新增 `buildSingleTransformWorkflow()` 把单次 capability 调用包装为单节点 transform Workflow;新增 `runImageTransform()` 走 `importAsset → runtime.run → exportAsset → removeAsset(cleanup)` 完整流程;5 个 tool handler(resize/compress/convert/crop/watermark)签名改为接收 `runtime: LokvisRuntime` 参数
+  3. `packages/mcp-server/src/router.ts`:移除 `NodeEngineAdapter` 接口与 `toolToCapability` 函数,ToolRouter 直接接收 `Map<string, ToolHandler>`,Node 降级路径直接 `toolHandlers.get(tool)(params)`(tool handler 自身就是完整执行单元,不需要中间层做 capability 名转换)
+  4. 删除 `packages/mcp-server/src/node-engine-adapter.ts`(中间层不再需要)+ 删除对应测试 `__tests__/node-engine-adapter.test.ts`
+  5. `packages/mcp-server/src/server.ts`:新增 `imageToolsPluginNode` 安装(`domains.includes('image')` 时 `runtime.installPlugin(await imageToolsPluginNode())`),`getImageToolRegistrations(runtime)` 传入 runtime 参数,构造 `toolHandlers` Map 替代 `ImageNodeEngineAdapter`,`new ToolRouter(bridge, toolHandlers)`
+  6. `packages/mcp-server/src/index.ts`:移除 `ImageNodeEngineAdapter` / `NodeEngineAdapter` / `ToolRegistration` 导出,新增 `imageCrop` / `imageWatermark` / `ToolHandler` 导出
+  7. 测试:`router.test.ts` 完整重写(6 个测试,覆盖浏览器优先/降级/未注册抛错/直接 key 查找);`tools/image.test.ts` 完整重写(使用真实 runtime + imageToolsPluginNode,新增 crop 4 测试 + watermark 5 测试,getImageToolRegistrations 从 3 测试改为 5 测试);`server.test.ts` 新增 `imageToolsPluginNode` mock + `installPlugin` mock + 5 tool 断言 + 2 个 plugin 安装测试
+
+- **Node 环境 dimensions 读取设计决策**:
+  - 问题:Node 环境无 `createImageBitmap`,`runtime.importAsset` 内部的 `extractImageDimensions`(asset-store.ts:144)降级为空,source Asset 的 `metadata.dimensions` 为 `undefined`。`createBlobCapabilityImpl` 的 `defaultDeriveOutputMetadata`(plugin-sdk.ts:88)从 source 传播 dimensions,因此 output Asset 的 dimensions 也是 `undefined`,`formatDimensions(outAsset)` 返回 `'unknown'`
+  - 方案:在 `runImageTransform` 中用 `@lokvis/engine-image/node` 的 `getMetadata(outBlob)`(基于 sharp `.metadata()`)读取输出 Blob 的 dimensions/format,返回 `{ outBlob, outMeta: ImageMetadata | null }` 替代 `{ outBlob, outAsset }`
+  - 架构合规性:`getMetadata` 是 Engine 层的元数据查询 API(Blob → 纯元数据,不产生新 Blob),与浏览器版 `decode(Blob → DecodedImage)` 语义一致,属 Engine 层职责,非 Blob↔Blob 操作执行。tool handler 仍经 `runtime.run()` 走 capability 系统执行操作,不违反 TD-1.1 与 AGENTS.md 五层架构单向依赖
+- **验证结果**:
+  - 五层架构单向依赖**无违规**:tool handler 经 `runtime.run(workflow, inputs)` 走完整 Capability 系统(CapabilityRegistry.resolve → createBlobCapabilityImpl → engine operation);`getMetadata` 是 Engine 层元数据查询 API,非操作执行
+  - 全量 `pnpm typecheck` 48/48 通过(0 errors)
+  - 全量 `pnpm test:fast` 83 文件 / 1481 测试 / 0 失败(mcp-server 113/113 全绿)
+  - 无 `as unknown as` 双断言、无 eslint-disable、无 `new Array(singleArgument)` 违规
+- **新债务登记**:**0 项**——本次清偿严格按长期方案实装,未引入任何短期方案或新债务
+- **既有债务状态更新**:
+  - TD-1.1:🔴 活动 → 🟡 部分清偿(image 5 个 tool 已走 capability 系统;pdf 2 个 tool 仍直调 engine-pdf,待 `@lokvis/plugin-pdf/node` 实装后清偿)
+  - TD-1.1 标题更新:"mcp-server Node 降级模式无法读写本地文件" → "mcp-server pdf tool 未走 capability 系统(image 已清偿)"
+  - TD-1.1 位置更新:`packages/mcp-server/src/tools/image.ts`(已对接) + `packages/mcp-server/src/tools/pdf.ts`(未对接)
+- **后续触发条件**:`@lokvis/plugin-pdf/node` 实装完成时,按本次 image 对接模式(单节点 transform Workflow + runtime.run)将 pdf tool 改为走 capability 系统
 
 ### Review #9 — 2026-07-17 技术债务集中清偿(长期方案落地)
 

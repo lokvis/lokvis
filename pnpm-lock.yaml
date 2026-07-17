@@ -427,6 +427,9 @@ importers:
       '@lokvis/engine-pdf':
         specifier: workspace:*
         version: link:../engine-pdf
+      '@lokvis/plugin-image':
+        specifier: workspace:*
+        version: link:../plugin-image
       '@lokvis/runtime':
         specifier: workspace:*
         version: link:../runtime

@@ -1,37 +1,39 @@
 /**
  * Image tools:MCP tool handlers for image processing.
  *
- * 3 个 tool 经 @lokvis/engine-image/node(Engine 层,Blob↔Blob 纯函数)处理本地图片:
- * - lokvis_image_resize: 调整尺寸
- * - lokvis_image_compress: 压缩(jpeg/png/webp/avif quality)
- * - lokvis_image_convert: 格式转换
+ * 5 个 tool 经 runtime capability 系统调用(TD-1.1 长期方案):
+ * - lokvis_image_resize: 调整尺寸(image.resize)
+ * - lokvis_image_compress: 压缩(image.compress)
+ * - lokvis_image_convert: 格式转换(image.convert)
+ * - lokvis_image_crop: 裁剪(image.crop)
+ * - lokvis_image_watermark: 水印(image.watermark)
  *
- * 架构定位:mcp-server 是 Node 应用,直接消费 Engine 层 Blob↔Blob 操作
- * (与浏览器侧 Runtime→Capability→Engine 链路对齐:Node 侧无需 Asset/Workflow 抽象,
- *  tool handler 自行做 file-path ↔ Blob 翻译)。sharp 仅在 engine-image/node 内使用,
- * 本文件不直接 import sharp(ADR-011 / AGENTS.md 五层架构)。
+ * 架构定位:mcp-server 通过 `runtime.run(workflow, inputs)` 走完整 capability
+ * 系统(CapabilityRegistry.resolve → createBlobCapabilityImpl → engine operation),
+ * 与浏览器侧 Runtime→Capability→Engine 链路完全对齐(ADR-011 / AGENTS.md 五层架构)。
+ * sharp engine 由 `@lokvis/plugin-image/node` 在 server.ts 启动时通过
+ * `runtime.installPlugin(await imageToolsPluginNode())` 注册,本文件不直接
+ * import sharp 或 @lokvis/engine-image/node(五层架构单向依赖)。
  *
  * 输入:文件路径(绝对路径或相对 workdir)
  * 输出:处理后的文件路径 + 元数据(尺寸/大小变化)
  */
 
-import { resolve, extname } from 'node:path';
-import {
-  resize as engineResize,
-  compress as engineCompress,
-  convert as engineConvert,
-  getMetadata,
-} from '@lokvis/engine-image/node';
+import { resolve, extname, basename } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import type { LokvisRuntime } from '@lokvis/sdk';
+import type { Workflow } from '@lokvis/schema';
+import { getMetadata } from '@lokvis/engine-image/node';
+import type { ImageMetadata } from '@lokvis/engine-image/node';
 import type { McpToolResult } from '../server.js';
 import {
-  fileToBlob,
   blobToFile,
   makeOutputPath,
   getFileSize,
   formatSize,
 } from './fs-helpers.js';
 
-/** 文件扩展名 → MIME 类型(构造输入 Blob 时使用,engine 据此推断格式) */
+/** 文件扩展名 → MIME 类型(构造输入 File 时使用,runtime 据此推断格式) */
 const EXT_TO_MIME: Record<string, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',
@@ -47,6 +49,107 @@ function extToMime(path: string): string {
   return EXT_TO_MIME[ext] ?? 'application/octet-stream';
 }
 
+/** 水印位置(与 engine-image WatermarkPosition 对齐,本地定义避免跨层依赖) */
+type WatermarkPosition =
+  | 'top-left'
+  | 'top-right'
+  | 'bottom-left'
+  | 'bottom-right'
+  | 'center'
+  | 'tile';
+
+/**
+ * 构造单节点 transform Workflow(MCP tool 调用专用)。
+ *
+ * MCP tool 把单次 capability 调用包装为单节点 Workflow,经 runtime.run()
+ * 走完整 capability 系统。与浏览器侧 Runtime→Capability→Engine 链路对齐。
+ */
+function buildSingleTransformWorkflow(
+  capability: string,
+  params: Record<string, unknown>
+): Workflow {
+  return {
+    id: `mcp_${capability.replace(/\./g, '_')}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    version: '1.0',
+    name: capability,
+    description: `MCP tool: ${capability}`,
+    author: { id: 'mcp-server', name: 'MCP Server' },
+    category: 'image',
+    tags: [],
+    nodes: [
+      {
+        id: 'n1',
+        type: 'transform',
+        capability,
+        params,
+      },
+    ],
+    edges: [],
+    inputs: { type: 'image', multiple: false },
+    outputs: { type: 'image' },
+  };
+}
+
+/**
+ * 通用 image transform 流程:file → importAsset → runtime.run → exportAsset → cleanup。
+ *
+ * 走完整 capability 系统(TD-1.1 长期方案),与浏览器侧 Runtime→Capability→Engine
+ * 链路对齐。input/output asset 在流程结束后清理(避免 NodeAssetStore 累积)。
+ *
+ * dimensions 读取:Node 环境 createImageBitmap 不可用,runtime.importAsset 无法
+ * 提取图像 dimensions(asset-store.ts 的 extractImageDimensions 降级为空)。
+ * 此处用 engine-image/node 的 getMetadata(sharp .metadata())读取输出 Blob
+ * 的 dimensions —— 这是 Engine 层的元数据查询 API(非 Blob↔Blob 操作),
+ * 不违反 TD-1.1(tool handler 仍走 capability 系统执行操作)。
+ */
+async function runImageTransform(
+  runtime: LokvisRuntime,
+  inputPath: string,
+  capability: string,
+  params: Record<string, unknown>
+): Promise<{ outBlob: Blob; outMeta: ImageMetadata | null }> {
+  const mime = extToMime(inputPath);
+  const buffer = await readFile(inputPath);
+  // AGENTS.md:Node.js 环境构造 File 对象用标准 API
+  const file = new File([buffer], basename(inputPath), { type: mime });
+  const inputAssetId = await runtime.importAsset({ kind: 'file', file });
+
+  try {
+    const workflow = buildSingleTransformWorkflow(capability, params);
+    const result = await runtime.run(workflow, [inputAssetId]);
+    if (result.status !== 'completed' || !result.outputs[0]) {
+      throw new Error(
+        `Workflow ${capability} failed: status=${result.status}` +
+          (result.error ? ` error=${result.error}` : '')
+      );
+    }
+
+    const outAssetId = result.outputs[0];
+    const outBlob = await runtime.exportAsset(outAssetId);
+
+    // 读取输出 Blob 的 dimensions/format(Node 环境需 sharp,失败时降级为 null)
+    let outMeta: ImageMetadata | null = null;
+    try {
+      outMeta = await getMetadata(outBlob);
+    } catch {
+      // 降级:dimensions/format 不可用,不影响主流程
+    }
+
+    // 清理 output asset(已导出 Blob,不再需要)
+    await runtime.removeAsset(outAssetId).catch(() => {});
+
+    return { outBlob, outMeta };
+  } finally {
+    // 清理 input asset(避免 NodeAssetStore 累积)
+    await runtime.removeAsset(inputAssetId).catch(() => {});
+  }
+}
+
+/** 从 ImageMetadata 格式化为 "WxH" 字符串 */
+function formatDimensions(meta: ImageMetadata | null): string {
+  return meta ? `${meta.width}x${meta.height}` : 'unknown';
+}
+
 /**
  * lokvis_image_resize:调整图片尺寸。
  *
@@ -57,13 +160,16 @@ function extToMime(path: string): string {
  * - fit: 缩放策略 'cover'|'contain'|'fill'(可选,默认 'cover')
  * - output_path: 输出路径(可选,默认输入路径加 _resized 后缀)
  */
-export async function imageResize(params: {
-  input_path: string;
-  width?: number;
-  height?: number;
-  fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
-  output_path?: string;
-}): Promise<McpToolResult> {
+export async function imageResize(
+  params: {
+    input_path: string;
+    width?: number;
+    height?: number;
+    fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
   const inputPath = resolve(params.input_path);
   const width = params.width;
   const height = params.height;
@@ -82,12 +188,15 @@ export async function imageResize(params: {
   }
 
   try {
-    const inputBlob = await fileToBlob(inputPath, extToMime(inputPath));
-    const outBlob = await engineResize(inputBlob, { width, height, fit });
+    const { outBlob, outMeta } = await runImageTransform(
+      runtime,
+      inputPath,
+      'image.resize',
+      { width, height, fit }
+    );
     await blobToFile(outBlob, outputPath);
 
     const originalSize = await getFileSize(inputPath);
-    const meta = await getMetadata(outBlob);
 
     return {
       content: [
@@ -97,8 +206,8 @@ export async function imageResize(params: {
             `Image resized successfully.`,
             `  Input: ${inputPath} (${formatSize(originalSize)})`,
             `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
-            `  Dimensions: ${meta.width}x${meta.height}`,
-            `  Format: ${meta.format}`,
+            `  Dimensions: ${formatDimensions(outMeta)}`,
+            `  Format: ${outMeta?.format ?? 'unknown'}`,
           ].join('\n'),
         },
       ],
@@ -121,13 +230,16 @@ export async function imageResize(params: {
  * - quality: 压缩质量 1-100(可选,默认 80)
  * - output_path: 输出路径(可选,默认输入路径加 _compressed 后缀)
  *
- * 注意:保持输入格式不变(png/jpeg/webp/avif),按 quality 压缩。
+ * 注意:保持输入格式(png/jpeg/webp/avif),按 quality 压缩。
  */
-export async function imageCompress(params: {
-  input_path: string;
-  quality?: number;
-  output_path?: string;
-}): Promise<McpToolResult> {
+export async function imageCompress(
+  params: {
+    input_path: string;
+    quality?: number;
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
   const inputPath = resolve(params.input_path);
   const quality = params.quality ?? 80;
   const outputPath = params.output_path
@@ -144,12 +256,16 @@ export async function imageCompress(params: {
   }
 
   try {
-    const inputBlob = await fileToBlob(inputPath, extToMime(inputPath));
-    // 保持输入格式:从扩展名推断 format 传给 engine
+    // 保持输入格式:从扩展名推断 format 传给 capability
     const inputExt = extname(inputPath).slice(1).toLowerCase();
     const format = (EXT_TO_MIME[inputExt]?.split('/')[1] ?? 'webp') as
       | 'png' | 'jpeg' | 'webp' | 'avif' | 'gif';
-    const outBlob = await engineCompress(inputBlob, { format, quality });
+    const { outBlob, outMeta } = await runImageTransform(
+      runtime,
+      inputPath,
+      'image.compress',
+      { format, quality }
+    );
     await blobToFile(outBlob, outputPath);
 
     const originalSize = await getFileSize(inputPath);
@@ -165,6 +281,7 @@ export async function imageCompress(params: {
             `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
             `  Quality: ${quality}%`,
             `  Saved: ${ratio}% (${formatSize(originalSize - outBlob.size)})`,
+            `  Format: ${outMeta?.format ?? 'unknown'}`,
           ].join('\n'),
         },
       ],
@@ -188,12 +305,15 @@ export async function imageCompress(params: {
  * - quality: 质量 1-100(可选,仅对有损格式生效,默认 90)
  * - output_path: 输出路径(可选,默认输入路径加 _converted.<ext>)
  */
-export async function imageConvert(params: {
-  input_path: string;
-  format: 'jpeg' | 'png' | 'webp' | 'avif';
-  quality?: number;
-  output_path?: string;
-}): Promise<McpToolResult> {
+export async function imageConvert(
+  params: {
+    input_path: string;
+    format: 'jpeg' | 'png' | 'webp' | 'avif';
+    quality?: number;
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
   const inputPath = resolve(params.input_path);
   const format = params.format;
   const quality = params.quality ?? 90;
@@ -215,13 +335,15 @@ export async function imageConvert(params: {
   }
 
   try {
-    const inputBlob = await fileToBlob(inputPath, extToMime(inputPath));
-    const inputMeta = await getMetadata(inputBlob);
-    const outBlob = await engineConvert(inputBlob, { format, quality });
+    const { outBlob, outMeta } = await runImageTransform(
+      runtime,
+      inputPath,
+      'image.convert',
+      { format, quality }
+    );
     await blobToFile(outBlob, outputPath);
 
     const originalSize = await getFileSize(inputPath);
-    const outMeta = await getMetadata(outBlob);
 
     return {
       content: [
@@ -229,9 +351,9 @@ export async function imageConvert(params: {
           type: 'text',
           text: [
             `Image converted successfully.`,
-            `  Input: ${inputPath} (${inputMeta.format}, ${formatSize(originalSize)})`,
-            `  Output: ${outputPath} (${outMeta.format}, ${formatSize(outBlob.size)})`,
-            `  Dimensions: ${outMeta.width}x${outMeta.height}`,
+            `  Input: ${inputPath} (${formatSize(originalSize)})`,
+            `  Output: ${outputPath} (${outMeta?.format ?? 'unknown'}, ${formatSize(outBlob.size)})`,
+            `  Dimensions: ${formatDimensions(outMeta)}`,
           ].join('\n'),
         },
       ],
@@ -247,14 +369,186 @@ export async function imageConvert(params: {
 }
 
 /**
+ * lokvis_image_crop:裁剪图片(提取矩形区域)。
+ *
+ * 参数:
+ * - input_path: 输入图片路径(必填)
+ * - x: 裁剪区域左上角 x 坐标(必填)
+ * - y: 裁剪区域左上角 y 坐标(必填)
+ * - width: 裁剪区域宽度(必填)
+ * - height: 裁剪区域高度(必填)
+ * - output_path: 输出路径(可选,默认输入路径加 _cropped 后缀)
+ */
+export async function imageCrop(
+  params: {
+    input_path: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
+  const inputPath = resolve(params.input_path);
+  const { x, y, width, height } = params;
+  const outputPath = params.output_path
+    ? resolve(params.output_path)
+    : makeOutputPath(inputPath, 'cropped', 'png');
+
+  if (
+    typeof x !== 'number' ||
+    typeof y !== 'number' ||
+    typeof width !== 'number' ||
+    typeof height !== 'number'
+  ) {
+    return {
+      content: [
+        { type: 'text', text: 'Error: x, y, width, height must all be numbers' },
+      ],
+      isError: true,
+    };
+  }
+  if (width <= 0 || height <= 0) {
+    return {
+      content: [
+        { type: 'text', text: 'Error: width and height must be positive' },
+      ],
+      isError: true,
+    };
+  }
+
+  try {
+    const { outBlob, outMeta } = await runImageTransform(
+      runtime,
+      inputPath,
+      'image.crop',
+      { x, y, width, height }
+    );
+    await blobToFile(outBlob, outputPath);
+
+    const originalSize = await getFileSize(inputPath);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: [
+            `Image cropped successfully.`,
+            `  Input: ${inputPath} (${formatSize(originalSize)})`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
+            `  Region: (${x}, ${y}) ${width}x${height}`,
+            `  Dimensions: ${formatDimensions(outMeta)}`,
+          ].join('\n'),
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [
+        { type: 'text', text: `Failed to crop image: ${err}` },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
+ * lokvis_image_watermark:添加水印(文字或图片)。
+ *
+ * 参数:
+ * - input_path: 输入图片路径(必填)
+ * - text: 水印文字(与 image 二选一)
+ * - image: 水印图片 URL(data URL 或 http(s) URL,Node 端做 SSRF 校验)
+ * - position: 水印位置 'top-left'|'top-right'|'bottom-left'|'bottom-right'|'center'|'tile'(默认 'bottom-right')
+ * - opacity: 透明度 0-1(默认 0.8)
+ * - fontSize: 字体大小(默认 24,仅文字水印生效)
+ * - color: 颜色(默认 '#ffffff',仅文字水印生效)
+ * - output_path: 输出路径(可选,默认输入路径加 _watermarked 后缀)
+ */
+export async function imageWatermark(
+  params: {
+    input_path: string;
+    text?: string;
+    image?: string;
+    position?: WatermarkPosition;
+    opacity?: number;
+    fontSize?: number;
+    color?: string;
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
+  const inputPath = resolve(params.input_path);
+  const outputPath = params.output_path
+    ? resolve(params.output_path)
+    : makeOutputPath(inputPath, 'watermarked', 'png');
+
+  if (!params.text && !params.image) {
+    return {
+      content: [
+        { type: 'text', text: 'Error: at least one of text or image must be specified' },
+      ],
+      isError: true,
+    };
+  }
+
+  try {
+    const { outBlob, outMeta } = await runImageTransform(
+      runtime,
+      inputPath,
+      'image.watermark',
+      {
+        text: params.text,
+        image: params.image,
+        position: params.position ?? 'bottom-right',
+        opacity: params.opacity ?? 0.8,
+        fontSize: params.fontSize ?? 24,
+        color: params.color ?? '#ffffff',
+      }
+    );
+    await blobToFile(outBlob, outputPath);
+
+    const originalSize = await getFileSize(inputPath);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: [
+            `Image watermarked successfully.`,
+            `  Input: ${inputPath} (${formatSize(originalSize)})`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
+            `  Watermark: ${params.image ? `image(${params.image})` : `text("${params.text}")`}`,
+            `  Position: ${params.position ?? 'bottom-right'}`,
+            `  Dimensions: ${formatDimensions(outMeta)}`,
+          ].join('\n'),
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [
+        { type: 'text', text: `Failed to watermark image: ${err}` },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
  * 注册 image tools 到 MCP server adapter。
  *
  * Tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/\./g, '_')}`
  * - image.resize → lokvis_image_resize
  * - image.compress → lokvis_image_compress
  * - image.convert → lokvis_image_convert
+ * - image.crop → lokvis_image_crop
+ * - image.watermark → lokvis_image_watermark
+ *
+ * @param runtime Lokvis Runtime(已安装 imageToolsPluginNode,注册 image capabilities)
  */
-export function getImageToolRegistrations(): Array<{
+export function getImageToolRegistrations(runtime: LokvisRuntime): Array<{
   name: string;
   description: string;
   inputSchema: object;
@@ -294,7 +588,10 @@ export function getImageToolRegistrations(): Array<{
         required: ['input_path'],
       },
       handler: (p) =>
-        imageResize(p as Parameters<typeof imageResize>[0]),
+        imageResize(
+          p as Parameters<typeof imageResize>[0],
+          runtime
+        ),
     },
     {
       name: 'lokvis_image_compress',
@@ -322,7 +619,10 @@ export function getImageToolRegistrations(): Array<{
         required: ['input_path'],
       },
       handler: (p) =>
-        imageCompress(p as Parameters<typeof imageCompress>[0]),
+        imageCompress(
+          p as Parameters<typeof imageCompress>[0],
+          runtime
+        ),
     },
     {
       name: 'lokvis_image_convert',
@@ -354,7 +654,104 @@ export function getImageToolRegistrations(): Array<{
         required: ['input_path', 'format'],
       },
       handler: (p) =>
-        imageConvert(p as Parameters<typeof imageConvert>[0]),
+        imageConvert(
+          p as Parameters<typeof imageConvert>[0],
+          runtime
+        ),
+    },
+    {
+      name: 'lokvis_image_crop',
+      description:
+        'Crop an image to extract a rectangular region. ' +
+        'Specify the top-left corner (x, y) and the region size (width, height).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          input_path: {
+            type: 'string',
+            description: 'Path to the input image file',
+          },
+          x: {
+            type: 'number',
+            description: 'X coordinate of the top-left corner of the crop region',
+          },
+          y: {
+            type: 'number',
+            description: 'Y coordinate of the top-left corner of the crop region',
+          },
+          width: {
+            type: 'number',
+            description: 'Width of the crop region in pixels',
+          },
+          height: {
+            type: 'number',
+            description: 'Height of the crop region in pixels',
+          },
+          output_path: {
+            type: 'string',
+            description: 'Path for the output file (optional, defaults to input_cropped.<ext>)',
+          },
+        },
+        required: ['input_path', 'x', 'y', 'width', 'height'],
+      },
+      handler: (p) =>
+        imageCrop(
+          p as Parameters<typeof imageCrop>[0],
+          runtime
+        ),
+    },
+    {
+      name: 'lokvis_image_watermark',
+      description:
+        'Add a watermark to an image (text or image watermark). ' +
+        'Supports 9-grid positions and tile mode. ' +
+        'Either text or image must be provided.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          input_path: {
+            type: 'string',
+            description: 'Path to the input image file',
+          },
+          text: {
+            type: 'string',
+            description: 'Watermark text (required if image is not provided)',
+          },
+          image: {
+            type: 'string',
+            description: 'Watermark image URL (data URL or http(s) URL; required if text is not provided)',
+          },
+          position: {
+            type: 'string',
+            enum: ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center', 'tile'],
+            description: 'Watermark position (default: bottom-right)',
+          },
+          opacity: {
+            type: 'number',
+            minimum: 0,
+            maximum: 1,
+            description: 'Watermark opacity 0-1 (default: 0.8)',
+          },
+          fontSize: {
+            type: 'number',
+            description: 'Font size for text watermark (default: 24)',
+          },
+          color: {
+            type: 'string',
+            description: 'Color for text watermark (default: #ffffff)',
+          },
+          output_path: {
+            type: 'string',
+            description: 'Path for the output file (optional, defaults to input_watermarked.<ext>)',
+          },
+        },
+        required: ['input_path'],
+      },
+      handler: (p) =>
+        imageWatermark(
+          p as Parameters<typeof imageWatermark>[0],
+          runtime
+        ),
     },
   ];
 }

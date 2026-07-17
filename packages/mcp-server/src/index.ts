@@ -43,6 +43,8 @@ export {
   imageResize,
   imageCompress,
   imageConvert,
+  imageCrop,
+  imageWatermark,
   getImageToolRegistrations,
 } from './tools/image.js';
 export {
@@ -51,9 +53,7 @@ export {
   getPdfToolRegistrations,
 } from './tools/pdf.js';
 export { ToolRouter } from './router.js';
-export type { NodeEngineAdapter } from './router.js';
-export { ImageNodeEngineAdapter } from './node-engine-adapter.js';
-export type { ToolRegistration } from './node-engine-adapter.js';
+export type { ToolHandler } from './router.js';
 export { BrowserBridge } from './browser-bridge.js';
 export type { BrowserBridgeOptions, BridgeToolResult } from './browser-bridge.js';
 export { LokvisSseServer } from './sse-transport.js';

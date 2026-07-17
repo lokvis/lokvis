@@ -1,9 +1,10 @@
 /**
  * createLokvisMcpServer 单元测试
  *
- * mock createLokvis(避免初始化真实 Runtime),验证:
+ * mock createLokvis + imageToolsPluginNode(避免初始化真实 Runtime 和 sharp),
+ * 验证:
  * 1. 返回真实 server(非 null)
- * 2. server 注册了 3 个 image tools
+ * 2. server 注册了 5 个 image tools(resize/compress/convert/crop/watermark)
  * 3. workdir 提供时创建 NodeAssetStore
  * 4. domains 控制注册的 tools
  */
@@ -16,6 +17,12 @@ import { join } from 'node:path';
 const createLokvisMock = vi.fn();
 vi.mock('@lokvis/sdk', () => ({ createLokvis: createLokvisMock }));
 
+// mock @lokvis/plugin-image/node 的 imageToolsPluginNode,避免加载 sharp
+const imageToolsPluginNodeMock = vi.fn(async () => ({ name: 'mock-image-plugin' }));
+vi.mock('@lokvis/plugin-image/node', () => ({
+  imageToolsPluginNode: imageToolsPluginNodeMock,
+}));
+
 // mock @lokvis/cloud-bridge(避免真实网络调用)
 const createAuthenticatorMock = vi.fn(() => ({ hasApiKey: () => false, verify: vi.fn() }));
 const createBillingMock = vi.fn(() => ({ check: vi.fn() }));
@@ -27,7 +34,7 @@ vi.mock('@lokvis/cloud-bridge', () => ({
 
 const { createLokvisMcpServer } = await import('../server.js');
 
-/** 创建 mock runtime(仅含 toMcpManifest) */
+/** 创建 mock runtime(含 toMcpManifest + installPlugin) */
 function makeMockRuntime() {
   return {
     version: '0.1.0',
@@ -44,6 +51,7 @@ function makeMockRuntime() {
       ],
       resources: [],
     })),
+    installPlugin: vi.fn(async () => {}),
   };
 }
 
@@ -78,13 +86,15 @@ describe('createLokvisMcpServer', () => {
     expect(manifest.serverName).toBe('lokvis');
   });
 
-  it('默认 domains 应注册 3 个 image tools', async () => {
+  it('默认 domains 应注册 5 个 image tools', async () => {
     const { server } = await createLokvisMcpServer();
     const toolNames = server.getRegisteredToolNames();
-    expect(toolNames).toHaveLength(3);
+    expect(toolNames).toHaveLength(5);
     expect(toolNames).toContain('lokvis_image_resize');
     expect(toolNames).toContain('lokvis_image_compress');
     expect(toolNames).toContain('lokvis_image_convert');
+    expect(toolNames).toContain('lokvis_image_crop');
+    expect(toolNames).toContain('lokvis_image_watermark');
   });
 
   it('domains=[] 不应注册任何 tool', async () => {
@@ -92,9 +102,21 @@ describe('createLokvisMcpServer', () => {
     expect(server.getRegisteredToolNames()).toHaveLength(0);
   });
 
-  it('domains=[image] 应注册 image tools', async () => {
+  it('domains=[image] 应注册 5 个 image tools', async () => {
     const { server } = await createLokvisMcpServer({ domains: ['image'] });
-    expect(server.getRegisteredToolNames()).toHaveLength(3);
+    expect(server.getRegisteredToolNames()).toHaveLength(5);
+  });
+
+  it('domains=[image] 应安装 imageToolsPluginNode', async () => {
+    imageToolsPluginNodeMock.mockClear();
+    await createLokvisMcpServer({ domains: ['image'] });
+    expect(imageToolsPluginNodeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('domains=[] 不应安装 imageToolsPluginNode', async () => {
+    imageToolsPluginNodeMock.mockClear();
+    await createLokvisMcpServer({ domains: [] });
+    expect(imageToolsPluginNodeMock).not.toHaveBeenCalled();
   });
 
   it('提供 workdir 应创建 NodeAssetStore 并注入 runtime config', async () => {

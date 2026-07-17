@@ -1,62 +1,26 @@
 /**
- * toolToCapability 单元测试(T1/T4)
+ * ToolRouter 单元测试(TD-1.1 改造后)
  *
- * 验证 MCP tool 名 → Lokvis capability 名的反向推断:
- * - 默认 tool 名 `lokvis_<domain>_<verb>` → `<domain>.<verb>`(domain 在前)
- * - 去掉 `lokvis_` 前缀
- * - 单段名原样返回
- * - 多词 verb 用下划线还原(而非点号)
+ * 验证路由优先级:
+ * - 浏览器已连接时优先转发到 browserBridge
+ * - 浏览器调用失败时降级到 toolHandlers
+ * - 浏览器未连接时直接走 toolHandlers
+ * - tool 未注册且浏览器未连接时抛错
  *
- * 覆盖 B1 修复:此前实现误把 domain 放在末尾且用点号拼接 verb,
- * 导致 `lokvis_image_resize` → `resize.image`(错误)。
+ * TD-1.1 改造:移除 NodeEngineAdapter 中间层,ToolRouter 直接接收
+ * toolHandlers Map,Node 降级路径直接调用 tool handler(不再做 capability 转换)。
  */
 import { describe, it, expect, vi } from 'vitest';
-import { toolToCapability, ToolRouter } from '../router.js';
-import type { NodeEngineAdapter } from '../router.js';
-
-describe('toolToCapability', () => {
-  it('应把默认 tool 名反推为 <domain>.<verb>(domain 在前)', () => {
-    // 默认映射:image.resize → lokvis_image_resize(domain 在前)
-    expect(toolToCapability('lokvis_image_resize')).toBe('image.resize');
-    expect(toolToCapability('lokvis_pdf_merge')).toBe('pdf.merge');
-    expect(toolToCapability('lokvis_image_compress')).toBe('image.compress');
-  });
-
-  it('应按下划线还原多词 verb(而非点号)', () => {
-    // image.batch_process → lokvis_image_batch_process
-    // 反推应得回 image.batch_process(用下划线,不是 image.batch.process)
-    expect(toolToCapability('lokvis_image_batch_process')).toBe(
-      'image.batch_process'
-    );
-    expect(toolToCapability('lokvis_pdf_split_pages')).toBe('pdf.split_pages');
-  });
-
-  it('无 lokvis_ 前缀时应直接按 body 推断', () => {
-    expect(toolToCapability('image_resize')).toBe('image.resize');
-  });
-
-  it('单段名(无下划线)应原样返回', () => {
-    expect(toolToCapability('lokvis_image')).toBe('image');
-    expect(toolToCapability('image')).toBe('image');
-  });
-
-  it('空前缀 lokvis_ 后无内容时应返回空串', () => {
-    expect(toolToCapability('lokvis_')).toBe('');
-  });
-
-  it('与 toMcpManifest 默认 tool 名约定互为逆运算', () => {
-    // 默认 tool 名 = lokvis_${name.replace(/\./g, '_')}
-    const cases = ['image.resize', 'pdf.merge', 'image.batch_process'];
-    for (const name of cases) {
-      const tool = `lokvis_${name.replace(/\./g, '_')}`;
-      expect(toolToCapability(tool)).toBe(name);
-    }
-  });
-});
+import { ToolRouter } from '../router.js';
+import type { ToolHandler } from '../router.js';
 
 describe('ToolRouter', () => {
   /** 创建 mock browserBridge */
-  function makeBrowserBridge(opts: { connected: boolean; callResult?: unknown; callError?: Error }) {
+  function makeBrowserBridge(opts: {
+    connected: boolean;
+    callResult?: unknown;
+    callError?: Error;
+  }) {
     return {
       isConnected: vi.fn(() => opts.connected),
       callTool: vi.fn(async () => {
@@ -66,12 +30,17 @@ describe('ToolRouter', () => {
     };
   }
 
-  /** 创建 mock nodeEngine */
-  function makeNodeEngine(opts: { supports: boolean; executeResult?: unknown }) {
-    return {
-      supports: vi.fn(() => opts.supports),
-      execute: vi.fn(async () => opts.executeResult),
-    } as unknown as NodeEngineAdapter;
+  /** 创建 mock toolHandler */
+  function makeToolHandler(opts: { result?: unknown; error?: Error }) {
+    return vi.fn(async () => {
+      if (opts.error) throw opts.error;
+      return opts.result;
+    }) as unknown as ToolHandler;
+  }
+
+  /** 构造单 tool 的 handlers Map */
+  function makeHandlers(name: string, handler: ToolHandler): Map<string, ToolHandler> {
+    return new Map([[name, handler]]);
   }
 
   it('浏览器连接时优先转发到 browserBridge', async () => {
@@ -79,79 +48,79 @@ describe('ToolRouter', () => {
       connected: true,
       callResult: { ok: true, from: 'browser' },
     });
-    const engine = makeNodeEngine({ supports: true, executeResult: { from: 'node' } });
-    const router = new ToolRouter(bridge, engine);
+    const handler = makeToolHandler({ result: { from: 'node' } });
+    const router = new ToolRouter(bridge, makeHandlers('lokvis_image_resize', handler));
 
     const result = await router.execute('lokvis_image_resize', { width: 100 });
 
     expect(bridge.callTool).toHaveBeenCalledWith('lokvis_image_resize', { width: 100 });
-    expect(engine.execute).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
     expect(result).toEqual({ ok: true, from: 'browser' });
   });
 
-  it('浏览器调用失败时降级到 Node engine', async () => {
+  it('浏览器调用失败时降级到 toolHandler', async () => {
     const bridge = makeBrowserBridge({
       connected: true,
       callError: new Error('browser crashed'),
     });
-    const engine = makeNodeEngine({ supports: true, executeResult: { from: 'node' } });
-    const router = new ToolRouter(bridge, engine);
+    const handler = makeToolHandler({ result: { from: 'node' } });
+    const router = new ToolRouter(bridge, makeHandlers('lokvis_image_resize', handler));
 
     const result = await router.execute('lokvis_image_resize', {});
 
     expect(bridge.callTool).toHaveBeenCalled();
-    expect(engine.execute).toHaveBeenCalledWith('image.resize', {});
+    expect(handler).toHaveBeenCalledWith({});
     expect(result).toEqual({ from: 'node' });
   });
 
-  it('浏览器未连接且 Node 支持,直接走 Node engine', async () => {
+  it('浏览器未连接且 tool 已注册,直接走 toolHandler', async () => {
     const bridge = makeBrowserBridge({ connected: false });
-    const engine = makeNodeEngine({ supports: true, executeResult: { from: 'node' } });
-    const router = new ToolRouter(bridge, engine);
+    const handler = makeToolHandler({ result: { from: 'node' } });
+    const router = new ToolRouter(bridge, makeHandlers('lokvis_image_resize', handler));
 
-    const result = await router.execute('lokvis_image_resize', {});
+    const result = await router.execute('lokvis_image_resize', { width: 50 });
 
     expect(bridge.callTool).not.toHaveBeenCalled();
-    expect(engine.execute).toHaveBeenCalledWith('image.resize', {});
+    expect(handler).toHaveBeenCalledWith({ width: 50 });
     expect(result).toEqual({ from: 'node' });
   });
 
-  it('浏览器未连接且 Node 不支持,抛错并提示打开 lokvis.app', async () => {
+  it('浏览器未连接且 tool 未注册,抛错并提示打开 lokvis.app', async () => {
     const bridge = makeBrowserBridge({ connected: false });
-    const engine = makeNodeEngine({ supports: false });
-    const router = new ToolRouter(bridge, engine);
+    const handler = makeToolHandler({ result: {} });
+    const router = new ToolRouter(bridge, makeHandlers('lokvis_image_resize', handler));
 
-    await expect(router.execute('lokvis_image_resize', {})).rejects.toThrow(
+    await expect(router.execute('lokvis_image_unknown', {})).rejects.toThrow(
       /Browser not connected/
     );
-    expect(engine.execute).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
   });
 
-  it('浏览器调用失败后 Node 也不支持,抛错并提示 Browser 不支持', async () => {
+  it('浏览器调用失败后 tool 也未注册,抛错并提示 Browser 不支持', async () => {
     const bridge = makeBrowserBridge({
       connected: true,
       callError: new Error('browser failed'),
     });
-    const engine = makeNodeEngine({ supports: false });
-    const router = new ToolRouter(bridge, engine);
+    const handler = makeToolHandler({ result: {} });
+    const router = new ToolRouter(bridge, makeHandlers('lokvis_image_resize', handler));
 
-    // bridge 失败降级到 Node,Node 不支持。bridge 仍 isConnected=true,
+    // bridge 失败降级到 toolHandlers,tool 未注册。bridge 仍 isConnected=true,
     // 错误信息应为 "Browser runtime does not support this capability."
-    await expect(router.execute('lokvis_image_resize', {})).rejects.toThrow(
+    await expect(router.execute('lokvis_image_unknown', {})).rejects.toThrow(
       /Browser runtime does not support/
     );
   });
 
-  it('tool 名应通过 toolToCapability 转换为 capability 后传给 nodeEngine', async () => {
+  it('tool name 直接作为 key 查找 handler(不做 capability 转换)', async () => {
     const bridge = makeBrowserBridge({ connected: false });
-    const engine = makeNodeEngine({ supports: true, executeResult: null });
-    const router = new ToolRouter(bridge, engine);
+    const handler = makeToolHandler({ result: null });
+    const handlers = new Map<string, ToolHandler>([
+      ['lokvis_pdf_merge', handler],
+    ]);
+    const router = new ToolRouter(bridge, handlers);
 
     await router.execute('lokvis_pdf_merge', { files: ['a.pdf', 'b.pdf'] });
 
-    expect(engine.supports).toHaveBeenCalledWith('pdf.merge');
-    expect(engine.execute).toHaveBeenCalledWith('pdf.merge', {
-      files: ['a.pdf', 'b.pdf'],
-    });
+    expect(handler).toHaveBeenCalledWith({ files: ['a.pdf', 'b.pdf'] });
   });
 });
