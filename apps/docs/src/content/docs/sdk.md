@@ -37,35 +37,39 @@ const lokvis = await createLokvis({
 
 ## Runtime API
 
-### Asset Management
+> Source: [`LokvisRuntime` interface](https://github.com/lokvis/lokvis/blob/main/packages/runtime/src/types.ts). The table below is aligned with the interface.
+> Note: `getAssetBlob` is only available inside [PluginContext](plugins.md#plugin-context) (plugins read asset Blobs internally); the public Runtime does not expose it — consumers should use `exportAsset(id, format?)` to get a Blob.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
+| `version` | `string` (readonly property) | Runtime version |
+| `status` | `RuntimeStatus` (readonly property) | Current status |
+| `eventBus` | `EventBus` (readonly property) | Event bus (subscribe / publish) |
+| `isPro` | `boolean` (readonly property) | Whether Pro mode is active (affects batch limit / concurrency slots / workflow count) |
+| `batch` | `BatchProcessor` (readonly property) | Batch processor (concurrency control + progress + retry) |
 | `importAsset(source)` | `Promise<AssetId>` | Import an asset (File / Blob / URL / base64) |
 | `getAsset(id)` | `Promise<Asset>` | Get asset metadata |
-| `getAssetBlob(id)` | `Promise<Blob>` | Get the asset Blob (read back from OPFS/IDB) |
 | `exportAsset(id, format?)` | `Promise<Blob>` | Export an asset (with optional format conversion) |
 | `removeAsset(id)` | `Promise<void>` | Delete an asset (reclaims quota) |
 | `listAssets()` | `Promise<Asset[]>` | List all assets |
-
-### Workflow Execution
-
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `run(workflow, inputs)` | `Promise<WorkflowResult>` | Execute a workflow (5-step max, linear) |
-| `cancel(workflowId)` | `void` | Cancel execution (AbortSignal flows through to the Worker) |
-| `undo()` | `Promise<AssetId \| null>` | Undo the last step (cursor moves back) |
-| `redo()` | `Promise<AssetId \| null>` | Redo (cursor moves forward) |
-
-### Capabilities and Metadata
-
-| Method | Returns | Description |
-|--------|---------|-------------|
+| `readAssetExif(id)` | `Promise<ExifData \| null>` | Read EXIF metadata of an image asset (returns null for non-image / no EXIF / no reader registered) |
+| `run(workflow, inputs, options?)` | `Promise<WorkflowResult>` | Execute a workflow (optional RunOptions: `appendHistory`) |
+| `cancel(workflowId)` | `Promise<void>` | Cancel execution (AbortSignal flows through to the Worker) |
+| `pause(workflowId)` | `Promise<void>` | Pause execution |
+| `resume(workflowId)` | `Promise<void>` | Resume execution |
+| `getCurrentOutputs(workflowId)` | `Promise<AssetId[]>` | Get the workflow's current output AssetIds (the "current" state after undo/redo) |
+| `disposeWorkflow(workflowId)` | `Promise<void>` | Dispose workflow runtime state (cancel run + clear history stack + reclaim history output assets) |
+| `history(workflowId)` | `Promise<HistoryEntry[]>` | Get the workflow execution history |
+| `getHistoryState(workflowId)` | `Promise<{ entries: HistoryEntry[]; cursor: number }>` | Get history state (cursor -1 means no applied entries) |
+| `undo(workflowId)` | `Promise<void>` | Undo one step |
+| `redo(workflowId)` | `Promise<void>` | Redo one step |
+| `jumpTo(workflowId, index)` | `Promise<void>` | Jump to a specific history entry (by chronological index, -1 resets to initial; out-of-range or unchanged cursor is a no-op) |
 | `capabilities()` | `Promise<Capability[]>` | List registered capabilities |
-| `listCapabilities()` | `Promise<Capability[]>` | Same as above (alias) |
-| `readAssetMetadata(id)` | `Promise<ExifData>` | Read EXIF metadata (provided by plugin-image) |
-| `toMcpManifest(options?)` | `McpManifest` | Generate an MCP server manifest |
-| `eventBus` | `EventBus` | Event bus (subscribe / publish) |
+| `hasCapability(name)` | `Promise<boolean>` | Check if a capability is available |
+| `isStubOnly(name)` | `Promise<boolean>` | Check if a capability has only stub implementations (UI shows "Coming Soon") |
+| `getStorageUsage()` | `Promise<{ usage: number; quota: number }>` | Get storage usage (used / quota, in bytes) |
+| `toMcpManifest(options?)` | `McpManifest` (sync) | Generate an MCP server manifest (`options.batchMode` controls whether batch-only capabilities are exposed; private ones are never exposed) |
+| `installPlugin(plugin)` | `Promise<void>` | Install a plugin (register capabilities → build PluginContext → call plugin.install → emit `plugin:loaded` event; throws PluginLoadError on failure) |
 
 ### Event Bus
 
@@ -208,17 +212,25 @@ try {
 
 | Code | Description | Trigger |
 |------|-------------|---------|
-| `ASSET_NOT_FOUND` | Asset does not exist | `getAsset(id)` / `exportAsset(id)` not found |
+| `ASSET_NOT_FOUND` | Asset ID does not exist | `getAsset(id)` / `exportAsset(id)` not found |
+| `ASSET_BLOB_NOT_FOUND` | Asset Blob data missing | OPFS/IDB data lost, needs re-import |
+| `ASSET_IMPORT_FAILED` | Asset import failed | Unsupported format / IO error |
+| `ASSET_EXPORT_FAILED` | Asset export failed | Unsupported format / encoding error |
 | `WORKFLOW_INVALID` | Workflow JSON validation failed | Pre-`run()` validation of empty nodes / inputs-outputs / capability compatibility |
 | `WORKFLOW_CYCLE` | Workflow contains a cycle (Phase 1 is linear, should not trigger) | `validateWorkflow()` |
+| `WORKFLOW_NODE_ERROR` | Workflow node execution failed | Carries nodeId / capability |
 | `CAPABILITY_NOT_REGISTERED` | Capability not registered | Corresponding plugin not loaded |
 | `CAPABILITY_STUB_ONLY` | Only a stub implementation exists | Video/PDF/Audio engines not wired up (Phase 2) |
 | `STORAGE_QUOTA_EXCEEDED` | Storage quota exceeded | OPFS/IDB full; `checkStorageQuota()` before `run()` |
+| `STORAGE_OPFS_UNAVAILABLE` | OPFS unavailable | Degrades to IndexedDB |
+| `STORAGE_IDB_UNAVAILABLE` | IndexedDB unavailable | Degrades to in-memory |
 | `WORKER_CRASHED` | Worker crashed and restart failed | Heartbeat timeout + restarts reached `maxRestarts` (default 3) |
 | `WORKER_TIMEOUT` | Worker request timed out | Single request exceeded 60s (default) |
+| `WORKER_DEAD` | Worker entered dead state | Exceeded `maxRestarts` |
+| `WORKER_REQUEST_ABORTED` | Worker request cancelled | AbortController triggered |
+| `WORKER_HANDSHAKE_FAILED` | Worker handshake failed | Protocol version mismatch |
 | `DEGRADATION_REJECTED` | Memory critical and not degradable | L4 reject, carries `guide` user suggestions |
 | `PLUGIN_LOAD_FAILED` | Plugin load failed | plugin install threw |
-| `BATCH_LIMIT_EXCEEDED` | Batch exceeds free limit | 10 free / unlimited Pro |
 | `UNKNOWN` | Still unidentifiable after normalization | Non-lokvis error |
 
 ## CLI
