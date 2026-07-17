@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import type { LokvisEvent } from '@lokvis/schema';
 import { createRuntime, LokvisRuntimeImpl } from '../runtime.js';
+import type { RuntimeConfig } from '../types.js';
 import {
   createAssetStore,
   createMemoryAssetStore,
@@ -157,5 +158,114 @@ describe('runtime.run schema 校验（修复 review：__input__ 哨兵边误判�
     const runtime = await createRuntime({ enableOpfs: false });
     await runtime.run(buildSentinelWorkflow(), []);
     expect(runtime.status).toBe('error');
+  });
+});
+
+// ─── W21.6: runtime.dispose() ─────────────────────────────────
+
+describe('runtime.dispose() (W21.6)', () => {
+  it('dispose 后再调 run/cancel/pause/resume/disposeWorkflow 应抛 disposed 错', async () => {
+    const runtime = await createRuntime({ enableOpfs: false });
+    await runtime.dispose();
+
+    const wf: Workflow = {
+      id: 'wf-x', version: '1.0.0', name: 'x', description: 'd',
+      author: { id: 'a', name: 'tester' }, category: 'image', tags: [],
+      nodes: [], edges: [],
+      inputs: { type: 'image', multiple: false },
+      outputs: { type: 'image' },
+    };
+    await expect(runtime.run(wf, [])).rejects.toThrow(/disposed/);
+    await expect(runtime.cancel('any')).rejects.toThrow(/disposed/);
+    await expect(runtime.pause('any')).rejects.toThrow(/disposed/);
+    await expect(runtime.resume('any')).rejects.toThrow(/disposed/);
+    await expect(runtime.disposeWorkflow('any')).rejects.toThrow(/disposed/);
+  });
+
+  it('dispose 应幂等:重复调用不抛错', async () => {
+    const runtime = await createRuntime({ enableOpfs: false });
+    await runtime.dispose();
+    await expect(runtime.dispose()).resolves.toBeUndefined();
+  });
+
+  it('dispose 后 history 应返回空数组(历史栈已清空)', async () => {
+    const runtime = await createRuntime({ enableOpfs: false });
+    // 先 dispose 一个未存在的 workflowId 不会抛错(disposeHistory 内 stack 为 undefined 时 no-op)
+    await runtime.dispose();
+    await expect(runtime.history('any-wf')).resolves.toEqual([]);
+    const state = await runtime.getHistoryState('any-wf');
+    expect(state).toEqual({ entries: [], cursor: -1 });
+  });
+});
+
+// ─── W21.6: Runtime.dispose 调用 assetStore.dispose ──────────
+
+describe('Runtime.dispose 调用 assetStore.dispose (W21.6)', () => {
+  it('工厂创建的 store(默认路径):dispose 应调用 assetStore.dispose', async () => {
+    // 工厂创建路径:ownsAssetStore=true
+    // Node 环境降级到 Memory store(已实现 dispose)
+    const runtime = await createRuntime({ enableOpfs: false });
+    const impl = runtime as LokvisRuntimeImpl;
+    const store = impl._getAssetStore();
+
+    // 导入资产后 list 应非空
+    await runtime.importAsset({
+      kind: 'blob',
+      blob: pngBlob(),
+      name: 'a.png',
+    });
+    expect((await store.list()).length).toBeGreaterThanOrEqual(1);
+
+    await runtime.dispose();
+    // dispose 后 store 内部 Map 应已清空
+    expect((await store.list()).length).toBe(0);
+  });
+
+  it('注入的 store(注入路径):dispose 不应调用 assetStore.dispose', async () => {
+    // 注入路径:ownsAssetStore=false
+    // Runtime 不应越权清理注入的 store,由消费方自行管理生命周期
+    const injected = createMemoryAssetStore();
+    const runtime = await createRuntime({ assetStore: injected });
+    await runtime.importAsset({
+      kind: 'blob',
+      blob: pngBlob(),
+      name: 'a.png',
+    });
+    expect((await injected.list()).length).toBe(1);
+
+    await runtime.dispose();
+    // 注入路径:Runtime 不调用 assetStore.dispose,injected 数据保留
+    expect((await injected.list()).length).toBe(1);
+
+    // 由消费方自行 dispose
+    await injected.dispose?.();
+    expect((await injected.list()).length).toBe(0);
+  });
+
+  it('review fix: createRuntime 注入 store 时,JS 用户绕过类型传 ownsAssetStore:true 应被工厂覆盖为 false', async () => {
+    // TypeScript 层面 RuntimeConfig 已不含 ownsAssetStore(移到 InternalRuntimeInit),
+    // SDK 用户类型层面无法传此字段。但 JS 用户可绕过类型系统传 ownsAssetStore:true,
+    // 工厂 createRuntime 用 `ownsAssetStore: !injectedAssetStore` 覆盖,确保注入路径
+    // 下 ownsAssetStore 始终为 false,防止 Runtime 越权清理注入的 store。
+    const injected = createMemoryAssetStore();
+    // 模拟 JS 用户绕过类型系统(类型断言模拟运行时行为)
+    const runtime = await createRuntime({
+      assetStore: injected,
+      ownsAssetStore: true,
+    } as RuntimeConfig & { ownsAssetStore?: boolean });
+    await runtime.importAsset({
+      kind: 'blob',
+      blob: pngBlob(),
+      name: 'a.png',
+    });
+    expect((await injected.list()).length).toBe(1);
+
+    await runtime.dispose();
+    // 工厂覆盖 ownsAssetStore 为 false,injected 数据保留
+    expect((await injected.list()).length).toBe(1);
+
+    // 由消费方自行 dispose
+    await injected.dispose?.();
+    expect((await injected.list()).length).toBe(0);
   });
 });

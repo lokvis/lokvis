@@ -101,7 +101,7 @@ function actionToSuffix(action: string): string {
 
 /** domain → UPPER_SNAKE_CASE 前缀(如 `image` → `IMAGE`, `developer` → `DEV`) */
 function domainToPrefix(domain: string): string {
-  // 与手写 developer.ts 一致(DEVELOPER → DEV 缩写)
+  // developer → DEV 缩写(其他 domain 直接大写)
   if (domain === 'developer') return 'DEV';
   return domain.toUpperCase().replace(/-/g, '_');
 }
@@ -214,9 +214,6 @@ function generateDomainFile(loaded: LoadedManifest): string {
  *
  * 来源:packages/capability/manifests/${filename}
  * 重跑:pnpm codegen
- *
- * 与手写版本 packages/capability/src/presets/${manifest.domain}.ts 逐字段对应;
- * W4.3 完成迁移后,手写版本将被删除,本文件成为唯一来源。
  */
 import type { Capability } from '@lokvis/schema';
 

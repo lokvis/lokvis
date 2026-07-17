@@ -291,3 +291,36 @@ describe('富元数据提取(W6.4)', () => {
     expect(asset.metadata.pages).toBeUndefined();
   });
 });
+
+// ─── W21.6: AssetStore.dispose() ──────────────────────────────
+
+describe('MemoryAssetStore.dispose() (W21.6)', () => {
+  it('dispose 后 list() 应返回空数组(内存 Map 已清空)', async () => {
+    const store = createMemoryAssetStore();
+    await store.import({
+      kind: 'blob',
+      blob: new Blob([new Uint8Array([0])], { type: 'image/png' }),
+      name: 'a.png',
+    });
+    expect((await store.list()).length).toBe(1);
+
+    await store.dispose?.();
+    expect((await store.list()).length).toBe(0);
+  });
+
+  it('dispose 后 get() 应返回 undefined(数据已清空,不可恢复)', async () => {
+    const store = createMemoryAssetStore();
+    const blob = new Blob([new Uint8Array([0])], { type: 'image/png' });
+    const asset = await store.import({ kind: 'blob', blob, name: 'a.png' });
+    expect(await store.get(asset.id)).toBeDefined();
+
+    await store.dispose?.();
+    expect(await store.get(asset.id)).toBeUndefined();
+  });
+
+  it('dispose 应幂等:重复调用不抛错', async () => {
+    const store = createMemoryAssetStore();
+    await store.dispose?.();
+    await expect(store.dispose?.()).resolves.toBeUndefined();
+  });
+});

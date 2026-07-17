@@ -136,5 +136,14 @@ export function wrapAssetStoreWithQuota(
     _getQuotaUsage(): number {
       return initialized ? usage : -1;
     },
+
+    // W21.6: 透传 dispose 给 inner store,并重置内部 usage/initialized/chain,
+    // 确保 dispose 后的 wrapper 状态一致(尽管不建议 dispose 后继续使用)。
+    async dispose() {
+      usage = 0;
+      initialized = false;
+      chain = Promise.resolve();
+      await inner.dispose?.();
+    },
   };
 }

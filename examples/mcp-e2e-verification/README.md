@@ -1,6 +1,6 @@
 # Example: Lokvis MCP Server E2E Verification (M2.4 demo)
 
-This is the **verifiable demo deliverable** for task [M2.4](../../docs/reports/20260712-task-plan.md) — Claude Desktop / Cursor 端到端验证.
+This is the **verifiable demo deliverable** for task [M2.4](../../docs/reports/archive/20260712-task-plan.md) — Claude Desktop / Cursor 端到端验证.
 
 The script does, end-to-end, what a human would do by clicking through Claude Desktop or Cursor:
 
@@ -96,5 +96,5 @@ A non-zero exit fails the job. Treat this as the M2.4 release gate.
 ## Learn more
 
 - [Phase 2 blog post](../../docs/blog/2026-07-15-mcp-first-local-tools.md)
-- [M2.4 task brief](../../docs/reports/20260712-task-plan.md)
+- [M2.4 task brief](../../docs/reports/archive/20260712-task-plan.md)
 - [Claude Desktop example](../mcp-claude-desktop/README.md) · [Cursor example](../mcp-cursor/README.md)

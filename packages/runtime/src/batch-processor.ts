@@ -68,6 +68,7 @@ function generateJobId(): string {
 export class BatchProcessor {
   private readonly runtime: LokvisRuntime;
   private readonly isPro: boolean;
+  private readonly eventBus: EventBus;
   private readonly jobs = new Map<string, BatchJobInternal>();
   private readonly scheduler: BatchScheduler;
   private readonly progress: BatchProgressEmitter;
@@ -80,6 +81,7 @@ export class BatchProcessor {
   }) {
     this.runtime = opts.runtime;
     this.isPro = opts.isPro;
+    this.eventBus = opts.eventBus;
     this.progress = new BatchProgressEmitter(opts.eventBus);
     const concurrency = new ConcurrencyController({ memoryGuard: opts.memoryGuard });
     this.scheduler = new BatchScheduler({
@@ -155,8 +157,9 @@ export class BatchProcessor {
         const wfId = this.scheduler.itemWorkflowId(job.id, item.id);
         try {
           await this.runtime.cancel(wfId);
-        } catch {
-          // 取消失败不阻断
+        } catch (err) {
+          // 取消失败不阻断后续项的 cancel,但需记录便于调试
+          console.warn(`[lokvis] BatchProcessor.cancel: cancel(${wfId}) failed:`, err);
         }
       }
     }
@@ -165,6 +168,29 @@ export class BatchProcessor {
     this.progress.emitCancelled(jobId, cancelledCount);
     this.progress.cleanupJobSubs(jobId);
     this.pruneJobs();
+  }
+
+  /**
+   * 取消所有非终态 job + 清理 progress 订阅(W21.6 runtime.dispose 用)。
+   *
+   * 与单 job cancel 不同:不等待 runtime.cancel(wfId) 完成 —— runtime
+   * 自身的 dispose 会通过 executor.cancelAll 统一取消所有 workflow,
+   * 这里只做 batch 层面的状态标记 + 订阅清理,避免双 await 死锁。
+   */
+  async dispose(): Promise<void> {
+    for (const job of [...this.jobs.values()]) {
+      if (this.scheduler.isTerminal(job.status)) continue;
+      job.cancelled = true;
+      job.paused = false;
+      for (const item of job.items) {
+        if (item.status === 'processing' || item.status === 'pending') {
+          item.status = 'cancelled';
+        }
+      }
+      job.status = 'cancelled';
+      job.endedAt = Date.now();
+      this.progress.cleanupJobSubs(job.id);
+    }
   }
 
   async pause(jobId: string): Promise<void> {
@@ -205,6 +231,56 @@ export class BatchProcessor {
 
   onProgress(jobId: string, handler: (p: BatchProgress) => void): () => void {
     return this.progress.onProgress(jobId, handler);
+  }
+
+  /**
+   * 等待 job 中至少 count 项进入 processing 状态(TD-2.2 长期方案)。
+   *
+   * 替代测试中固定 setTimeout 赌注:基于"当前状态快照 + batch:item:started
+   * 事件订阅"双重判定,确定性等待而非时间赌注。
+   *
+   * - 先快照当前 processing 数,若已 >= count 立即 resolve(schedule 循环内
+   *   同步设置 item.status='processing' + 发 batch:item:started,enqueue
+   *   返回时首批项通常已进入 processing)
+   * - 否则订阅 batch:item:started,累计到 count 时 resolve(兜底异步场景)
+   * - 超时(默认 5s)reject,避免坏 job 永久挂起
+   */
+  async waitForItemsStarted(
+    jobId: string,
+    count: number,
+    timeoutMs = 5000
+  ): Promise<void> {
+    const job = this.jobs.get(jobId);
+    if (!job) throw new Error(`Batch job not found: ${jobId}`);
+    const current = job.items.filter((i) => i.status === 'processing').length;
+    if (current >= count) return;
+    let seen = current;
+    return new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let off: () => void;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        off();
+        reject(
+          new Error(
+            `waitForItemsStarted timed out after ${timeoutMs}ms ` +
+              `(jobId=${jobId}, expected=${count}, seen=${seen})`
+          )
+        );
+      }, timeoutMs);
+      off = this.eventBus.on('batch:item:started', (e) => {
+        if (e.jobId !== jobId) return;
+        seen++;
+        if (seen >= count) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          off();
+          resolve();
+        }
+      });
+    });
   }
 
   async waitForCompletion(jobId: string, timeoutMs = 5 * 60 * 1000): Promise<BatchJob> {

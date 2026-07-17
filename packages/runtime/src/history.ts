@@ -189,8 +189,9 @@ export class HistoryStack {
     for (const entry of entries) {
       try {
         onEvict(entry);
-      } catch {
-        // onEvict 失败不应阻断历史操作,由调用方日志记录
+      } catch (err) {
+        // onEvict 失败不应阻断历史操作,但需记录便于调试
+        console.warn(`[lokvis] history onEvict threw for entry ${entry.id}:`, err);
       }
     }
   }

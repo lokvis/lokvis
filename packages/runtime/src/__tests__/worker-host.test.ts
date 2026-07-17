@@ -35,6 +35,9 @@ import {
   isWorkerFatalError,
   isWorkerMessageToHost,
   isProtocolCompatible,
+  isBlobRef,
+  unwrapBlobRef,
+  type BlobRef,
 } from '../worker-protocol.js';
 
 // ─── FakeTransport ──────────────────────────────────────────────
@@ -192,6 +195,67 @@ describe('worker-protocol 助手', () => {
     // UUID 格式 8-4-4-4-12
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   });
+
+  // ─── W21.4 BlobRef / unwrapBlobRef(Transferable 信封解包)──────
+
+  it('W21.4: isBlobRef 应识别合法 BlobRef 信封', () => {
+    const ref: BlobRef = {
+      kind: 'blob',
+      meta: { size: 5, type: 'image/png' },
+      buffer: new ArrayBuffer(5),
+    };
+    expect(isBlobRef(ref)).toBe(true);
+  });
+
+  it('W21.4: isBlobRef 应拒绝非 BlobRef 值', () => {
+    // 缺少 kind 字段(普通元数据对象,如 ImageProbeResult)
+    expect(isBlobRef({ width: 100, height: 100 })).toBe(false);
+    // kind 不匹配
+    expect(isBlobRef({ kind: 'other', meta: {}, buffer: new ArrayBuffer(1) })).toBe(false);
+    // buffer 不是 ArrayBuffer
+    expect(
+      isBlobRef({ kind: 'blob', meta: { size: 1, type: 'image/png' }, buffer: [1, 2, 3] })
+    ).toBe(false);
+    // meta 不是对象
+    expect(
+      isBlobRef({ kind: 'blob', meta: null, buffer: new ArrayBuffer(1) })
+    ).toBe(false);
+    // 原始值 / null / undefined
+    expect(isBlobRef(null)).toBe(false);
+    expect(isBlobRef(undefined)).toBe(false);
+    expect(isBlobRef('string')).toBe(false);
+    expect(isBlobRef(42)).toBe(false);
+  });
+
+  it('W21.4: unwrapBlobRef 应从 BlobRef 重组 Blob(保留 size/type)', async () => {
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d]);
+    const buffer = bytes.buffer; // underlying ArrayBuffer
+    const ref: BlobRef = {
+      kind: 'blob',
+      meta: { size: bytes.length, type: 'image/png' },
+      buffer,
+    };
+    const result = unwrapBlobRef(ref);
+    expect(result).toBeInstanceOf(Blob);
+    const blob = result as Blob;
+    expect(blob.size).toBe(bytes.length);
+    expect(blob.type).toBe('image/png');
+    // 内容一致(重组后的 Blob 字节与原 buffer 相同)
+    const out = new Uint8Array(await blob.arrayBuffer());
+    expect(out).toEqual(bytes);
+  });
+
+  it('W21.4: unwrapBlobRef 对非 BlobRef 应原样返回(不重组)', () => {
+    // ImageProbeResult 元数据对象(无 kind 字段)
+    const probeResult = { width: 100, height: 100, mimeType: 'image/png', format: 'png', size: 42 };
+    expect(unwrapBlobRef(probeResult)).toBe(probeResult);
+
+    // 原始值
+    expect(unwrapBlobRef(42)).toBe(42);
+    expect(unwrapBlobRef('string')).toBe('string');
+    expect(unwrapBlobRef(null)).toBe(null);
+    expect(unwrapBlobRef(undefined)).toBe(undefined);
+  });
 });
 
 // ─── init 与 request/response ───────────────────────────────────
@@ -282,6 +346,60 @@ describe('WorkerHost init + request', () => {
     // 不回 response,推进时间
     await vi.advanceTimersByTimeAsync(60);
     await assertion;
+  });
+
+  it('W21.4: 收到 BlobRef 响应应解包为 Blob(零拷贝信封重组)', async () => {
+    // 端到端验证:Worker 返回 BlobRef 信封 → WorkerHost.handleMessage 调用
+    // unwrapBlobRef(data.result) → request Promise resolve 重组后的 Blob。
+    // 这对应 worker-host.ts 中 `pending.resolve(unwrapBlobRef(data.result))` 路径。
+    const { host, current } = setup();
+    await initReady(host, current);
+
+    const reqP = host.request('image.resize', { width: 10 });
+    const sent = current().lastSent as { id: string };
+
+    // 模拟 Worker 端把 Blob 拆成 BlobRef 信封回传(与 engine-image/worker-adapter
+    // 的 createImageWorkerHandler 行为一致)
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
+    const buffer = bytes.buffer;
+    const blobRef: BlobRef = {
+      kind: 'blob',
+      meta: { size: bytes.length, type: 'image/png' },
+      buffer,
+    };
+    current().emitToHost({ id: sent.id, type: 'response', ok: true, result: blobRef });
+
+    const result = await reqP;
+    expect(result).toBeInstanceOf(Blob);
+    const blob = result as Blob;
+    expect(blob.size).toBe(bytes.length);
+    expect(blob.type).toBe('image/png');
+    // 内容一致
+    const out = new Uint8Array(await blob.arrayBuffer());
+    expect(out).toEqual(bytes);
+  });
+
+  it('W21.4: 收到非 BlobRef 响应应原样 resolve(如 ImageProbeResult 元数据)', async () => {
+    // image.probe 返回元数据对象(无 kind 字段),WorkerHost 应原样 resolve
+    // 不尝试重组为 Blob。
+    const { host, current } = setup();
+    await initReady(host, current);
+
+    const reqP = host.request('image.probe', { input: 'fake-blob' });
+    const sent = current().lastSent as { id: string };
+
+    const probeResult = {
+      width: 1920,
+      height: 1080,
+      mimeType: 'image/png',
+      format: 'png',
+      size: 2048,
+    };
+    current().emitToHost({ id: sent.id, type: 'response', ok: true, result: probeResult });
+
+    const result = await reqP;
+    expect(result).toEqual(probeResult);
+    expect(result).not.toBeInstanceOf(Blob);
   });
 });
 

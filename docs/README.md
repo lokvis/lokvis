@@ -33,14 +33,8 @@
 
 | 文档 | 说明 |
 |------|------|
-| [架构深度诊断](./reports/architecture-deep-diagnostic-20260712.md) | 2026-07-12 双 Agent 综合诊断（架构 8/10、战略 6/10、工程 7/10） |
-| [Phase 1.5 任务计划](./reports/20260712-task-plan.md) | 架构优化任务追踪（Phase 1.5 + Phase 2 轨道 A/B/C） |
-| [W16.1 部署就绪度](./reports/W16.1-alpha-deploy-readiness.md) | Playground 部署就绪度（含待完成运维 checklist） |
-| [W16.3 崩溃率监控](./reports/W16.3-crash-rate-monitoring.md) | Sentry 监控就绪度（含待回填生产数据） |
-| [W16.4 npm 发版就绪](./reports/W16.4-npm-beta-release-readiness.md) | npm beta 发版就绪度（含待执行发版 checklist） |
-| [W16.5 Lighthouse 就绪](./reports/W16.5-lighthouse-readiness.md) | Lighthouse 跑分就绪度（含待回填真实跑分） |
-| [W16.6 Bug 预检](./reports/W16.6-bug-fix-precheck.md) | Bug 预检（含待收集 Alpha 反馈） |
-| [归档报告](./reports/archive/) | 已完成的里程碑验收与历史诊断快照 |
+| [W21.7 Lighthouse 基线](./reports/W21.7-lighthouse-baseline-2026-07-17.md) | 2026-07-17 首次实跑 Lighthouse 基线（Performance 62/100, LCP 6.9s） |
+| [归档报告](./reports/archive/) | 已完成的里程碑验收、历史诊断快照与任务计划 |
 
 ### Blog & 叙事
 
@@ -60,7 +54,8 @@
 | [技术架构](./business/04-技术架构设计.md) | 完整五层架构技术规范（白皮书版） |
 | [商业模式](./business/05-商业模式与收入预测.md) | 收入模型、定价策略、三年预测 |
 | [风险评估](./business/06-风险评估与应对.md) | 20 个风险、5 个类别、4 个 R1 级 |
-| [路线图与里程碑](./business/07-路线图与里程碑.md) | 三年四阶段路线图（⚠️ Phase 2 已被 roadmap.md 更新） |
+
+> **07 已归档**:原《路线图与里程碑》(v1.0) Phase 2/3 已过时,移至 [business/archive/](./business/archive/)。现行路线图见 [roadmap.md](./roadmap.md)。
 
 ### 架构决策记录（ADR）
 
@@ -90,9 +85,9 @@ lokvis-open/docs/
 ├── plugins.md                     # 插件开发
 ├── roadmap.md                     # 路线图（合并多源）
 ├── technical-debt.md              # 技术债务登记簿
-├── PROJECT_PLAN.md                # Phase 1 项目计划（24 周小时级拆分）
-├── AI生态冲击调整方案.md           # AI 生态调整方案
-├── business/                      # 白皮书（8 篇）
+├── PROJECT_PLAN.md                # Phase 1 项目计划（24 周小时级拆分,Phase 1 完成后归档）
+├── AI生态冲击调整方案.md           # AI 生态调整方案（含 ADR-O1/O2/O3,已 Accepted）
+├── business/                      # 白皮书（7 篇 + archive）
 │   ├── README.md
 │   ├── 00-执行摘要与项目概述.md
 │   ├── 01-市场调研与数据量化.md
@@ -101,7 +96,8 @@ lokvis-open/docs/
 │   ├── 04-技术架构设计.md
 │   ├── 05-商业模式与收入预测.md
 │   ├── 06-风险评估与应对.md
-│   └── 07-路线图与里程碑.md       # ⚠️ Phase 2 已被 roadmap.md 更新
+│   └── archive/                   # 已归档的白皮书
+│       └── 07-路线图与里程碑.md   # v1.0 原始规划,Phase 2/3 已被 roadmap.md 取代
 ├── blog/                          # Blog & 叙事
 │   └── 2026-07-15-mcp-first-local-tools.md  # Phase 2 M2.4
 ├── adr/                           # 架构决策记录
@@ -113,15 +109,18 @@ lokvis-open/docs/
 │   ├── O2-plugin-sdk降级.md
 │   └── O3-engine-ai定位.md
 └── reports/                       # 诊断报告与里程碑验收
-    ├── architecture-deep-diagnostic-20260712.md
-    ├── 20260712-task-plan.md      # Phase 1.5 + Phase 2 任务追踪
-    ├── W16.1-alpha-deploy-readiness.md
-    ├── W16.3-crash-rate-monitoring.md
-    ├── W16.4-npm-beta-release-readiness.md
-    ├── W16.5-lighthouse-readiness.md
-    ├── W16.6-bug-fix-precheck.md
-    └── archive/                   # 已归档的历史快照
+    ├── W21.7-lighthouse-baseline-2026-07-17.md  # 现行 LCP 基线
+    ├── lighthouse-2026-07-17.html                # 原始报告
+    ├── lighthouse-2026-07-17.json                # 原始数据
+    └── archive/                                  # 已归档的历史快照(14 份)
 ```
+
+### archive 说明
+
+`reports/archive/` 与 `business/archive/` 保留已过时但有历史档案价值的文档:
+
+- **reports/archive/**(14 份):已完成的里程碑验收(W12/W16/W18 系列)、历史诊断快照(architecture-gap-analysis / architecture-deep-diagnostic)、已完成的任务计划(20260712 / 20260715)
+- **business/archive/**(1 份):07-路线图与里程碑 v1.0,Phase 2/3 已被 roadmap.md 取代
 
 ---
 
@@ -136,4 +135,4 @@ lokvis-open/docs/
 
 ---
 
-*文档整理日期：2026-07-14*
+*文档整理日期：2026-07-17*

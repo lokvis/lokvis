@@ -26,6 +26,7 @@ import type {
   EventBus,
   ExifData,
   MetadataReader,
+  MetadataReaderContext,
 } from '@lokvis/schema';
 import type { QuotaAwareAssetStore } from './quota-manager.js';
 import { AssetNotFoundError } from '../errors.js';
@@ -158,7 +159,19 @@ export class AssetManager {
     if (asset.type !== 'image') return null;
     const reader = this.deps.metadataReaders.get('image.read-exif');
     if (!reader) return null; // Plugin 未安装,优雅降级
-    return reader(asset) as Promise<ExifData | null>;
+
+    // TD-3.4 长期方案:构造 MetadataReaderContext,为 reader 提供可观测信号。
+    // log 前缀含 assetId,便于 Sentry 上报与调试时关联具体资产。
+    // info 级别不输出(避免噪音),warn/error 走 console。
+    const readerCtx: MetadataReaderContext = {
+      log: (level, message) => {
+        const prefix = `[lokvis:read-asset-exif:${id}]`;
+        if (level === 'error') console.error(`${prefix} ${message}`);
+        else if (level === 'warn') console.warn(`${prefix} ${message}`);
+        // info 不输出(避免噪音)
+      },
+    };
+    return reader(asset, readerCtx) as Promise<ExifData | null>;
   }
 
   async removeAsset(id: AssetId): Promise<void> {

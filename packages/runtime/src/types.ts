@@ -86,6 +86,23 @@ export interface RuntimeConfig {
   memoryBudget?: number;
 }
 
+/**
+ * Runtime 内部构造参数(W21.6)。
+ *
+ * `ownsAssetStore` 不出现在公共 `RuntimeConfig` 上,仅供 `createRuntime` 工厂
+ * 内部向 `LokvisRuntimeImpl` 传递"assetStore 是否由工厂创建"的标记 —— 工厂
+ * 创建的 store 由 Runtime 拥有,dispose() 时负责调用 assetStore.dispose?.();
+ * 注入路径由消费方自行管理生命周期。
+ *
+ * 类型层面 SDK 用户传不进此字段;`LokvisRuntimeImpl` 构造函数另有运行时
+ * 守卫,即使 JS 用户绕过类型系统传 `assetStore + ownsAssetStore:true`,
+ * 仍会被强制为 false(防止越权清理注入的 store)。
+ */
+export interface InternalRuntimeInit {
+  /** assetStore 是否由 Runtime 拥有(工厂创建路径)。注入路径强制为 false。 */
+  ownsAssetStore?: boolean;
+}
+
 /** Runtime 状态 */
 export type RuntimeStatus = 'idle' | 'running' | 'paused' | 'error';
 
@@ -148,6 +165,25 @@ export interface LokvisRuntime {
    * 与 AssetStore 中孤儿资产泄漏。ui-react 应在 Workspace 卸载时调用。
    */
   disposeWorkflow(workflowId: string): Promise<void>;
+  /**
+   * 销毁整个 Runtime:取消所有运行中 workflow + 批处理任务,
+   * 清空所有历史栈(触发 outputs 资产回收),清理 eventBus 订阅。
+   *
+   * W21.6: 修复长会话 / SPA 卸载场景的资源泄漏。在以下时机调用:
+   * - SPA 整体卸载(window beforeunload 或 React root unmount)
+   * - 测试 afterEach 清理
+   * - 消费方明确知道不再使用此 runtime 实例时
+   *
+   * AssetStore 的清理策略:
+   * - 若 Runtime 通过 createRuntime 工厂创建 store(默认路径):dispose()
+   *   会调用 assetStore.dispose?.() 关闭 Dexie 连接 / 清空内存 Map
+   * - 若消费方注入 store(config.assetStore):Runtime 不清理,由消费方
+   *   在合适的时机调用 store.dispose?.()
+   *
+   * 调用 dispose() 后再调 run()/cancel() 等方法会抛 'Runtime is disposed'。
+   * 幂等:重复调用为 no-op。
+   */
+  dispose(): Promise<void>;
 
   // ─── 历史与撤销 ──────────────────────────────────────
   /** 获取工作流的执行历史 */

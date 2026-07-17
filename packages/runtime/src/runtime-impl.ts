@@ -12,7 +12,7 @@ import type {
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { EventBus } from '@lokvis/schema';
 import type {
-  LokvisRuntime, PluginInstallEntry, RunOptions, RuntimeConfig,
+  InternalRuntimeInit, LokvisRuntime, PluginInstallEntry, RunOptions, RuntimeConfig,
   RuntimeStatus, ToMcpManifestOptions,
 } from './types.js';
 import { createEventBus } from './event-bus.js';
@@ -51,13 +51,18 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   private workflowCoordinator: WorkflowCoordinator; // W1.4:status 状态机 + run/cancel/pause/resume/disposeWorkflow
   private historyStore: HistoryStore | undefined; // W7.2 历史持久化;undefined 时退化为仅内存历史
   private metadataReaders = new Map<string, MetadataReader>(); // W7.3/7.4 MetadataReader 依赖反转
+  // W21.6: dispose 守卫,防止重复 dispose + 阻止后续 run/cancel 调用
+  private disposed = false;
+  // W21.6: 标记 assetStore 是否由 Runtime 拥有(工厂创建而非注入)。
+  // 仅在 ownsAssetStore=true 时 dispose() 才会调用 assetStore.dispose?.()。
+  private readonly ownsAssetStore: boolean;
 
   /** 注册元数据读取器(由 PluginContext.registerMetadataReader 转发,内部 API) */
   _registerMetadataReader(name: string, reader: MetadataReader): void {
     this.metadataReaders.set(name, reader);
   }
 
-  constructor(config: RuntimeConfig = {}) {
+  constructor(config: RuntimeConfig & InternalRuntimeInit = {}) {
     this.config = {
       enableOpfs: config.enableOpfs ?? true,
       enableIndexedDB: config.enableIndexedDB ?? true,
@@ -79,6 +84,12 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       );
     }
     const rawStore = config.assetStore ?? createMemoryAssetStore();
+    // W21.6 + review fix: ownsAssetStore 已从公共 RuntimeConfig 移到
+    // InternalRuntimeInit,SDK 用户类型层面无法传此字段。工厂 createRuntime
+    // 在工厂创建路径下显式传 ownsAssetStore: true,注入路径下显式传 false,
+    // 并用 `ownsAssetStore: !injectedAssetStore` 覆盖用户传入的值(防止 JS
+    // 用户绕过类型系统)。Impl 信任工厂传入的 ownsAssetStore,不再做冗余守卫。
+    this.ownsAssetStore = config.ownsAssetStore ?? !config.assetStore;
     this.assetStore = wrapAssetStoreWithQuota(rawStore, this.config.storageQuota);
     // AssetManager:metadataReaders 由 Runtime 持有,Plugin 注册后立即可见
     this.assetManager = new AssetManager({
@@ -115,12 +126,64 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
 
   // ─── 工作流执行(委托 WorkflowCoordinator) ──────────────
   async run(workflow: Workflow, inputs: AssetId[] | Asset[], options?: RunOptions): Promise<WorkflowResult> {
+    if (this.disposed) throw new Error('LokvisRuntime is disposed');
     return this.workflowCoordinator.run(workflow, inputs, options);
   }
-  async cancel(workflowId: string): Promise<void> { return this.workflowCoordinator.cancel(workflowId); }
-  async pause(workflowId: string): Promise<void> { return this.workflowCoordinator.pause(workflowId); }
-  async resume(workflowId: string): Promise<void> { return this.workflowCoordinator.resume(workflowId); }
-  async disposeWorkflow(workflowId: string): Promise<void> { return this.workflowCoordinator.disposeWorkflow(workflowId); }
+  async cancel(workflowId: string): Promise<void> {
+    if (this.disposed) throw new Error('LokvisRuntime is disposed');
+    return this.workflowCoordinator.cancel(workflowId);
+  }
+  async pause(workflowId: string): Promise<void> {
+    if (this.disposed) throw new Error('LokvisRuntime is disposed');
+    return this.workflowCoordinator.pause(workflowId);
+  }
+  async resume(workflowId: string): Promise<void> {
+    if (this.disposed) throw new Error('LokvisRuntime is disposed');
+    return this.workflowCoordinator.resume(workflowId);
+  }
+  async disposeWorkflow(workflowId: string): Promise<void> {
+    if (this.disposed) throw new Error('LokvisRuntime is disposed');
+    return this.workflowCoordinator.disposeWorkflow(workflowId);
+  }
+
+  /**
+   * 销毁整个 Runtime(W21.6)。
+   *
+   * 顺序:
+   * 1. 标记 disposed(阻止后续 run/cancel,防止清理期间新请求进入)
+   * 2. executor.cancelAll() —— 取消所有运行中 workflow 的 AbortController
+   * 3. batchProcessor.dispose() —— 标记所有非终态 job 为 cancelled + 清理订阅
+   * 4. historyManager.disposeAll() —— 清空所有历史栈(reset 触发 onEvict
+   *    → assetStore.remove 回收 outputs 资产);TD-2.1 改为 await 等待
+   *    persistHistory 删除 IDB 记录落地
+   * 5. 清理 metadataReaders
+   * 6. 若 ownsAssetStore(工厂创建而非注入):调用 assetStore.dispose?.()
+   *    关闭 Dexie 连接 / 清空内存 Map。注入路径由消费方自行管理。
+   *
+   * 不清理:
+   * - historyStore(由消费方注入或工厂创建,Dexie 连接由浏览器 GC 处理)
+   * - eventBus listeners(允许外部已订阅的 listener 仍收到最后一批
+   *   workflow:cancelled 等事件;若需要清空可单独调 eventBus.clear)
+   *
+   * 幂等:重复调用为 no-op。
+   */
+  async dispose(): Promise<void> {
+    if (this.disposed) return;
+    this.disposed = true;
+    // 1. 取消所有运行中 workflow(同步 abort + 唤醒 resume resolver)
+    this.executor.cancelAll();
+    // 2. 取消所有非终态 batch job + 清理 progress 订阅
+    await this.batchProcessor.dispose();
+    // 3. 清空所有历史栈(触发 outputs 资产回收);TD-2.1: await 等待持久化删除落地
+    await this.historyManager.disposeAll();
+    // 4. 清理 metadataReaders(释放插件注册的 reader 引用)
+    this.metadataReaders.clear();
+    // 5. 若 Runtime 拥有 assetStore(工厂创建),释放底层资源
+    //    (注入路径由消费方自行管理生命周期,避免越权清理)
+    if (this.ownsAssetStore) {
+      await this.assetStore.dispose?.();
+    }
+  }
 
   // ─── 历史与撤销(委托 HistoryManager) ──────────────────
   async history(workflowId: string): Promise<HistoryEntry[]> { return this.historyManager.history(workflowId); }
@@ -202,8 +265,16 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
  * config.assetStore 注入自定义 store。async(工厂需异步探测环境)。
  */
 export async function createRuntime(config?: RuntimeConfig): Promise<LokvisRuntime> {
+  // W21.6 + review fix: 判断 assetStore 是否由工厂创建(未注入即工厂创建)。
+  // 工厂创建的 store 由 Runtime 拥有,dispose() 时负责调用 assetStore.dispose?.()。
+  //
+  // 运行时守卫:此处的 `ownsAssetStore: !injectedAssetStore` 会覆盖 `...config`
+  // 中可能存在的 ownsAssetStore 字段(虽然 TypeScript 层面 RuntimeConfig 已不含
+  // 此字段,但 JS 用户可能绕过类型系统传入)。这样确保注入路径下 ownsAssetStore
+  // 始终为 false,防止 Runtime 越权清理注入的 store。
+  const injectedAssetStore = config?.assetStore;
   const assetStore =
-    config?.assetStore ??
+    injectedAssetStore ??
     (await createAssetStore({ preferOpfs: config?.enableOpfs ?? true }));
   // W7.2 历史持久化:优先用注入的 historyStore;否则在 enableIndexedDB 时
   // 通过 createHistoryStore 自动创建(IDB 不可用时返回 undefined,退化仅内存)
@@ -212,7 +283,12 @@ export async function createRuntime(config?: RuntimeConfig): Promise<LokvisRunti
     ((config?.enableIndexedDB ?? true)
       ? createHistoryStore(config?.historyStoreOptions)
       : undefined);
-  const impl = new LokvisRuntimeImpl({ ...config, assetStore, historyStore });
+  const impl = new LokvisRuntimeImpl({
+    ...config,
+    assetStore,
+    historyStore,
+    ownsAssetStore: !injectedAssetStore,
+  });
   await impl.loadPersistedHistory(); // 预加载持久化历史快照(跨会话恢复 undo/redo 链)
   return impl;
 }

@@ -9,6 +9,9 @@
 import type { LokvisRuntime, RuntimeConfig } from '@lokvis/sdk';
 import type { McpManifest } from '@lokvis/schema';
 import { createLokvis } from '@lokvis/sdk';
+import type { CloudConfig } from '@lokvis/cloud-bridge';
+import { createAuthenticator, createBilling } from '@lokvis/cloud-bridge';
+import type { McpAuthenticator, McpBilling } from '@lokvis/cloud-bridge';
 import { McpServerAdapter } from './mcp-server-adapter.js';
 import { NodeAssetStore } from './node-asset-store.js';
 import { getImageToolRegistrations } from './tools/image.js';
@@ -127,6 +130,12 @@ export interface LokvisMcpOptions {
   bridgePort?: number;
   /** Runtime 配置(透传给 createLokvis) */
   runtime?: RuntimeConfig;
+  /**
+   * Cloud 配置(鉴权 + 计费),由 @lokvis/cloud-bridge 提供。
+   * 未提供时 cloud AI tool 不可用(仅本地 tool 运行)。
+   * 由 resolveCloudConfig() 从 env 读取后注入。
+   */
+  cloud?: CloudConfig;
   /** 注入自定义 transport 工厂(测试用),默认创建 StdioServerTransport */
   transportFactory?: () => import('@modelcontextprotocol/sdk/shared/transport.js').Transport;
 }
@@ -156,6 +165,10 @@ export async function createLokvisMcpServer(
   bridge: BrowserBridge;
   /** ToolRouter(image tool 调用经此路由:浏览器优先 → Node 降级) */
   router: ToolRouter;
+  /** Cloud 鉴权器(若 cloud 配置提供,否则 undefined) */
+  authenticator?: McpAuthenticator;
+  /** Cloud 计费器(若 cloud 配置提供,否则 undefined) */
+  billing?: McpBilling;
 }> {
   const {
     workdir,
@@ -163,7 +176,14 @@ export async function createLokvisMcpServer(
     runtime: runtimeConfig,
     transportFactory,
     bridgePort,
+    cloud,
   } = options;
+
+  // Cloud 鉴权/计费:若提供 cloud 配置,创建 authenticator + billing
+  // (Phase 2 cloud AI tool 接入时由 tool handler 消费 billing;
+  //  cli.ts 可使用返回的 authenticator 做 API Key 验证)
+  const authenticator = cloud ? createAuthenticator(cloud) : undefined;
+  const billing = cloud ? createBilling(cloud) : undefined;
 
   // 如果 workdir 提供,创建 NodeAssetStore 注入 runtime
   let resolvedRuntimeConfig: RuntimeConfig = { ...runtimeConfig };
@@ -221,5 +241,5 @@ export async function createLokvisMcpServer(
     );
   }
 
-  return { server, runtime, manifest, bridge, router };
+  return { server, runtime, manifest, bridge, router, authenticator, billing };
 }

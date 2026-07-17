@@ -1306,7 +1306,9 @@ lokvis-cloud（兄弟仓库）
 
 ### ADR-O1：lokvis-open 新增 `@lokvis/mcp-server` 包
 
-- **状态**：Proposed
+> **状态更新(2026-07-13)**:本 ADR 已 Accepted,详见 [adr/O1-mcp-server定位.md](./adr/O1-mcp-server定位.md)。
+
+- **状态**：Proposed(2026-07-01)→ Accepted(2026-07-13)
 - **日期**：2026-07-01
 - **背景**：cloud 仓库 06 文档建议 Lokvis 转型为 MCP server，但 MCP server 的能力提供方应在 open 侧（能力来源）而非 cloud 侧（商业化层）
 - **决策**：在 lokvis-open 新增 `packages/mcp-server`，作为 MCP 协议的适配层
@@ -1321,7 +1323,9 @@ lokvis-cloud（兄弟仓库）
 
 ### ADR-O2：Plugin SDK 降级为兼容层
 
-- **状态**：Proposed
+> **状态更新(2026-07-13)**:本 ADR 已 Accepted,详见 [adr/O2-plugin-sdk降级.md](./adr/O2-plugin-sdk降级.md)。
+
+- **状态**：Proposed(2026-07-01)→ Accepted(2026-07-13)
 - **日期**：2026-07-01
 - **背景**：MCP 已成事实标准，自建 Plugin SDK 生态规模无法与 AI 平台竞争
 - **决策**：Plugin SDK 不发布 v1.0，仅维持 0.1.0-alpha 作为教学与浏览器内嵌入用途
@@ -1336,7 +1340,9 @@ lokvis-cloud（兄弟仓库）
 
 ### ADR-O3：engine-ai 定位为"AI 辅助 workflow 设计"
 
-- **状态**：Proposed
+> **状态更新(2026-07-13)**:本 ADR 已 Accepted,详见 [adr/O3-engine-ai定位.md](./adr/O3-engine-ai定位.md)。
+
+- **状态**：Proposed(2026-07-01)→ Accepted(2026-07-13)
 - **日期**：2026-07-01
 - **背景**：原定位"AI 替代 workflow 编排"与 AI Agent 重叠，且 Lokvis 无法在 AI 能力上竞争
 - **决策**：engine-ai 的 `generate-workflow` / `optimize-workflow` 定位为"AI 辅助设计"，执行仍由确定性 Runtime

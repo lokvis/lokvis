@@ -14,6 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type {
   Asset,
   CapabilityImplementation,
+  MetadataReader,
   PluginContext,
 } from '@lokvis/schema';
 
@@ -37,11 +38,11 @@ const { PLUGIN_NAME, PLUGIN_VERSION } = await import('../plugin.js');
 function createMockContext(): {
   ctx: PluginContext;
   registered: CapabilityImplementation[];
-  readers: Map<string, (asset: Asset) => Promise<unknown>>;
+  readers: Map<string, MetadataReader>;
   logs: Array<{ level: string; message: string }>;
 } {
   const registered: CapabilityImplementation[] = [];
-  const readers = new Map<string, (asset: Asset) => Promise<unknown>>();
+  const readers = new Map<string, MetadataReader>();
   const logs: Array<{ level: string; message: string }> = [];
   const ctx: PluginContext = {
     runtime: {
@@ -62,8 +63,8 @@ function createMockContext(): {
     },
     eventBus: { on: vi.fn(), onAny: vi.fn(), emit: vi.fn(), clear: vi.fn() },
     registerCapability: vi.fn((impl) => registered.push(impl)),
-    registerMetadataReader: vi.fn(<T>(name: string, reader: (asset: Asset) => Promise<T | null>) => {
-      readers.set(name, reader as (asset: Asset) => Promise<unknown>);
+    registerMetadataReader: vi.fn((name: string, reader: MetadataReader) => {
+      readers.set(name, reader);
     }),
     registerPanel: vi.fn(),
     sandbox: {

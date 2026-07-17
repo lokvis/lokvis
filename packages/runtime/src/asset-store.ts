@@ -27,6 +27,19 @@ export interface AssetStore {
   list(): Promise<Asset[]>;
   /** 创建新 Asset（内部用，由 Capability 产出） */
   create(blob: Blob, metadata: AssetMetadata, type: Asset['type']): Promise<Asset>;
+  /**
+   * 释放底层资源(W21.6)。
+   *
+   * - Memory store:清空 Map(数据不可恢复)
+   * - OPFS store:清空内存 Map + 关闭 Dexie 连接(OPFS 文件不删除,
+   *   下次创建 store 时从 IndexedDB metadata 预加载恢复)
+   * - IDB store:关闭 Dexie 连接(IDB 数据不删除)
+   *
+   * 幂等:重复调用为 no-op。
+   * 注:关闭后的 store 调用 import/get/getBlob 等方法行为未定义,
+   * 调用方应仅在不再使用该 store 时调用 dispose。
+   */
+  dispose?(): Promise<void>;
 }
 
 /** 生成唯一 ID */
@@ -97,6 +110,11 @@ interface RichMetadata {
  *
  * 所有提取均 try/catch:失败时返回空对象,不阻断 import。
  * Node.js / 测试环境可能无 createImageBitmap / document,自然降级为空。
+ *
+ * TD-3.9 长期方案:catch 不再静默吞错,console.warn 记录异常(区分"无元数据"
+ * 与"提取异常")。asset-store 位于 Runtime 层,无 ctx.log 上下文(不像
+ * plugin/capability 走 ExecutionContext / MetadataReaderContext),与
+ * opfs-asset-store.ts 的错误日志策略一致(见 L155/L170/L183/L205/L258)。
  */
 async function extractRichMetadata(
   blob: Blob,
@@ -112,7 +130,12 @@ async function extractRichMetadata(
       default:
         return {};
     }
-  } catch {
+  } catch (err) {
+    // TD-3.9:区分"无元数据"(default 分支返回 {},无日志)与"提取异常"(此处 warn)
+    console.warn(
+      `[lokvis:asset-store] extractRichMetadata failed for ${type} blob (${blob.size} bytes):`,
+      err
+    );
     return {};
   }
 }
@@ -274,6 +297,12 @@ export function createMemoryAssetStore(): AssetStore {
       const asset = buildAsset(id, blob, metadata, type, MEMORY_PATH_PREFIX);
       assets.set(id, asset);
       return asset;
+    },
+
+    // W21.6: 清空内存 Map,释放 Blob 引用(数据不可恢复)
+    async dispose() {
+      assets.clear();
+      blobs.clear();
     },
   };
 }

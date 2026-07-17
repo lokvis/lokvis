@@ -232,8 +232,13 @@ export async function createOpfsAssetStore(
         try {
           fileHandle = await assetsDir.getFileHandle(fileName(id));
           fileHandles.set(id, fileHandle);
-        } catch {
-          throw new AssetBlobNotFoundError(`Blob not found in OPFS for path: ${handle.path}`);
+        } catch (err) {
+          // 保留原始 error 作为 cause,调用方可据 err.cause instanceof DOMException
+          // 区分 NotFoundError(文件不存在)与权限/IO 错误
+          throw new AssetBlobNotFoundError(
+            `Blob not found in OPFS for path: ${handle.path}`,
+            { cause: err }
+          );
         }
       }
       const file = await fileHandle.getFile();
@@ -271,6 +276,14 @@ export async function createOpfsAssetStore(
       assets.set(id, asset);
       await persistMetadata(db, id, asset);
       return asset;
+    },
+
+    // W21.6: 清空内存 Map + 关闭 Dexie 连接。
+    // OPFS 文件不删除(下次创建 store 时从 IndexedDB metadata 预加载恢复)。
+    async dispose() {
+      assets.clear();
+      fileHandles.clear();
+      db?.close();
     },
   };
 }

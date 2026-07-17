@@ -233,7 +233,7 @@ describe('HistoryManager - disposeHistory', () => {
     manager.recordFromNodeEvent(nodeFinishedEvent(WF, 'n1', [makeAsset('out-1')]));
     expect(await manager.history(WF)).toHaveLength(1);
 
-    manager.disposeHistory(WF);
+    await manager.disposeHistory(WF);
     expect(await manager.history(WF)).toEqual([]);
     expect(manager.getCurrentOutputs(WF)).toEqual([]);
   });
@@ -271,7 +271,7 @@ describe('HistoryManager - persistHistory', () => {
     expect(await store!.load(WF)).toBeDefined();
 
     // dispose 后 persist 应删除记录
-    manager.disposeHistory(WF);
+    await manager.disposeHistory(WF);
     await manager.persistHistory(WF);
     expect(await store!.load(WF)).toBeUndefined();
   });

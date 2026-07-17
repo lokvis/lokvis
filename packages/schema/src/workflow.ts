@@ -223,22 +223,23 @@ export function workflowToAiInstruction(workflow: Workflow): WorkflowAiInstructi
 /** 把 Workflow 的输入定义转为 JSON Schema(供 AI 理解输入约束) */
 function workflowInputsToJsonSchema(workflow: Workflow): object {
   const inputDef = workflow.inputs;
-  const schema: Record<string, unknown> = {
-    type: 'object',
-    properties: {
-      input_path: {
-        type: 'string',
-        description: `Path or asset ID of the input ${inputDef.type} file${inputDef.multiple ? '(s)' : ''}`,
-      },
+  // properties 单独声明为 Record<string, unknown>,动态修改 input_path 时无需强转
+  const properties: Record<string, unknown> = {
+    input_path: {
+      type: 'string',
+      description: `Path or asset ID of the input ${inputDef.type} file${inputDef.multiple ? '(s)' : ''}`,
     },
-    required: ['input_path'],
   };
   if (inputDef.multiple) {
-    (schema.properties as Record<string, unknown>).input_path = {
+    properties.input_path = {
       type: 'array',
       items: { type: 'string' },
       description: `List of input ${inputDef.type} file paths${inputDef.maxCount ? ` (max ${inputDef.maxCount})` : ''}`,
     };
   }
-  return schema;
+  return {
+    type: 'object',
+    properties,
+    required: ['input_path'],
+  };
 }

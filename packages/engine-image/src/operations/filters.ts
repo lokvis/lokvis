@@ -5,6 +5,9 @@
  * 性能优于逐像素操作。
  *
  * W3.5:接受可选 AbortSignal,在 decode / draw / encode 之间检查。
+ *
+ * W21.6:bitmap 资源用 try/finally 释放,确保 throwIfAborted / encode
+ * 抛错时 ImageBitmap 不会泄漏。
  */
 import type { FilterParams, FilterPreset } from '../types.js';
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
@@ -34,14 +37,17 @@ export async function filter(
   }
 
   const { bitmap, width, height } = await canvasEngine.decode(blob);
-  throwIfAborted(signal);
-  const canvas = createCanvas(width, height);
-  const ctx = get2DContext(canvas);
-  ctx.filter = CSS_FILTERS[preset](radius);
-  ctx.drawImage(bitmap, 0, 0);
-  bitmap.close?.();
-  throwIfAborted(signal);
+  try {
+    throwIfAborted(signal);
+    const canvas = createCanvas(width, height);
+    const ctx = get2DContext(canvas);
+    ctx.filter = CSS_FILTERS[preset](radius);
+    ctx.drawImage(bitmap, 0, 0);
+    throwIfAborted(signal);
 
-  const format = inferFormat(blob, 'png');
-  return canvasEngine.encode(canvas, format, 95);
+    const format = inferFormat(blob, 'png');
+    return canvasEngine.encode(canvas, format, 95);
+  } finally {
+    bitmap.close?.();
+  }
 }

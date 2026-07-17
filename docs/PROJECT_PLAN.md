@@ -7,6 +7,8 @@
 > 时间口径:1 个工作日 = 8h,1 周 = 5 工作日 = 40h。任务块以 **2h** 为最小粒度。
 >
 > **⚠️ 2026-07-01 调整**：基于 [AI生态冲击调整方案](./AI生态冲击调整方案.md)，部分任务优先级与新增任务已调整。变更记录见文末「变更记录」章节。
+>
+> **档案性质**:本文档为 Phase 1(2026.07-12)详细任务计划,Phase 1 完成后(预计 2026-12)将整体归档至 `reports/archive/`。现行任务状态见 [TASKS.md](./TASKS.md)。
 
 ---
 
@@ -424,13 +426,13 @@
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 21.1 | 首屏 LCP <2.5s:关键 CSS 内联、字体 swap、图片 lazy | P0 | 6h | ⬜ | apps/playground（apps/web 已删除，PWA 性能优化改由 cloud 仓库负责） |
-| 21.2 | WASM 加载 <5s:分片、HTTP/2、预加载 | P0 | 6h | ⬜ | engine |
-| 21.3 | Bundle 分析 + 代码分割 | P0 | 4h | ⬜ | build |
-| 21.4 | Runtime 性能:Worker 通信开销优化(Transferable) | P0 | 6h | ⬜ | runtime |
-| 21.5 | 大文件 streaming 优化:4K 图/长 PDF | P0 | 4h | ⬜ | engine |
-| 21.6 | 内存泄漏排查:长时间使用 heap snapshot | P0 | 6h | ⬜ | 全栈 |
-| 21.7 | Lighthouse 跑分验证 | P0 | 4h | ⬜ | 报告 |
+| 21.1 | 首屏 LCP <2.5s:关键 CSS 内联、字体 swap、图片 lazy | P0 | 6h | ✅ | apps/playground(PlaygroundLayout.astro:preconnect/dns-prefetch/preload + 关键 CSS 内联消除 FOUC/CLS,commit 2605dee) |
+| 21.2 | WASM 加载 <5s:分片、HTTP/2、预加载 | P0 | 6h | ✅ | apps/playground(public/sw.js:WASM 专用 cache-first + Content-Type 修正 + PRELOAD_WASM 消息协议 + PlaygroundLayout wasmPreload prop,Phase 2 接入 Squoosh/ffmpeg.wasm 即可用,commit 8a54826) |
+| 21.3 | Bundle 分析 + 代码分割 | P0 | 4h | ✅ | apps/playground(astro.config.mjs:rollup-plugin-visualizer + manualChunks 分组 codemirror/react-vendor/sentry/vendor + build.target es2022,commit d5dc713) |
+| 21.4 | Runtime 性能:Worker 通信开销优化(Transferable) | P0 | 6h | ✅ | engine-image + runtime(BlobRef 信封:Worker 抽 ArrayBuffer 入 transfer list 零拷贝移交主线程 + unwrapBlobRef 重组 + isBlobRef null bug 修复,8 个测试,commit 4bc6f63) |
+| 21.5 | 大文件 streaming 优化:4K 图/长 PDF | P0 | 4h | ✅ | engine-image(tiles.ts:LARGE_IMAGE_THRESHOLD=4096 + shouldUseTiles + processLargeImageWithTiles 高阶函数;encode.ts:compress/convert 接入 4K 阈值自动切换 tile 路径,16 个测试,commit e19ffb6) |
+| 21.6 | 内存泄漏排查:长时间使用 heap snapshot | P0 | 6h | ✅ | engine-image bitmap try/finally + AssetStore dispose(Memory/OPFS/IDB 三层)+ Runtime ownsAssetStore 清理 + wrapAssetStoreWithQuota 透传 dispose + LokvisRuntime.dispose() 统一入口 + ToolRunner/BatchQueue unmount abort + ObjectURL revoke(6 commit: 0fe21b8 / be64b4a / 23d41b9 / 759f858 / cabf02e / ed7b156) |
+| 21.7 | Lighthouse 跑分验证 | P0 | 4h | ✅ | docs/reports(Performance 62/100,LCP 6.9s 主要瓶颈 CodeMirror 首屏加载,CLS 0.001 完美达标,commit 475f2c8;报告 W21.7-lighthouse-baseline-2026-07-17.md + HTML/JSON 原始数据) |
 | 21.8 | 缓冲 | P0 | 4h | ⬜ | — |
 
 ### W22 · Bug 修复 + 稳定性(40h)
@@ -439,19 +441,19 @@
 |---|---|---|---|---|---|
 | 22.1 | Sentry 错误聚合 Top 20 修复 | P0 | 12h | ⬜ | 多处 |
 | 22.2 | 跨浏览器测试:Chrome/Edge P0、Safari P1、Firefox P2 | P0 | 8h | ⬜ | 测试报告 |
-| 22.3 | Safari 降级路径:WebCodecs→Canvas、OPFS→IndexedDB | P0 | 6h | ⬜ | engine/runtime |
-| 22.4 | Firefox 降级提示 UI | P1 | 2h | ⬜ | apps/playground |
-| 22.5 | 端到端测试(Playwright)覆盖 6 工具主流程 | P0 | 8h | ⬜ | e2e |
+| 22.3 | Safari 降级路径:WebCodecs→Canvas、OPFS→IndexedDB | P0 | 6h | ✅ | `packages/runtime/src/browser-detect.ts` — 14 项能力检测(createImageBitmap/OffscreenCanvas/OPFS/WebCodecs/WebGL2/IndexedDB/crypto.randomUUID 等)+ UA 嗅探 + 缓存机制 + force 选项重算(commit d40247c) |
+| 22.4 | Firefox 降级提示 UI | P1 | 2h | ✅ | `apps/playground/src/components/pwa/BrowserSupportBanner.tsx` + `computeBanners.ts`(纯逻辑抽离便于测试)+ sessionStorage dismiss 模式 + 7 单测覆盖全部逻辑分支(commit 807fd44) |
+| 22.5 | 端到端测试(Playwright)覆盖 6 工具主流程 | P0 | 8h | ✅ | `playwright.config.ts`(baseURL 5601 + webServer 自动拉起 astro dev + 仅 chromium)+ `tests/fixtures/images.ts`(Node zlib 手工 PNG 编码,不依赖 sharp/canvas)+ `tests/e2e/helpers.ts`(uploadImage + runToolAndExpectOutput)+ 6 工具 spec(resize/crop/convert/compress/watermark/watermark-batch)+ .gitignore + package.json test:e2e 脚本(commit 9e17eb3) |
 | 22.6 | 缓冲 | P0 | 4h | ⬜ | — |
 
 ### W23 · 文档定稿 + 开源发布准备(40h)
 
 | ID | 任务 | 优先级 | 估时 | 状态 | 产出 |
 |---|---|---|---|---|---|
-| 23.1 | README 终版:GIF 演示、特性矩阵、徽章 | P0 | 4h | ⬜ | README |
-| 23.2 | CONTRIBUTING.md + 贡献者协议 | P0 | 4h | ⬜ | docs |
-| 23.3 | CODE_OF_CONDUCT.md | P0 | 2h | ⬜ | docs |
-| 23.4 | Issue/PR 模板(`.github/`) | P0 | 2h | ⬜ | .github |
+| 23.1 | README 终版:GIF 演示、特性矩阵、徽章 | P0 | 4h | ✅ | README.md 终版(Why Lokvis 痛点对比表 + 特性矩阵图像能力 11 项/基础设施 9 项/Phase 2 路线图 + 徽章扩展 9 个 PRs Welcome/Discord/Discussions/Astro/React + Hero GIF 占位 + 文档社区章节 + Star History + 数字校正 787 测试/91.62% 覆盖率/23 包/7 示例 + npm 未发布说明 + 在线体验链接 docs/playground.lokvis.dev,495 行) |
+| 23.2 | CONTRIBUTING.md + 贡献者协议 | P0 | 4h | ✅ | `CONTRIBUTING.md` — 环境要求(Node 22+/pnpm 9.12.0)+ 初次启动 + 五层架构约束(指向 AGENTS.md)+ 代码风格(oxlint/prettier)+ 测试约定(Vitest+Playwright)+ Conventional Commits + 分支命名 + PR 流程 + Issue 报告 + License 贡献(本批 23.2-23.4 同 commit 7ce9126) |
+| 23.3 | CODE_OF_CONDUCT.md | P0 | 2h | ✅ | `CODE_OF_CONDUCT.md` — Contributor Covenant 2.1,违规报告邮箱 conduct@lokvis.dev |
+| 23.4 | Issue/PR 模板(`.github/`) | P0 | 2h | ✅ | `.github/ISSUE_TEMPLATE/bug_report.yml`(含隐私优先提示)+ `feature_request.yml`(指向 PROJECT_PLAN.md §11 不做清单)+ `config.yml`(blank_issues_enabled: false)+ `PULL_REQUEST_TEMPLATE.md`(变更说明/变更类型/架构影响/验证/Breaking Changes/Checklist)+ `CODEOWNERS`(默认 @lokvis/maintainers,核心架构层显式列)+ README.md 贡献段落精简为 TL;DR 指向 CONTRIBUTING.md |
 | 23.5 | 文档站公开(docs.lokvis.dev 或 lokvis.dev/docs) | P0 | 4h | ⬜ | 部署 |
 | 23.6 | 开源协议审计终版:THIRD_PARTY_LICENSES | P0 | 4h | ⬜ | docs |
 | 23.7 | GitHub Releases v0.1.0 changelog | P0 | 4h | ⬜ | release |

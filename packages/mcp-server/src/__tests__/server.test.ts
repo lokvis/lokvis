@@ -16,6 +16,15 @@ import { join } from 'node:path';
 const createLokvisMock = vi.fn();
 vi.mock('@lokvis/sdk', () => ({ createLokvis: createLokvisMock }));
 
+// mock @lokvis/cloud-bridge(避免真实网络调用)
+const createAuthenticatorMock = vi.fn(() => ({ hasApiKey: () => false, verify: vi.fn() }));
+const createBillingMock = vi.fn(() => ({ check: vi.fn() }));
+vi.mock('@lokvis/cloud-bridge', () => ({
+  createAuthenticator: createAuthenticatorMock,
+  createBilling: createBillingMock,
+  resolveCloudConfig: vi.fn(() => ({ apiBaseUrl: 'https://test.example', upgradeUrl: 'https://test.example/billing', planQuotas: {}, pricePerCallCents: 1 })),
+}));
+
 const { createLokvisMcpServer } = await import('../server.js');
 
 /** 创建 mock runtime(仅含 toMcpManifest) */
@@ -162,5 +171,33 @@ describe('createLokvisMcpServer', () => {
     const { server } = await createLokvisMcpServer({ workdir: tmpDir });
     const toolNames = server.getRegisteredToolNames();
     expect(toolNames).toContain('lokvis_image_resize');
+  });
+
+  it('不提供 cloud 时 authenticator/billing 应为 undefined', async () => {
+    createAuthenticatorMock.mockClear();
+    createBillingMock.mockClear();
+    const { authenticator, billing } = await createLokvisMcpServer();
+    expect(authenticator).toBeUndefined();
+    expect(billing).toBeUndefined();
+    expect(createAuthenticatorMock).not.toHaveBeenCalled();
+    expect(createBillingMock).not.toHaveBeenCalled();
+  });
+
+  it('提供 cloud 时应创建 authenticator + billing 并返回', async () => {
+    createAuthenticatorMock.mockClear();
+    createBillingMock.mockClear();
+    const cloudConfig = {
+      apiBaseUrl: 'https://api.test.example',
+      upgradeUrl: 'https://app.test.example/billing',
+      planQuotas: { free: 0, pro: 10 },
+      pricePerCallCents: 2,
+    };
+    const { authenticator, billing } = await createLokvisMcpServer({ cloud: cloudConfig });
+    expect(authenticator).toBeDefined();
+    expect(billing).toBeDefined();
+    expect(createAuthenticatorMock).toHaveBeenCalledTimes(1);
+    expect(createBillingMock).toHaveBeenCalledTimes(1);
+    expect(createAuthenticatorMock).toHaveBeenCalledWith(cloudConfig);
+    expect(createBillingMock).toHaveBeenCalledWith(cloudConfig);
   });
 });

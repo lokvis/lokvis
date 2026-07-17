@@ -108,8 +108,13 @@ export class NodeAssetStore implements AssetStore {
   async remove(id: AssetId): Promise<void> {
     const asset = this.assets.get(id);
     if (!asset) return;
-    // 删除文件,忽略文件不存在的错误
-    await unlink(asset.blob.path).catch(() => {});
+    // 删除文件,文件不存在的错误(ENOENT)静默忽略,其他错误需记录
+    await unlink(asset.blob.path).catch((err) => {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== 'ENOENT') {
+        console.warn(`[lokvis-mcp] node-asset-store: unlink(${asset.blob.path}) failed:`, err);
+      }
+    });
     this.assets.delete(id);
   }
 

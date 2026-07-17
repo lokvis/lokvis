@@ -49,9 +49,6 @@ export default defineConfig({
         'packages/plugin-sdk/src/**/*.ts',
         // M2.1 后 mcp-server 已补齐单测,纳入覆盖率统计
         'packages/mcp-server/src/**/*.ts',
-        // M2.2 后 engine-image Node 引擎已补齐单测,纳入覆盖率统计
-        // (问题 B 合并:原 packages/engine-image-node 包并入 engine-image/src/node)
-        'packages/engine-image/src/node/**/*.ts',
       ],
       // 排除:测试文件、barrel index、纯类型文件、stub/未测试包
       exclude: [

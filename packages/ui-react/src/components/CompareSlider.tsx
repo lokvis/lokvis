@@ -10,12 +10,13 @@
  * - 键盘:← → 调整 5% 步长(聚焦分隔条时)
  *
  * 数据来源:
- * - before: `store.selectedAssetId` 对应的 thumbnails(由 AssetPanel 自动生成)
+ * - before: `store.selectedAssetId` 对应的 thumbnails(由 store.ensureThumbnails 生成)
  * - after: `store.selectedOutputId` 对应的 thumbnails
  * - 任一缺失则不渲染(返回 null)
  *
- * 注:本组件只负责"展示对比",不负责生成缩略图。缩略图由 AssetPanel
- * 的 effect 统一生成并存入 store.thumbnails,本组件按 assetId 取用。
+ * 注:本组件只负责"展示对比",不负责生成缩略图。缩略图由 store.ensureThumbnails
+ * 统一生成(TD-5.1:创建/替换/释放在 store 内闭环)并存入 store.thumbnails,
+ * 本组件按 assetId 取用。
  */
 
 import * as React from 'react';

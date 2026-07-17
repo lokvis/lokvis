@@ -48,6 +48,7 @@ function RuntimeDemoContent() {
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logBoxRef = useRef<HTMLDivElement>(null);
+  const outputUrlRef = useRef<string | null>(null);
 
   const addLog = useCallback((text: string, type: LogEntry['type'] = 'log') => {
     setLogs((prev) => [...prev.slice(-200), { id: ++counter, text, type }]);
@@ -75,8 +76,13 @@ function RuntimeDemoContent() {
     return () => {
       unsub?.();
       void rt?.cancel('all');
+      if (outputUrlRef.current) URL.revokeObjectURL(outputUrlRef.current);
     };
   }, [addLog]);
+
+  useEffect(() => {
+    outputUrlRef.current = outputUrl;
+  }, [outputUrl]);
 
   useEffect(() => {
     if (logBoxRef.current) logBoxRef.current.scrollTop = logBoxRef.current.scrollHeight;
@@ -300,7 +306,7 @@ function RuntimeDemoContent() {
         </div>
         <div className="flex h-32 w-32 flex-shrink-0 items-center justify-center rounded border border-zinc-800 bg-zinc-900/50">
           {outputUrl ? (
-            <img src={outputUrl} alt="Output" className="max-h-32 max-w-full object-contain" />
+            <img src={outputUrl} alt="Output" className="max-h-32 max-w-full object-contain" loading="lazy" decoding="async" />
           ) : (
             <span className="text-[10px] text-zinc-600">{t('runtime.noOutput')}</span>
           )}

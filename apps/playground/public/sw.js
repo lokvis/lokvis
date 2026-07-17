@@ -21,6 +21,15 @@
  *   6. 备用 CDN：主源失败后，对 pathname 含 `@lokvis/` 的资源尝试
  *      jsdelivr / unpkg 备用源（当前无此类资源，为未来 Squoosh WASM 引擎铺路）。
  *
+ *   W21.2（WASM 预加载基础设施，为 Phase 2 铺路）：
+ *   15. WASM 专用缓存策略：.wasm 请求走 cache-first + 永不 revalidate
+ *      （与 immutable 一致），但额外保证 Content-Type: application/wasm
+ *      （避免 CDN/源站错误 MIME 导致 WebAssembly.instantiateStreaming 失败）。
+ *   16. PRELOAD_WASM 消息：客户端可主动通知 SW 预加载一组 wasm URL
+ *      （如 Squoosh 编解码器），SW 后台 fetch + cache,完成后回执 WASM_PRELOADED。
+ *   17. 跨域 WASM 支持:.wasm 请求不限于同源,允许从 Squoosh CDN / jsdelivr /
+ *      unpkg 加载,但仍走 SW 缓存(跨域 fetch 时 mode: 'cors' + credentials: 'omit')。
+ *
  *   W15.7：
  *   7. install 后向所有 client 发 `SW_INSTALLED`（客户端可显示"刷新以激活新版本"提示）。
  *   8. activate + clients.claim 后向所有 client 发 `SW_ACTIVATED`，客户端收到后
@@ -47,7 +56,7 @@
  */
 
 // SW 版本号 —— 更新此值会触发新 SW 接管 + 旧 cache 清理
-const SW_VERSION = 'v4-w15.7-review-fix';
+const SW_VERSION = 'v5-w21.2-wasm-preload';
 
 // Cache 版本从 SW_VERSION 派生（修改 SW_VERSION 时 cache 自动跟随升级，
 // activate 阶段清理所有非当前版本 cache，避免残留旧数据）
@@ -188,14 +197,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 跨域请求：network-only，不缓存（如 Sentry CDN）
+  // 跨域请求:W21.2 — .wasm 走专用跨域缓存策略(Squoosh/ffmpeg.wasm 等 CDN 资源)
+  // 其他跨域请求(Sentry 上报等)仍 network-only,不缓存
   if (url.origin !== self.location.origin) {
+    if (url.pathname.endsWith('.wasm')) {
+      event.respondWith(handleWasmAsset(request));
+      return;
+    }
     return;
   }
 
   // 导航请求：network-first → index.html → /offline.html
   if (request.mode === 'navigate') {
     event.respondWith(handleNavigate(request));
+    return;
+  }
+
+  // W21.2: 同源 .wasm 资源走专用缓存策略(保证 Content-Type + immutable)
+  if (url.pathname.endsWith('.wasm')) {
+    event.respondWith(handleWasmAsset(request));
     return;
   }
 
@@ -504,6 +524,74 @@ async function handleImmutableAsset(request) {
 }
 
 /**
+ * W21.2: WASM 资源专用缓存策略。
+ *
+ * 与 immutable 资产类似(cache-first + 永不 revalidate),但有 3 个特殊处理:
+ *
+ * 1. **Content-Type 强制 application/wasm** —— WebAssembly.instantiateStreaming
+ *    要求响应 MIME 必须是 application/wasm,否则只能退化到 arrayBuffer() +
+ *    instantiate(慢且占内存)。CDN/源站偶尔会误返 application/octet-stream,
+ *    SW 在缓存前修正 Content-Type,确保 streaming instantiate 可用。
+ *
+ * 2. **跨域 fetch** —— Phase 2 的 Squoosh / ffmpeg.wasm 通常从 CDN 加载
+ *    (如 cdn.jsdelivr.net/npm/@lokvis-engine-*),SW 用 cors 模式 fetch。
+ *
+ * 3. **重试 + 备用 CDN** —— wasm 文件较大(ffmpeg.wasm ~30MB),网络抖动概率高,
+ *    复用 fetchWithRetry 重试 2 次;同源 wasm 走 fetchAssetWithFallbacks 走备用 CDN。
+ *
+ * @param {Request} request
+ * @returns {Promise<Response>}
+ */
+async function handleWasmAsset(request) {
+  const cache = await caches.open(RUNTIME);
+  const cached = await cache.match(request);
+  if (cached) {
+    // wasm 视为 immutable(hash 化或带版本号),永不 revalidate
+    return cached;
+  }
+
+  // 跨域 wasm 用 cors 模式,同源 wasm 用默认 mode
+  const isCrossOrigin = new URL(request.url).origin !== self.location.origin;
+  const fetchReq = isCrossOrigin
+    ? new Request(request, { mode: 'cors', credentials: 'omit' })
+    : request;
+
+  let resp;
+  if (isCrossOrigin) {
+    // 跨域 wasm:重试 2 次,不尝试备用 CDN(已是 CDN 资源)
+    resp = await fetchWithRetry(fetchReq, 2).catch(() => null);
+  } else {
+    // 同源 wasm:走 fetchAssetWithFallbacks(含备用 CDN)
+    resp = await fetchAssetWithFallbacks(fetchReq);
+  }
+
+  if (resp && resp.ok) {
+    // 修正 Content-Type:application/wasm(若 CDN 误返 octet-stream)
+    const contentType = resp.headers.get('Content-Type') || '';
+    if (!contentType.includes('application/wasm')) {
+      const body = await resp.blob();
+      resp = new Response(body, {
+        status: resp.status,
+        statusText: resp.statusText,
+        headers: {
+          ...Object.fromEntries(resp.headers.entries()),
+          'Content-Type': 'application/wasm',
+        },
+      });
+    }
+    await cache.put(request, resp.clone());
+    return resp;
+  }
+
+  // 4xx 直接返回(不缓存),5xx/网络失败返回 503
+  if (resp) return resp;
+  return new Response('WASM asset fetch failed', {
+    status: 503,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
+}
+
+/**
  * /assets/* 非 hash 资产处理：stale-while-revalidate + 重试 + 备用 CDN。
  * - 命中缓存：立即返回 + 后台用 fetchAssetWithFallbacks 更新
  *   （后台若得 4xx，删除 stale cache 避免无限期 serving 已删除资源）
@@ -547,11 +635,14 @@ async function handleAssetWithRetry(request) {
 }
 
 // ============================================================================
-// message：响应客户端消息（W15.7 扩展）
+// message：响应客户端消息（W15.7 + W21.2 扩展）
 //   - 'SKIP_WAITING'（字符串，向后兼容）/ { type: 'SKIP_WAITING' }：立即 skipWaiting
 //   - { type: 'PRELOAD_TOP5' }：回执 TOP5_PRELOAD_TRIGGERED（实际预加载由客户端做，
 //     SW 不能 import engine 模块，仅负责触发与缓存）
 //   - { type: 'GET_VERSION' }：回执 SW_VERSION + 版本号（调试用）
+//   - { type: 'PRELOAD_WASM', urls: string[] }（W21.2）：SW 后台 fetch + cache
+//     一组 wasm URL(如 Squoosh 编解码器),完成后回执 WASM_PRELOADED。
+//     客户端在用户首次触发某 wasm 操作前调用,实现"零延迟"首次体验。
 // ============================================================================
 self.addEventListener('message', (event) => {
   const data = event.data;
@@ -584,10 +675,66 @@ self.addEventListener('message', (event) => {
         event.source.postMessage({ type: 'SW_VERSION', version: SW_VERSION });
       }
       break;
+    case 'PRELOAD_WASM': {
+      // W21.2: 后台预加载一组 wasm URL,完成后回执
+      const urls = Array.isArray(data.urls) ? data.urls : [];
+      event.waitUntil(preloadWasmAssets(urls, event.source));
+      break;
+    }
     default:
       break;
   }
 });
+
+/**
+ * W21.2: 后台预加载一组 wasm 资源到 SW 缓存。
+ *
+ * 每个 URL 走 handleWasmAsset 流程(含 Content-Type 修正 + 重试),
+ * 失败的 URL 不阻塞其他 URL,最终回执 { type: 'WASM_PRELOADED', succeeded, failed }。
+ *
+ * 使用场景:Phase 2 接入 Squoosh / ffmpeg.wasm 时,客户端在用户选择"AVIF 编码"
+ * 但尚未点击"应用"前,可提前 postMessage({ type: 'PRELOAD_WASM', urls: [...] }),
+ * 让 SW 后台 fetch + cache,用户真正点击时零延迟。
+ *
+ * @param {string[]} urls 待预加载的 wasm URL 列表
+ * @param {Client|null} client 触发消息的 client(用于回执)
+ */
+async function preloadWasmAssets(urls, client) {
+  const cache = await caches.open(RUNTIME);
+  const succeeded = [];
+  const failed = [];
+
+  await Promise.all(
+    urls.map(async (url) => {
+      try {
+        // 已缓存则跳过(幂等)
+        const existing = await cache.match(url);
+        if (existing) {
+          succeeded.push(url);
+          return;
+        }
+        // 走 handleWasmAsset 的 fetch + cache 逻辑
+        const resp = await handleWasmAsset(new Request(url, { mode: 'cors' }));
+        if (resp && resp.ok) {
+          succeeded.push(url);
+        } else {
+          failed.push({ url, status: resp ? resp.status : 0 });
+        }
+      } catch (err) {
+        failed.push({ url, error: String(err && err.message || err) });
+      }
+    }),
+  );
+
+  if (client) {
+    client.postMessage({
+      type: 'WASM_PRELOADED',
+      succeeded,
+      failed,
+      version: SW_VERSION,
+    });
+  }
+}
 
 // ============================================================================
 // NETWORK_RECOVERED 广播（review fix for Major-4）

@@ -67,6 +67,7 @@ function HistoryDemoContent() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const currentUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     let rt: LokvisRuntime | undefined;
@@ -80,15 +81,25 @@ function HistoryDemoContent() {
         }
       });
     })();
-    return () => void rt?.cancel(WORKFLOW_ID);
+    return () => {
+      void rt?.cancel(WORKFLOW_ID);
+      if (currentUrlRef.current) URL.revokeObjectURL(currentUrlRef.current);
+    };
   }, []);
+
+  useEffect(() => {
+    currentUrlRef.current = currentUrl;
+  }, [currentUrl]);
 
   async function refreshCurrent(rt: LokvisRuntime) {
     const outs = await rt.getCurrentOutputs(WORKFLOW_ID);
     if (outs.length === 0) return;
     try {
       const blob = await rt.exportAsset(outs[0]);
-      setCurrentUrl(URL.createObjectURL(blob));
+      setCurrentUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
     } catch {
       /* ignore */
     }
@@ -103,7 +114,10 @@ function HistoryDemoContent() {
       setError(null);
       // 显示原始图像作为当前状态
       const blob = await runtime.exportAsset(id);
-      setCurrentUrl(URL.createObjectURL(blob));
+      setCurrentUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
       setHistory([]);
       setHistoryCursor(-1);
     } catch (err) {
@@ -218,7 +232,7 @@ function HistoryDemoContent() {
           {/* 预览 */}
           <div className="flex flex-1 items-center justify-center bg-zinc-950 p-4">
             {currentUrl ? (
-              <img src={currentUrl} alt="Current state" className="max-h-full max-w-full object-contain" />
+              <img src={currentUrl} alt="Current state" className="max-h-full max-w-full object-contain" loading="lazy" decoding="async" />
             ) : (
               <p className="text-[11px] text-zinc-600">{t('history.uploadHint')}</p>
             )}

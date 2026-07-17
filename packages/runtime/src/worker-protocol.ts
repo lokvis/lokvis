@@ -84,6 +84,53 @@ export interface WorkerResponseErr {
 
 export type WorkerResponse = WorkerResponseOk | WorkerResponseErr;
 
+/**
+ * BlobRef:Blob 的可转移信封(W21.4 Transferable 优化)。
+ *
+ * Blob 本身不是 Transferable,只有 ArrayBuffer 是。Worker 把处理后的
+ * Blob 拆成 { meta, buffer },通过 postMessage 的 transfer list 零拷贝
+ * 移交 ArrayBuffer 给主线程;主线程收到后用
+ * `new Blob([buffer], { type: meta.type })` 重组。
+ *
+ * 协议约定(与 packages/engine-image/src/worker-adapter.ts 的 BlobRef 同步声明,
+ * 遵循 AGENTS.md 中 WorkerCancel 的先例——两处各自声明,注释标注同步):
+ * - response.result.kind === 'blob' → 解包 BlobRef,重组 Blob
+ * - response.result 无 kind 字段 → 非 Blob 结果(如元数据),直接使用
+ */
+export interface BlobRef {
+  kind: 'blob';
+  meta: { size: number; type: string };
+  buffer: ArrayBuffer;
+}
+
+/** 类型守卫:是否为 BlobRef 信封(W21.4) */
+export function isBlobRef(data: unknown): data is BlobRef {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as { kind?: unknown }).kind === 'blob' &&
+    // 注意:typeof null === 'object'(JS 历史遗留),必须显式排除 null,
+    // 否则 { kind:'blob', meta:null, buffer:ArrayBuffer } 会被误判为 BlobRef,
+    // 导致 unwrapBlobRef 访问 meta.type 时抛 TypeError。
+    (data as { meta?: unknown }).meta !== null &&
+    typeof (data as { meta?: unknown }).meta === 'object' &&
+    (data as { buffer?: unknown }).buffer instanceof ArrayBuffer
+  );
+}
+
+/**
+ * 解包 BlobRef:若 result 为 BlobRef 信封,重组为 Blob;
+ * 否则原样返回(W21.4)。
+ *
+ * 供 WorkerHost.handleMessage 在 resolve pending 前调用。
+ */
+export function unwrapBlobRef(result: unknown): unknown {
+  if (isBlobRef(result)) {
+    return new Blob([result.buffer], { type: result.meta.type });
+  }
+  return result;
+}
+
 /** 心跳回应 */
 export interface WorkerPong {
   id: string;

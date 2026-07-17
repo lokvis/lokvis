@@ -2,7 +2,7 @@
 
 - **状态**：Accepted
 - **日期**：2026-07-13（Proposed）/ 2026-07-15（Accepted）
-- **来源**：[架构深度诊断报告](../reports/architecture-deep-diagnostic-20260712.md) §W4 / [任务计划](../reports/20260712-task-plan.md) W4.1
+- **来源**：[架构深度诊断报告](../reports/archive/architecture-deep-diagnostic-20260712.md) §W4 / [任务计划](../reports/archive/20260712-task-plan.md) W4.1
 - **Acceptance 验证**（2026-07-15）：
   - ✅ `packages/capability/manifests/{image,pdf,video,audio,ai}.manifest.json` 5 域 manifest 齐全
   - ✅ `scripts/codegen-capabilities.ts` codegen 脚本实装
@@ -139,7 +139,7 @@ codegen 脚本(`scripts/codegen-capabilities.ts`,W4.2)的职责:
 
 ## 关联
 
-- [诊断报告](../reports/architecture-deep-diagnostic-20260712.md) §W4
-- [任务计划 W4.1-W4.3](../reports/20260712-task-plan.md)
+- [诊断报告](../reports/archive/architecture-deep-diagnostic-20260712.md) §W4
+- [任务计划 W4.1-W4.3](../reports/archive/20260712-task-plan.md)
 - [ADR-011](./011-mcp-server.md) — MCP server 消费能力声明
 - 现有 `packages/schema/src/capability.ts` — Capability 接口定义

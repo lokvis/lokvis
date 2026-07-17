@@ -515,6 +515,25 @@ export const ui: Dict = {
   'pwa.estimateMiddle': { en: 's elapsed', zh: '秒已用时' },
   'pwa.readyCheck': { en: '✓ Ready', zh: '✓ 就绪' },
 
+  // ─── Browser Support Banner (W22.4) ──────────────────
+  'browserSupport.firefoxTitle': { en: 'Limited Firefox support', zh: 'Firefox 支持受限' },
+  'browserSupport.firefoxMsg': {
+    en: 'Some features (OPFS, WebCodecs) may be unavailable. Chrome, Edge, or Safari recommended.',
+    zh: '部分功能(OPFS、WebCodecs)可能不可用。建议使用 Chrome、Edge 或 Safari。',
+  },
+  'browserSupport.opfsMissingTitle': { en: 'OPFS unavailable — using IndexedDB fallback', zh: 'OPFS 不可用——已降级为 IndexedDB' },
+  'browserSupport.opfsMissingMsg': {
+    en: 'Large files will be stored in IndexedDB. Performance may be reduced on big batches.',
+    zh: '大文件将存储在 IndexedDB,大批量处理时性能可能下降。',
+  },
+  'browserSupport.offscreenCanvasMissingTitle': { en: 'OffscreenCanvas unavailable — using HTMLCanvas fallback', zh: 'OffscreenCanvas 不可用——已降级为 HTMLCanvas' },
+  'browserSupport.offscreenCanvasMissingMsg': {
+    en: 'Image processing will use HTMLCanvasElement. Main thread may block on large images.',
+    zh: '图像处理将使用 HTMLCanvasElement,大图可能阻塞主线程。',
+  },
+  'browserSupport.dismiss': { en: 'Dismiss', zh: '知道了' },
+  'browserSupport.recommended': { en: 'Recommended browsers', zh: '推荐浏览器' },
+
   // ─── Privacy Badge ────────────────────────────────────
   'privacy.onlineMsg': { en: 'Files are always processed locally in your browser · never uploaded', zh: '文件始终在浏览器本地处理 · 不上传到任何服务器' },
   'privacy.offlineMsg': { en: 'Offline mode · still working · local processing verified', zh: '断网模式 · 仍在工作 · 已验证本地处理' },

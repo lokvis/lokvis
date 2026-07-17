@@ -11,6 +11,7 @@ export * from './event-bus.js';
 export * from './asset-store.js';
 export * from './opfs-asset-store.js';
 export * from './idb-asset-store.js';
+export * from './browser-detect.js';
 export * from './capability-registry.js';
 export * from './executor.js';
 export * from './worker-protocol.js';

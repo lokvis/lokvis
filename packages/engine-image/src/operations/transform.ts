@@ -6,6 +6,9 @@
  *
  * W3.5:每个操作接受可选 AbortSignal,在 decode / draw / encode 之间检查,
  * 使 cancel() 在长耗时的 canvas 编码阶段也能及时生效。
+ *
+ * W21.6:bitmap 资源用 try/finally 释放,确保 throwIfAborted / encode
+ * 抛错时 ImageBitmap 不会泄漏(浏览器 GC 不保证立即回收)。
  */
 import type {
   CropParams,
@@ -34,24 +37,28 @@ export async function resize(
   signal?: AbortSignal
 ): Promise<Blob> {
   const { bitmap, width: srcW, height: srcH } = await canvasEngine.decode(blob);
-  throwIfAborted(signal);
-  const target = computeTargetSize(srcW, srcH, params as ResizeParams);
-  const canvas = createCanvas(target.width, target.height);
-  const ctx = get2DContext(canvas);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(bitmap, 0, 0, target.width, target.height);
-  bitmap.close?.();
-  throwIfAborted(signal);
-  const format = inferFormat(blob, 'png');
-  const out = await canvasEngine.encode(canvas, format, 95);
-  // W8.4:把 DPI 写入 PNG pHYs chunk,供打印软件读取。
-  // 仅 PNG 生效;canvas encode 不写物理分辨率,这里补写。
-  const { dpi } = params as ResizeParams;
-  if (format === 'png' && typeof dpi === 'number' && dpi > 0) {
-    return embedPngDpi(out, dpi);
+  try {
+    throwIfAborted(signal);
+    const target = computeTargetSize(srcW, srcH, params as ResizeParams);
+    const canvas = createCanvas(target.width, target.height);
+    const ctx = get2DContext(canvas);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bitmap, 0, 0, target.width, target.height);
+    throwIfAborted(signal);
+    const format = inferFormat(blob, 'png');
+    const out = await canvasEngine.encode(canvas, format, 95);
+    // W8.4:把 DPI 写入 PNG pHYs chunk,供打印软件读取。
+    // 仅 PNG 生效;canvas encode 不写物理分辨率,这里补写。
+    const { dpi } = params as ResizeParams;
+    if (format === 'png' && typeof dpi === 'number' && dpi > 0) {
+      return embedPngDpi(out, dpi);
+    }
+    return out;
+  } finally {
+    // W21.6: 确保异常路径(throwIfAborted / encode 抛错)也释放 bitmap
+    bitmap.close?.();
   }
-  return out;
 }
 
 /** Crop：裁剪 */
@@ -62,14 +69,17 @@ export async function crop(
 ): Promise<Blob> {
   const { x, y, width, height } = params as CropParams;
   const { bitmap } = await canvasEngine.decode(blob);
-  throwIfAborted(signal);
-  const canvas = createCanvas(width, height);
-  const ctx = get2DContext(canvas);
-  ctx.drawImage(bitmap, x, y, width, height, 0, 0, width, height);
-  bitmap.close?.();
-  throwIfAborted(signal);
-  const format = inferFormat(blob, 'png');
-  return canvasEngine.encode(canvas, format, 95);
+  try {
+    throwIfAborted(signal);
+    const canvas = createCanvas(width, height);
+    const ctx = get2DContext(canvas);
+    ctx.drawImage(bitmap, x, y, width, height, 0, 0, width, height);
+    throwIfAborted(signal);
+    const format = inferFormat(blob, 'png');
+    return canvasEngine.encode(canvas, format, 95);
+  } finally {
+    bitmap.close?.();
+  }
 }
 
 /** Rotate：旋转 */
@@ -80,22 +90,25 @@ export async function rotate(
 ): Promise<Blob> {
   const { angle: rawAngle, background } = params as RotateParams;
   const { bitmap, width, height } = await canvasEngine.decode(blob);
-  throwIfAborted(signal);
-  const angle = ((rawAngle % 360) + 360) % 360;
-  const swap = angle === 90 || angle === 270;
-  const outW = swap ? height : width;
-  const outH = swap ? width : height;
-  const canvas = createCanvas(outW, outH);
-  const ctx = get2DContext(canvas);
-  ctx.fillStyle = background ?? '#ffffff';
-  ctx.fillRect(0, 0, outW, outH);
-  ctx.translate(outW / 2, outH / 2);
-  ctx.rotate((angle * Math.PI) / 180);
-  ctx.drawImage(bitmap, -width / 2, -height / 2);
-  bitmap.close?.();
-  throwIfAborted(signal);
-  const format = inferFormat(blob, 'png');
-  return canvasEngine.encode(canvas, format, 95);
+  try {
+    throwIfAborted(signal);
+    const angle = ((rawAngle % 360) + 360) % 360;
+    const swap = angle === 90 || angle === 270;
+    const outW = swap ? height : width;
+    const outH = swap ? width : height;
+    const canvas = createCanvas(outW, outH);
+    const ctx = get2DContext(canvas);
+    ctx.fillStyle = background ?? '#ffffff';
+    ctx.fillRect(0, 0, outW, outH);
+    ctx.translate(outW / 2, outH / 2);
+    ctx.rotate((angle * Math.PI) / 180);
+    ctx.drawImage(bitmap, -width / 2, -height / 2);
+    throwIfAborted(signal);
+    const format = inferFormat(blob, 'png');
+    return canvasEngine.encode(canvas, format, 95);
+  } finally {
+    bitmap.close?.();
+  }
 }
 
 /** Flip：翻转 */
@@ -106,20 +119,23 @@ export async function flip(
 ): Promise<Blob> {
   const { axis } = params as FlipParams;
   const { bitmap, width, height } = await canvasEngine.decode(blob);
-  throwIfAborted(signal);
-  const canvas = createCanvas(width, height);
-  const ctx = get2DContext(canvas);
-  ctx.translate(
-    axis === 'horizontal' || axis === 'both' ? width : 0,
-    axis === 'vertical' || axis === 'both' ? height : 0
-  );
-  ctx.scale(
-    axis === 'horizontal' || axis === 'both' ? -1 : 1,
-    axis === 'vertical' || axis === 'both' ? -1 : 1
-  );
-  ctx.drawImage(bitmap, 0, 0);
-  bitmap.close?.();
-  throwIfAborted(signal);
-  const format = inferFormat(blob, 'png');
-  return canvasEngine.encode(canvas, format, 95);
+  try {
+    throwIfAborted(signal);
+    const canvas = createCanvas(width, height);
+    const ctx = get2DContext(canvas);
+    ctx.translate(
+      axis === 'horizontal' || axis === 'both' ? width : 0,
+      axis === 'vertical' || axis === 'both' ? height : 0
+    );
+    ctx.scale(
+      axis === 'horizontal' || axis === 'both' ? -1 : 1,
+      axis === 'vertical' || axis === 'both' ? -1 : 1
+    );
+    ctx.drawImage(bitmap, 0, 0);
+    throwIfAborted(signal);
+    const format = inferFormat(blob, 'png');
+    return canvasEngine.encode(canvas, format, 95);
+  } finally {
+    bitmap.close?.();
+  }
 }

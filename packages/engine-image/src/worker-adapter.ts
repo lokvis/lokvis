@@ -182,27 +182,82 @@ async function probeImage(params: unknown): Promise<ImageProbeResult> {
 }
 
 /**
- * 创建请求处理器(纯函数,返回响应)。供测试直接调用,
+ * BlobRef:Blob 的可转移信封(W21.4 Transferable 优化)。
+ *
+ * Blob 本身不是 Transferable,只有 ArrayBuffer 是。Worker 把处理后的
+ * Blob 拆成 { meta, buffer },通过 transfer list 零拷贝移交 ArrayBuffer
+ * 给主线程;主线程收到后用 `new Blob([buffer], { type: meta.type })` 重组。
+ *
+ * 两端协议约定(与 packages/runtime/src/worker-protocol.ts 同步):
+ * - result.kind === 'blob' → 解包 BlobRef,重组 Blob
+ * - result 无 kind 字段 → 非 Blob 结果(如 ImageProbeResult),直接使用
+ */
+export interface BlobRef {
+  kind: 'blob';
+  meta: { size: number; type: string };
+  buffer: ArrayBuffer;
+}
+
+/** 判断值是否为 BlobRef 信封 */
+export function isBlobRef(v: unknown): v is BlobRef {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    (v as { kind?: unknown }).kind === 'blob' &&
+    // 注意:typeof null === 'object'(JS 历史遗留),必须显式排除 null,
+    // 否则 { kind:'blob', meta:null, buffer:ArrayBuffer } 会被误判为 BlobRef。
+    // 与 packages/runtime/src/worker-protocol.ts 的 isBlobRef 同步。
+    (v as { meta?: unknown }).meta !== null &&
+    typeof (v as { meta?: unknown }).meta === 'object' &&
+    (v as { buffer?: unknown }).buffer instanceof ArrayBuffer
+  );
+}
+
+/**
+ * 创建请求处理器(纯函数,返回响应 + transfer list)。供测试直接调用,
  * 也供 startImageWorker 在 Worker 内使用。
  *
  * W3.5:接受可选 AbortSignal 并下传,使 Host 的 cancel 经由
  * startImageWorker 的 inflight 控制器抵达操作。
+ *
+ * W21.4:返回值改为 { response, transfer },当 result 为 Blob 时
+ * 抽出 ArrayBuffer 放入 transfer list,实现 Worker → 主线程零拷贝。
  */
 export function createImageWorkerHandler(): (
   request: WorkerRequest,
   signal?: AbortSignal
-) => Promise<WorkerResponse> {
+) => Promise<{ response: WorkerResponse; transfer: Transferable[] }> {
   return async (request, signal) => {
     try {
       const result = await dispatchImageMethod(request.method, request.params, signal);
-      return { id: request.id, type: 'response', ok: true, result };
+      // W21.4: Blob 结果抽 ArrayBuffer 走 transfer,避免结构化克隆拷贝
+      if (result instanceof Blob) {
+        const buffer = await result.arrayBuffer();
+        const blobRef: BlobRef = {
+          kind: 'blob',
+          meta: { size: result.size, type: result.type },
+          buffer,
+        };
+        return {
+          response: { id: request.id, type: 'response', ok: true, result: blobRef },
+          transfer: [buffer],
+        };
+      }
+      // 非 Blob 结果(如 image.probe 元数据)走原路径
+      return {
+        response: { id: request.id, type: 'response', ok: true, result },
+        transfer: [],
+      };
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       return {
-        id: request.id,
-        type: 'response',
-        ok: false,
-        error: { message: err.message, stack: err.stack },
+        response: {
+          id: request.id,
+          type: 'response',
+          ok: false,
+          error: { message: err.message, stack: err.stack },
+        },
+        transfer: [],
       };
     }
   };
@@ -279,8 +334,13 @@ export function startImageWorker(scope?: ImageWorkerScope): ImageWorkerScope {
       const controller = new AbortController();
       inflight.set(req.id, controller);
       try {
-        const response = await handle(req, controller.signal);
-        workerScope.postMessage(response);
+        const { response, transfer } = await handle(req, controller.signal);
+        // W21.4: 带 transfer list 发送,Blob 的 ArrayBuffer 零拷贝移交主线程
+        if (transfer.length > 0) {
+          workerScope.postMessage(response, transfer);
+        } else {
+          workerScope.postMessage(response);
+        }
       } catch (e) {
         // handler 内部已捕获业务错误;这里只兜底传输异常
         workerScope.postMessage({

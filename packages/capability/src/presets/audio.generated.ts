@@ -3,9 +3,6 @@
  *
  * 来源:packages/capability/manifests/audio.manifest.json
  * 重跑:pnpm codegen
- *
- * 与手写版本 packages/capability/src/presets/audio.ts 逐字段对应;
- * W4.3 完成迁移后,手写版本将被删除,本文件成为唯一来源。
  */
 import type { Capability } from '@lokvis/schema';
 

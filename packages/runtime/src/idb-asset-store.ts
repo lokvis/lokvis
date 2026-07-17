@@ -118,5 +118,10 @@ export async function createIdbAssetStore(
       await db.assets.put({ id, asset, blob });
       return asset;
     },
+
+    // W21.6: 关闭 Dexie 连接(IDB 数据不删除,下次创建 store 时可恢复)。
+    async dispose() {
+      db.close();
+    },
   };
 }

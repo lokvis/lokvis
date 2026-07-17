@@ -310,6 +310,24 @@ describe('compress AbortSignal', () => {
     await compress(INPUT, {});
     expect(mockEncode).toHaveBeenCalledWith(expect.anything(), 'webp', 85);
   });
+
+  it('W21.5: 大图(>4096)应走 tile 路径(encode 调用次数 > 1)', async () => {
+    // 8192x8192 / tileSize 512 → 256 个 tile,每个 tile encode 一次 + 合并时 encode 1 次
+    // 通过 mockEncode 调用次数验证走了 tile 分支(而非单 canvas 的 1 次 encode)
+    mockDecode.mockResolvedValueOnce(fakeBitmap(8192, 8192));
+    mockEncode.mockResolvedValue(OUT);
+    await compress(INPUT, { format: 'webp', quality: 80 });
+    // 单 canvas 路径只 encode 1 次;tile 路径至少 encode 256 次(可能更多,取决于 mergeChunks)
+    expect(mockEncode.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it('W21.5: 小图(<=4096)应走单 canvas 路径(encode 仅 1 次)', async () => {
+    // 4096x4096 是边界,不触发 tile(shouldUseTiles 返回 false)
+    mockDecode.mockResolvedValueOnce(fakeBitmap(4096, 4096));
+    mockEncode.mockResolvedValue(OUT);
+    await compress(INPUT, { format: 'webp', quality: 80 });
+    expect(mockEncode).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ─── convert ──────────────────────────────────────────────────
@@ -334,6 +352,39 @@ describe('convert AbortSignal', () => {
   it('默认 quality=95', async () => {
     await convert(INPUT, { format: 'png' });
     expect(mockEncode).toHaveBeenCalledWith(expect.anything(), 'png', 95);
+  });
+
+  it('W21.5: 大图(>4096)format=jpeg 应走 tile 路径且填白底', async () => {
+    // 5000x100 / tileSize 512 → 10 个 tile(沿 x 轴)
+    mockDecode.mockResolvedValueOnce(fakeBitmap(5000, 100));
+    mockEncode.mockResolvedValue(OUT);
+    await convert(INPUT, { format: 'jpeg', quality: 90 });
+    // tile 路径:10 个 tile encode + 1 次 mergeChunks encode = 11 次
+    // 单 canvas 路径只 encode 1 次,此处验证 > 1 即可
+    expect(mockEncode.mock.calls.length).toBeGreaterThan(1);
+    // 每次 encode 的格式都是 jpeg(tile 路径 + 合并都应保持 jpeg)
+    for (const call of mockEncode.mock.calls) {
+      expect(call[1]).toBe('jpeg');
+      expect(call[2]).toBe(90);
+    }
+  });
+
+  it('W21.5: 大图(>4096)format=png 应走 tile 路径不填白底', async () => {
+    mockDecode.mockResolvedValueOnce(fakeBitmap(5000, 100));
+    mockEncode.mockResolvedValue(OUT);
+    await convert(INPUT, { format: 'png' });
+    expect(mockEncode.mock.calls.length).toBeGreaterThan(1);
+    for (const call of mockEncode.mock.calls) {
+      expect(call[1]).toBe('png');
+    }
+  });
+
+  it('W21.5: 小图(<=4096)应走单 canvas 路径(encode 仅 1 次)', async () => {
+    // 4096x4096 边界,不触发 tile
+    mockDecode.mockResolvedValueOnce(fakeBitmap(4096, 4096));
+    mockEncode.mockResolvedValue(OUT);
+    await convert(INPUT, { format: 'png' });
+    expect(mockEncode).toHaveBeenCalledTimes(1);
   });
 });
 

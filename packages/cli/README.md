@@ -39,7 +39,7 @@ Examples:
 
 ### `lokvis run` — 在 Node 中跑工作流
 
-`run` 命令默认注入 [`@lokvis/plugin-image/node`](../plugin-image) 的 sharp 引擎(由 [M2.2](../../docs/reports/20260712-task-plan.md) 实装),让以下 5 个图像能力在 Node 中真实可执行:
+`run` 命令默认注入 [`@lokvis/plugin-image/node`](../plugin-image) 的 sharp 引擎(由 [M2.2](../../docs/reports/archive/20260712-task-plan.md) 实装),让以下 5 个图像能力在 Node 中真实可执行:
 
 | Capability | 说明 |
 |---|---|

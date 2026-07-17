@@ -309,3 +309,53 @@ describe('OPFS store IndexedDB 不可用降级(m9)', () => {
     expect(await store.get(asset.id)).toBeUndefined();
   });
 });
+
+// ─── W21.6: OpfsAssetStore.dispose() ─────────────────────────
+
+describe('OpfsAssetStore.dispose() (W21.6)', () => {
+  it('dispose 后 list() 应返回空(内存 Map 已清空)', async () => {
+    const { store } = await makeOpfsStore();
+    await store.import({
+      kind: 'blob',
+      blob: new Blob([new Uint8Array([0])], { type: 'image/png' }),
+      name: 'a.png',
+    });
+    expect((await store.list()).length).toBe(1);
+
+    await store.dispose?.();
+    expect((await store.list()).length).toBe(0);
+  });
+
+  it('dispose 后 get() 应返回 undefined(内存 Map 已清空)', async () => {
+    const { store } = await makeOpfsStore();
+    const blob = new Blob([new Uint8Array([0])], { type: 'image/png' });
+    const asset = await store.import({ kind: 'blob', blob, name: 'a.png' });
+
+    await store.dispose?.();
+    expect(await store.get(asset.id)).toBeUndefined();
+  });
+
+  it('dispose 应幂等:重复调用不抛错', async () => {
+    const { store } = await makeOpfsStore();
+    await store.dispose?.();
+    await expect(store.dispose?.()).resolves.toBeUndefined();
+  });
+
+  it('dispose 应调用 metadataDb.close()(IDB 可用时)', async () => {
+    // 注入 mock metadataDb 验证 close 调用
+    const { OpfsMetadataDatabase } = await import('../opfs-asset-store.js');
+    const fakeRoot = new FakeDirHandle();
+    const db = new OpfsMetadataDatabase(
+      `lokvis-opfs-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    );
+    const closeSpy = vi.spyOn(db, 'close');
+
+    const store = await createOpfsAssetStore({
+      rootHandle: fakeRoot as unknown as FileSystemDirectoryHandle,
+      metadataDb: db,
+    });
+
+    await store.dispose?.();
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+});

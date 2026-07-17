@@ -3,6 +3,10 @@
  *
  * 含位置计算(computeWatermarkPosition),
  * 支持 9 宫格位置 + tile 模式。
+ *
+ * W21.6:bitmap 与 wmBitmap 都用 try/finally 释放,确保 fetch 抛错 /
+ * SSRF 校验失败 / tile 循环 throwIfAborted / encode 抛错时 ImageBitmap
+ * 不会泄漏(浏览器 GC 不保证立即回收)。
  */
 import type { WatermarkParams, WatermarkPosition } from '../types.js';
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
@@ -59,84 +63,93 @@ export async function watermark(
   } = params as WatermarkParams;
 
   const { bitmap, width, height } = await canvasEngine.decode(blob);
-  throwIfAborted(signal);
-  const canvas = createCanvas(width, height);
-  const ctx = get2DContext(canvas);
-  ctx.drawImage(bitmap, 0, 0);
-  bitmap.close?.();
+  try {
+    throwIfAborted(signal);
+    const canvas = createCanvas(width, height);
+    const ctx = get2DContext(canvas);
+    ctx.drawImage(bitmap, 0, 0);
 
-  const wmOpacity = opacity ?? 0.8;
-  ctx.globalAlpha = wmOpacity;
+    const wmOpacity = opacity ?? 0.8;
+    ctx.globalAlpha = wmOpacity;
 
-  if (imageUrl) {
-    if (!isSafeImageUrl(imageUrl)) {
-      throw new Error(
-        `Watermark image URL not allowed (SSRF guard): ${imageUrl}`
-      );
-    }
-    // fetch 本身可接受 AbortSignal,使网络阶段也能被 cancel 中断
-    const resp = await fetch(imageUrl, signal ? { signal } : undefined);
-    if (!resp.ok) {
-      throw new Error(
-        `Failed to fetch watermark image from ${imageUrl}: ${resp.status} ${resp.statusText}`
-      );
-    }
-    const wmBlob = await resp.blob();
-    const wmBitmap = await createImageBitmap(wmBlob);
-    const wmW = wmBitmap.width;
-    const wmH = wmBitmap.height;
-
-    if (position === 'tile') {
-      const spacing = Math.max(wmW, wmH);
-      for (let y = 0; y < height + wmH; y += wmH + spacing) {
-        throwIfAborted(signal);
-        for (let x = 0; x < width + wmW; x += wmW + spacing) {
-          ctx.drawImage(wmBitmap, x, y, wmW, wmH);
-        }
+    if (imageUrl) {
+      if (!isSafeImageUrl(imageUrl)) {
+        throw new Error(
+          `Watermark image URL not allowed (SSRF guard): ${imageUrl}`
+        );
       }
-    } else {
-      const pos = computeWatermarkPosition(
-        position ?? 'bottom-right',
-        width,
-        height,
-        wmW,
-        wmH
-      );
-      ctx.drawImage(wmBitmap, pos.x, pos.y, wmW, wmH);
-    }
-    wmBitmap.close?.();
-  } else if (text) {
-    const size = fontSize ?? 24;
-    ctx.font = `${size}px sans-serif`;
-    ctx.fillStyle = color ?? '#ffffff';
-    ctx.textBaseline = 'top';
-    const metrics = ctx.measureText(text);
-    const textW = metrics.width;
-
-    if (position === 'tile') {
-      const spacing = Math.max(textW, size) * 1.5;
-      for (let y = 0; y < height + size; y += size + spacing) {
-        throwIfAborted(signal);
-        for (let x = 0; x < width + textW; x += textW + spacing) {
-          ctx.fillText(text, x, y);
-        }
+      // fetch 本身可接受 AbortSignal,使网络阶段也能被 cancel 中断
+      const resp = await fetch(imageUrl, signal ? { signal } : undefined);
+      if (!resp.ok) {
+        throw new Error(
+          `Failed to fetch watermark image from ${imageUrl}: ${resp.status} ${resp.statusText}`
+        );
       }
-    } else {
-      const pos = computeWatermarkPosition(
-        position ?? 'bottom-right',
-        width,
-        height,
-        textW,
-        size
-      );
-      ctx.fillText(text, pos.x, pos.y);
+      const wmBlob = await resp.blob();
+      const wmBitmap = await createImageBitmap(wmBlob);
+      // W21.6: wmBitmap 也用 try/finally 释放,确保 tile 循环中 throwIfAborted
+      // 抛错时不会泄漏(原版 wmBitmap.close 在 if 块末尾,异常路径遗漏)
+      try {
+        const wmW = wmBitmap.width;
+        const wmH = wmBitmap.height;
+
+        if (position === 'tile') {
+          const spacing = Math.max(wmW, wmH);
+          for (let y = 0; y < height + wmH; y += wmH + spacing) {
+            throwIfAborted(signal);
+            for (let x = 0; x < width + wmW; x += wmW + spacing) {
+              ctx.drawImage(wmBitmap, x, y, wmW, wmH);
+            }
+          }
+        } else {
+          const pos = computeWatermarkPosition(
+            position ?? 'bottom-right',
+            width,
+            height,
+            wmW,
+            wmH
+          );
+          ctx.drawImage(wmBitmap, pos.x, pos.y, wmW, wmH);
+        }
+      } finally {
+        wmBitmap.close?.();
+      }
+    } else if (text) {
+      const size = fontSize ?? 24;
+      ctx.font = `${size}px sans-serif`;
+      ctx.fillStyle = color ?? '#ffffff';
+      ctx.textBaseline = 'top';
+      const metrics = ctx.measureText(text);
+      const textW = metrics.width;
+
+      if (position === 'tile') {
+        const spacing = Math.max(textW, size) * 1.5;
+        for (let y = 0; y < height + size; y += size + spacing) {
+          throwIfAborted(signal);
+          for (let x = 0; x < width + textW; x += textW + spacing) {
+            ctx.fillText(text, x, y);
+          }
+        }
+      } else {
+        const pos = computeWatermarkPosition(
+          position ?? 'bottom-right',
+          width,
+          height,
+          textW,
+          size
+        );
+        ctx.fillText(text, pos.x, pos.y);
+      }
     }
+    ctx.globalAlpha = 1;
+    throwIfAborted(signal);
+
+    const format = inferFormat(blob, 'png');
+    return canvasEngine.encode(canvas, format, 95);
+  } finally {
+    // W21.6: 确保异常路径(throwIfAborted / SSRF / fetch / encode 抛错)也释放 bitmap
+    bitmap.close?.();
   }
-  ctx.globalAlpha = 1;
-  throwIfAborted(signal);
-
-  const format = inferFormat(blob, 'png');
-  return canvasEngine.encode(canvas, format, 95);
 }
 
 /** 计算水印位置 */

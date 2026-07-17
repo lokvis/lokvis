@@ -60,6 +60,8 @@ function WorkflowDemoContent() {
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('webp');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputUrlRef = useRef<string | null>(null);
+  const outputUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     let rt: LokvisRuntime | undefined;
@@ -75,8 +77,18 @@ function WorkflowDemoContent() {
     return () => {
       unsub?.();
       void rt?.cancel('all');
+      if (inputUrlRef.current) URL.revokeObjectURL(inputUrlRef.current);
+      if (outputUrlRef.current) URL.revokeObjectURL(outputUrlRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    inputUrlRef.current = inputUrl;
+  }, [inputUrl]);
+
+  useEffect(() => {
+    outputUrlRef.current = outputUrl;
+  }, [outputUrl]);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!runtime || !e.target.files?.length) return;
@@ -313,7 +325,7 @@ function WorkflowDemoContent() {
             </header>
             <div className="flex flex-1 items-center justify-center bg-zinc-950 p-2">
               {inputUrl ? (
-                <img src={inputUrl} alt="Input" className="max-h-64 max-w-full object-contain" />
+                <img src={inputUrl} alt="Input" className="max-h-64 max-w-full object-contain" loading="lazy" decoding="async" />
               ) : (
                 <p className="text-[11px] text-zinc-600">{t('common.selectImageHint')}</p>
               )}
@@ -339,7 +351,7 @@ function WorkflowDemoContent() {
                 <div className="px-3 text-center text-[11px] text-red-400">{error}</div>
               )}
               {outputUrl && (
-                <img src={outputUrl} alt="Output" className="max-h-64 max-w-full object-contain" />
+                <img src={outputUrl} alt="Output" className="max-h-64 max-w-full object-contain" loading="lazy" decoding="async" />
               )}
               {stage === 'idle' && !outputUrl && (
                 <p className="text-[11px] text-zinc-600">{t('common.outputWillAppear')}</p>

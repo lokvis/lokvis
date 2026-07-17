@@ -442,8 +442,8 @@ describe('BatchProcessor 取消', () => {
     });
 
     const job = bp.enqueue({ items: makeItems(10) });
-    // 等待 schedule 启动部分项
-    await new Promise((r) => setTimeout(r, 5));
+    // TD-2.2: 确定性等待 schedule 启动部分项(替代固定 setTimeout 赌注)
+    await bp.waitForItemsStarted(job.id, 1);
     await bp.cancel(job.id);
 
     const finalJob = bp.get(job.id);
@@ -477,7 +477,8 @@ describe('BatchProcessor 取消', () => {
     });
 
     const job = bp.enqueue({ items: makeItems(10) });
-    await new Promise((r) => setTimeout(r, 10));
+    // TD-2.2: 确定性等待至少 1 项进入 processing(替代固定 setTimeout 赌注)
+    await bp.waitForItemsStarted(job.id, 1);
     await bp.cancel(job.id);
 
     // 至少有一个 in-flight workflow 被 cancel
@@ -559,8 +560,8 @@ describe('BatchProcessor 取消', () => {
     });
 
     const job = bp.enqueue({ items: makeItems(4) });
-    // 等 4 项全部进入 processing
-    await new Promise((r) => setTimeout(r, 20));
+    // TD-2.2: 确定性等待 4 项全部进入 processing(替代固定 setTimeout 赌注)
+    await bp.waitForItemsStarted(job.id, 4);
 
     // cancel:同步标记 4 项 cancelled,然后逐个 await runtime.cancel
     // (cancelImpl 会 resolve 对应 run promise,触发 processItem 续跑)
@@ -607,7 +608,8 @@ describe('BatchProcessor 取消', () => {
     });
 
     const job = bp.enqueue({ items: makeItems(2), maxRetries: 0 });
-    await new Promise((r) => setTimeout(r, 20));
+    // TD-2.2: 确定性等待 2 项全部进入 processing(替代固定 setTimeout 赌注)
+    await bp.waitForItemsStarted(job.id, 2);
     await bp.cancel(job.id);
 
     const finalJob = bp.get(job.id);
@@ -732,8 +734,8 @@ describe('BatchProcessor 暂停/恢复', () => {
     });
 
     const job = bp.enqueue({ items: makeItems(8) });
-    // 等首批(4 项)开始
-    await new Promise((r) => setTimeout(r, 5));
+    // TD-2.2: 确定性等待首批(4 项)开始(替代固定 setTimeout 赌注)
+    await bp.waitForItemsStarted(job.id, 4);
     await bp.pause(job.id);
 
     const pausedJob = bp.get(job.id);

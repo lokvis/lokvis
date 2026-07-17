@@ -344,6 +344,21 @@ export class WorkflowExecutor {
     this.config.eventBus.emit({ type: 'workflow:cancelled', workflowId });
   }
 
+  /**
+   * 取消所有运行中的工作流(W21.6 runtime.dispose 用)。
+   *
+   * 遍历 running Map,对每个 state 执行 cancel 的同步部分
+   * (status = cancelled + abort + 唤醒 resume resolver + emit event)。
+   * 不等待 executor.execute 内部循环跳出 —— abort 后循环在下个 await
+   * 点自然抛 AbortError,资源随 Promise reject 释放。
+   */
+  cancelAll(): void {
+    // 复制一份避免 cancel 内 emit 触发的 listener 回调 mutate 原集合
+    for (const workflowId of [...this.running.keys()]) {
+      void this.cancel(workflowId);
+    }
+  }
+
   /** 暂停执行 */
   async pause(workflowId: string): Promise<void> {
     const state = this.running.get(workflowId);

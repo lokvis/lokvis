@@ -59,7 +59,9 @@ export class LokvisSseServer {
       if (req.method === 'GET' && pathname === '/sse') {
         // 复用单会话:旧会话仍在则先关闭
         if (this.transport) {
-          await this.transport.close().catch(() => {});
+          await this.transport.close().catch((err) => {
+            console.warn('[lokvis-mcp] SSE transport close failed:', err);
+          });
           this.transport = null;
         }
         this.transport = new SSEServerTransport(messageEndpoint, res);
@@ -105,7 +107,9 @@ export class LokvisSseServer {
   /** 关闭 HTTP server 与活跃会话 */
   async close(): Promise<void> {
     if (this.transport) {
-      await this.transport.close().catch(() => {});
+      await this.transport.close().catch((err) => {
+        console.warn('[lokvis-mcp] SSE transport close failed:', err);
+      });
       this.transport = null;
     }
     if (this.httpServer) {

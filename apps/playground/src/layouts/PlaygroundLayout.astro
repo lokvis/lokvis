@@ -33,6 +33,13 @@ interface Props {
   ogImage?: string;
   /** OG 类型,默认 website */
   ogType?: string;
+  /**
+   * W21.2: WASM 资源预加载 URL 列表(Phase 2 接入 Squoosh/ffmpeg.wasm 时使用)。
+   * 注入 <link rel="preload" as="fetch" crossorigin> 到 <head>,
+   * 浏览器在空闲时预取 wasm 文件(SW 缓存自然接管)。
+   * Phase 1 留空,不产生任何 preload 标签。
+   */
+  wasmPreload?: string[];
 }
 
 const {
@@ -44,6 +51,7 @@ const {
   ogDescription,
   ogImage,
   ogType = 'website',
+  wasmPreload = [],
 } = Astro.props;
 
 // 从 URL 自动提取语言（/en/sdk → 'en'，/zh/sdk → 'zh'）
@@ -52,6 +60,19 @@ const tr = (key: string) => t(lang, key);
 
 const finalOgTitle = ogTitle ?? title;
 const finalOgDescription = ogDescription ?? description;
+
+// W21.1: Sentry DSN 解析 —— 若配置了 PUBLIC_SENTRY_DSN,提取 host 用于 dns-prefetch
+// / preconnect,提前建立到 sentry.io 的 DNS+TLS 连接,减少 SDK 懒加载后的上报延迟。
+// DSN 形如 https://<key>@o<org>.ingest.sentry.io/<project>,仅取 protocol+host。
+const sentryDsn = import.meta.env.PUBLIC_SENTRY_DSN ?? '';
+let sentryOrigin = '';
+if (sentryDsn) {
+  try {
+    sentryOrigin = new URL(sentryDsn).origin;
+  } catch {
+    // DSN 格式非法时不注入 dns-prefetch(避免指向错误域名)
+  }
+}
 
 // Base 路径处理：astro.config.mjs 配置 `base: '/'`（W14.7 起 playground 部署到根域），
 // 导航 href 通过 import.meta.env.BASE_URL 拼接，确保 base 变更时路径自动跟随。
@@ -66,6 +87,7 @@ const langBase = `${base}${lang}/`;
 import InstallPrompt from '@/components/pwa/InstallPrompt.tsx';
 import OfflineIndicator, { OfflineStatusDot } from '@/components/pwa/OfflineIndicator.tsx';
 import EngineLoader from '@/components/pwa/EngineLoader.tsx';
+import BrowserSupportBanner from '@/components/pwa/BrowserSupportBanner.tsx';
 
 // 导航分三组（label/desc 改为翻译 key，href 加 lang 前缀）
 interface NavItem {
@@ -137,6 +159,43 @@ const currentPath = Astro.url.pathname;
     <meta name="robots" content="noindex, nofollow" />
     <title>{title}</title>
 
+    {/* W21.1: 资源预连接 —— 提前 DNS+TLS 握手,减少首屏关键请求延迟
+        - lokvis.com:header 链接(cloud 站)
+        - sentry.io:仅当 PUBLIC_SENTRY_DSN 配置时注入(SDK 懒加载后上报连接已就绪)
+        preconnect 比 dns-prefetch 更进一步(含 TLS),仅对高优先级第三方域名使用。 */}
+    <link rel="preconnect" href="https://lokvis.com" />
+    <link rel="dns-prefetch" href="https://lokvis.com" />
+    {sentryOrigin && <link rel="preconnect" href={sentryOrigin} />}
+    {sentryOrigin && <link rel="dns-prefetch" href={sentryOrigin} />}
+
+    {/* W21.1: PWA 图标预加载 —— icon.svg 是 LCP 关键资源(浏览器 tab + 安装提示)
+        fetchpriority="high" 提示浏览器高优先级调度 */}
+    <link rel="preload" href="/icon.svg" as="image" type="image/svg+xml" fetchpriority="high" />
+
+    {/* W21.2: WASM 资源预加载(Phase 2 接入 Squoosh/ffmpeg.wasm 时由各页注入)
+        浏览器空闲时预取 wasm 文件,SW 缓存自然接管。
+        crossorigin: 跨域 wasm 必须 CORS 模式加载;同源 wasm 也加 crossorigin 无副作用。 */}
+    {wasmPreload.map((url) => (
+      <link rel="preload" href={url} as="fetch" crossorigin="anonymous" />
+    ))}
+
+    {/* W21.1: 关键 CSS 内联 —— 首屏暗色背景 + 字体栈,避免 FOUC(Flash of Unstyled Content)
+        与 CLS(Cumulative Layout Shift)。完整 global.css 仍外链加载,这里只内联首屏必需的:
+        - body 背景色 + 文字色(zinc-950/zinc-100,与 <body class="bg-zinc-950 text-zinc-100"> 一致)
+        - 字体栈(与 global.css L37-43 一致)
+        - 防止暗色主题闪烁(用户已有 <html class="dark">,但 CSS 未加载前 body 仍白底)
+        注意:is:inline 内容必须是纯 CSS 文本,不能用 JSX 的 {"..."} 表达式包裹。 */}
+    <style is:inline>
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #09090b; /* zinc-950 */
+        color: #f4f4f5; /* zinc-100 */
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+      }
+    </style>
+
     {/* Open Graph(W8.7)—— 分享到 Twitter/微信/Slack 时显示卡片预览 */}
     <meta property="og:title" content={finalOgTitle} />
     <meta property="og:description" content={finalOgDescription} />
@@ -163,6 +222,10 @@ const currentPath = Astro.url.pathname;
   <body class="h-screen overflow-hidden bg-zinc-950 text-zinc-100">
     {/* PWA OfflineIndicator banner（W15.5）—— 顶部固定，离线时滑入 */}
     <OfflineIndicator client:only="react" />
+
+    {/* 浏览器支持降级提示（W22.4）—— Firefox / OPFS / OffscreenCanvas 缺失时显示
+        client:only="react"：依赖 navigator / sessionStorage,SSR 不可用 */}
+    <BrowserSupportBanner client:only="react" />
 
     <div class="flex h-full flex-col">
       {/* 顶部品牌条 */}

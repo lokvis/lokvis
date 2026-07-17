@@ -121,8 +121,10 @@ export class BatchScheduler {
       // B1:import 期间可能被 cancel
       if (job.cancelled) {
         item.status = 'cancelled';
+        // TD-3.3: asset-store remove 已对 NotFoundError 静默忽略,此处 catch 到的
+        // 都是真实错误,用 error 级别记录便于排查
         void this.runtime.removeAsset(inputAssetId).catch((err) => {
-          console.warn(`[lokvis] BatchProcessor: cleanup input(${inputAssetId}) on cancel failed:`, err);
+          console.error(`[lokvis] BatchProcessor: cleanup input(${inputAssetId}) on cancel failed:`, err);
         });
         return;
       }
@@ -160,7 +162,7 @@ export class BatchScheduler {
         item.status = 'pending';
         if (inputAssetId !== undefined) {
           void this.runtime.removeAsset(inputAssetId).catch((err) => {
-            console.warn(`[lokvis] BatchProcessor: cleanup input(${inputAssetId}) on retry failed:`, err);
+            console.error(`[lokvis] BatchProcessor: cleanup input(${inputAssetId}) on retry failed:`, err);
           });
         }
       } else {
@@ -170,7 +172,7 @@ export class BatchScheduler {
         // M4:最终失败时清理 input asset
         if (inputAssetId !== undefined) {
           void this.runtime.removeAsset(inputAssetId).catch((err) => {
-            console.warn(`[lokvis] BatchProcessor: cleanup input(${inputAssetId}) on final fail failed:`, err);
+            console.error(`[lokvis] BatchProcessor: cleanup input(${inputAssetId}) on final fail failed:`, err);
           });
         }
         this.progress.emitItemFailed(job.id, item.id, item.index, job.items.length, item.error, item.attempts);
