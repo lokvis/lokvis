@@ -473,3 +473,36 @@ export function resolveCloudConfig(env: NodeJS.ProcessEnv = process.env): CloudC
 ## 执行日志
 
 每项任务完成后在此追加 commit hash 与验证结果。
+
+### 初轮实现（PR #28 squash merge + B/D/A 独立 commit）
+
+| 任务 | Commit | 验证 |
+|------|--------|------|
+| T1.1 sdk-reference.md Runtime API | `2ac502a` | 8 检查点全通过 |
+| T1.2 workflows.md WorkflowBuilder | `2ac502a` | 示例可编译 |
+| T1.3 capabilities.md 能力清单 | `2ac502a` | Image 9 项含 filter / Audio 4 项无 denoise |
+| T1.4 plugins.md 插件表 | `2ac502a` | 6 行与 plugin-* 目录一致 |
+| T1.5 TASKS.md + technical-debt.md | `2ac502a` | 两文档自洽 |
+| T2.6 architecture.md §8 数字 | `2ac502a` | 4 处数字与代码扫描一致 |
+| E engine-audio.merge params | `2ac502a` | 签名补 params，包装层透传 |
+| C developer.* codegen | `2ac502a` | BUILTIN_CAPABILITY_NAMES 36 项 |
+| F 移除冗余依赖 | `2ac502a` | 3 处移除（engine-image-node 随 B 删除） |
+| B engine-image 多导出 | `5f11f51` | engine-image-node 删除，./node 子路径 |
+| D AssetBlobNotFoundError | `6a2bcdb` | 7 typed error 1:1 对应 |
+| A cloud-bridge 独立包 | `1e7363e` | cloud-bridge 抽取，env 覆盖完整 |
+
+### Review 后修复（逐任务独立 commit）
+
+| 任务 | Commit | 修复内容 |
+|------|--------|----------|
+| A | `4bfbf38` | cloud 真正注入 createLokvisMcpServer（LokvisMcpOptions.cloud? + cli.ts 传 cloud + 2 单测 + changeset） |
+| D | `d8452b8` | 同步 apps/docs 中英两版 sdk.md（Runtime API 表 +15 方法、错误码表 +9 码、移除 BATCH_LIMIT_EXCEEDED + changeset） |
+| B | `8b930f1` | vitest 冗余 include + cli sharp 版本对齐 0.33.0 + 清理迁移注释 + changeset |
+| C | `a2221c4` | 清理 codegen 模板过时注释 + 重新生成 6 个 .generated.ts + changeset |
+| F | `0f0b0fc` | 补 Task F 冗余依赖移除的 changeset |
+
+### 最终验证
+
+- `pnpm typecheck`：48/48 通过，0 错误
+- `pnpm test`：1380/1402 通过（22 失败为 use-custom-presets.test.ts pre-existing localStorage 环境问题，与本次清理无关）
+- 5 个 changeset 已补齐（cloud-bridge-inject-server / sdk-apps-docs-sync / engine-image-merge-cleanup / developer-codegen-cleanup / remove-redundant-deps）
