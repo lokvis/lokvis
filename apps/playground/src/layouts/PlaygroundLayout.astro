@@ -137,6 +137,9 @@ const currentPath = Astro.url.pathname;
     <meta name="robots" content="noindex, nofollow" />
     <title>{title}</title>
 
+    {/* W21.1: preconnect 到 lokvis.com(header 链接),提前 DNS+TLS 握手 */}
+    <link rel="preconnect" href="https://lokvis.com" />
+
     {/* Open Graph(W8.7)—— 分享到 Twitter/微信/Slack 时显示卡片预览 */}
     <meta property="og:title" content={finalOgTitle} />
     <meta property="og:description" content={finalOgDescription} />

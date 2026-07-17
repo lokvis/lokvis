@@ -193,7 +193,7 @@ function ImageWorkflowDemoContent() {
                 <div className="px-3 text-center text-[11px] text-red-400">{error}</div>
               )}
               {outputUrl && (
-                <img src={outputUrl} alt="Output" className="max-h-full max-w-full object-contain" />
+                <img src={outputUrl} alt="Output" className="max-h-full max-w-full object-contain" loading="lazy" decoding="async" />
               )}
               {stage === 'idle' && !outputUrl && (
                 <p className="text-[11px] text-zinc-600">{t('common.outputWillAppear')}</p>
@@ -242,5 +242,5 @@ function InputPreview({ runtime, assetId }: { runtime: LokvisRuntime | null; ass
   }, [runtime, assetId]);
 
   if (!url) return <span className="text-[10px] text-zinc-600">{t('common.loading')}</span>;
-  return <img src={url} alt="Input" className="max-h-full max-w-full object-contain" />;
+  return <img src={url} alt="Input" className="max-h-full max-w-full object-contain" loading="lazy" decoding="async" />;
 }

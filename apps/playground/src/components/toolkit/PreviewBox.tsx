@@ -32,7 +32,7 @@ export function PreviewBox({ url, title, meta, action, className = '' }: Preview
       )}
       <div className="flex flex-1 items-center justify-center bg-zinc-950 p-2">
         {url ? (
-          <img src={url} alt={title ?? t('preview.alt')} className="max-h-full max-w-full object-contain" />
+          <img src={url} alt={title ?? t('preview.alt')} className="max-h-full max-w-full object-contain" loading="lazy" decoding="async" />
         ) : (
           <p className="text-[11px] text-zinc-600">{t('preview.empty')}</p>
         )}

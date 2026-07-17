@@ -300,7 +300,7 @@ function RuntimeDemoContent() {
         </div>
         <div className="flex h-32 w-32 flex-shrink-0 items-center justify-center rounded border border-zinc-800 bg-zinc-900/50">
           {outputUrl ? (
-            <img src={outputUrl} alt="Output" className="max-h-32 max-w-full object-contain" />
+            <img src={outputUrl} alt="Output" className="max-h-32 max-w-full object-contain" loading="lazy" decoding="async" />
           ) : (
             <span className="text-[10px] text-zinc-600">{t('runtime.noOutput')}</span>
           )}

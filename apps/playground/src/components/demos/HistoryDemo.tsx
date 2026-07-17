@@ -218,7 +218,7 @@ function HistoryDemoContent() {
           {/* 预览 */}
           <div className="flex flex-1 items-center justify-center bg-zinc-950 p-4">
             {currentUrl ? (
-              <img src={currentUrl} alt="Current state" className="max-h-full max-w-full object-contain" />
+              <img src={currentUrl} alt="Current state" className="max-h-full max-w-full object-contain" loading="lazy" decoding="async" />
             ) : (
               <p className="text-[11px] text-zinc-600">{t('history.uploadHint')}</p>
             )}
