@@ -33,6 +33,13 @@ interface Props {
   ogImage?: string;
   /** OG 类型,默认 website */
   ogType?: string;
+  /**
+   * W21.2: WASM 资源预加载 URL 列表(Phase 2 接入 Squoosh/ffmpeg.wasm 时使用)。
+   * 注入 <link rel="preload" as="fetch" crossorigin> 到 <head>,
+   * 浏览器在空闲时预取 wasm 文件(SW 缓存自然接管)。
+   * Phase 1 留空,不产生任何 preload 标签。
+   */
+  wasmPreload?: string[];
 }
 
 const {
@@ -44,6 +51,7 @@ const {
   ogDescription,
   ogImage,
   ogType = 'website',
+  wasmPreload = [],
 } = Astro.props;
 
 // 从 URL 自动提取语言（/en/sdk → 'en'，/zh/sdk → 'zh'）
@@ -163,6 +171,13 @@ const currentPath = Astro.url.pathname;
     {/* W21.1: PWA 图标预加载 —— icon.svg 是 LCP 关键资源(浏览器 tab + 安装提示)
         fetchpriority="high" 提示浏览器高优先级调度 */}
     <link rel="preload" href="/icon.svg" as="image" type="image/svg+xml" fetchpriority="high" />
+
+    {/* W21.2: WASM 资源预加载(Phase 2 接入 Squoosh/ffmpeg.wasm 时由各页注入)
+        浏览器空闲时预取 wasm 文件,SW 缓存自然接管。
+        crossorigin: 跨域 wasm 必须 CORS 模式加载;同源 wasm 也加 crossorigin 无副作用。 */}
+    {wasmPreload.map((url) => (
+      <link rel="preload" href={url} as="fetch" crossorigin="anonymous" />
+    ))}
 
     {/* W21.1: 关键 CSS 内联 —— 首屏暗色背景 + 字体栈,避免 FOUC(Flash of Unstyled Content)
         与 CLS(Cumulative Layout Shift)。完整 global.css 仍外链加载,这里只内联首屏必需的:
