@@ -5,12 +5,13 @@
 [![CI](https://github.com/lokvis/lokvis/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/lokvis/lokvis/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
-[![Coverage](https://img.shields.io/badge/coverage-91.62%25-brightgreen.svg)](docs/reports/W16.6-bug-fix-precheck.md)
+[![Coverage](https://img.shields.io/badge/coverage-90.44%25-brightgreen.svg)](docs/reports/W16.6-bug-fix-precheck.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Discord](https://img.shields.io/badge/Discord-W23.8-lightgrey.svg)](https://github.com/lokvis/lokvis/discussions)
 [![GitHub Discussions](https://img.shields.io/badge/Discussions-ask%20question-blue.svg)](https://github.com/lokvis/lokvis/discussions)
 [![Powered by Astro](https://img.shields.io/badge/Powered%20by-Astro-FF5D01.svg)](https://astro.build)
 [![Powered by React 19](https://img.shields.io/badge/Powered%20by-React%2019-61DAFB.svg)](https://react.dev)
+
+> **Discord 社区频道待 W23.8 搭建(2026 Q4),在此之前请使用 [GitHub Discussions](https://github.com/lokvis/lokvis/discussions)。**
 
 <!-- W23.1 TODO: Hero GIF/视频演示
    建议录制 15-30s 的 Workspace 操作流程:
@@ -45,18 +46,20 @@ Lokvis 是一个 **Local-first 浏览器工作区平台**。在浏览器中处�
 
 ## 🆚 Why Lokvis
 
-传统图像处理工具的痛点 vs Lokvis 的方案:
+传统图像处理方案的痛点 vs Lokvis 的定位:
 
-| 维度 | Cloud 服务(Cloudinary / Imgix)| Desktop 应用(GIMP / PS)| **Lokvis** |
+| 维度 | Cloud 服务(Cloudinary / Imgix)| Desktop 应用(GIMP / Photoshop)| **Lokvis** |
 |------|---------------------|------------------|------------|
 | **隐私** | ❌ 文件上传到服务器 | ✅ 本地处理 | ✅ **文件永不离开浏览器** |
-| **部署** | ❌ 需后端 + API key | ❌ 安装即用但封闭 | ✅ **零部署,打开浏览器即用** |
-| **可编程** | ❌ 仅 API 调用 | ❌ 仅 GUI 操作 | ✅ **SDK + CLI + GUI 三模式** |
+| **部署** | ❌ 需后端 + API key | ⚠️ 需安装,版本更新繁琐 | ✅ **零部署,打开浏览器即用** |
+| **可编程** | ⚠️ 仅 API 调用,无 UI 编排 | ⚠️ 仅 GUI 操作,无 SDK | ✅ **SDK + CLI + GUI 三模式** |
 | **AI 编排** | ❌ 闭源流水线 | ❌ 无 | ✅ **MCP 协议接 Claude/Cursor** |
 | **离线** | ❌ 必须联网 | ✅ 离线可用 | ✅ **PWA,首次加载后离线可用** |
-| **可扩展** | ❌ 厂商锁定 | ❌ 插件生态封闭 | ✅ **Plugin SDK + Capability Manifest** |
-| **成本** | ❌ 按 GB/请求计费 | ❌ 一次性付费高 | ✅ **开源 MIT,零成本** |
-| **跨平台** | ✅ 浏览器即可 | ❌ OS 绑定 | ✅ **任何现代浏览器** |
+| **可扩展** | ❌ 厂商锁定 | ⚠️ 插件生态有限/封闭 | ✅ **Plugin SDK + Capability Manifest** |
+| **成本** | ❌ 按 GB/请求计费 | ⚠️ Photoshop 订阅制 / GIMP 免费 | ✅ **开源 MIT,零成本** |
+| **跨平台** | ✅ 浏览器即可 | ⚠️ GIMP 跨平台 / PS 仅 Mac/Win | ✅ **任何现代浏览器** |
+
+> 表中 ⚠️ 表示该方案部分支持但有局限。Lokvis 不声称全面优于所有方案,而是聚焦"本地优先 + 可编程 + AI 编排"的交叉定位。
 
 **核心定位**:在浏览器里跑得动、改得动、接得动 AI 的本地优先图像工作区。
 
@@ -173,8 +176,8 @@ pnpm dev --filter @lokvis/docs
 ```bash
 pnpm typecheck      # 全量类型检查(36 包)
 pnpm build          # 构建(20 任务)
-pnpm test           # 运行测试(787 测试)
-pnpm test:coverage  # 覆盖率(lines 91.62% / branches 88.29%)
+pnpm test           # 运行测试(1480 测试 / 83 文件)
+pnpm test:coverage  # 覆盖率(lines 90.44% / branches 88.64%)
 ```
 
 ### 在线体验
@@ -190,15 +193,15 @@ pnpm test:coverage  # 覆盖率(lines 91.62% / branches 88.29%)
 
 > **npm 发布状态**:**Alpha 待发布**(包配置就绪度 100%,12 个 changeset 待应用,`v*` tag 推送后由 GitHub Actions 自动 publish;详见 [发版就绪度报告](docs/reports/W18.1-plugin-sdk-npm-release-readiness.md))。
 >
-> 在 npm 发布前,可通过 monorepo 本地链接或 `pnpm pack` 试用:
+> 在 npm 发布前,需从源码构建使用:
 
 ```bash
-# 方式 1:克隆仓库 + pnpm 本地链接
+# 克隆仓库 + 本地构建 + 在你的项目中通过 pnpm link 或 file: 协议引用
 git clone https://github.com/lokvis/lokvis.git
 cd lokvis && pnpm install && pnpm build
 
-# 方式 2:从仓库直接安装(发布前可用)
-pnpm add https://github.com/lokvis/lokvis.git#dev#packages/sdk
+# 在你的项目中引用本地构建的 sdk
+# cd your-project && pnpm add link:../lokvis/packages/sdk
 ```
 
 ```typescript
@@ -335,10 +338,10 @@ pnpm dev --filter @lokvis/docs          # 启动文档站(http://localhost:4321)
 # 质量
 pnpm typecheck      # 全量类型检查(36 包,通过 turbo)
 pnpm build          # 构建(20 任务,通过 turbo)
-pnpm test           # 运行测试(787 测试,43 文件)
+pnpm test           # 运行测试(1480 测试 / 83 文件)
 pnpm test:fast      # 跳过覆盖率快速测试
-pnpm test:coverage  # 覆盖率(lines 91.62% / branches 88.29%)
-pnpm test:e2e       # Playwright E2E(6 工具 spec,baseURL 5601)
+pnpm test:coverage  # 覆盖率(lines 90.44% / branches 88.64%)
+pnpm --filter @lokvis/playground test:e2e  # Playwright E2E(6 工具 spec,baseURL 5601)
 pnpm lint           # oxlint(Rust 实现,替代 ESLint)
 
 # 单包操作(--filter)
@@ -346,12 +349,12 @@ pnpm --filter @lokvis/runtime test
 pnpm --filter @lokvis/playground typecheck
 pnpm --filter @lokvis/sdk build
 
-# CLI(本地调用,未发布到 npm)
-pnpm --filter @lokvis/cli exec lokvis run ./workflow.json ./input.png    # 执行工作流
-pnpm --filter @lokvis/cli exec lokvis capabilities                       # 列出已注册能力
-pnpm --filter @lokvis/cli exec lokvis plugin create my-plugin            # 脚手架新插件
-pnpm --filter @lokvis/cli exec lokvis mcp                                # 启动 MCP server(stdio)
-pnpm --filter @lokvis/cli exec lokvis version                            # 查看版本
+# CLI(需先 build,通过 node 直接调用 bin;未发布到 npm 无全局 lokvis 命令)
+node packages/cli/bin/lokvis.js run ./workflow.json ./input.png    # 执行工作流
+node packages/cli/bin/lokvis.js capabilities                       # 列出已注册能力
+node packages/cli/bin/lokvis.js plugin create my-plugin            # 脚手架新插件
+node packages/cli/bin/lokvis.js mcp                                # 启动 MCP server(stdio)
+node packages/cli/bin/lokvis.js version                            # 查看版本
 ```
 
 ## 📊 项目状态
@@ -382,14 +385,15 @@ pnpm --filter @lokvis/cli exec lokvis version                            # 查�
 | 文档 | ✅ | Starlight 文档站 + API Reference 自动生成(10 包 200+ 页)+ 4 guide + Playground 交互 |
 | 开源治理 | ✅ | CONTRIBUTING + COC + Issue/PR 模板 + CODEOWNERS + AGENTS.md + THIRD_PARTY_LICENSES |
 | Sentry 监控 | ✅ | 接入完成,DSN 待部署时配置(默认 no-op) |
-| 性能基线 | ✅ | LCP 6.9s / CLS 0.001 / 787 测试 / 91.62% 覆盖率 / Lighthouse 62 分(mobile) |
+| 性能基线 | ✅ | LCP 6.9s / CLS 0.001 / 1480 测试 / 90.44% 覆盖率 / Lighthouse 62 分(mobile) |
 | 浏览器兼容 | 🟡 | Chrome/Edge ✅ / Firefox 降级提示 ✅ / Safari 降级路径基础设施 ✅(具体降级待 W22.2) |
 | 视频/PDF/Audio 引擎 | 🚧 stub | Phase 2 接入 ffmpeg.wasm / pdf-lib / lamejs |
 
 详见:
 
-- [Alpha 验收报告](docs/reports/W12.1-alpha-acceptance.md)
-- [性能基线报告](docs/reports/W12.2-performance-baseline.md)
+- [Alpha 部署就绪度报告](docs/reports/W16.1-alpha-deploy-readiness.md)
+- [Lighthouse 跑分就绪度报告](docs/reports/W16.5-lighthouse-readiness.md)
+- [Bug 修复预检查报告](docs/reports/W16.6-bug-fix-precheck.md)
 - [Lighthouse 跑分基线 2026-07-17](docs/reports/W21.7-lighthouse-baseline-2026-07-17.md)
 - [项目计划](docs/PROJECT_PLAN.md)
 - [任务清单](docs/TASKS.md)
