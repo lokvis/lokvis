@@ -1,19 +1,34 @@
 /**
  * PDF tools 单元测试
  *
- * 使用 pdf-lib 生成真实测试 PDF,验证 merge/compress 的正确性。
+ * TD-1.1 改造后:pdf tool handler 经 runtime.run() 走完整 capability 系统
+ * (CapabilityRegistry.resolve → createMergeCapabilityImpl /
+ * createBlobCapabilityImpl → engine operation)。
+ *
+ * 测试策略(与 image.test.ts 一致):
+ * - 创建真实 Lokvis Runtime + 安装 pdfToolsPluginNode(pdf-lib engine)
+ * - 使用 pdf-lib 生成真实测试 PDF,验证 merge/compress 的正确性
+ * - 验证 getPdfToolRegistrations(runtime) 返回 2 个 tool 注册
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, readFile, stat } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { pdfMerge, pdfCompress, getPdfToolRegistrations } from '../../tools/pdf.js';
+import { createLokvis } from '@lokvis/sdk';
+import type { LokvisRuntime } from '@lokvis/sdk';
+import { pdfToolsPluginNode } from '@lokvis/plugin-pdf/node';
+import {
+  pdfMerge,
+  pdfCompress,
+  getPdfToolRegistrations,
+} from '../../tools/pdf.js';
 
 describe('PDF tools', () => {
   let workdir: string;
   let testPdfPath1: string;
   let testPdfPath2: string;
+  let runtime: LokvisRuntime;
 
   beforeEach(async () => {
     workdir = await mkdtemp(join(tmpdir(), 'lokvis-pdf-tools-'));
@@ -28,7 +43,7 @@ describe('PDF tools', () => {
     page1.drawText('Page 1 of PDF 1', { x: 50, y: 250, size: 12, font: font1, color: rgb(0, 0, 0) });
     const page2 = pdf1.addPage([200, 300]);
     page2.drawText('Page 2 of PDF 1', { x: 50, y: 250, size: 12, font: font1, color: rgb(0, 0, 0) });
-    await (await import('node:fs/promises')).writeFile(testPdfPath1, await pdf1.save());
+    await writeFile(testPdfPath1, await pdf1.save());
 
     // 生成 1 页测试 PDF 2
     const pdf2 = await PDFDocument.create();
@@ -36,18 +51,27 @@ describe('PDF tools', () => {
     const font2 = await pdf2.embedFont(StandardFonts.Helvetica);
     const page3 = pdf2.addPage([200, 300]);
     page3.drawText('Page 1 of PDF 2', { x: 50, y: 250, size: 12, font: font2, color: rgb(0, 0, 0) });
-    await (await import('node:fs/promises')).writeFile(testPdfPath2, await pdf2.save());
+    await writeFile(testPdfPath2, await pdf2.save());
+
+    // 创建真实 runtime + 安装 pdfToolsPluginNode(pdf-lib engine)
+    runtime = await createLokvis({ enableOpfs: false, enableIndexedDB: false });
+    await runtime.installPlugin(await pdfToolsPluginNode());
   });
 
   afterEach(async () => {
-    await rm(workdir, { recursive: true, force: true });
+    if (runtime) {
+      await runtime.dispose?.();
+    }
+    if (workdir) {
+      await rm(workdir, { recursive: true, force: true });
+    }
   });
 
   describe('pdfMerge', () => {
     it('应合并 2 个 PDF(共 3 页)', async () => {
       const result = await pdfMerge({
         input_paths: [testPdfPath1, testPdfPath2],
-      });
+      }, runtime);
       expect(result.isError).toBeFalsy();
       expect(result.content[0]!.type).toBe('text');
       const text = (result.content[0] as { text: string }).text;
@@ -66,7 +90,7 @@ describe('PDF tools', () => {
       const result = await pdfMerge({
         input_paths: [testPdfPath1, testPdfPath2],
         output_path: outputPath,
-      });
+      }, runtime);
       expect(result.isError).toBeFalsy();
       const stats = await stat(outputPath);
       expect(stats.size).toBeGreaterThan(0);
@@ -75,7 +99,7 @@ describe('PDF tools', () => {
     it('少于 2 个文件应返回错误', async () => {
       const result = await pdfMerge({
         input_paths: [testPdfPath1],
-      });
+      }, runtime);
       expect(result.isError).toBe(true);
       const text = (result.content[0] as { text: string }).text;
       expect(text).toContain('at least 2');
@@ -84,14 +108,14 @@ describe('PDF tools', () => {
     it('空数组应返回错误', async () => {
       const result = await pdfMerge({
         input_paths: [],
-      });
+      }, runtime);
       expect(result.isError).toBe(true);
     });
 
     it('不存在的文件应返回错误(不抛异常)', async () => {
       const result = await pdfMerge({
         input_paths: ['/nonexistent/a.pdf', '/nonexistent/b.pdf'],
-      });
+      }, runtime);
       expect(result.isError).toBe(true);
       const text = (result.content[0] as { text: string }).text;
       expect(text).toContain('Failed to merge');
@@ -100,7 +124,7 @@ describe('PDF tools', () => {
     it('合并后页面顺序应与输入一致', async () => {
       const result = await pdfMerge({
         input_paths: [testPdfPath2, testPdfPath1],
-      });
+      }, runtime);
       expect(result.isError).toBeFalsy();
       const outputPath = join(workdir, 'test2_merged.pdf');
       const outputBytes = await readFile(outputPath);
@@ -114,7 +138,7 @@ describe('PDF tools', () => {
     it('应压缩 PDF 并输出有效文件', async () => {
       const result = await pdfCompress({
         input_path: testPdfPath1,
-      });
+      }, runtime);
       expect(result.isError).toBeFalsy();
       expect(result.content[0]!.type).toBe('text');
       const text = (result.content[0] as { text: string }).text;
@@ -132,7 +156,7 @@ describe('PDF tools', () => {
       const result = await pdfCompress({
         input_path: testPdfPath1,
         level: 9,
-      });
+      }, runtime);
       expect(result.isError).toBeFalsy();
       const text = (result.content[0] as { text: string }).text;
       expect(text).toContain('Level: 9');
@@ -142,7 +166,7 @@ describe('PDF tools', () => {
       const result = await pdfCompress({
         input_path: testPdfPath1,
         level: 0,
-      });
+      }, runtime);
       expect(result.isError).toBeFalsy();
       const text = (result.content[0] as { text: string }).text;
       expect(text).toContain('Level: 0');
@@ -153,7 +177,7 @@ describe('PDF tools', () => {
       const result = await pdfCompress({
         input_path: testPdfPath1,
         output_path: outputPath,
-      });
+      }, runtime);
       expect(result.isError).toBeFalsy();
       const stats = await stat(outputPath);
       expect(stats.size).toBeGreaterThan(0);
@@ -163,7 +187,7 @@ describe('PDF tools', () => {
       const result = await pdfCompress({
         input_path: testPdfPath1,
         level: 10,
-      });
+      }, runtime);
       expect(result.isError).toBe(true);
       const text = (result.content[0] as { text: string }).text;
       expect(text).toContain('between 0 and 9');
@@ -172,7 +196,7 @@ describe('PDF tools', () => {
     it('不存在的文件应返回错误(不抛异常)', async () => {
       const result = await pdfCompress({
         input_path: '/nonexistent/file.pdf',
-      });
+      }, runtime);
       expect(result.isError).toBe(true);
       const text = (result.content[0] as { text: string }).text;
       expect(text).toContain('Failed to compress');
@@ -181,7 +205,7 @@ describe('PDF tools', () => {
 
   describe('getPdfToolRegistrations', () => {
     it('应返回 2 个 tool 注册', () => {
-      const regs = getPdfToolRegistrations();
+      const regs = getPdfToolRegistrations(runtime);
       expect(regs).toHaveLength(2);
       const names = regs.map((r) => r.name);
       expect(names).toContain('lokvis_pdf_merge');
@@ -189,7 +213,7 @@ describe('PDF tools', () => {
     });
 
     it('每个注册应有 name/description/inputSchema/handler', () => {
-      const regs = getPdfToolRegistrations();
+      const regs = getPdfToolRegistrations(runtime);
       for (const reg of regs) {
         expect(typeof reg.name).toBe('string');
         expect(reg.name.startsWith('lokvis_pdf_')).toBe(true);
@@ -201,7 +225,7 @@ describe('PDF tools', () => {
     });
 
     it('lokvis_pdf_merge 的 inputSchema 应要求 input_paths', () => {
-      const regs = getPdfToolRegistrations();
+      const regs = getPdfToolRegistrations(runtime);
       const mergeReg = regs.find((r) => r.name === 'lokvis_pdf_merge');
       expect(mergeReg).toBeDefined();
       const schema = mergeReg!.inputSchema as {
@@ -213,7 +237,7 @@ describe('PDF tools', () => {
     });
 
     it('lokvis_pdf_compress 的 inputSchema 应要求 input_path', () => {
-      const regs = getPdfToolRegistrations();
+      const regs = getPdfToolRegistrations(runtime);
       const compressReg = regs.find((r) => r.name === 'lokvis_pdf_compress');
       expect(compressReg).toBeDefined();
       const schema = compressReg!.inputSchema as {
@@ -225,7 +249,7 @@ describe('PDF tools', () => {
     });
 
     it('handler 应可调用并返回 McpToolResult', async () => {
-      const regs = getPdfToolRegistrations();
+      const regs = getPdfToolRegistrations(runtime);
       const compressReg = regs.find((r) => r.name === 'lokvis_pdf_compress');
       const result = await compressReg!.handler({ input_path: testPdfPath1 });
       expect(result).toHaveProperty('content');

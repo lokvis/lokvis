@@ -10,6 +10,7 @@ import type { LokvisRuntime, RuntimeConfig } from '@lokvis/sdk';
 import type { McpManifest } from '@lokvis/schema';
 import { createLokvis } from '@lokvis/sdk';
 import { imageToolsPluginNode } from '@lokvis/plugin-image/node';
+import { pdfToolsPluginNode } from '@lokvis/plugin-pdf/node';
 import type { CloudConfig } from '@lokvis/cloud-bridge';
 import { createAuthenticator, createBilling } from '@lokvis/cloud-bridge';
 import type { McpAuthenticator, McpBilling } from '@lokvis/cloud-bridge';
@@ -23,8 +24,8 @@ import type { ToolHandler } from './router.js';
 
 /**
  * 能力域(决定注册哪些 tools)。
- * 当前 'image'(5 个 tool:resize/compress/convert/crop/watermark,经 runtime.run
- * 走 capability 系统)与 'pdf'(2 个 tool:merge/compress,直调 engine-pdf)已实装;
+ * 当前 'image'(5 个 tool:resize/compress/convert/crop/watermark)与
+ * 'pdf'(2 个 tool:merge/compress)已实装,均经 runtime.run 走完整 capability 系统;
  * 'video'/'audio'/'ai' 为占位(待对应 engine 实装后补 tool handler)。
  */
 export type LokvisMcpDomain = 'image' | 'pdf' | 'video' | 'audio' | 'ai';
@@ -148,7 +149,7 @@ export interface LokvisMcpOptions {
  * 流程:
  * 1. 创建 NodeAssetStore(如果 workdir 提供)并注入 RuntimeConfig
  * 2. 创建 Lokvis Runtime(通过 createLokvis)
- * 3. 安装 imageToolsPluginNode(domains 含 image 时,注册 image capabilities)
+ * 3. 安装 imageToolsPluginNode / pdfToolsPluginNode(按 domains,注册 capabilities)
  * 4. 创建 McpServerAdapter(包装 @modelcontextprotocol/sdk Server)
  * 5. 按 domains 收集 tool registrations,构造 toolHandlers Map + ToolRouter
  * 6. 注册 tools 到 server(handler 经 ToolRouter 路由:浏览器优先 → Node 降级)
@@ -205,11 +206,14 @@ export async function createLokvisMcpServer(
 
   const runtime = await createLokvis(resolvedRuntimeConfig);
 
-  // TD-1.1:安装 imageToolsPluginNode,注册 image capabilities(resize/compress/
-  // convert/crop/watermark + 4 stub),让 runtime.run(workflow) 能经 CapabilityRegistry
-  // 解析到 sharp engine 实现。仅当 domains 含 image 时安装(避免无用依赖)。
+  // TD-1.1:按 domains 安装 Node 端 plugin,注册 capabilities,
+  // 让 runtime.run(workflow) 能经 CapabilityRegistry 解析到真实 engine 实现。
+  // 仅安装 domains 内的 plugin(避免无用依赖加载)。
   if (domains.includes('image')) {
     await runtime.installPlugin(await imageToolsPluginNode());
+  }
+  if (domains.includes('pdf')) {
+    await runtime.installPlugin(await pdfToolsPluginNode());
   }
 
   const manifest = runtime.toMcpManifest();
@@ -227,13 +231,13 @@ export async function createLokvisMcpServer(
     await bridge.start();
   }
 
-  // 收集 tool registration:image handler 接收 runtime(走 capability 系统),
-  // pdf handler 直接调 engine-pdf(TD-1.4 待 plugin-pdf/node 实装后清偿)。
+  // 收集 tool registration:image / pdf handler 均接收 runtime(走 capability 系统,
+  // 经 runtime.run + CapabilityRegistry 解析到 engine 实现)。
   const imageRegistrations = domains.includes('image')
     ? getImageToolRegistrations(runtime)
     : [];
   const pdfRegistrations = domains.includes('pdf')
-    ? getPdfToolRegistrations()
+    ? getPdfToolRegistrations(runtime)
     : [];
   const allRegistrations = [...imageRegistrations, ...pdfRegistrations];
 

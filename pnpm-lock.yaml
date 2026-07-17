@@ -430,6 +430,9 @@ importers:
       '@lokvis/plugin-image':
         specifier: workspace:*
         version: link:../plugin-image
+      '@lokvis/plugin-pdf':
+        specifier: workspace:*
+        version: link:../plugin-pdf
       '@lokvis/runtime':
         specifier: workspace:*
         version: link:../runtime

@@ -1,39 +1,167 @@
 /**
  * PDF tools:MCP tool handlers for PDF processing.
  *
- * 2 个 tool 经 @lokvis/engine-pdf(Engine 层,Blob↔Blob 纯函数)处理本地 PDF 文件:
- * - lokvis_pdf_merge: 合并多个 PDF
- * - lokvis_pdf_compress: 压缩 PDF(移除冗余对象 + 对象流压缩)
+ * 2 个 tool 经 runtime.run(workflow, inputs) 走完整 Capability 系统(TD-1.1 长期方案):
+ * - lokvis_pdf_merge: 合并多个 PDF(pdf.merge,N→1)
+ * - lokvis_pdf_compress: 压缩 PDF(pdf.compress,1→1)
  *
- * 架构定位:mcp-server 是 Node 应用,直接消费 Engine 层 Blob↔Blob 操作
- * (与 image.ts 一致;与浏览器侧 Runtime→Capability→Engine 链路对齐:Node 侧
- *  无需 Asset/Workflow 抽象,tool handler 自行做 file-path ↔ Blob 翻译)。
- * pdf-lib 仅在 engine-pdf 内使用,本文件不直接 import pdf-lib
- * (ADR-011 / AGENTS.md 五层架构)。engine-pdf 的 PdfEngineAdapter 仍为 stub
- * (能力系统绑定),此处的独立 operations 是已实装的 Blob↔Blob 实现,
- * 供不经能力系统的 Node 消费方直接调用(见 TD-1.4 长期方案)。
+ * 架构定位:mcp-server 通过 `runtime.run(workflow, inputs)` 走完整 capability
+ * 系统(CapabilityRegistry.resolve → createMergeCapabilityImpl /
+ * createBlobCapabilityImpl → engine operation),与浏览器侧
+ * Runtime→Capability→Engine 链路完全对齐(ADR-011 / AGENTS.md 五层架构)。
+ * pdf-lib engine 由 `@lokvis/plugin-pdf/node` 在 server.ts 启动时通过
+ * `runtime.installPlugin(await pdfToolsPluginNode())` 注册,本文件不直接
+ * import pdf-lib(五层架构单向依赖);仅 import `@lokvis/engine-pdf` 的
+ * `getPdfInfo` 元数据查询 API(与 image.ts import engine-image/node 的
+ * getMetadata 读取 dimensions 模式一致,属 Engine 层元数据查询职责)。
  *
  * 输入:文件路径(绝对路径或相对 workdir)
  * 输出:处理后的文件路径 + 元数据(页数/大小变化)
  */
 
-import { resolve } from 'node:path';
-import {
-  mergePdfs as engineMergePdfs,
-  compressPdf as engineCompressPdf,
-  getPdfInfo,
-} from '@lokvis/engine-pdf';
+import { resolve, basename } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import type { LokvisRuntime } from '@lokvis/sdk';
+import type { Workflow } from '@lokvis/schema';
+import { getPdfInfo } from '@lokvis/engine-pdf';
 import type { McpToolResult } from '../server.js';
 import {
-  fileToBlob,
   blobToFile,
   makeOutputPath,
   getFileSize,
   formatSize,
 } from './fs-helpers.js';
 
-/** PDF 文件的 MIME 类型(构造输入 Blob 时使用) */
+/** PDF 文件的 MIME 类型(构造输入 File 时使用) */
 const PDF_MIME = 'application/pdf';
+
+/**
+ * 构造单节点 transform Workflow(MCP tool 调用专用,1→1 形态)。
+ *
+ * 与 image.ts 的 buildSingleTransformWorkflow 一致,把单次 capability 调用
+ * 包装为单节点 Workflow,经 runtime.run() 走完整 capability 系统。
+ */
+function buildSingleTransformWorkflow(
+  capability: string,
+  params: Record<string, unknown>
+): Workflow {
+  return {
+    id: `mcp_${capability.replace(/\./g, '_')}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    version: '1.0',
+    name: capability,
+    description: `MCP tool: ${capability}`,
+    author: { id: 'mcp-server', name: 'MCP Server' },
+    category: 'pdf',
+    tags: [],
+    nodes: [
+      {
+        id: 'n1',
+        type: 'transform',
+        capability,
+        params,
+      },
+    ],
+    edges: [],
+    inputs: { type: 'pdf', multiple: false },
+    outputs: { type: 'pdf' },
+  };
+}
+
+/**
+ * 构造 merge(N→1)Workflow(MCP tool 调用专用)。
+ *
+ * 与 single transform 区别:inputs.multiple=true,允许 N 个输入;
+ * runtime 会把 N 个 inputs 一次性传给 merge capability 的 execute。
+ */
+function buildMergeWorkflow(
+  capability: string,
+  params: Record<string, unknown>
+): Workflow {
+  return {
+    id: `mcp_${capability.replace(/\./g, '_')}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    version: '1.0',
+    name: capability,
+    description: `MCP tool: ${capability}`,
+    author: { id: 'mcp-server', name: 'MCP Server' },
+    category: 'pdf',
+    tags: [],
+    nodes: [
+      {
+        id: 'n1',
+        type: 'transform',
+        capability,
+        params,
+      },
+    ],
+    edges: [],
+    inputs: { type: 'pdf', multiple: true },
+    outputs: { type: 'pdf' },
+  };
+}
+
+/**
+ * 通用 pdf transform 流程:file → importAsset → runtime.run → exportAsset → cleanup。
+ *
+ * 走完整 capability 系统(TD-1.1 长期方案),与 image.ts 模式一致。
+ * input/output asset 在流程结束后清理(避免 NodeAssetStore 累积)。
+ *
+ * 页数读取:用 engine-pdf 的 getPdfInfo 读取输出 Blob 的页数 —— 这是
+ * Engine 层的元数据查询 API(Blob → 纯元数据,不产生新 Blob),非 Blob↔Blob
+ * 操作执行,不违反 TD-1.1 与五层架构单向依赖(与 image.ts 用
+ * engine-image/node 的 getMetadata 读取 dimensions 模式一致)。
+ */
+async function runPdfTransform(
+  runtime: LokvisRuntime,
+  inputPaths: string[],
+  capability: string,
+  params: Record<string, unknown>,
+  options: { merge: boolean }
+): Promise<{ outBlob: Blob; pages: number | null }> {
+  // 构造输入 File 并 importAsset
+  const inputAssetIds: string[] = [];
+  for (const p of inputPaths) {
+    const buffer = await readFile(p);
+    // AGENTS.md:Node.js 环境构造 File 对象用标准 API
+    const file = new File([buffer], basename(p), { type: PDF_MIME });
+    const id = await runtime.importAsset({ kind: 'file', file });
+    inputAssetIds.push(id);
+  }
+
+  try {
+    const workflow = options.merge
+      ? buildMergeWorkflow(capability, params)
+      : buildSingleTransformWorkflow(capability, params);
+    const result = await runtime.run(workflow, inputAssetIds);
+    if (result.status !== 'completed' || !result.outputs[0]) {
+      throw new Error(
+        `Workflow ${capability} failed: status=${result.status}` +
+          (result.error ? ` error=${result.error}` : '')
+      );
+    }
+
+    const outAssetId = result.outputs[0];
+    const outBlob = await runtime.exportAsset(outAssetId);
+
+    // 读取输出 Blob 的页数(失败时降级为 null,不影响主流程)
+    let pages: number | null = null;
+    try {
+      const info = await getPdfInfo(outBlob);
+      pages = info.pages;
+    } catch {
+      // 降级:页数不可用,不影响主流程
+    }
+
+    // 清理 output asset(已导出 Blob,不再需要)
+    await runtime.removeAsset(outAssetId).catch(() => {});
+
+    return { outBlob, pages };
+  } finally {
+    // 清理所有 input asset(避免 NodeAssetStore 累积)
+    for (const id of inputAssetIds) {
+      await runtime.removeAsset(id).catch(() => {});
+    }
+  }
+}
 
 /**
  * lokvis_pdf_merge:合并多个 PDF 文件。
@@ -42,10 +170,13 @@ const PDF_MIME = 'application/pdf';
  * - input_paths: 输入 PDF 路径数组(必填,至少 2 个)
  * - output_path: 输出路径(可选,默认第一个文件加 _merged 后缀)
  */
-export async function pdfMerge(params: {
-  input_paths: string[];
-  output_path?: string;
-}): Promise<McpToolResult> {
+export async function pdfMerge(
+  params: {
+    input_paths: string[];
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
   const inputPaths = params.input_paths;
   if (!Array.isArray(inputPaths) || inputPaths.length < 2) {
     return {
@@ -62,16 +193,19 @@ export async function pdfMerge(params: {
     : makeOutputPath(resolvedPaths[0]!, 'merged', 'pdf');
 
   try {
-    const inputBlobs = await Promise.all(
-      resolvedPaths.map((p) => fileToBlob(p, PDF_MIME))
-    );
-    const outBlob = await engineMergePdfs(inputBlobs);
-    await blobToFile(outBlob, outputPath);
-
     const inputSizes = await Promise.all(resolvedPaths.map(getFileSize));
     const totalInputSize = inputSizes.reduce((a, b) => a + b, 0);
+
+    const { outBlob, pages } = await runPdfTransform(
+      runtime,
+      resolvedPaths,
+      'pdf.merge',
+      {},
+      { merge: true }
+    );
+    await blobToFile(outBlob, outputPath);
+
     const outputSize = await getFileSize(outputPath);
-    const info = await getPdfInfo(outBlob);
 
     return {
       content: [
@@ -82,7 +216,7 @@ export async function pdfMerge(params: {
             `  Inputs: ${resolvedPaths.length} files (${formatSize(totalInputSize)} total)`,
             ...resolvedPaths.map((p, i) => `    - ${p} (${formatSize(inputSizes[i]!)})`),
             `  Output: ${outputPath} (${formatSize(outputSize)})`,
-            `  Pages: ${info.pages}`,
+            `  Pages: ${pages ?? 'unknown'}`,
           ].join('\n'),
         },
       ],
@@ -108,11 +242,14 @@ export async function pdfMerge(params: {
  * 注意:pdf-lib 的压缩能力有限(主要是对象流压缩 + 移除冗余)。
  * 深度压缩(图片降采样)需要 ghostscript 等外部工具,留待后续。
  */
-export async function pdfCompress(params: {
-  input_path: string;
-  level?: number;
-  output_path?: string;
-}): Promise<McpToolResult> {
+export async function pdfCompress(
+  params: {
+    input_path: string;
+    level?: number;
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
   const inputPath = resolve(params.input_path);
   const level = params.level ?? 6;
   const outputPath = params.output_path
@@ -129,13 +266,18 @@ export async function pdfCompress(params: {
   }
 
   try {
-    const inputBlob = await fileToBlob(inputPath, PDF_MIME);
-    const outBlob = await engineCompressPdf(inputBlob, { level });
+    const originalSize = await getFileSize(inputPath);
+
+    const { outBlob, pages } = await runPdfTransform(
+      runtime,
+      [inputPath],
+      'pdf.compress',
+      { level },
+      { merge: false }
+    );
     await blobToFile(outBlob, outputPath);
 
-    const originalSize = await getFileSize(inputPath);
     const ratio = ((1 - outBlob.size / originalSize) * 100).toFixed(1);
-    const info = await getPdfInfo(outBlob);
 
     return {
       content: [
@@ -146,7 +288,7 @@ export async function pdfCompress(params: {
             `  Input: ${inputPath} (${formatSize(originalSize)})`,
             `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
             `  Level: ${level}`,
-            `  Pages: ${info.pages}`,
+            `  Pages: ${pages ?? 'unknown'}`,
             `  Saved: ${ratio}% (${formatSize(originalSize - outBlob.size)})`,
           ].join('\n'),
         },
@@ -168,8 +310,10 @@ export async function pdfCompress(params: {
  * Tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/\./g, '_')}`
  * - pdf.merge → lokvis_pdf_merge
  * - pdf.compress → lokvis_pdf_compress
+ *
+ * @param runtime Lokvis Runtime(已安装 pdfToolsPluginNode,注册 pdf capabilities)
  */
-export function getPdfToolRegistrations(): Array<{
+export function getPdfToolRegistrations(runtime: LokvisRuntime): Array<{
   name: string;
   description: string;
   inputSchema: object;
@@ -197,7 +341,10 @@ export function getPdfToolRegistrations(): Array<{
         required: ['input_paths'],
       },
       handler: (p) =>
-        pdfMerge(p as Parameters<typeof pdfMerge>[0]),
+        pdfMerge(
+          p as Parameters<typeof pdfMerge>[0],
+          runtime
+        ),
     },
     {
       name: 'lokvis_pdf_compress',
@@ -225,7 +372,10 @@ export function getPdfToolRegistrations(): Array<{
         required: ['input_path'],
       },
       handler: (p) =>
-        pdfCompress(p as Parameters<typeof pdfCompress>[0]),
+        pdfCompress(
+          p as Parameters<typeof pdfCompress>[0],
+          runtime
+        ),
     },
   ];
 }

@@ -12,6 +12,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node-plugin.d.ts",
+      "import": "./dist/node-plugin.js"
     }
   },
   "files": [

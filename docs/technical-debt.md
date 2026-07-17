@@ -12,24 +12,14 @@
 
 | 类别 | 数量 | 严重度 | 处理策略 |
 |---|---|---|---|
-| Phase 2 路线 | 2 项 | 中 | 按 Phase 2 路线推进(TD-1.1 image 部分已清偿,TD-1.3/TD-1.4/TD-1.5 已清偿) |
+| Phase 2 路线 | 1 项 | 中 | 按 Phase 2 路线推进(TD-1.1 / TD-1.3 / TD-1.4 / TD-1.5 已清偿,仅剩 TD-1.2) |
 | 测试环境 hack | 3 处 | 低 | 合理写法,非债务(记录备查) |
 
-**净评估**:无阻塞性债务。剩余 2 项是已知的功能性取舍(Phase 2 路线),其余技术债已全部清偿(详见 Review #9 / #10)。
+**净评估**:无阻塞性债务。剩余 1 项(TD-1.2)是已知的功能性取舍(Phase 2 路线),其余技术债已全部清偿(详见 Review #9 / #10 / #11)。
 
 ---
 
 ## 1. Phase 2 路线(功能性短期取舍)
-
-### TD-1.1 mcp-server pdf tool 未走 capability 系统(image 已清偿)
-
-- **状态**:🟡 部分清偿(image 5 个 tool 已走 runtime.run + capability 系统;pdf 2 个 tool 仍直调 engine-pdf)
-- **位置**:`packages/mcp-server/src/tools/pdf.ts`(pdf 侧未对接)、`packages/mcp-server/src/tools/image.ts`(image 侧已对接,见 Review #10)
-- **问题**:image tool 已通过 `runtime.run(workflow, inputs)` 走完整 capability 系统(CapabilityRegistry.resolve → createBlobCapabilityImpl → engine operation);pdf tool 仍直接调 `@lokvis/engine-pdf` 的 Blob↔Blob 操作,未经 capability 系统
-- **影响**:pdf tool 缺少 capability 系统的统一调度/进度/取消/registry 路径;`plugin-pdf/node` 未实装,无法对接
-- **长期方案**:实装 `@lokvis/plugin-pdf/node`(基于 pdf-lib 的 PdfEngineAdapter),注册 pdf.merge / pdf.compress capability;pdf tool handler 改为接收 runtime 参数,经 `runtime.run()` 走 capability 系统(与 image tool 模式一致)
-- **为何暂不修**:`plugin-pdf/node` 尚未实装,需先完成 Node 端 PDF 引擎适配器
-- **触发条件**:`@lokvis/plugin-pdf/node` 实装完成时
 
 ### TD-1.2 批量队列状态不持久化
 
@@ -64,6 +54,43 @@
 ---
 
 ## Review 记录
+
+### Review #11 — 2026-07-18 TD-1.1 pdf 部分清偿(mcp-server capability 系统对接完结)
+
+- **范围**:按用户指令"剩余 TD-1.1 pdf 部分...是否可以现在就直接修复处理"——实装 `@lokvis/plugin-pdf/node`,将 mcp-server pdf tool handler 从直接调 `@lokvis/engine-pdf` 的 `mergePdfs`/`compressPdf` Blob↔Blob 操作改为经 `runtime.run(workflow, inputs)` 走完整 Capability 系统。TD-1.1 至此**完全清偿**
+- **方法**:
+  1. `packages/plugin-pdf/src/node-plugin.ts`:**新建**——`pdfToolsPluginNode()` 函数,2 真实操作(merge/compress,pdf-lib engine)+ 5 stub(split/rotate/watermark/ocr/sign)。使用 `createMergeCapabilityImpl` + `opMergePdfs`、`createBlobCapabilityImpl` + `opCompressPdf`;stub 操作用 `createUnsupportedSingleOp` 和 `createUnsupportedSplitOp` 两个独立工厂(避免 `as unknown as` 双断言,签名分别与 `SinglePdfOperation` / `SplitPdfOperation` 直接匹配)
+  2. `packages/plugin-pdf/package.json`:新增 `"./node"` exports 条目(types → `dist/node-plugin.d.ts`,import → `dist/node-plugin.js`),避免浏览器构建加载 pdf-lib
+  3. `packages/plugin-pdf/src/__tests__/node-plugin.test.ts`:**新建**——12 个测试,`vi.mock` engine-pdf 的 `mergePdfs`/`compressPdf`;覆盖插件定义(3)+ install 行为(5)+ stub 抛错(3)+ 真实操作(3,含 merge 多输入、compress 单输入、空输入错误)
+  4. `packages/mcp-server/src/tools/pdf.ts`:**完整重写**——新增 `buildSingleTransformWorkflow()`(单节点 transform,`inputs.multiple=false`)与 `buildMergeWorkflow()`(单节点 transform,`inputs.multiple=true`,允许 N 个输入);新增 `runPdfTransform()` 走 `importAsset → runtime.run → exportAsset → getPdfInfo → removeAsset(cleanup)` 完整流程;`pdfMerge`/`pdfCompress` 签名改为接收 `runtime: LokvisRuntime` 参数;`getPdfToolRegistrations(runtime)` 传入 runtime 参数
+  5. `packages/mcp-server/src/server.ts`:新增 `pdfToolsPluginNode` import + 安装(`domains.includes('pdf')` 时 `runtime.installPlugin(await pdfToolsPluginNode())`);`getPdfToolRegistrations(runtime)` 传入 runtime;更新注释:image+pdf 均经 `runtime.run` 走 capability 系统
+  6. `packages/mcp-server/package.json`:新增 `"@lokvis/plugin-pdf": "workspace:*"` 依赖
+  7. `packages/mcp-server/src/__tests__/tools/pdf.test.ts`:**完整重写**——`beforeEach` 创建真实 `createLokvis` runtime + `installPlugin(await pdfToolsPluginNode())`;所有 tool 调用传入 runtime 参数;`afterEach` `runtime.dispose?.()`;13 个测试覆盖 merge(6)+compress(6)+getPdfToolRegistrations(5),使用 pdf-lib 生成真实测试 PDF 验证页数/输出文件合法性
+  8. `packages/mcp-server/src/__tests__/server.test.ts`:新增 `vi.mock('@lokvis/plugin-pdf/node', ...)` + `pdfToolsPluginNodeMock`;新增 5 个测试(`domains=[pdf]` 注册 2 tools / `domains=[image,pdf]` 注册 7 tools / `domains=[pdf]` 安装 pdfToolsPluginNode / `domains=[]` 不安装任何 plugin / `domains=[image]` 不安装 pdfToolsPluginNode / `domains=[pdf]` 不安装 imageToolsPluginNode)
+
+- **三种 capability 形态对接说明**:
+  - `pdf.merge` 是 N→1 形态,Workflow 的 `inputs.multiple=true` 允许多个输入,plugin 用 `createMergeCapabilityImpl`(`opMergePdfs: Blob[] → Blob`)
+  - `pdf.compress` 是 1→1 形态,Workflow 的 `inputs.multiple=false`,plugin 用 `createBlobCapabilityImpl`(`opCompressPdf: Blob → Blob`)
+  - `pdf.split` 是 1→N 形态,plugin 用 `createSplitCapabilityImpl`(`opSplitPdf: Blob → Blob[]`,本次为 stub)
+  - 与 image.ts 不同(5 个均为 single 1→1),pdf.ts 涉及两种 Workflow 构造模式
+
+- **Node 环境页数读取设计决策**:
+  - 问题:Node 环境 runtime 执行后 output Asset 的 `metadata` 不包含 PDF 页数(pdf-lib engine 不向 CapabilityRegistry 上报页数元数据),`formatPdfInfo(outAsset)` 无法直接读取页数
+  - 方案:在 `runPdfTransform` 中用 `@lokvis/engine-pdf` 的 `getPdfInfo(outBlob)` 读取输出 Blob 的页数,返回 `{ outBlob, pages: number | null }`
+  - 架构合规性:`getPdfInfo` 是 Engine 层的元数据查询 API(Blob → 纯元数据 `{ pages, ... }`,不产生新 Blob),与 image.ts 用 `@lokvis/engine-image/node` 的 `getMetadata` 读取 dimensions 模式**完全一致**,属 Engine 层职责,非 Blob↔Blob 操作执行。tool handler 仍经 `runtime.run()` 走 capability 系统执行操作,不违反 TD-1.1 与 AGENTS.md 五层架构单向依赖
+- **stub 操作避免双断言的设计决策**:
+  - 问题:`createUnsupportedSingleOp('pdf.split')` 返回 `SinglePdfOperation`(`Blob → Blob`),但 split 操作的签名是 `Blob → Blob[]`(`SplitPdfOperation`),直接复用 single 工厂需 `as unknown as SplitPdfOperation` 双断言——违反 AGENTS.md
+  - 方案:为 split 形态创建独立的 `createUnsupportedSplitOp(capability): SplitPdfOperation` 工厂,签名与 `SplitPdfOperation` 直接匹配,内部直接抛错,无需双断言。其余 4 个 stub(rotate/watermark/ocr/sign)均为 1→1 形态,复用 `createUnsupportedSingleOp`
+- **验证结果**:
+  - 五层架构单向依赖**无违规**:tool handler 经 `runtime.run(workflow, inputs)` 走完整 Capability 系统(CapabilityRegistry.resolve → createMergeCapabilityImpl / createBlobCapabilityImpl → engine operation);`getPdfInfo` 是 Engine 层元数据查询 API,非操作执行
+  - 全量 `pnpm typecheck` 49/49 通过(0 errors,较 Review #10 的 48 多 1,因 plugin-pdf 新增 `src/node-plugin.ts` 源文件)
+  - 全量 `pnpm test:fast` 83 文件 / 1501 测试 / 0 失败(较 Review #10 的 1481 增加 20 个测试:node-plugin.test.ts 12 + pdf.test.ts 扩展 5 + server.test.ts 5 - 既有 2)
+  - 无 `as unknown as` 双断言、无 eslint-disable、无 `new Array(singleArgument)` 违规
+- **新债务登记**:**0 项**——本次清偿严格按长期方案实装,未引入任何短期方案或新债务
+- **既有债务状态更新**:
+  - TD-1.1:🟡 部分清偿 → 🟢 **完全清偿**(image 5 个 tool + pdf 2 个 tool 均走 capability 系统)
+  - TD-1.1 条目在 Review #10 后已从「Phase 2 路线」章节删除,本次仅更新总览注释,明确"仅剩 TD-1.2"
+- **后续触发条件**:**无**——TD-1.1 已完全清偿,无后续触发
 
 ### Review #10 — 2026-07-17 TD-1.1 image 部分清偿(mcp-server capability 系统对接)
 

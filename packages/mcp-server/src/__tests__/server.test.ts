@@ -23,6 +23,12 @@ vi.mock('@lokvis/plugin-image/node', () => ({
   imageToolsPluginNode: imageToolsPluginNodeMock,
 }));
 
+// mock @lokvis/plugin-pdf/node 的 pdfToolsPluginNode,避免加载 pdf-lib
+const pdfToolsPluginNodeMock = vi.fn(async () => ({ name: 'mock-pdf-plugin' }));
+vi.mock('@lokvis/plugin-pdf/node', () => ({
+  pdfToolsPluginNode: pdfToolsPluginNodeMock,
+}));
+
 // mock @lokvis/cloud-bridge(避免真实网络调用)
 const createAuthenticatorMock = vi.fn(() => ({ hasApiKey: () => false, verify: vi.fn() }));
 const createBillingMock = vi.fn(() => ({ check: vi.fn() }));
@@ -107,15 +113,48 @@ describe('createLokvisMcpServer', () => {
     expect(server.getRegisteredToolNames()).toHaveLength(5);
   });
 
+  it('domains=[pdf] 应注册 2 个 pdf tools', async () => {
+    const { server } = await createLokvisMcpServer({ domains: ['pdf'] });
+    const toolNames = server.getRegisteredToolNames();
+    expect(toolNames).toHaveLength(2);
+    expect(toolNames).toContain('lokvis_pdf_merge');
+    expect(toolNames).toContain('lokvis_pdf_compress');
+  });
+
+  it('domains=[image,pdf] 应注册 7 个 tools(5 image + 2 pdf)', async () => {
+    const { server } = await createLokvisMcpServer({ domains: ['image', 'pdf'] });
+    expect(server.getRegisteredToolNames()).toHaveLength(7);
+  });
+
   it('domains=[image] 应安装 imageToolsPluginNode', async () => {
     imageToolsPluginNodeMock.mockClear();
     await createLokvisMcpServer({ domains: ['image'] });
     expect(imageToolsPluginNodeMock).toHaveBeenCalledTimes(1);
   });
 
-  it('domains=[] 不应安装 imageToolsPluginNode', async () => {
+  it('domains=[pdf] 应安装 pdfToolsPluginNode', async () => {
+    pdfToolsPluginNodeMock.mockClear();
+    await createLokvisMcpServer({ domains: ['pdf'] });
+    expect(pdfToolsPluginNodeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('domains=[] 不应安装任何 plugin', async () => {
     imageToolsPluginNodeMock.mockClear();
+    pdfToolsPluginNodeMock.mockClear();
     await createLokvisMcpServer({ domains: [] });
+    expect(imageToolsPluginNodeMock).not.toHaveBeenCalled();
+    expect(pdfToolsPluginNodeMock).not.toHaveBeenCalled();
+  });
+
+  it('domains=[image] 不应安装 pdfToolsPluginNode', async () => {
+    pdfToolsPluginNodeMock.mockClear();
+    await createLokvisMcpServer({ domains: ['image'] });
+    expect(pdfToolsPluginNodeMock).not.toHaveBeenCalled();
+  });
+
+  it('domains=[pdf] 不应安装 imageToolsPluginNode', async () => {
+    imageToolsPluginNodeMock.mockClear();
+    await createLokvisMcpServer({ domains: ['pdf'] });
     expect(imageToolsPluginNodeMock).not.toHaveBeenCalled();
   });
 

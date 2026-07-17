@@ -39,6 +39,7 @@
     "@lokvis/engine-image": "workspace:*",
     "@lokvis/engine-pdf": "workspace:*",
     "@lokvis/plugin-image": "workspace:*",
+    "@lokvis/plugin-pdf": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/schema": "workspace:*",
     "@lokvis/sdk": "workspace:*",
