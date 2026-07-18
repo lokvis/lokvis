@@ -418,15 +418,12 @@ importers:
 
   packages/mcp-server:
     dependencies:
+      '@lokvis/capability':
+        specifier: workspace:*
+        version: link:../capability
       '@lokvis/cloud-bridge':
         specifier: workspace:*
         version: link:../cloud-bridge
-      '@lokvis/engine-image':
-        specifier: workspace:*
-        version: link:../engine-image
-      '@lokvis/engine-pdf':
-        specifier: workspace:*
-        version: link:../engine-pdf
       '@lokvis/plugin-image':
         specifier: workspace:*
         version: link:../plugin-image

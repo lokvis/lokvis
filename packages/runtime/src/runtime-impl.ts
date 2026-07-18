@@ -7,7 +7,7 @@
 
 import type {
   Asset, AssetId, AssetSource, Capability, ExifData,
-  HistoryEntry, McpManifest, MetadataReader,
+  HistoryEntry, ImageMetadata, McpManifest, MetadataReader, PdfInfo,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { EventBus } from '@lokvis/schema';
@@ -199,6 +199,8 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   async getAsset(id: AssetId): Promise<Asset> { return this.assetManager.getAsset(id); }
   async exportAsset(id: AssetId, format?: string): Promise<Blob> { return this.assetManager.exportAsset(id, format); }
   async readAssetExif(id: AssetId): Promise<ExifData | null> { return this.assetManager.readAssetExif(id); }
+  async readAssetImageMetadata(id: AssetId): Promise<ImageMetadata | null> { return this.assetManager.readAssetImageMetadata(id); }
+  async readAssetPdfInfo(id: AssetId): Promise<PdfInfo | null> { return this.assetManager.readAssetPdfInfo(id); }
   async removeAsset(id: AssetId): Promise<void> { return this.assetManager.removeAsset(id); }
   async listAssets(): Promise<Asset[]> { return this.assetManager.listAssets(); }
   async getStorageUsage(): Promise<{ usage: number; quota: number }> { return this.assetManager.getStorageUsage(); }

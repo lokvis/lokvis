@@ -25,8 +25,10 @@ import type {
   AssetSource,
   EventBus,
   ExifData,
+  ImageMetadata,
   MetadataReader,
   MetadataReaderContext,
+  PdfInfo,
 } from '@lokvis/schema';
 import type { QuotaAwareAssetStore } from './quota-manager.js';
 import { AssetNotFoundError } from '../errors.js';
@@ -172,6 +174,60 @@ export class AssetManager {
       },
     };
     return reader(asset, readerCtx) as Promise<ExifData | null>;
+  }
+
+  /**
+   * 读取 image 资产的 dimensions/format 元数据(MetadataReader 依赖反转)。
+   *
+   * Runtime 持有 plugin-image 通过 ctx.registerMetadataReader(
+   * 'image.read-metadata', fn) 注册的 reader 引用,按名调用。reader 内部调
+   * engine-image/node 的 getMetadata(sharp .metadata())。
+   * Plugin 未安装时优雅降级返回 null(不抛错)。
+   *
+   * 架构意义:mcp-server 经此方法读取处理后输出图像的精确尺寸,不再直接
+   * import @lokvis/engine-image(五层架构单向依赖,见 A1 修复)。
+   */
+  async readAssetImageMetadata(id: AssetId): Promise<ImageMetadata | null> {
+    const asset = await this.getAsset(id);
+    if (asset.type !== 'image') return null;
+    const reader = this.deps.metadataReaders.get('image.read-metadata');
+    if (!reader) return null; // Plugin 未安装,优雅降级
+
+    const readerCtx: MetadataReaderContext = {
+      log: (level, message) => {
+        const prefix = `[lokvis:read-asset-image-metadata:${id}]`;
+        if (level === 'error') console.error(`${prefix} ${message}`);
+        else if (level === 'warn') console.warn(`${prefix} ${message}`);
+      },
+    };
+    return reader(asset, readerCtx) as Promise<ImageMetadata | null>;
+  }
+
+  /**
+   * 读取 pdf 资产的页数(MetadataReader 依赖反转)。
+   *
+   * Runtime 持有 plugin-pdf 通过 ctx.registerMetadataReader(
+   * 'pdf.read-info', fn) 注册的 reader 引用,按名调用。reader 内部调
+   * engine-pdf 的 getPdfInfo(pdf-lib getPageCount)。
+   * Plugin 未安装时优雅降级返回 null(不抛错)。
+   *
+   * 架构意义:mcp-server 经此方法读取处理后输出 PDF 的页数,不再直接
+   * import @lokvis/engine-pdf(五层架构单向依赖,见 A1 修复)。
+   */
+  async readAssetPdfInfo(id: AssetId): Promise<PdfInfo | null> {
+    const asset = await this.getAsset(id);
+    if (asset.type !== 'pdf') return null;
+    const reader = this.deps.metadataReaders.get('pdf.read-info');
+    if (!reader) return null; // Plugin 未安装,优雅降级
+
+    const readerCtx: MetadataReaderContext = {
+      log: (level, message) => {
+        const prefix = `[lokvis:read-asset-pdf-info:${id}]`;
+        if (level === 'error') console.error(`${prefix} ${message}`);
+        else if (level === 'warn') console.warn(`${prefix} ${message}`);
+      },
+    };
+    return reader(asset, readerCtx) as Promise<PdfInfo | null>;
   }
 
   async removeAsset(id: AssetId): Promise<void> {

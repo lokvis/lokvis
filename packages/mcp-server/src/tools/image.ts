@@ -21,10 +21,9 @@
 
 import { resolve, extname, basename } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import type { LokvisRuntime } from '@lokvis/sdk';
+import type { LokvisRuntime, ImageMetadata } from '@lokvis/sdk';
 import type { Workflow } from '@lokvis/schema';
-import { getMetadata } from '@lokvis/engine-image/node';
-import type { ImageMetadata } from '@lokvis/engine-image/node';
+import type { ImageWatermarkPosition } from '@lokvis/capability';
 import type { McpToolResult } from '../server.js';
 import {
   blobToFile,
@@ -49,14 +48,8 @@ function extToMime(path: string): string {
   return EXT_TO_MIME[ext] ?? 'application/octet-stream';
 }
 
-/** 水印位置(与 engine-image WatermarkPosition 对齐,本地定义避免跨层依赖) */
-type WatermarkPosition =
-  | 'top-left'
-  | 'top-right'
-  | 'bottom-left'
-  | 'bottom-right'
-  | 'center'
-  | 'tile';
+/** 水印位置(从 capability manifest 派生,避免本地复制漂移) */
+type WatermarkPosition = ImageWatermarkPosition;
 
 /**
  * 构造单节点 transform Workflow(MCP tool 调用专用)。
@@ -98,9 +91,10 @@ function buildSingleTransformWorkflow(
  *
  * dimensions 读取:Node 环境 createImageBitmap 不可用,runtime.importAsset 无法
  * 提取图像 dimensions(asset-store.ts 的 extractImageDimensions 降级为空)。
- * 此处用 engine-image/node 的 getMetadata(sharp .metadata())读取输出 Blob
- * 的 dimensions —— 这是 Engine 层的元数据查询 API(非 Blob↔Blob 操作),
- * 不违反 TD-1.1(tool handler 仍走 capability 系统执行操作)。
+ * 此处通过 runtime.readAssetImageMetadata() 读取输出 asset 的 dimensions ——
+ * 走 MetadataReader 依赖反转(plugin-image/node 注册 'image.read-metadata' reader,
+ * 内部调 engine-image/node 的 getMetadata),避免 mcp-server 直接依赖 engine-image
+ * (五层架构单向依赖,见 A1 修复)。
  */
 async function runImageTransform(
   runtime: LokvisRuntime,
@@ -127,21 +121,21 @@ async function runImageTransform(
     const outAssetId = result.outputs[0];
     const outBlob = await runtime.exportAsset(outAssetId);
 
-    // 读取输出 Blob 的 dimensions/format(Node 环境需 sharp,失败时降级为 null)
-    let outMeta: ImageMetadata | null = null;
-    try {
-      outMeta = await getMetadata(outBlob);
-    } catch {
-      // 降级:dimensions/format 不可用,不影响主流程
-    }
+    // 读取输出 asset 的 dimensions/format(走 MetadataReader,失败时降级为 null)
+    // reader 未注册 / 解析失败均返回 null,不影响主流程
+    const outMeta = await runtime.readAssetImageMetadata(outAssetId);
 
-    // 清理 output asset(已导出 Blob,不再需要)
-    await runtime.removeAsset(outAssetId).catch(() => {});
+    // 清理 output asset(已导出 Blob,不再需要)。失败仅 warn,不影响主流程结果
+    await runtime.removeAsset(outAssetId).catch((e) => {
+      console.warn('[mcp-server] cleanup output asset failed:', e);
+    });
 
     return { outBlob, outMeta };
   } finally {
-    // 清理 input asset(避免 NodeAssetStore 累积)
-    await runtime.removeAsset(inputAssetId).catch(() => {});
+    // 清理 input asset(避免 NodeAssetStore 累积)。失败仅 warn,不影响主流程结果
+    await runtime.removeAsset(inputAssetId).catch((e) => {
+      console.warn('[mcp-server] cleanup input asset failed:', e);
+    });
   }
 }
 

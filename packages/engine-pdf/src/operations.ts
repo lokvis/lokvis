@@ -29,10 +29,9 @@ export interface PdfCompressParams {
   level?: number;
 }
 
-/** PDF 基本信息(供消费方报告页数等元数据) */
-export interface PdfInfo {
-  pages: number;
-}
+/** PDF 基本信息(供消费方报告页数等元数据,类型由 @lokvis/schema 共享) */
+import type { PdfInfo } from '@lokvis/schema';
+export type { PdfInfo };
 
 /** 把 Blob 转为 ArrayBuffer(pdf-lib 的 load 接受 ArrayBuffer) */
 async function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {

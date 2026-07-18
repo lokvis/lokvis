@@ -13,7 +13,9 @@ import type {
   EngineSelectionStrategy,
   ExifData,
   HistoryEntry,
+  ImageMetadata,
   McpManifest,
+  PdfInfo,
   PluginConfig,
   PluginInstaller,
 } from '@lokvis/schema';
@@ -228,6 +230,41 @@ export interface LokvisRuntime {
    * @returns ExifData;非 image / 无 EXIF / 解析失败 / reader 未注册返回 null
    */
   readAssetExif(id: AssetId): Promise<ExifData | null>;
+  /**
+   * 读取 image 资产的 dimensions/format 元数据。
+   *
+   * 走 MetadataReader 机制(与 readAssetExif 同一设计):Runtime 持有
+   * plugin-image 通过 `ctx.registerMetadataReader('image.read-metadata', fn)`
+   * 注册的 reader 引用,按名调用。reader 内部调 engine-image/node 的
+   * getMetadata(sharp .metadata())。
+   *
+   * 用途:mcp-server 在 image tool 处理完成后,读取输出 Blob 的精确尺寸
+   * 用于结果文本报告。Plugin 未安装时优雅降级返回 null。
+   *
+   * 架构意义:使 mcp-server 不再直接 import @lokvis/engine-image(违反
+   * 五层架构单向依赖),改为通过 Runtime 间接调用(见 A1 修复)。
+   *
+   * @param id 资产 ID(须为 image 类型)
+   * @returns ImageMetadata;非 image / reader 未注册 / 解析失败返回 null
+   */
+  readAssetImageMetadata(id: AssetId): Promise<ImageMetadata | null>;
+  /**
+   * 读取 pdf 资产的页数。
+   *
+   * 走 MetadataReader 机制:Runtime 持有 plugin-pdf 通过
+   * `ctx.registerMetadataReader('pdf.read-info', fn)` 注册的 reader 引用,
+   * 按名调用。reader 内部调 engine-pdf 的 getPdfInfo(pdf-lib getPageCount)。
+   *
+   * 用途:mcp-server 在 pdf tool 处理完成后,读取输出 Blob 的页数用于结果
+   * 文本报告。Plugin 未安装时优雅降级返回 null。
+   *
+   * 架构意义:使 mcp-server 不再直接 import @lokvis/engine-pdf(违反
+   * 五层架构单向依赖),改为通过 Runtime 间接调用(见 A1 修复)。
+   *
+   * @param id 资产 ID(须为 pdf 类型)
+   * @returns PdfInfo;非 pdf / reader 未注册 / 解析失败返回 null
+   */
+  readAssetPdfInfo(id: AssetId): Promise<PdfInfo | null>;
   /** 删除资产 */
   removeAsset(id: AssetId): Promise<void>;
   /** 列出所有资产 */

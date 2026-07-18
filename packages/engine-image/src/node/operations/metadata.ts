@@ -9,15 +9,15 @@
  *
  * AGENTS.md:Engine 层不感知 Asset/Workflow。本函数为 Blob → 纯元数据,
  * 与浏览器版 decode(Blob → DecodedImage)语义一致,属 Engine 层职责。
+ *
+ * ImageMetadata 类型由 @lokvis/schema 定义(跨层共享),此处 re-export
+ * 保持 engine-image/node 的导入路径不变,消费方可从任一处导入。
  */
 import { throwIfAborted } from './utils.js';
+import type { ImageMetadata } from '@lokvis/schema';
 
-/** 图像元数据(width/height/format,不含位图数据) */
-export interface ImageMetadata {
-  width: number;
-  height: number;
-  format: string;
-}
+// re-export schema 的共享类型,保持 engine-image/node 导出表面不变
+export type { ImageMetadata };
 
 async function blobToBuffer(blob: Blob): Promise<Buffer> {
   const arrayBuffer = await blob.arrayBuffer();

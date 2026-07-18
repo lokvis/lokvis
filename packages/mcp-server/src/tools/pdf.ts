@@ -10,10 +10,12 @@
  * createBlobCapabilityImpl → engine operation),与浏览器侧
  * Runtime→Capability→Engine 链路完全对齐(ADR-011 / AGENTS.md 五层架构)。
  * pdf-lib engine 由 `@lokvis/plugin-pdf/node` 在 server.ts 启动时通过
- * `runtime.installPlugin(await pdfToolsPluginNode())` 注册,本文件不直接
- * import pdf-lib(五层架构单向依赖);仅 import `@lokvis/engine-pdf` 的
- * `getPdfInfo` 元数据查询 API(与 image.ts import engine-image/node 的
- * getMetadata 读取 dimensions 模式一致,属 Engine 层元数据查询职责)。
+ * `runtime.installPlugin(await pdfToolsPluginNode())` 注册。
+ *
+ * 页数读取:通过 runtime.readAssetPdfInfo() 读取输出 asset 的页数 ——
+ * 走 MetadataReader 依赖反转(plugin-pdf/node 注册 'pdf.read-info' reader,
+ * 内部调 engine-pdf 的 getPdfInfo),避免 mcp-server 直接依赖 engine-pdf
+ * (五层架构单向依赖,见 A1 修复)。
  *
  * 输入:文件路径(绝对路径或相对 workdir)
  * 输出:处理后的文件路径 + 元数据(页数/大小变化)
@@ -23,7 +25,6 @@ import { resolve, basename } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import type { LokvisRuntime } from '@lokvis/sdk';
 import type { Workflow } from '@lokvis/schema';
-import { getPdfInfo } from '@lokvis/engine-pdf';
 import type { McpToolResult } from '../server.js';
 import {
   blobToFile,
@@ -105,10 +106,10 @@ function buildMergeWorkflow(
  * 走完整 capability 系统(TD-1.1 长期方案),与 image.ts 模式一致。
  * input/output asset 在流程结束后清理(避免 NodeAssetStore 累积)。
  *
- * 页数读取:用 engine-pdf 的 getPdfInfo 读取输出 Blob 的页数 —— 这是
- * Engine 层的元数据查询 API(Blob → 纯元数据,不产生新 Blob),非 Blob↔Blob
- * 操作执行,不违反 TD-1.1 与五层架构单向依赖(与 image.ts 用
- * engine-image/node 的 getMetadata 读取 dimensions 模式一致)。
+ * 页数读取:通过 runtime.readAssetPdfInfo() 读取输出 asset 的页数 ——
+ * 走 MetadataReader 依赖反转(plugin-pdf/node 注册 'pdf.read-info' reader,
+ * 内部调 engine-pdf 的 getPdfInfo),避免 mcp-server 直接依赖 engine-pdf
+ * (五层架构单向依赖,见 A1 修复)。
  */
 async function runPdfTransform(
   runtime: LokvisRuntime,
@@ -142,23 +143,23 @@ async function runPdfTransform(
     const outAssetId = result.outputs[0];
     const outBlob = await runtime.exportAsset(outAssetId);
 
-    // 读取输出 Blob 的页数(失败时降级为 null,不影响主流程)
-    let pages: number | null = null;
-    try {
-      const info = await getPdfInfo(outBlob);
-      pages = info.pages;
-    } catch {
-      // 降级:页数不可用,不影响主流程
-    }
+    // 读取输出 asset 的页数(走 MetadataReader,失败时降级为 null,不影响主流程)
+    // reader 未注册 / 解析失败均返回 null
+    const info = await runtime.readAssetPdfInfo(outAssetId);
+    const pages = info?.pages ?? null;
 
-    // 清理 output asset(已导出 Blob,不再需要)
-    await runtime.removeAsset(outAssetId).catch(() => {});
+    // 清理 output asset(已导出 Blob,不再需要)。失败仅 warn,不影响主流程结果
+    await runtime.removeAsset(outAssetId).catch((e) => {
+      console.warn('[mcp-server] cleanup output asset failed:', e);
+    });
 
     return { outBlob, pages };
   } finally {
-    // 清理所有 input asset(避免 NodeAssetStore 累积)
+    // 清理所有 input asset(避免 NodeAssetStore 累积)。失败仅 warn,不影响主流程结果
     for (const id of inputAssetIds) {
-      await runtime.removeAsset(id).catch(() => {});
+      await runtime.removeAsset(id).catch((e) => {
+        console.warn('[mcp-server] cleanup input asset failed:', e);
+      });
     }
   }
 }

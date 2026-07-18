@@ -34,15 +34,20 @@ import { PDF_CAPABILITIES } from '@lokvis/capability';
 import type {
   AssetMetadata,
   AssetType,
+  PdfInfo,
 } from '@lokvis/schema';
 import {
   mergePdfs as opMergePdfs,
   compressPdf as opCompressPdf,
+  getPdfInfo,
 } from '@lokvis/engine-pdf';
 import { PLUGIN_NAME, PLUGIN_VERSION } from './plugin.js';
 
 /** Node 引擎名(底层仍是 pdf-lib,与浏览器版一致) */
 export const PLUGIN_ENGINE_NODE = 'pdf-lib' as const;
+
+/** 元数据读取器名称(PDF 页数查询,走 MetadataReader 机制) */
+export const PDF_INFO_READER_NAME = 'pdf.read-info';
 
 /** Node 环境下未实现的操作集合(标记为 stub) */
 const NODE_STUB_CAPABILITIES = new Set<string>([
@@ -255,10 +260,27 @@ export async function pdfToolsPluginNode() {
         ctx.registerCapability(impl);
       }
 
+      // PDF 页数查询 reader(供 mcp-server 报告处理结果页数)。
+      // 内部调 engine-pdf 的 getPdfInfo(pdf-lib getPageCount),
+      // 走 MetadataReader 机制避免上层(mcp-server)直接依赖 engine-pdf。
+      ctx.registerMetadataReader<PdfInfo>(
+        PDF_INFO_READER_NAME,
+        async (asset, readerCtx) => {
+          const blob = await ctx.runtime.getAssetBlob(asset);
+          try {
+            return await getPdfInfo(blob);
+          } catch (err) {
+            // 解析失败与"无数据"区分:warn 上报,返回 null 不影响主流程
+            readerCtx.log('warn', `getPdfInfo failed: ${err instanceof Error ? err.message : String(err)}`);
+            return null;
+          }
+        }
+      );
+
       ctx.log(
         'info',
         `Registered ${impls.length} pdf capabilities (pdf-lib engine, ` +
-          `${impls.length - NODE_STUB_CAPABILITIES.size} real + ${NODE_STUB_CAPABILITIES.size} stub)`
+          `${impls.length - NODE_STUB_CAPABILITIES.size} real + ${NODE_STUB_CAPABILITIES.size} stub) + pdf info reader`
       );
     }
   );

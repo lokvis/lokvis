@@ -21,13 +21,14 @@
  */
 import { definePlugin, createBlobCapabilityImpl } from '@lokvis/plugin-sdk';
 import { IMAGE_CAPABILITIES } from '@lokvis/capability';
-import type { ExifData } from '@lokvis/schema';
+import type { ExifData, ImageMetadata } from '@lokvis/schema';
 import {
   resize as opResize,
   compress as opCompress,
   convert as opConvert,
   crop as opCrop,
   watermark as opWatermark,
+  getMetadata,
 } from '@lokvis/engine-image/node';
 import { PLUGIN_NAME, PLUGIN_VERSION, EXIF_READER_NAME } from './plugin.js';
 import { readExifFromBlob } from './exif-reader.js';
@@ -35,6 +36,9 @@ import type { ImageOperation } from './operations.js';
 
 /** Node 引擎名(对应 sharpEngine.name) */
 export const PLUGIN_ENGINE_NODE = 'sharp' as const;
+
+/** 元数据读取器名称(图像 dimensions/format 查询,走 MetadataReader 机制) */
+export const IMAGE_METADATA_READER_NAME = 'image.read-metadata';
 
 /** Node 环境下未实现的操作集合(标记为 stub) */
 const NODE_STUB_CAPABILITIES = new Set<string>([
@@ -130,10 +134,27 @@ export async function imageToolsPluginNode() {
         return readExifFromBlob(blob);
       });
 
+      // 图像 dimensions/format 查询 reader(供 mcp-server 报告处理结果尺寸)。
+      // 内部调 engine-image/node 的 getMetadata(sharp .metadata()),
+      // 走 MetadataReader 机制避免上层(mcp-server)直接依赖 engine-image。
+      ctx.registerMetadataReader<ImageMetadata>(
+        IMAGE_METADATA_READER_NAME,
+        async (asset, readerCtx) => {
+          const blob = await ctx.runtime.getAssetBlob(asset);
+          try {
+            return await getMetadata(blob);
+          } catch (err) {
+            // 解析失败与"无数据"区分:warn 上报,返回 null 不影响主流程
+            readerCtx.log('warn', `getMetadata failed: ${err instanceof Error ? err.message : String(err)}`);
+            return null;
+          }
+        }
+      );
+
       ctx.log(
         'info',
         `Registered ${impls.length} image capabilities (sharp engine, ` +
-          `${impls.length - NODE_STUB_CAPABILITIES.size} real + ${NODE_STUB_CAPABILITIES.size} stub) + EXIF reader`
+          `${impls.length - NODE_STUB_CAPABILITIES.size} real + ${NODE_STUB_CAPABILITIES.size} stub) + EXIF reader + metadata reader`
       );
     }
   );

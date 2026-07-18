@@ -223,6 +223,8 @@ export type {
   AssetMetadata,
   HistoryEntry,
   ExifData,
+  ImageMetadata,
+  PdfInfo,
   Workflow,
   WorkflowResult,
   Capability,

@@ -12,6 +12,8 @@ export * from './workflow.js';
 export * from './event.js';
 export * from './plugin.js';
 export * from './exif.js';
+// 跨层共享的资产元数据查询类型(ImageMetadata / PdfInfo,见 metadata.ts)
+export * from './metadata.js';
 // MCP manifest 类型(见 docs/AI生态冲击调整方案.md §6.1)
 export * from './mcp.js';
 

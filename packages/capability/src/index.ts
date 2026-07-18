@@ -13,3 +13,4 @@
 export * from './names.js';
 export * from './presets/index.js';
 export * from './helpers.js';
+export * from './derived-types.js';
