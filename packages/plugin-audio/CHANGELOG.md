@@ -1,4 +1,4 @@
-# @lokvis/engine-pdf
+# @lokvis/plugin-audio
 
 ## 0.4.1
 
@@ -39,37 +39,8 @@
 - Updated dependencies [a51d57a]
 - Updated dependencies
 - Updated dependencies [58e7e7f]
+- Updated dependencies [a96bddb]
   - @lokvis/schema@0.4.1
-
-## 0.2.0
-
-### Minor Changes
-
-- 2aebedb: ## @lokvis/engine-pdf / @lokvis/engine-video
-
-  - 内部对齐 stub 检测依赖
-
-  ## @lokvis/plugin-pdf / @lokvis/plugin-video
-  - 新增 stub 自动检测:若底层 engine 不可用则 `status: 'stub'`,使 `CapabilityRegistry.resolve()` 不再解析到占位实现
-
-### Patch Changes
-
-- Updated dependencies [2aebedb]
-- Updated dependencies [e95976e]
-- Updated dependencies [bb5706c]
-  - @lokvis/schema@0.2.0
-
-## 0.2.0-beta.0
-
-### Minor Changes
-
-- ## @lokvis/engine-pdf / @lokvis/engine-video
-  - 内部对齐 stub 检测依赖
-
-  ## @lokvis/plugin-pdf / @lokvis/plugin-video
-  - 新增 stub 自动检测:若底层 engine 不可用则 `status: 'stub'`,使 `CapabilityRegistry.resolve()` 不再解析到占位实现
-
-### Patch Changes
-
-- Updated dependencies []:
-  - @lokvis/schema@0.2.0-beta.0
+  - @lokvis/capability@0.4.1
+  - @lokvis/engine-audio@0.4.1
+  - @lokvis/plugin-sdk@0.4.1

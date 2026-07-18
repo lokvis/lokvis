@@ -1,17 +1,8 @@
-# @lokvis/cli
+# @lokvis/engine-core
 
 ## 0.4.1
 
 ### Patch Changes
-
-- a51d57a: Task B 合并后的清理与一致性修复:
-
-  - vitest.config.ts:移除冗余的 `packages/engine-image/src/node/**/*.ts` include
-    (已被 `packages/engine-image/src/**/*.ts` 完全覆盖)
-  - cli/package.json:sharp 版本从 ^0.34.5 对齐到 ^0.33.0
-    (与 engine-image peerDependency ^0.33.0 一致,避免安装两个版本)
-  - engine-image node-operations.test.ts:清理迁移期注释
-    (废弃 milestone M2.2 引用 + "从原 engine-image-node 迁移"说明,git history 已有记录)
 
 - Phase 2 架构治理收尾 + F1 AI 能力重构 + 统一版本到 0.4.1
 
@@ -53,45 +44,3 @@
   - engine-image-node:随包删除一起消失(问题 B 已处理)
 
   避免假依赖信号(消费方/审计工具误以为这些包依赖 schema/runtime)。
-
-- Updated dependencies [a51d57a]
-- Updated dependencies
-- Updated dependencies [a51d57a]
-- Updated dependencies [1567a33]
-- Updated dependencies [d1179ab]
-- Updated dependencies [58e7e7f]
-  - @lokvis/schema@0.4.1
-  - @lokvis/capability@0.4.1
-  - @lokvis/sdk@0.4.1
-  - @lokvis/plugin-image@0.4.1
-
-## 0.1.1
-
-### Patch Changes
-
-- 2aebedb: - `run` 命令使用 `new File([blob], name, { type })` 替代不可靠的 `{ ...blob, name } as unknown as File` 强转
-- Updated dependencies [1ffd8c1]
-- Updated dependencies [2aebedb]
-- Updated dependencies [0bef2e0]
-- Updated dependencies [2aebedb]
-- Updated dependencies [2aebedb]
-- Updated dependencies [980eafd]
-- Updated dependencies [e95976e]
-- Updated dependencies [bb5706c]
-- Updated dependencies [191877e]
-  - @lokvis/runtime@0.2.0
-  - @lokvis/capability@0.2.0
-  - @lokvis/sdk@0.2.0
-  - @lokvis/schema@0.2.0
-
-## 0.1.1-beta.0
-
-### Patch Changes
-
-- - `run` 命令使用 `new File([blob], name, { type })` 替代不可靠的 `{ ...blob, name } as unknown as File` 强转
-
-- Updated dependencies []:
-  - @lokvis/capability@0.2.0-beta.0
-  - @lokvis/runtime@0.2.0-beta.0
-  - @lokvis/schema@0.2.0-beta.0
-  - @lokvis/sdk@0.1.1-beta.0

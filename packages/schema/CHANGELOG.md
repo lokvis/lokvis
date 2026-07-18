@@ -1,5 +1,114 @@
 # @lokvis/schema
 
+## 0.4.1
+
+### Patch Changes
+
+- a51d57a: 清理 developer.* codegen 过时注释(Task C 验收后清理):
+
+  - scripts/codegen-capabilities.ts:移除生成模板中"与手写版本逐字段对应;
+    W4.3 完成迁移后,手写版本将被删除"的过时注释
+    (手写版本已在 PR #28 删除,注释不再适用)
+  - scripts/codegen-capabilities.ts:清理 domainToPrefix 中"与手写 developer.ts 一致"
+    的过时引用
+  - 重新运行 pnpm codegen 同步 6 个 .generated.ts 文件
+    (ai/audio/developer/image/pdf/video)
+
+- Phase 2 架构治理收尾 + F1 AI 能力重构 + 统一版本到 0.4.1
+
+  ## P2 优化项（O-8~O-15）
+  - engine-image public API 收敛，仅暴露 Blob↔Blob 操作
+  - workflow ID 改用 crypto.randomUUID()，添加 MAX_WORKFLOW_STEPS 校验
+  - 抽取 buildCapabilityWorkflow 公共辅助消除 90% 重复
+  - mcp-server 消除 4 处 .catch(() => {}) 静默吞错
+  - mcp-server 删除冗余 as ToolHandler 断言
+  - mcp-server 新增 zod schema 运行时校验，消除 7 处 as Parameters<typeof> 断言
+
+  ## P3 深度重构（O-16~O-18）
+  - 拆 engine-ai/structured 子路径隔离 Blob→结构化操作（ocr/caption）
+  - engine-pdf getPdfInfo 边界张力注释
+  - ADR-014 登记 plugin-dev 跨 Engine 层访问 ctx.runtime 例外
+
+  ## F1 AI 能力重构
+  - engine-ai 从 Adapter 接口迁移到独立纯函数模式
+  - 新增 AiCloudCaller 接口注入模式（不依赖 cloud-bridge）
+  - 新增 ai.diagnose-error 能力
+  - cloud-bridge 新增 CloudAiClient + ai-client 模块
+
+  ## engine-audio/engine-video 重构
+  - 从 Adapter 接口迁移到独立纯函数模式
+  - 新增 Node 端 ffmpeg 实装
+
+  ## SDK
+  - 新增 plan 维度（free/pro/cloud_pro/enterprise），isPro 为派生字段
+
+  ## 版本统一
+  - 配置 changeset fixed 模式，所有 @lokvis/* 包统一版本号
+  - 本次释放统一到 0.4.1
+
+- 58e7e7f: W18.6: Plugin 权限沙箱 — network:none 强制 + filesystem 断言
+
+  ## 新增
+
+  ### `PluginPermissionSandbox`(schema 接口 + runtime 实现)
+
+  Plugin 声明的 `permissions` 现在通过沙箱强制执行,而非纯文档:
+
+  - **schema**: 新增 `PluginPermissionSandbox` 接口(`has` / `assertNetworkAllowed` / `assertFilesystemAllowed`)
+  - **schema**: `PluginContext` 新增 `sandbox: PluginPermissionSandbox` 字段
+  - **runtime**: `PluginPermissionSandbox` 类实现接口,提供 `applyNetworkGuard()` 方法
+  - **runtime**: `installPlugin()` 在 install 期间自动应用 network guard(声明 `network:none`
+    时 monkey-patch `fetch` / `XMLHttpRequest.open` / `WebSocket` / `EventSource`,
+    调用即抛 `NetworkGuardError`),install 后 restore 原实现
+
+  ### 新增错误类
+  - `PluginPermissionError` — 权限断言失败(声明 X 但未声明 Y)
+  - `NetworkGuardError` — 声明 network:none 又调网络 API
+  - `FilesystemGuardError` — 声明未含 filesystem:* 又调文件系统 API
+
+  ## 迁移指南
+
+  ### Plugin 作者
+
+  `PluginContext` 新增了 `sandbox` 字段。现有插件**无需修改**——`sandbox`
+  由 Runtime 自动注入,插件代码无需显式使用。
+
+  如果插件需要调用网络或文件系统 API,建议在调用前主动断言:
+
+  ```typescript
+  // 声明 network:none 的插件调 fetch 前自检
+  ctx.sandbox.assertNetworkAllowed('loading model manifest');
+
+  // 声明 filesystem:opfs 的插件调 OPFS 前自检
+  ctx.sandbox.assertFilesystemAllowed('opfs', 'writing cache');
+  ```
+
+  ### 测试 mock 更新
+
+  Plugin 测试中手动构造 `PluginContext` mock 需新增 `sandbox` 字段:
+
+  ```typescript
+  const ctx: PluginContext = {
+    // ... 其他字段
+    sandbox: {
+      pluginName: 'mock',
+      declared: new Set(['asset:read', 'asset:write']),
+      has: () => true,
+      assertNetworkAllowed: () => {},
+      assertFilesystemAllowed: () => {},
+    },
+  };
+  ```
+
+  ## 行为对比
+
+  | 场景                                                | 旧       | 新                          |
+  | --------------------------------------------------- | -------- | --------------------------- |
+  | 声明 `network:none` 的插件在 install 时调 `fetch()` | 静默成功 | 抛 `NetworkGuardError`      |
+  | 声明 `network:limited`/`network:full`               | 无限制   | 无限制(不 patch)            |
+  | 未声明任何权限                                      | 无限制   | 无限制(向后兼容)            |
+  | install 后异步调网络(setTimeout 回调)               | 无法拦截 | **仍无法拦截**(best-effort) |
+
 ## 0.2.0
 
 ### Minor Changes

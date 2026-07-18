@@ -1,8 +1,21 @@
-# @lokvis/engine-pdf
+# @lokvis/cloud-bridge
 
 ## 0.4.1
 
 ### Patch Changes
+
+- a51d57a: `createLokvisMcpServer` 新增可选 `cloud?: CloudConfig` 参数,真正落地 cloud-bridge 注入。
+
+  修复 Task A 验收缺口:cloud-bridge 包已抽取为独立包,但 `LokvisMcpOptions` 未含 `cloud` 字段,
+  `cli.ts` 创建的 `cloudConfig` 未传入 `createLokvisMcpServer`。
+
+  变更:
+  - `LokvisMcpOptions` 新增 `cloud?: CloudConfig` 字段
+  - `createLokvisMcpServer` 在 cloud 提供时创建 `McpAuthenticator` + `McpBilling` 并返回
+  - `cli.ts` 改为 `createLokvisMcpServer({ cloud: cloudConfig })`,使用返回的 `authenticator` 做启动时 API Key 验证
+  - 补 env 覆盖文档(`LOKVIS_UPGRADE_URL` / `LOKVIS_PLAN_QUOTAS_JSON` / `LOKVIS_PRICE_PER_CALL_CENTS`)
+
+  不传 `cloud` 时行为不变:仅本地 tool 可用,cloud AI tool 不可用。
 
 - Phase 2 架构治理收尾 + F1 AI 能力重构 + 统一版本到 0.4.1
 
@@ -35,41 +48,3 @@
   ## 版本统一
   - 配置 changeset fixed 模式，所有 @lokvis/* 包统一版本号
   - 本次释放统一到 0.4.1
-
-- Updated dependencies [a51d57a]
-- Updated dependencies
-- Updated dependencies [58e7e7f]
-  - @lokvis/schema@0.4.1
-
-## 0.2.0
-
-### Minor Changes
-
-- 2aebedb: ## @lokvis/engine-pdf / @lokvis/engine-video
-
-  - 内部对齐 stub 检测依赖
-
-  ## @lokvis/plugin-pdf / @lokvis/plugin-video
-  - 新增 stub 自动检测:若底层 engine 不可用则 `status: 'stub'`,使 `CapabilityRegistry.resolve()` 不再解析到占位实现
-
-### Patch Changes
-
-- Updated dependencies [2aebedb]
-- Updated dependencies [e95976e]
-- Updated dependencies [bb5706c]
-  - @lokvis/schema@0.2.0
-
-## 0.2.0-beta.0
-
-### Minor Changes
-
-- ## @lokvis/engine-pdf / @lokvis/engine-video
-  - 内部对齐 stub 检测依赖
-
-  ## @lokvis/plugin-pdf / @lokvis/plugin-video
-  - 新增 stub 自动检测:若底层 engine 不可用则 `status: 'stub'`,使 `CapabilityRegistry.resolve()` 不再解析到占位实现
-
-### Patch Changes
-
-- Updated dependencies []:
-  - @lokvis/schema@0.2.0-beta.0

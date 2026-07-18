@@ -1,5 +1,71 @@
 # @lokvis/mcp-server
 
+## 0.4.1
+
+### Patch Changes
+
+- a51d57a: `createLokvisMcpServer` 新增可选 `cloud?: CloudConfig` 参数,真正落地 cloud-bridge 注入。
+
+  修复 Task A 验收缺口:cloud-bridge 包已抽取为独立包,但 `LokvisMcpOptions` 未含 `cloud` 字段,
+  `cli.ts` 创建的 `cloudConfig` 未传入 `createLokvisMcpServer`。
+
+  变更:
+  - `LokvisMcpOptions` 新增 `cloud?: CloudConfig` 字段
+  - `createLokvisMcpServer` 在 cloud 提供时创建 `McpAuthenticator` + `McpBilling` 并返回
+  - `cli.ts` 改为 `createLokvisMcpServer({ cloud: cloudConfig })`,使用返回的 `authenticator` 做启动时 API Key 验证
+  - 补 env 覆盖文档(`LOKVIS_UPGRADE_URL` / `LOKVIS_PLAN_QUOTAS_JSON` / `LOKVIS_PRICE_PER_CALL_CENTS`)
+
+  不传 `cloud` 时行为不变:仅本地 tool 可用,cloud AI tool 不可用。
+
+- Phase 2 架构治理收尾 + F1 AI 能力重构 + 统一版本到 0.4.1
+
+  ## P2 优化项（O-8~O-15）
+  - engine-image public API 收敛，仅暴露 Blob↔Blob 操作
+  - workflow ID 改用 crypto.randomUUID()，添加 MAX_WORKFLOW_STEPS 校验
+  - 抽取 buildCapabilityWorkflow 公共辅助消除 90% 重复
+  - mcp-server 消除 4 处 .catch(() => {}) 静默吞错
+  - mcp-server 删除冗余 as ToolHandler 断言
+  - mcp-server 新增 zod schema 运行时校验，消除 7 处 as Parameters<typeof> 断言
+
+  ## P3 深度重构（O-16~O-18）
+  - 拆 engine-ai/structured 子路径隔离 Blob→结构化操作（ocr/caption）
+  - engine-pdf getPdfInfo 边界张力注释
+  - ADR-014 登记 plugin-dev 跨 Engine 层访问 ctx.runtime 例外
+
+  ## F1 AI 能力重构
+  - engine-ai 从 Adapter 接口迁移到独立纯函数模式
+  - 新增 AiCloudCaller 接口注入模式（不依赖 cloud-bridge）
+  - 新增 ai.diagnose-error 能力
+  - cloud-bridge 新增 CloudAiClient + ai-client 模块
+
+  ## engine-audio/engine-video 重构
+  - 从 Adapter 接口迁移到独立纯函数模式
+  - 新增 Node 端 ffmpeg 实装
+
+  ## SDK
+  - 新增 plan 维度（free/pro/cloud_pro/enterprise），isPro 为派生字段
+
+  ## 版本统一
+  - 配置 changeset fixed 模式，所有 @lokvis/* 包统一版本号
+  - 本次释放统一到 0.4.1
+
+- Updated dependencies [a51d57a]
+- Updated dependencies [a51d57a]
+- Updated dependencies
+- Updated dependencies [a51d57a]
+- Updated dependencies [1567a33]
+- Updated dependencies [d1179ab]
+- Updated dependencies [58e7e7f]
+- Updated dependencies [a51d57a]
+  - @lokvis/cloud-bridge@0.4.1
+  - @lokvis/schema@0.4.1
+  - @lokvis/capability@0.4.1
+  - @lokvis/workflow@0.4.1
+  - @lokvis/runtime@0.4.1
+  - @lokvis/sdk@0.4.1
+  - @lokvis/plugin-image@0.4.1
+  - @lokvis/plugin-pdf@0.4.1
+
 ## 0.1.1
 
 ### Patch Changes
