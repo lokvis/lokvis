@@ -22,7 +22,6 @@
 import { resolve, extname, basename } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import type { LokvisRuntime, ImageMetadata } from '@lokvis/sdk';
-import type { Workflow } from '@lokvis/schema';
 import type { ImageWatermarkPosition } from '@lokvis/capability';
 import type { McpToolResult } from '../server.js';
 import {
@@ -31,6 +30,7 @@ import {
   getFileSize,
   formatSize,
 } from './fs-helpers.js';
+import { buildSingleTransformWorkflow } from './workflow-helpers.js';
 
 /** 文件扩展名 → MIME 类型(构造输入 File 时使用,runtime 据此推断格式) */
 const EXT_TO_MIME: Record<string, string> = {
@@ -50,38 +50,6 @@ function extToMime(path: string): string {
 
 /** 水印位置(从 capability manifest 派生,避免本地复制漂移) */
 type WatermarkPosition = ImageWatermarkPosition;
-
-/**
- * 构造单节点 transform Workflow(MCP tool 调用专用)。
- *
- * MCP tool 把单次 capability 调用包装为单节点 Workflow,经 runtime.run()
- * 走完整 capability 系统。与浏览器侧 Runtime→Capability→Engine 链路对齐。
- */
-function buildSingleTransformWorkflow(
-  capability: string,
-  params: Record<string, unknown>
-): Workflow {
-  return {
-    id: `mcp_${capability.replace(/\./g, '_')}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    version: '1.0',
-    name: capability,
-    description: `MCP tool: ${capability}`,
-    author: { id: 'mcp-server', name: 'MCP Server' },
-    category: 'image',
-    tags: [],
-    nodes: [
-      {
-        id: 'n1',
-        type: 'transform',
-        capability,
-        params,
-      },
-    ],
-    edges: [],
-    inputs: { type: 'image', multiple: false },
-    outputs: { type: 'image' },
-  };
-}
 
 /**
  * 通用 image transform 流程:file → importAsset → runtime.run → exportAsset → cleanup。
@@ -109,7 +77,7 @@ async function runImageTransform(
   const inputAssetId = await runtime.importAsset({ kind: 'file', file });
 
   try {
-    const workflow = buildSingleTransformWorkflow(capability, params);
+    const workflow = buildSingleTransformWorkflow(capability, params, 'image', 'image');
     const result = await runtime.run(workflow, [inputAssetId]);
     if (result.status !== 'completed' || !result.outputs[0]) {
       throw new Error(

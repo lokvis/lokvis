@@ -1,8 +1,12 @@
 /**
- * PDF Capability 实现
+ * PDF Capability 实现(浏览器版,全 stub)
  *
- * 把 engine-pdf 的 Blob ↔ Blob 操作包装为 CapabilityImplementation:
- *   Asset[] + params → Asset[]
+ * 浏览器端不加载 pdf-lib(体积大,且 Node 端 API 与浏览器略有差异),
+ * 所有 PDF capability 标记为 stub,CapabilityRegistry.resolve() 自动跳过,
+ * executor 在 stub-only 时给出明确错误提示。
+ *
+ * 真实 PDF 操作(merge/compress)由 Node 端 plugin-pdf/node 提供,经子路径
+ * `@lokvis/plugin-pdf/node` 导出,供 mcp-server 等消费方使用。
  *
  * 三种形态全部走 plugin-sdk 工厂,与 plugin-image / plugin-video 共享
  * "取 blob → 调 operation → 派生 metadata → createAsset → 进度/取消"五步样板:
@@ -10,15 +14,15 @@
  * - merge(N→1):createMergeCapabilityImpl
  * - split(1→N):createSplitCapabilityImpl
  *
- * 注意:当前 engine-pdf 为占位实现,所有方法都会抛出异常,
- * 因此 plugin-pdf 的各操作在运行时也会抛出 —— 这是有意为之的 stub 行为。
- *
  * 能力声明(PDF_CAPABILITIES)由 codegen 从 manifests/pdf.manifest.json 生成,
  * 见 packages/capability/src/presets/pdf.generated.ts。本文件只负责 impl 绑定
  * (capability name → engine + kind + outputType + operation)。
+ *
+ * AGENTS.md Stub Engine 约定:
+ * - 所有 operation 方法抛出 `new Error('xxx not implemented in stub')`
+ * - isStub=true 让 CapabilityRegistry.resolve() 自动跳过
  */
 
-import { getPdfEngine } from '@lokvis/engine-pdf';
 import {
   createBlobCapabilityImpl,
   createMergeCapabilityImpl,
@@ -62,35 +66,44 @@ export interface PdfOperationEntry {
   kind: PdfOperationKind;
   /** 输出 Asset 类型 */
   outputType: AssetType;
-  /** 实际执行函数 */
+  /** 实际执行函数(浏览器版永远抛 stub 错误) */
   operation: SinglePdfOperation | MergePdfOperation | SplitPdfOperation;
 }
 
-/** 获取 pdf-lib 引擎适配器 */
-const engine = () => getPdfEngine('pdf-lib');
+// ─── stub 操作(浏览器版不加载 pdf-lib,所有操作抛错) ───────────
 
-// ─── 各操作的参数转换 + 调用 ───────────────────────────────
+/** 统一 stub 错误消息 */
+function stubMessage(capability: string): string {
+  return `${capability} not implemented in stub (browser plugin-pdf). Use @lokvis/plugin-pdf/node for real operations.`;
+}
 
-const mergeOp: MergePdfOperation = (blobs, params) =>
-  engine().merge(blobs, params);
+const mergeOp: MergePdfOperation = async (_blobs, _params) => {
+  throw new Error(stubMessage('pdf.merge'));
+};
 
-const splitOp: SplitPdfOperation = (blob, params) =>
-  engine().split(blob, params);
+const splitOp: SplitPdfOperation = async (_blob, _params) => {
+  throw new Error(stubMessage('pdf.split'));
+};
 
-const compressOp: SinglePdfOperation = (blob, params) =>
-  engine().compress(blob, params);
+const compressOp: SinglePdfOperation = async (_blob, _params) => {
+  throw new Error(stubMessage('pdf.compress'));
+};
 
-const rotateOp: SinglePdfOperation = (blob, params) =>
-  engine().rotate(blob, params);
+const rotateOp: SinglePdfOperation = async (_blob, _params) => {
+  throw new Error(stubMessage('pdf.rotate'));
+};
 
-const watermarkOp: SinglePdfOperation = (blob, params) =>
-  engine().watermark(blob, params);
+const watermarkOp: SinglePdfOperation = async (_blob, _params) => {
+  throw new Error(stubMessage('pdf.watermark'));
+};
 
-const ocrOp: SinglePdfOperation = (blob, params) =>
-  engine().ocr(blob, params);
+const ocrOp: SinglePdfOperation = async (_blob, _params) => {
+  throw new Error(stubMessage('pdf.ocr'));
+};
 
-const signOp: SinglePdfOperation = (blob, params) =>
-  engine().sign(blob, params);
+const signOp: SinglePdfOperation = async (_blob, _params) => {
+  throw new Error(stubMessage('pdf.sign'));
+};
 
 /** 全部 PDF 能力实现绑定(operation → engine + kind + outputType 映射,能力声明由 generated 提供) */
 export const PDF_OPERATION_ENTRIES: PdfOperationEntry[] = [
@@ -130,17 +143,17 @@ function defaultMimeTypeAndFormat(
 }
 
 /**
- * 构造所有 PDF 能力的 CapabilityImplementation
- * (由 plugin.ts 在 installer 中调用)
+ * 构造所有 PDF 能力的 CapabilityImplementation(浏览器版,全 stub)
  *
- * stub 检测在此一次性完成(AGENTS.md 约定:version.includes('stub')),
- * 不再在 merge/split 包装函数中重复检测。
+ * 由 plugin.ts 在 installer 中调用。AGENTS.md Stub Engine 约定:
+ * isStub=true 让 CapabilityRegistry.resolve() 自动跳过本实现,
+ * executor 在 stub-only 时给出明确错误提示。
  */
 export function buildPdfCapabilityImplementations(
   ctx: PluginContext
 ): CapabilityImplementation[] {
-  // 引擎 stub 标识只检测一次,避免在多处重复读取 engine.version
-  const isStub = engine().version.includes('stub');
+  // 浏览器版无真实操作,所有 capability 标记为 stub
+  const isStub = true;
 
   return PDF_OPERATION_ENTRIES.map((entry) => {
     const derive = derivePdfMetadata(entry.outputType);

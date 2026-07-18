@@ -30,7 +30,6 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@lokvis/engine-core": "workspace:*",
     "@lokvis/schema": "workspace:*",
     "pdf-lib": "^1.17.1"
   },

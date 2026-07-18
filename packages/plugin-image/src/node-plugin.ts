@@ -100,12 +100,14 @@ export async function imageToolsPluginNode() {
     },
     (ctx) => {
       // 9 个能力的实现绑定项(5 真实 + 4 stub)
-      const entries = [
-        { capability: 'image.resize', operation: opResize as ImageOperation },
-        { capability: 'image.compress', operation: opCompress as ImageOperation },
-        { capability: 'image.convert', operation: opConvert as ImageOperation },
-        { capability: 'image.crop', operation: opCrop as ImageOperation },
-        { capability: 'image.watermark', operation: opWatermark as ImageOperation },
+      // engine-image/node 操作签名已对齐 ImageOperation(blob, Record<string, unknown>, signal),
+      // 无需类型断言(AGENTS.md「禁止 as unknown as 双断言」精神)
+      const entries: Array<{ capability: string; operation: ImageOperation }> = [
+        { capability: 'image.resize', operation: opResize },
+        { capability: 'image.compress', operation: opCompress },
+        { capability: 'image.convert', operation: opConvert },
+        { capability: 'image.crop', operation: opCrop },
+        { capability: 'image.watermark', operation: opWatermark },
         { capability: 'image.rotate', operation: createUnsupportedNodeOp('image.rotate') },
         { capability: 'image.flip', operation: createUnsupportedNodeOp('image.flip') },
         { capability: 'image.background', operation: createUnsupportedNodeOp('image.background') },

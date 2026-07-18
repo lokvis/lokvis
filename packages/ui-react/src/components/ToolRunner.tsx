@@ -8,16 +8,17 @@
  * 可在任何 React 应用中独立使用。
  *
  * 五层架构:UI 层不直接依赖 Engine 层,engine 函数由消费方传入。
+ * 消费方需自行实现按 capability.name 路由到对应 Blob↔Blob 操作的 wrapper
+ * (engine-image 已不再提供 runTool 统一入口,各 operation 需直接组合调用)。
  *
  * @example
  * ```tsx
  * import { ToolRunner } from '@lokvis/ui-react';
- * import { runTool } from '@lokvis/engine-image';
- * import { IMAGE_COMPRESS } from '@lokvis/capability';
+ * import { IMAGE_COMPRESS, compress } from '@lokvis/engine-image';
  *
  * <ToolRunner
  *   capability={IMAGE_COMPRESS}
- *   engine={runTool}
+ *   engine={(name, input, params, opts) => compress(input, params, opts?.signal)}
  *   onOpenInWorkspace={(state) => { ... }}
  * />
  * ```
@@ -38,8 +39,8 @@ type EngineFn = (
 export interface ToolRunnerProps {
  /** 工具能力定义(决定参数表单和输入类型) */
  capability: Capability;
- /** 处理函数(通常传入 runTool from @lokvis/engine-image) */
- engine: EngineFn;
+ /** 处理函数(按 capability.name 路由到对应 Blob↔Blob 操作的 wrapper) */
+  engine: EngineFn;
  /** 在 Workspace 中打开的回调(携带当前状态) */
  onOpenInWorkspace?: (state: {
   inputBlob: Blob;

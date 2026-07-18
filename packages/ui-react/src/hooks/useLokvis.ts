@@ -24,7 +24,7 @@
  * ```
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime, RuntimeConfig } from '@lokvis/runtime';
 import type { LokvisAuthSession, PluginLoadEntry } from '@lokvis/sdk';
@@ -61,6 +61,18 @@ export function useLokvis(options: UseLokvisOptions = {}): UseLokvisResult {
 
   const storeInit = useWorkspaceStore((s) => s.init);
 
+  // 用 useRef 持有 plugins / runtimeConfig / auth / storeInit 的最新值,
+  // 避免 effect 依赖这些对象引用导致每次 render 都重新初始化 runtime。
+  // effect 仅在 authKey / autoInit 变化时触发,内部从 ref 读取当前值。
+  const pluginsRef = useRef(plugins);
+  const runtimeConfigRef = useRef(runtimeConfig);
+  const authRef = useRef(auth);
+  const storeInitRef = useRef(storeInit);
+  pluginsRef.current = plugins;
+  runtimeConfigRef.current = runtimeConfig;
+  authRef.current = auth;
+  storeInitRef.current = storeInit;
+
   // 用 JSON.stringify(auth) 作为 effect 依赖,使 auth 变化时重新初始化。
   // (auth 是对象,直接放依赖数组会因引用变化每次 render 都触发;
   //  JSON.stringify 提供稳定的 primitive 依赖,只在 auth 内容变化时重 init)
@@ -74,13 +86,13 @@ export function useLokvis(options: UseLokvisOptions = {}): UseLokvisResult {
       try {
         setStatus('initializing');
         const rt = await createLokvis({
-          ...runtimeConfig,
-          plugins,
-          auth,
+          ...runtimeConfigRef.current,
+          plugins: pluginsRef.current,
+          auth: authRef.current,
         });
         if (cancelled) return;
         setRuntime(rt);
-        await storeInit(rt);
+        await storeInitRef.current(rt);
         if (cancelled) return;
         setStatus('ready');
       } catch (err) {
@@ -93,7 +105,6 @@ export function useLokvis(options: UseLokvisOptions = {}): UseLokvisResult {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authKey, autoInit]);
 
   return { runtime, status, error };

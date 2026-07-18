@@ -24,7 +24,6 @@
 import { resolve, basename } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import type { LokvisRuntime } from '@lokvis/sdk';
-import type { Workflow } from '@lokvis/schema';
 import type { McpToolResult } from '../server.js';
 import {
   blobToFile,
@@ -32,73 +31,13 @@ import {
   getFileSize,
   formatSize,
 } from './fs-helpers.js';
+import {
+  buildSingleTransformWorkflow,
+  buildMergeWorkflow,
+} from './workflow-helpers.js';
 
 /** PDF 文件的 MIME 类型(构造输入 File 时使用) */
 const PDF_MIME = 'application/pdf';
-
-/**
- * 构造单节点 transform Workflow(MCP tool 调用专用,1→1 形态)。
- *
- * 与 image.ts 的 buildSingleTransformWorkflow 一致,把单次 capability 调用
- * 包装为单节点 Workflow,经 runtime.run() 走完整 capability 系统。
- */
-function buildSingleTransformWorkflow(
-  capability: string,
-  params: Record<string, unknown>
-): Workflow {
-  return {
-    id: `mcp_${capability.replace(/\./g, '_')}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    version: '1.0',
-    name: capability,
-    description: `MCP tool: ${capability}`,
-    author: { id: 'mcp-server', name: 'MCP Server' },
-    category: 'pdf',
-    tags: [],
-    nodes: [
-      {
-        id: 'n1',
-        type: 'transform',
-        capability,
-        params,
-      },
-    ],
-    edges: [],
-    inputs: { type: 'pdf', multiple: false },
-    outputs: { type: 'pdf' },
-  };
-}
-
-/**
- * 构造 merge(N→1)Workflow(MCP tool 调用专用)。
- *
- * 与 single transform 区别:inputs.multiple=true,允许 N 个输入;
- * runtime 会把 N 个 inputs 一次性传给 merge capability 的 execute。
- */
-function buildMergeWorkflow(
-  capability: string,
-  params: Record<string, unknown>
-): Workflow {
-  return {
-    id: `mcp_${capability.replace(/\./g, '_')}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    version: '1.0',
-    name: capability,
-    description: `MCP tool: ${capability}`,
-    author: { id: 'mcp-server', name: 'MCP Server' },
-    category: 'pdf',
-    tags: [],
-    nodes: [
-      {
-        id: 'n1',
-        type: 'transform',
-        capability,
-        params,
-      },
-    ],
-    edges: [],
-    inputs: { type: 'pdf', multiple: true },
-    outputs: { type: 'pdf' },
-  };
-}
 
 /**
  * 通用 pdf transform 流程:file → importAsset → runtime.run → exportAsset → cleanup。
@@ -130,8 +69,8 @@ async function runPdfTransform(
 
   try {
     const workflow = options.merge
-      ? buildMergeWorkflow(capability, params)
-      : buildSingleTransformWorkflow(capability, params);
+      ? buildMergeWorkflow(capability, params, 'pdf', 'pdf')
+      : buildSingleTransformWorkflow(capability, params, 'pdf', 'pdf');
     const result = await runtime.run(workflow, inputAssetIds);
     if (result.status !== 'completed' || !result.outputs[0]) {
       throw new Error(

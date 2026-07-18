@@ -3,7 +3,7 @@
  *
  * Engine 层共享的引擎注册表工厂。
  *
- * 背景:engine-pdf / engine-audio / engine-video / engine-ai 四个包
+ * 背景:engine-audio / engine-video / engine-ai 三个包
  * 各自复制了一份相同的样板:
  *   - `const engines = new Map<...>(...)`
  *   - `registerXxxEngine` / `getXxxEngine` / `listXxxEngines` / `selectBestXxxEngine`
@@ -11,17 +11,20 @@
  * 本包抽出 `createEngineRegistry<T>()` 工厂,把上面四段样板合并为一次调用,
  * 各 engine-* 包只需提供 adapter 类型与初始 adapter 列表。
  *
+ * 注:engine-pdf 已移除 adapter 模式,改为只暴露 Blob↔Blob 纯函数操作
+ *    (见 packages/engine-pdf/src/index.ts)。
+ *
  * 设计约束:
  * - 本包不依赖任何具体 engine 包,只依赖 @lokvis/schema 的类型
  * - 不引入 Asset / Workflow 概念(Engine 层只感知 Blob ↔ Blob)
  * - 默认引擎 fallback 行为由调用方通过 `defaultEngine` 显式传入
- *   (各包的默认引擎不同:pdf-lib / web-audio / ffmpeg-wasm / transformers-js)
+ *   (各包的默认引擎不同:web-audio / ffmpeg-wasm / transformers-js)
  */
 
 /**
  * Engine 适配器的最小契约。
  *
- * 各具体 engine 包的 adapter 接口(PdfEngineAdapter / AudioEngineAdapter 等)
+ * 各具体 engine 包的 adapter 接口(AudioEngineAdapter / VideoEngineAdapter 等)
  * 都满足此契约,故可作为 `createEngineRegistry<T>` 的类型参数 T 约束。
  */
 export interface EngineAdapter {
@@ -64,12 +67,12 @@ export interface EngineRegistry<T extends EngineAdapter> {
  *
  * @example
  * ```ts
- * const registry = createEngineRegistry<PdfEngineAdapter>(
- *   [pdfLibEngine, pdfjsEngine],
- *   pdfLibEngine
+ * const registry = createEngineRegistry<AudioEngineAdapter>(
+ *   [webAudioEngine],
+ *   webAudioEngine
  * );
  * registry.register(thirdPartyEngine);
- * const engine = registry.get('pdf-lib');
+ * const engine = registry.get('web-audio');
  * const best = await registry.selectBest();
  * ```
  */

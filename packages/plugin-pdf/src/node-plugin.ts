@@ -2,8 +2,7 @@
  * PDF Tools Plugin — Node 环境版本(基于 pdf-lib 引擎)
  *
  * 与浏览器版本 `pdfToolsPlugin()` 的区别:
- * - 浏览器版 `PdfEngineAdapter`(pdfLibEngine)为 stub(version 含 'stub'),
- *   所有 capability 标记为 stub,运行时抛错
+ * - 浏览器版所有 capability 标记为 stub,运行时抛错(不加载 pdf-lib)
  * - Node 版直接绑定 `@lokvis/engine-pdf` 的独立 Blob↔Blob 操作
  *   (mergePdfs / compressPdf,基于 pdf-lib),2 个真实能力 + 5 个 stub
  *

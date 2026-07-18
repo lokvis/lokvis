@@ -389,9 +389,6 @@ importers:
 
   packages/engine-pdf:
     dependencies:
-      '@lokvis/engine-core':
-        specifier: workspace:*
-        version: link:../engine-core
       '@lokvis/schema':
         specifier: workspace:*
         version: link:../schema
@@ -439,6 +436,9 @@ importers:
       '@lokvis/sdk':
         specifier: workspace:*
         version: link:../sdk
+      '@lokvis/workflow':
+        specifier: workspace:*
+        version: link:../workflow
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
