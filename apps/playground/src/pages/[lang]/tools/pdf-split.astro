@@ -1,0 +1,12 @@
+---
+import { langList } from '@/i18n/config';
+import ToolLayout from '@/layouts/ToolLayout.astro';
+import PdfSplitTool from '@/components/tools/pdf/PdfSplitTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<ToolLayout slug="pdf-split">
+  <PdfSplitTool client:only="react" />
+</ToolLayout>

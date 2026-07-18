@@ -19,6 +19,7 @@ export type BuiltinCapabilityName =
   | 'ai.background-remove'
   | 'ai.generate-workflow'
   | 'ai.optimize-workflow'
+  | 'ai.diagnose-error'
   | 'audio.trim'
   | 'audio.normalize'
   | 'audio.merge'
@@ -58,6 +59,7 @@ export const BUILTIN_CAPABILITY_NAMES: readonly BuiltinCapabilityName[] = [
   'ai.background-remove',
   'ai.generate-workflow',
   'ai.optimize-workflow',
+  'ai.diagnose-error',
   'audio.trim',
   'audio.normalize',
   'audio.merge',

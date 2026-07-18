@@ -12,7 +12,7 @@ import type {
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { EventBus } from '@lokvis/schema';
 import type {
-  InternalRuntimeInit, LokvisRuntime, PluginInstallEntry, RunOptions, RuntimeConfig,
+  InternalRuntimeInit, LokvisRuntime, Plan, PluginInstallEntry, RunOptions, RuntimeConfig,
   RuntimeStatus, ToMcpManifestOptions,
 } from './types.js';
 import { createEventBus } from './event-bus.js';
@@ -70,6 +70,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       enableLog: config.enableLog ?? true,
       engineStrategy: config.engineStrategy ?? 'first',
       isPro: config.isPro ?? false,
+      plan: config.plan ?? 'free',
       memoryBudget: config.memoryBudget ?? DEFAULT_MEMORY_BUDGET,
     };
     this.eventBus = createEventBus();
@@ -122,6 +123,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
 
   get status(): RuntimeStatus { return this.workflowCoordinator.status; }
   get isPro(): boolean { return this.config.isPro; }
+  get plan(): Plan { return this.config.plan; }
   get batch(): BatchProcessor { return this.batchProcessor; }
 
   // ─── 工作流执行(委托 WorkflowCoordinator) ──────────────

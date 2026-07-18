@@ -23,6 +23,9 @@ export function isValidApiKeyFormat(key: string): boolean {
 /** 缓存 TTL(5 分钟) */
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
+/** verify() 请求超时(30s,防止 cloud API 不可达时长时间挂起) */
+const VERIFY_TIMEOUT_MS = 30_000;
+
 /** 验证后的用户信息 */
 export interface AuthenticatedUser {
   id: string;
@@ -43,7 +46,7 @@ export interface AuthResult {
  * Cloud 鉴权器。
  * 缓存用户信息,定期重新验证。
  */
-export class McpAuthenticator {
+export class CloudAuthenticator {
   private readonly apiKey: string | undefined;
   private readonly apiBaseUrl: string;
   private cachedUser: AuthenticatedUser | undefined;
@@ -82,9 +85,18 @@ export class McpAuthenticator {
 
     try {
       const url = `${this.apiBaseUrl}/v1/users/me`;
-      const res = await fetch(url, {
-        headers: { 'x-api-key': this.apiKey },
-      });
+      // 30s 超时:防止 cloud API 不可达时长时间挂起,mcp-server 启动不被阻塞
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS);
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          headers: { 'x-api-key': this.apiKey },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!res.ok) {
         if (res.status === 401) {
@@ -98,6 +110,9 @@ export class McpAuthenticator {
       this.cacheExpiry = Date.now() + CACHE_TTL_MS;
       return { authenticated: true, user: data };
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return { authenticated: false, error: `API request timed out after ${VERIFY_TIMEOUT_MS}ms` };
+      }
       return { authenticated: false, error: `Failed to reach API: ${err}` };
     }
   }
@@ -110,7 +125,7 @@ export class McpAuthenticator {
 }
 
 /**
- * 从 CloudConfig 构造 McpAuthenticator。
+ * 从 CloudConfig 构造 CloudAuthenticator。
  *
  * 便于 mcp-server/cli.ts 等消费方一行注入:
  * ```ts
@@ -118,8 +133,8 @@ export class McpAuthenticator {
  * const authenticator = createAuthenticator(config);
  * ```
  */
-export function createAuthenticator(config: CloudConfig): McpAuthenticator {
-  return new McpAuthenticator({
+export function createAuthenticator(config: CloudConfig): CloudAuthenticator {
+  return new CloudAuthenticator({
     apiKey: config.apiKey,
     apiBaseUrl: config.apiBaseUrl,
   });

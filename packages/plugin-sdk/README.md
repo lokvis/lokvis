@@ -2,14 +2,23 @@
 
 > Build Lokvis plugins — register capabilities, wrap engine operations, extend the workspace.
 
-## Status: Alpha
+## Status: Beta
 
-Plugin SDK is in **Alpha**. The API surface (`definePlugin`, capability factories,
-`PluginContext`) is stable, and the permission model is **enforced** as of W18.6
-(`network:none` blocks `fetch`/`XHR`/`WebSocket`/`EventSource` via runtime sandbox;
-`filesystem` is asserted at API boundaries). See
-[Architecture → Plugin SDK](https://lokvis.dev/architecture/plugin) for the
-full deep dive.
+Plugin SDK is in **Beta** (`0.4.0`). The API surface (`definePlugin`, the three
+capability factories `createBlobCapabilityImpl` / `createMergeCapabilityImpl` /
+`createSplitCapabilityImpl`, `PluginContext`) is stable and covered by tests.
+The permission model is **enforced** as of W18.6 (`network:none` blocks
+`fetch`/`XHR`/`WebSocket`/`EventSource` via runtime sandbox; `filesystem` is
+asserted at API boundaries). The `plugin create` scaffolder is available via
+`@lokvis/cli`. See [Architecture → Plugin SDK](https://lokvis.dev/architecture/plugin)
+for the full deep dive.
+
+**What "Beta" means here:**
+- API is stable; we avoid breaking changes within the `0.4.x` line.
+- 2 example plugins ship (`plugin-grayscale` for single 1→1, `plugin-batch-watermark`
+  for merge N→1 + multi-step workflow).
+- `plugin create <name>` generates a publish-ready skeleton.
+- GA (`1.0`) is deferred to Phase 3 pending ecosystem validation.
 
 > **AI integration?** If your goal is to let an AI client call local capabilities,
 > use [`@lokvis/mcp-server`](../mcp-server) (MCP standard) instead of Plugin SDK.
@@ -187,8 +196,27 @@ All types from `@lokvis/schema` are re-exported:
 `ExecutionContext`, `PluginConfig`, `PluginContext`, `PluginInstaller`,
 `PluginPermission`, `PanelDefinition`
 
+## Scaffolding a new plugin
+
+The `@lokvis/cli` package ships a `plugin create` command that generates a
+publish-ready skeleton (package.json / tsconfig / src/index.ts / README) with
+the correct dependency on `@lokvis/plugin-sdk` + `@lokvis/schema`:
+
+```bash
+# In the lokvis monorepo
+pnpm --filter @lokvis/cli exec lokvis plugin create my-plugin
+
+# Or with a scoped name
+pnpm --filter @lokvis/cli exec lokvis plugin create @my-org/lokvis-plugin-my-tool
+```
+
+The generated `src/index.ts` shows the full `definePlugin` + `createBlobCapabilityImpl`
+pattern. See `examples/plugin-grayscale` and `examples/plugin-batch-watermark` for
+two complete, tested reference plugins covering the 1→1 and N→1 capability shapes.
+
 ## Further reading
 
 - [Architecture → Plugin SDK](https://lokvis.dev/architecture/plugin) — full deep dive
 - [Guide → Write Your First Plugin](https://lokvis.dev/guides/write-first-plugin) — tutorial
-- [Example: plugin-grayscale](../../examples/plugin-grayscale) — teaching reference
+- [Example: plugin-grayscale](../../examples/plugin-grayscale) — teaching reference (1→1 / single)
+- [Example: plugin-batch-watermark](../../examples/plugin-batch-watermark) — teaching reference (N→1 / merge + multi-step)

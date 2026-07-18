@@ -22,10 +22,14 @@ const clients: Client[] = [];
 
 afterEach(async () => {
   for (const c of clients.splice(0)) {
-    await c.close().catch(() => {});
+    await c.close().catch((err) => {
+      console.warn('[mcp-server test] SSE client close failed:', err);
+    });
   }
   for (const s of servers.splice(0)) {
-    await s.close().catch(() => {});
+    await s.close().catch((err) => {
+      console.warn('[mcp-server test] SSE server close failed:', err);
+    });
   }
 });
 

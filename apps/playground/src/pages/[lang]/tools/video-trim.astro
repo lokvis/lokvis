@@ -1,0 +1,12 @@
+---
+import { langList } from '@/i18n/config';
+import ToolLayout from '@/layouts/ToolLayout.astro';
+import VideoTrimTool from '@/components/tools/video/VideoTrimTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<ToolLayout slug="video-trim">
+  <VideoTrimTool client:only="react" />
+</ToolLayout>

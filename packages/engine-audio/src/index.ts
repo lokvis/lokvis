@@ -1,141 +1,37 @@
 /**
  * @lokvis/engine-audio
  *
- * 音频引擎适配层。
+ * Audio Engine 层 — Blob↔Blob 纯函数操作。
  *
- * 计划支持的引擎：
- * - Web Audio API：浏览器原生（解码、混音、特效）
- * - lamejs：MP3 编码
+ * 设计说明(与 engine-video / engine-pdf 对齐):
+ * - 本包暴露 4 个音频操作:trim / merge / transcode / normalize,全部为浏览器 stub
+ * - 真实 Node 端操作经子路径 `@lokvis/engine-audio/node` 导出(基于 ffmpeg-static)
+ * - 浏览器端不加载 lamejs + Web Audio 解码器(跨容器支持有限,且体积大),
+ *   所有操作抛 stub 错误,CapabilityRegistry.resolve() 自动跳过
+ * - AGENTS.md:Engine 层只暴露 Blob↔Blob 纯函数,不感知 Asset/Workflow
  *
- * 当前状态：MVP 占位实现。
+ * 与旧版(0.2.x)的差异:
+ * - 移除 AudioEngineAdapter 接口与 webAudioEngine / lamejsEngine stub 占位
+ * - 移除 registerAudioEngine / getAudioEngine / listAudioEngines / selectBestAudioEngine
+ *   注册表 API(无外部消费方,plugin-audio 已迁移到独立操作模式)
+ * - 移除 @lokvis/engine-core 依赖(注册表样板不再需要)
+ * - 改为独立纯函数(trimAudio / mergeAudios / transcodeAudio / normalizeAudio),
+ *   与 engine-video 一致
+ *
+ * 参考 docs/whitepaper/04-技术架构设计.md 第六节「Engine Layer」。
  */
 
-import { createEngineRegistry } from '@lokvis/engine-core';
-import type { AssetType } from '@lokvis/schema';
+export {
+  trimAudio,
+  mergeAudios,
+  transcodeAudio,
+  normalizeAudio,
+} from './operations.js';
 
-/** 音频引擎名 */
-export type AudioEngineName = 'web-audio' | 'lamejs';
-
-/** 音频输出格式 */
-export type AudioOutputFormat = 'mp3' | 'wav' | 'ogg' | 'aac';
-
-/** 音频转码参数 */
-export interface AudioTranscodeParams {
-  format: AudioOutputFormat;
-  bitrate?: number;
-}
-
-/** 音频裁剪参数 */
-export interface AudioTrimParams {
-  start: number; // 秒
-  end: number;
-}
-
-/** 音频标准化参数 */
-export interface AudioNormalizeParams {
-  level?: number; // 目标响度（dB）
-}
-
-/** 解码后的音频信息 */
-export interface DecodedAudio {
-  duration: number;
-  sampleRate: number;
-  channels: number;
-  bitrate?: number;
-  codec: string;
-}
-
-/** 音频引擎适配器接口 */
-export interface AudioEngineAdapter {
-  name: AudioEngineName;
-  version: string;
-  supportedCapabilities: string[];
-  isSupported(): Promise<boolean>;
-  initialize?(): Promise<void>;
-  dispose?(): Promise<void>;
-  decode(blob: Blob): Promise<DecodedAudio>;
-  transcode(blob: Blob, params: Record<string, any>): Promise<Blob>;
-  trim(blob: Blob, params: Record<string, any>): Promise<Blob>;
-  normalize(blob: Blob, params: Record<string, any>): Promise<Blob>;
-  merge(blobs: Blob[], params: Record<string, any>): Promise<Blob>;
-}
-
-/** Web Audio 引擎占位实现 */
-export const webAudioEngine: AudioEngineAdapter = {
-  name: 'web-audio',
-  version: '0.0.0-stub',
-  supportedCapabilities: ['audio.trim', 'audio.normalize', 'audio.merge'],
-  async isSupported() {
-    return (
-      typeof AudioContext !== 'undefined' ||
-      typeof (globalThis as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext !== 'undefined'
-    );
-  },
-  async decode() {
-    throw new Error('webAudioEngine.decode not implemented in stub');
-  },
-  async transcode() {
-    throw new Error('webAudioEngine.transcode not implemented in stub');
-  },
-  async trim() {
-    throw new Error('webAudioEngine.trim not implemented in stub');
-  },
-  async normalize() {
-    throw new Error('webAudioEngine.normalize not implemented in stub');
-  },
-  async merge() {
-    throw new Error('webAudioEngine.merge not implemented in stub');
-  },
-};
-
-/** lamejs 引擎占位实现（仅 MP3 编码） */
-export const lamejsEngine: AudioEngineAdapter = {
-  name: 'lamejs',
-  version: '0.0.0-stub',
-  supportedCapabilities: ['audio.transcode'],
-  async isSupported() {
-    return true;
-  },
-  async decode() {
-    throw new Error('lamejsEngine.decode not implemented in stub');
-  },
-  async transcode() {
-    throw new Error('lamejsEngine.transcode not implemented in stub');
-  },
-  async trim() {
-    throw new Error('lamejsEngine.trim not implemented in stub');
-  },
-  async normalize() {
-    throw new Error('lamejsEngine.normalize not implemented in stub');
-  },
-  async merge() {
-    throw new Error('lamejsEngine.merge not implemented in stub');
-  },
-};
-
-// ─── 引擎注册表(委托 @lokvis/engine-core 工厂) ───────────
-// 旧版手写 Map + register/get/list/selectBest 四个函数,与 engine-pdf /
-// engine-video / engine-ai 完全相同。改为 createEngineRegistry 一次构造,
-// 消除四份重复样板。get(name?) 未命中时 fallback 到 webAudioEngine。
-const registry = createEngineRegistry<AudioEngineAdapter>(
-  [webAudioEngine, lamejsEngine],
-  webAudioEngine
-);
-
-export function registerAudioEngine(engine: AudioEngineAdapter): void {
-  registry.register(engine);
-}
-
-export function getAudioEngine(name?: AudioEngineName): AudioEngineAdapter {
-  return registry.get(name);
-}
-
-export function listAudioEngines(): AudioEngineAdapter[] {
-  return registry.list();
-}
-
-export async function selectBestAudioEngine(): Promise<AudioEngineAdapter> {
-  return registry.selectBest();
-}
-
-export type { AssetType };
+export type {
+  AudioOutputFormat,
+  AudioTrimParams,
+  AudioMergeParams,
+  AudioTranscodeParams,
+  AudioNormalizeParams,
+} from './types.js';

@@ -1,0 +1,18 @@
+---
+/**
+ * G2:嵌入式 PDF 提取页工具页(cloud apps/web iframe 引用)。
+ *
+ * URL: /embed/en/tools/pdf-extract-pages
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/pdf-extract-pages" />
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import PdfExtractPagesTool from '@/components/tools/pdf/PdfExtractPagesTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="pdf-extract-pages">
+  <PdfExtractPagesTool client:only="react" />
+</EmbedLayout>

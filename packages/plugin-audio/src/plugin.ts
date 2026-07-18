@@ -11,6 +11,7 @@ import { buildAudioCapabilityImplementations } from './operations.js';
 
 export const PLUGIN_NAME = 'lokvis-audio-tools';
 export const PLUGIN_VERSION = '0.1.0';
+export const PLUGIN_ENGINE = 'ffmpeg-wasm';
 
 /**
  * 创建音频工具插件
@@ -33,10 +34,7 @@ export function audioToolsPlugin() {
       description:
         'Official audio tools: trim / normalize / merge / transcode',
       capabilities: AUDIO_CAPABILITIES,
-      // audio 涉及双引擎:web-audio(trim/normalize/merge)+ lamejs(transcode),
-      // engine 字段为单一标识,这里填主引擎名;各 capability 实现的 engine
-      // 在 operations.ts 中按 entry.engine 精确指定。
-      engine: 'web-audio',
+      engine: PLUGIN_ENGINE,
       permissions: ['asset:read', 'asset:write', 'network:none'],
     },
     (ctx) => {

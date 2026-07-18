@@ -2,7 +2,7 @@
  * Cloud 计费模块单元测试(从 mcp-server/src/__tests__/billing.test.ts 迁移,问题 A)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { McpBilling, createBilling } from '../index.js';
+import { CloudBilling, createBilling } from '../index.js';
 import { resolveCloudConfig } from '../cloud-config.js';
 import type { AuthenticatedUser } from '../auth.js';
 
@@ -14,12 +14,12 @@ const makeUser = (overrides?: Partial<AuthenticatedUser>): AuthenticatedUser => 
   ...overrides,
 });
 
-describe('McpBilling', () => {
-  let billing: McpBilling;
+describe('CloudBilling', () => {
+  let billing: CloudBilling;
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    billing = new McpBilling({ apiKey: undefined });
+    billing = new CloudBilling({ apiKey: undefined });
   });
 
   describe('checkCloudAiCall', () => {
@@ -121,7 +121,7 @@ describe('McpBilling', () => {
         new Response(JSON.stringify(mockEntitlements), { status: 200 })
       );
 
-      const billingWithKey = new McpBilling({
+      const billingWithKey = new CloudBilling({
         apiKey: 'lk_' + 'a'.repeat(64),
         apiBaseUrl: 'https://api.test.com',
       });
@@ -133,7 +133,7 @@ describe('McpBilling', () => {
     it('API 请求失败时应降级到 plan 静态映射', async () => {
       vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
 
-      const billingWithKey = new McpBilling({
+      const billingWithKey = new CloudBilling({
         apiKey: 'lk_' + 'a'.repeat(64),
       });
 
@@ -148,7 +148,7 @@ describe('McpBilling', () => {
         new Response('Server Error', { status: 500 })
       );
 
-      const billingWithKey = new McpBilling({
+      const billingWithKey = new CloudBilling({
         apiKey: 'lk_' + 'a'.repeat(64),
       });
 
@@ -166,7 +166,7 @@ describe('McpBilling', () => {
         new Response(JSON.stringify(mockEntitlements), { status: 200 })
       );
 
-      const billingWithKey = new McpBilling({
+      const billingWithKey = new CloudBilling({
         apiKey: 'lk_' + 'a'.repeat(64),
       });
 
@@ -181,7 +181,7 @@ describe('McpBilling', () => {
         new Response('{}', { status: 200 })
       );
 
-      const billingWithKey = new McpBilling({
+      const billingWithKey = new CloudBilling({
         apiKey: 'lk_' + 'a'.repeat(64),
         apiBaseUrl: 'https://api.test.com',
       });
@@ -208,7 +208,7 @@ describe('McpBilling', () => {
 });
 
 describe('createBilling', () => {
-  it('应从 CloudConfig 构造 McpBilling,使用 config 的 planQuotas/upgradeUrl', async () => {
+  it('应从 CloudConfig 构造 CloudBilling,使用 config 的 planQuotas/upgradeUrl', async () => {
     const config = resolveCloudConfig({
       LOKVIS_API_BASE_URL: 'https://api.test.com',
       LOKVIS_UPGRADE_URL: 'https://custom.upgrade.com',

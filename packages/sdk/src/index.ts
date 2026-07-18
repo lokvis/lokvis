@@ -17,6 +17,7 @@
 
 import type { LokvisRuntime } from '@lokvis/runtime';
 import type { RuntimeConfig } from '@lokvis/runtime';
+import type { Plan } from '@lokvis/runtime';
 import type { PluginConfig, PluginInstaller } from '@lokvis/plugin-sdk';
 import { createRuntime } from '@lokvis/runtime';
 import { PluginLoadError } from './errors.js';
@@ -48,8 +49,19 @@ export interface LokvisAuthSession {
   /**
    * 显式声明 Pro 状态。优先级高于 session/token presence 推导。
    * 用于:cloud 已确认身份但游客身份 / 已订阅但 token 待续签 等场景。
+   *
+   * 注:`isPro` 仅控制本地四环门控。若需区分 AI 配额(Pro vs Cloud Pro),
+   * 应传 `plan` 字段。`plan` 优先级高于 `isPro`(显式 plan 时据 plan 推导 isPro)。
    */
   isPro?: boolean;
+  /**
+   * 用户订阅计划(G1)。比 `isPro` 更细粒度,用于 AI 调用计费。
+   * 优先级高于 `isPro`:传 `plan` 时,`isPro` 据 `plan !== 'free'` 推导。
+   * 未传 `plan` 时,按原 `isPro` / session presence 推导,`plan` 默认为:
+   * - isPro=true → 'pro'(向下兼容:旧 cloud 注入不区分 Pro/Cloud Pro)
+   * - isPro=false → 'free'
+   */
+  plan?: Plan;
 }
 
 /** createLokvis 配置 */
@@ -97,27 +109,38 @@ async function installPlugin(
 }
 
 /**
- * 根据 `auth` 推导 `isPro`(W17.3)。
+ * 根据 `auth` 推导 `plan`(G1)。
  *
  * 规则(优先级从高到低):
- * 1. `auth.isPro` 显式设置(boolean,含 false)→ 以它为准,覆盖一切
- *    (允许 cloud 标记游客 session;也覆盖 RuntimeConfig.isPro)
- * 2. `auth.session` / `auth.token` 非空(trim 后)→ `isPro = true`(presence 推导)
- * 3. 否则:fallback 到 `RuntimeConfig.isPro`(若调用方显式传入)
- * 4. 都未设置 → `isPro = false`
+ * 1. `auth.plan` 显式设置 → 以它为准(覆盖 RuntimeConfig.plan 与 isPro 推导)
+ * 2. `auth.isPro` 显式设置 → 'pro'(isPro=true)或 'free'(isPro=false)
+ * 3. `auth.session` / `auth.token` 非空(trim 后)→ 'pro'(presence 推导)
+ * 4. 否则:fallback 到 `RuntimeConfig.plan`(若调用方显式传入)
+ * 5. `RuntimeConfig.isPro` 兼容路径:未传 plan 但传 isPro=true → 'pro'
+ * 6. 都未设置 → 'free'
+ *
+ * `isPro` 派生:`plan !== 'free'`。
  *
  * 不做 token 形态/签名校验 —— cloud 网关负责鉴权,SDK 只接收结果。
  */
-function resolveIsPro(
+function resolvePlan(
   auth: LokvisAuthSession | undefined,
-  fallback?: boolean
-): boolean {
-  if (!auth) return fallback ?? false;
-  if (auth.isPro !== undefined) return auth.isPro;
+  fallback?: Plan,
+  fallbackIsPro?: boolean
+): Plan {
+  if (!auth) {
+    if (fallback) return fallback;
+    if (fallbackIsPro) return 'pro';
+    return 'free';
+  }
+  if (auth.plan) return auth.plan;
+  if (auth.isPro !== undefined) return auth.isPro ? 'pro' : 'free';
   const hasSession = Boolean(auth.session?.trim());
   const hasToken = Boolean(auth.token?.trim());
-  if (hasSession || hasToken) return true;
-  return fallback ?? false;
+  if (hasSession || hasToken) return 'pro';
+  if (fallback) return fallback;
+  if (fallbackIsPro) return 'pro';
+  return 'free';
 }
 
 /**
@@ -150,13 +173,18 @@ function resolveIsPro(
 export async function createLokvis(
   options: CreateLokvisOptions = {}
 ): Promise<LokvisRuntime> {
-  const { plugins = [], auth, isPro: configIsPro, ...rest } = options;
+  const { plugins = [], auth, isPro: configIsPro, plan: configPlan, ...rest } = options;
 
-  // W17.3:据 auth 推导 isPro(auth.isPro 优先,覆盖 RuntimeConfig.isPro;
-  // 否则 presence 推导;都未设置则 fallback 到 configIsPro)
-  const resolvedIsPro = resolveIsPro(auth, configIsPro);
+  // G1:据 auth 推导 plan(auth.plan 优先,覆盖 RuntimeConfig.plan;
+  // 否则按 isPro / presence 推导;都未设置则 fallback 到 configPlan / configIsPro 兼容)
+  const resolvedPlan = resolvePlan(auth, configPlan, configIsPro);
+  const resolvedIsPro = resolvedPlan !== 'free';
 
-  const runtime = await createRuntime({ ...rest, isPro: resolvedIsPro });
+  const runtime = await createRuntime({
+    ...rest,
+    isPro: resolvedIsPro,
+    plan: resolvedPlan,
+  });
 
   // 预加载插件(委托 runtime.installPlugin,无需 instanceof 具体类)
   for (const plugin of plugins) {
@@ -203,6 +231,7 @@ export type {
   BatchItemInput,
   EnqueueOptions,
   BatchProgress,
+  Plan,
 } from '@lokvis/runtime';
 
 /** @public */

@@ -1,0 +1,22 @@
+{
+  "name": "@lokvis/example-plugin-batch-watermark",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Example: an N→1 merge plugin that stamps a text watermark onto multiple images and stitches them into a single contact sheet (teaching reference for createMergeCapabilityImpl)",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lokvis/schema": "workspace:*",
+    "@lokvis/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

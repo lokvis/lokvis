@@ -79,8 +79,23 @@ export interface RuntimeConfig {
    * - false(默认):批量上限 10 文件、并发 4、workflow 槽位 5
    * - true:批量无上限、并发 16、workflow 槽位无限
    * 由 cloud 侧 createLokvis({ auth }) 注入 session 后置为 true。
+   *
+   * 注:`isPro` 仅控制本地批量/槽位门控(四环)。AI 调用配额由
+   * `@lokvis/cloud-bridge` 的 `CloudBilling` 据 `plan` 精确判定
+   * ('pro' 解锁四环但 AI 配额为 0,需 'cloud_pro' 才有 AI 配额)。
    */
   isPro?: boolean;
+  /**
+   * 用户订阅计划(G1)。比 `isPro` 更细粒度,用于 AI 调用计费判定。
+   * - 'free'(默认):免费用户,isPro=false
+   * - 'pro':Pro 订阅($9/月),isPro=true(解锁四环),AI 配额=0
+   * - 'cloud_pro':Cloud Pro 订阅,isPro=true,AI 配额=10/天
+   * - 'enterprise':企业版,isPro=true,AI 配额=∞
+   *
+   * 由 SDK 据 `auth.plan` 注入;未传时默认 'free'。
+   * `isPro` 派生自 `plan !== 'free'`(在 SDK resolvePlan 中计算)。
+   */
+  plan?: Plan;
   /**
    * 内存预算(字节,W3.3 MemoryGuard)。
    * 默认 512MB。BatchProcessor 据此在内存压力高时收缩并发槽位。
@@ -107,6 +122,21 @@ export interface InternalRuntimeInit {
 
 /** Runtime 状态 */
 export type RuntimeStatus = 'idle' | 'running' | 'paused' | 'error';
+
+/**
+ * 用户订阅计划(G1)。
+ *
+ * 与 `@lokvis/cloud-bridge` 的 `AuthenticatedUser.plan` 对齐,但收窄为字面量联合
+ * (cloud-bridge 保留 `string` 以兼容未来新增 plan 而无需发版)。
+ *
+ * - `free`:免费用户,本地工具无限制,cloud AI 不可用
+ * - `pro`:Pro 订阅($9/月),解锁本地四环门控,cloud AI 仍不可用(配额=0)
+ * - `cloud_pro`:Cloud Pro 订阅,解锁四环 + cloud AI 配额(10/天)
+ * - `enterprise`:企业版,无任何限制
+ *
+ * `isPro` 派生自 `plan !== 'free'`。AI 调用配额由 `CloudBilling.planQuotas` 判定。
+ */
+export type Plan = 'free' | 'pro' | 'cloud_pro' | 'enterprise';
 
 /**
  * `toMcpManifest()` 选项。
@@ -139,6 +169,11 @@ export interface LokvisRuntime {
   readonly eventBus: EventBus;
   /** 是否为 Pro 模式(影响批量上限/并发槽位/workflow 数,W6.2) */
   readonly isPro: boolean;
+  /**
+   * 用户订阅计划(G1)。比 `isPro` 更细粒度,用于 AI 调用计费判定。
+   * `isPro === (plan !== 'free')`,二者保持一致。
+   */
+  readonly plan: Plan;
   /** 批量处理器(W6.1:并发控制 + 进度 + 失败重试) */
   readonly batch: BatchProcessor;
 

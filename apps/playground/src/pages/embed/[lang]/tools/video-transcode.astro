@@ -1,0 +1,18 @@
+---
+/**
+ * G2:嵌入式视频转码工具页(cloud apps/web iframe 引用)。
+ *
+ * URL: /embed/en/tools/video-transcode
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/video-transcode" />
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import VideoTranscodeTool from '@/components/tools/video/VideoTranscodeTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="video-transcode">
+  <VideoTranscodeTool client:only="react" />
+</EmbedLayout>

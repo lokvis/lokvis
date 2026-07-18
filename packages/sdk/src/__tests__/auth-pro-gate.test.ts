@@ -7,6 +7,7 @@
  * - 不传 auth 保持 free 模式
  * - 直接传 RuntimeConfig.isPro 仍生效(无 auth 时)
  * - Pro 模式下 BatchProcessor 不再受 FREE_BATCH_LIMIT 约束
+ * - G1:auth.plan 显式注入 → runtime.plan 精确化(区分 pro/cloud_pro/enterprise)
  *
  * 不测 token 形态/签名校验 —— SDK 不做此校验(由 cloud 网关负责)。
  */
@@ -149,6 +150,151 @@ describe('Pro 门控行为:BatchProcessor 受 isPro 约束', () => {
   it('free 模式正好 10 项应通过(边界值)', async () => {
     const rt = await createLokvis();
     const job = rt.batch.enqueue({ items: makeItems(FREE_BATCH_LIMIT) });
+    expect(job.id).toMatch(/^batch_/);
+    await rt.batch.cancel(job.id);
+  });
+});
+
+/**
+ * G1:Plan 维度测试
+ *
+ * 验证 auth.plan 注入 → runtime.plan 精确化的端到端路径:
+ * - { plan: 'cloud_pro' } → runtime.plan === 'cloud_pro' + runtime.isPro === true
+ * - { plan: 'pro' } → runtime.plan === 'pro' + runtime.isPro === true
+ *   (语义:Pro 解锁四环门控,但 AI 配额仍为 0,由 cloud-bridge billing 强制)
+ * - { plan: 'enterprise' } → runtime.plan === 'enterprise' + runtime.isPro === true
+ * - plan 优先级高于 isPro
+ * - plan fallback 到 RuntimeConfig.plan
+ * - 兼容路径:无 plan 时仍走旧 isPro/session/token 推导
+ */
+describe('G1:auth.plan 注入 → runtime.plan 精确化', () => {
+  it('auth.plan = "cloud_pro" → runtime.plan === "cloud_pro" + isPro === true', async () => {
+    const rt = await createLokvis({
+      auth: { plan: 'cloud_pro' },
+    });
+    expect(rt.plan).toBe('cloud_pro');
+    expect(rt.isPro).toBe(true);
+  });
+
+  it('auth.plan = "pro" → runtime.plan === "pro" + isPro === true(四环解锁,AI 配额=0 由 billing 强制)', async () => {
+    const rt = await createLokvis({
+      auth: { plan: 'pro' },
+    });
+    expect(rt.plan).toBe('pro');
+    expect(rt.isPro).toBe(true);
+  });
+
+  it('auth.plan = "enterprise" → runtime.plan === "enterprise" + isPro === true', async () => {
+    const rt = await createLokvis({
+      auth: { plan: 'enterprise' },
+    });
+    expect(rt.plan).toBe('enterprise');
+    expect(rt.isPro).toBe(true);
+  });
+
+  it('auth.plan = "free" → runtime.plan === "free" + isPro === false', async () => {
+    const rt = await createLokvis({
+      auth: { plan: 'free' },
+    });
+    expect(rt.plan).toBe('free');
+    expect(rt.isPro).toBe(false);
+  });
+
+  it('plan 优先级高于 isPro:plan=free + isPro=true → runtime.plan === "free" + isPro === false', async () => {
+    // 边界:cloud 已显式标记 plan=free,本地误传 isPro=true,plan 胜出
+    const rt = await createLokvis({
+      auth: { plan: 'free', isPro: true },
+    });
+    expect(rt.plan).toBe('free');
+    expect(rt.isPro).toBe(false);
+  });
+
+  it('plan 优先级高于 session presence:plan=free + session 非空 → runtime.plan === "free"', async () => {
+    // 边界:游客 session + plan=free,plan 胜出
+    const rt = await createLokvis({
+      auth: { plan: 'free', session: 'guest-jwt' },
+    });
+    expect(rt.plan).toBe('free');
+    expect(rt.isPro).toBe(false);
+  });
+
+  it('无 auth.plan 时 fallback 到 RuntimeConfig.plan', async () => {
+    const rt = await createLokvis({
+      plan: 'enterprise',
+    });
+    expect(rt.plan).toBe('enterprise');
+    expect(rt.isPro).toBe(true);
+  });
+
+  it('auth.plan 优先级高于 RuntimeConfig.plan', async () => {
+    const rt = await createLokvis({
+      plan: 'free',
+      auth: { plan: 'cloud_pro' },
+    });
+    expect(rt.plan).toBe('cloud_pro');
+    expect(rt.isPro).toBe(true);
+  });
+
+  it('兼容路径:无 plan 时仍走旧 isPro 推导(auth.isPro=true → plan=pro)', async () => {
+    const rt = await createLokvis({
+      auth: { isPro: true },
+    });
+    expect(rt.plan).toBe('pro');
+    expect(rt.isPro).toBe(true);
+  });
+
+  it('兼容路径:无 plan 时 session 非空 → plan=pro', async () => {
+    const rt = await createLokvis({
+      auth: { session: 'cloud-jwt' },
+    });
+    expect(rt.plan).toBe('pro');
+    expect(rt.isPro).toBe(true);
+  });
+
+  it('兼容路径:无 plan + 无凭证 → plan=free', async () => {
+    const rt = await createLokvis();
+    expect(rt.plan).toBe('free');
+    expect(rt.isPro).toBe(false);
+  });
+
+  it('兼容路径:无 plan + 无 auth + RuntimeConfig.isPro=true → plan=pro(G1 向后兼容)', async () => {
+    // G1 兼容:旧调用方 createLokvis({ isPro: true }) 无 plan/auth 时,
+    // 应 fallback 到 plan='pro'(isPro 派生为 true,四环解锁)
+    const rt = await createLokvis({ isPro: true });
+    expect(rt.plan).toBe('pro');
+    expect(rt.isPro).toBe(true);
+  });
+});
+
+describe('G1:Pro 门控行为按 plan 维度区分', () => {
+  it('plan=free 触达 batch 上限抛 BatchLimitExceededError', async () => {
+    const rt = await createLokvis({ auth: { plan: 'free' } });
+    expect(rt.plan).toBe('free');
+    expect(() => rt.batch.enqueue({ items: makeItems(FREE_BATCH_LIMIT + 1) })).toThrow(
+      BatchLimitExceededError
+    );
+  });
+
+  it('plan=pro 解锁 batch 上限(四环之一)', async () => {
+    const rt = await createLokvis({ auth: { plan: 'pro' } });
+    expect(rt.plan).toBe('pro');
+    const job = rt.batch.enqueue({ items: makeItems(FREE_BATCH_LIMIT + 1) });
+    expect(job.id).toMatch(/^batch_/);
+    await rt.batch.cancel(job.id);
+  });
+
+  it('plan=cloud_pro 解锁 batch 上限', async () => {
+    const rt = await createLokvis({ auth: { plan: 'cloud_pro' } });
+    expect(rt.plan).toBe('cloud_pro');
+    const job = rt.batch.enqueue({ items: makeItems(FREE_BATCH_LIMIT + 1) });
+    expect(job.id).toMatch(/^batch_/);
+    await rt.batch.cancel(job.id);
+  });
+
+  it('plan=enterprise 解锁 batch 上限', async () => {
+    const rt = await createLokvis({ auth: { plan: 'enterprise' } });
+    expect(rt.plan).toBe('enterprise');
+    const job = rt.batch.enqueue({ items: makeItems(FREE_BATCH_LIMIT + 1) });
     expect(job.id).toMatch(/^batch_/);
     await rt.batch.cancel(job.id);
   });

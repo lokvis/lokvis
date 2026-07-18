@@ -40,3 +40,19 @@ export interface ImageMetadata {
 export interface PdfInfo {
   pages: number;
 }
+
+/**
+ * 视频基本信息(分辨率/时长/帧率/编解码)。
+ *
+ * 由 plugin-video/node 的 `video.read-info` MetadataReader 提供,
+ * 内部调用 engine-video/node 的 getVideoInfo(ffprobe 解析)。
+ * 与 engine-video 的 VideoInfo 接口对齐(此处为共享类型源,
+ * engine-video 改为 re-export 本类型)。
+ */
+export interface VideoInfo {
+  width: number;
+  height: number;
+  duration: number;
+  fps: number;
+  codec: string;
+}

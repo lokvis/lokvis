@@ -1,0 +1,18 @@
+---
+/**
+ * G2:嵌入式图片缩放工具页(cloud apps/web iframe 引用)。
+ *
+ * URL: /embed/en/tools/resize
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/resize" />
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import ResizeTool from '@/components/tools/ResizeTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="resize">
+  <ResizeTool client:only="react" />
+</EmbedLayout>

@@ -73,6 +73,20 @@
       "performance": "slow",
       "batchable": false,
       "mcpExposure": "public"
+    },
+    {
+      "action": "diagnose-error",
+      "description": "Diagnose a workflow execution error and suggest remediation",
+      "inputTypes": ["data"],
+      "outputTypes": ["data"],
+      "params": [
+        { "name": "error", "type": "object", "required": true, "description": "Error object (message, stack, code) from the failed execution" },
+        { "name": "workflow", "type": "object", "required": false, "description": "Workflow definition that failed (optional context)" },
+        { "name": "nodeId", "type": "string", "required": false, "description": "Node ID where the error occurred (optional)" }
+      ],
+      "performance": "slow",
+      "batchable": false,
+      "mcpExposure": "public"
     }
   ]
 }

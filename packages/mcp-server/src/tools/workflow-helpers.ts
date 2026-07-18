@@ -13,11 +13,43 @@
  * - merge(N→1):createMergeCapabilityImpl 路径,inputs.multiple=true
  * - split(1→N):createSplitCapabilityImpl 路径,inputs.multiple=false
  *   (split 输出多个,但输入仍是单个;MCP 当前未用 split,预留)
+ *
+ * O-12:buildSingleTransformWorkflow 与 buildMergeWorkflow 仅 multiple 字段
+ * 不同,抽公共 buildCapabilityWorkflow(multiple) 辅助,消除 90% 重复。
  */
 
 import { randomUUID } from 'node:crypto';
 import { WorkflowBuilder } from '@lokvis/workflow';
 import type { AssetType, Workflow, WorkflowCategory } from '@lokvis/schema';
+
+/**
+ * 构造单节点 capability Workflow(公共辅助)。
+ *
+ * @param capability 能力名,如 `image.resize` / `pdf.merge`
+ * @param params 能力参数
+ * @param category 工作流分类(image / pdf / other)
+ * @param assetType 输入输出 Asset 类型
+ * @param multiple 输入是否多文件(single=false / merge=true)
+ */
+function buildCapabilityWorkflow(
+  capability: string,
+  params: Record<string, unknown>,
+  category: WorkflowCategory,
+  assetType: AssetType,
+  multiple: boolean
+): Workflow {
+  return new WorkflowBuilder({
+    id: `mcp_${randomUUID()}`,
+    name: capability,
+    description: `MCP tool: ${capability}`,
+    author: { id: 'mcp-server', name: 'MCP Server' },
+    category,
+  })
+    .setInput({ type: assetType, multiple })
+    .setOutput({ type: assetType })
+    .add(capability, params)
+    .build();
+}
 
 /**
  * 构造单节点 transform Workflow(1→1 形态)。
@@ -33,17 +65,7 @@ export function buildSingleTransformWorkflow(
   category: WorkflowCategory,
   assetType: AssetType
 ): Workflow {
-  return new WorkflowBuilder({
-    id: `mcp_${randomUUID()}`,
-    name: capability,
-    description: `MCP tool: ${capability}`,
-    author: { id: 'mcp-server', name: 'MCP Server' },
-    category,
-  })
-    .setInput({ type: assetType, multiple: false })
-    .setOutput({ type: assetType })
-    .add(capability, params)
-    .build();
+  return buildCapabilityWorkflow(capability, params, category, assetType, false);
 }
 
 /**
@@ -63,15 +85,5 @@ export function buildMergeWorkflow(
   category: WorkflowCategory,
   assetType: AssetType
 ): Workflow {
-  return new WorkflowBuilder({
-    id: `mcp_${randomUUID()}`,
-    name: capability,
-    description: `MCP tool: ${capability}`,
-    author: { id: 'mcp-server', name: 'MCP Server' },
-    category,
-  })
-    .setInput({ type: assetType, multiple: true })
-    .setOutput({ type: assetType })
-    .add(capability, params)
-    .build();
+  return buildCapabilityWorkflow(capability, params, category, assetType, true);
 }

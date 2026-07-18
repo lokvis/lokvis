@@ -1,7 +1,7 @@
 {
   "name": "@lokvis/plugin-ai",
-  "version": "0.1.0",
-  "description": "Lokvis AI Tools Plugin - ocr / caption / background-remove / generate-workflow / optimize-workflow",
+  "version": "0.2.0",
+  "description": "Lokvis AI Tools Plugin - ocr / caption / background-remove / generate-workflow / optimize-workflow / diagnose-error",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -27,6 +27,8 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -36,7 +38,10 @@
     "@lokvis/engine-ai": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.6.0"
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
   },
   "publishConfig": {
     "access": "public",

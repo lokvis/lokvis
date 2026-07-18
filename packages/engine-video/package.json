@@ -1,7 +1,7 @@
 {
   "name": "@lokvis/engine-video",
-  "version": "0.2.2",
-  "description": "Lokvis Video Engine Adapter - ffmpeg.wasm / WebCodecs",
+  "version": "0.3.0",
+  "description": "Lokvis Video Engine - ffmpeg-static (Node) / stub (browser)",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -12,6 +12,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./node": {
+      "types": "./src/node/index.ts",
+      "import": "./src/node/index.ts"
     }
   },
   "files": [
@@ -27,14 +31,24 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@lokvis/engine-core": "workspace:*",
     "@lokvis/schema": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "^5.6.0"
+  },
+  "peerDependencies": {
+    "ffmpeg-static": "^5.2.0"
+  },
+  "peerDependenciesMeta": {
+    "ffmpeg-static": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public",
@@ -46,6 +60,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./node": {
+        "types": "./dist/node/index.d.ts",
+        "import": "./dist/node/index.js"
       }
     }
   },

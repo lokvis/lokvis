@@ -31,6 +31,8 @@
     "@lokvis/engine-image": "workspace:*",
     "@lokvis/plugin-dev": "workspace:*",
     "@lokvis/plugin-image": "workspace:*",
+    "@lokvis/plugin-pdf": "workspace:*",
+    "@lokvis/plugin-video": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/schema": "workspace:*",
     "@lokvis/sdk": "workspace:*",

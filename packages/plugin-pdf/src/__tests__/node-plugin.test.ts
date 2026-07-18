@@ -3,13 +3,13 @@
  *
  * 验证 pdfToolsPluginNode() 的:
  * - 插件定义结构(engine='pdf-lib')
- * - installer 注册行为(7 个能力实现:2 真实 + 5 stub)
- * - 2 个真实操作(merge/compress)的 isStub 标记
- * - 5 个 stub 操作(split/rotate/watermark/ocr/sign)的 isStub 标记
+ * - installer 注册行为(7 个能力实现:5 真实 + 2 stub)
+ * - 5 个真实操作(merge/split/compress/rotate/watermark)的 isStub 标记
+ * - 2 个 stub 操作(ocr/sign)的 isStub 标记
  * - stub 操作执行时抛出明确错误
  *
- * engine-pdf 的 mergePdfs / compressPdf 通过 vi.mock 替换为桩函数,
- * 避免测试依赖真实 pdf-lib 二进制加载(已在 pdf.test.ts 端到端验证)。
+ * engine-pdf 的 5 个真实操作通过 vi.mock 替换为桩函数,
+ * 避免测试依赖真实 pdf-lib 二进制加载(已在 engine-pdf 包内端到端验证)。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type {
@@ -23,9 +23,19 @@ vi.mock('@lokvis/engine-pdf', () => ({
   mergePdfs: vi.fn(async () =>
     new Blob([new Uint8Array([0])], { type: 'application/pdf' })
   ),
+  splitPdf: vi.fn(async () => [
+    new Blob([new Uint8Array([0])], { type: 'application/pdf' }),
+  ]),
   compressPdf: vi.fn(async () =>
     new Blob([new Uint8Array([0])], { type: 'application/pdf' })
   ),
+  rotatePdf: vi.fn(async () =>
+    new Blob([new Uint8Array([0])], { type: 'application/pdf' })
+  ),
+  addWatermark: vi.fn(async () =>
+    new Blob([new Uint8Array([0])], { type: 'application/pdf' })
+  ),
+  getPdfInfo: vi.fn(async () => ({ pages: 1 })),
 }));
 
 const { pdfToolsPluginNode, PLUGIN_ENGINE_NODE } = await import('../node-plugin.js');
@@ -145,20 +155,20 @@ describe('pdfToolsPluginNode install', () => {
     expect(mock.registered.every((i) => i.engine === 'pdf-lib')).toBe(true);
   });
 
-  it('2 个真实操作(merge/compress)的 status 应非 stub', async () => {
+  it('5 个真实操作(merge/split/compress/rotate/watermark)的 status 应非 stub', async () => {
     const plugin = await pdfToolsPluginNode();
     await plugin.install(mock.ctx);
-    const realCaps = ['pdf.merge', 'pdf.compress'];
+    const realCaps = ['pdf.merge', 'pdf.split', 'pdf.compress', 'pdf.rotate', 'pdf.watermark'];
     for (const cap of realCaps) {
       const impl = mock.registered.find((i) => i.capability === cap)!;
       expect(impl.status).not.toBe('stub');
     }
   });
 
-  it('5 个 stub 操作(split/rotate/watermark/ocr/sign)的 status 应为 stub', async () => {
+  it('2 个 stub 操作(ocr/sign)的 status 应为 stub', async () => {
     const plugin = await pdfToolsPluginNode();
     await plugin.install(mock.ctx);
-    const stubCaps = ['pdf.split', 'pdf.rotate', 'pdf.watermark', 'pdf.ocr', 'pdf.sign'];
+    const stubCaps = ['pdf.ocr', 'pdf.sign'];
     for (const cap of stubCaps) {
       const impl = mock.registered.find((i) => i.capability === cap)!;
       expect(impl.status).toBe('stub');
@@ -171,7 +181,7 @@ describe('pdfToolsPluginNode install', () => {
     expect(mock.logs).toHaveLength(1);
     expect(mock.logs[0]!.level).toBe('info');
     expect(mock.logs[0]!.message).toMatch(/pdf-lib engine/);
-    expect(mock.logs[0]!.message).toMatch(/2 real \+ 5 stub/);
+    expect(mock.logs[0]!.message).toMatch(/5 real \+ 2 stub/);
   });
 
   it('注册的实现 capability 名应与声明一一对应', async () => {
@@ -190,24 +200,24 @@ describe('pdfToolsPluginNode stub 操作行为', () => {
     mock = createMockContext();
   });
 
-  it('stub 操作(split)execute 应抛错包含不支持提示', async () => {
+  it('stub 操作(ocr)execute 应抛错包含不支持提示', async () => {
     const plugin = await pdfToolsPluginNode();
     await plugin.install(mock.ctx);
-    const splitImpl = mock.registered.find((i) => i.capability === 'pdf.split')!;
+    const ocrImpl = mock.registered.find((i) => i.capability === 'pdf.ocr')!;
 
     await expect(
-      splitImpl.execute([makeInputAsset()], {}, EXEC_CTX)
+      ocrImpl.execute([makeInputAsset()], {}, EXEC_CTX)
     ).rejects.toThrow(/not supported by the pdf-lib engine/);
   });
 
-  it('stub 操作(rotate)execute 应抛错列出支持的操作', async () => {
+  it('stub 操作(ocr)execute 应抛错列出支持的操作', async () => {
     const plugin = await pdfToolsPluginNode();
     await plugin.install(mock.ctx);
-    const rotateImpl = mock.registered.find((i) => i.capability === 'pdf.rotate')!;
+    const ocrImpl = mock.registered.find((i) => i.capability === 'pdf.ocr')!;
 
     await expect(
-      rotateImpl.execute([makeInputAsset()], {}, EXEC_CTX)
-    ).rejects.toThrow(/merge, compress/);
+      ocrImpl.execute([makeInputAsset()], {}, EXEC_CTX)
+    ).rejects.toThrow(/merge, split, compress, rotate, watermark/);
   });
 
   it('stub 操作(sign)execute 应抛错列出未来支持的操作', async () => {
@@ -217,7 +227,7 @@ describe('pdfToolsPluginNode stub 操作行为', () => {
 
     await expect(
       signImpl.execute([makeInputAsset()], {}, EXEC_CTX)
-    ).rejects.toThrow(/split, rotate, watermark, ocr, sign/);
+    ).rejects.toThrow(/ocr \(Phase 3\), sign \(Phase 4\)/);
   });
 });
 
@@ -252,6 +262,54 @@ describe('pdfToolsPluginNode 真实操作行为', () => {
     const outputs = await compressImpl.execute(
       [makeInputAsset()],
       { level: 6 },
+      EXEC_CTX
+    );
+
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0]!.type).toBe('pdf');
+    expect(outputs[0]!.metadata.format).toBe('pdf');
+  });
+
+  it('split 操作 execute 应返回多输出 Asset(1→N)', async () => {
+    const plugin = await pdfToolsPluginNode();
+    await plugin.install(mock.ctx);
+    const splitImpl = mock.registered.find((i) => i.capability === 'pdf.split')!;
+
+    const outputs = await splitImpl.execute(
+      [makeInputAsset()],
+      { pagesPerFile: 1 },
+      EXEC_CTX
+    );
+
+    // vi.mock 的 splitPdf 返回 1 个 Blob → 1 个输出 Asset
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0]!.type).toBe('data');
+  });
+
+  it('rotate 操作 execute 应处理单输入并返回单输出 Asset', async () => {
+    const plugin = await pdfToolsPluginNode();
+    await plugin.install(mock.ctx);
+    const rotateImpl = mock.registered.find((i) => i.capability === 'pdf.rotate')!;
+
+    const outputs = await rotateImpl.execute(
+      [makeInputAsset()],
+      { angle: 90 },
+      EXEC_CTX
+    );
+
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0]!.type).toBe('pdf');
+    expect(outputs[0]!.metadata.format).toBe('pdf');
+  });
+
+  it('watermark 操作 execute 应处理单输入并返回单输出 Asset', async () => {
+    const plugin = await pdfToolsPluginNode();
+    await plugin.install(mock.ctx);
+    const watermarkImpl = mock.registered.find((i) => i.capability === 'pdf.watermark')!;
+
+    const outputs = await watermarkImpl.execute(
+      [makeInputAsset()],
+      { text: 'CONFIDENTIAL' },
       EXEC_CTX
     );
 

@@ -35,6 +35,11 @@ import {
   buildSingleTransformWorkflow,
   buildMergeWorkflow,
 } from './workflow-helpers.js';
+import {
+  pdfMergeSchema,
+  pdfCompressSchema,
+  validateParams,
+} from './schemas.js';
 
 /** PDF 文件的 MIME 类型(构造输入 File 时使用) */
 const PDF_MIME = 'application/pdf';
@@ -280,11 +285,11 @@ export function getPdfToolRegistrations(runtime: LokvisRuntime): Array<{
         },
         required: ['input_paths'],
       },
-      handler: (p) =>
-        pdfMerge(
-          p as Parameters<typeof pdfMerge>[0],
-          runtime
-        ),
+      handler: async (p) => {
+        const r = validateParams(pdfMergeSchema, p);
+        if (!r.success) return r.error;
+        return pdfMerge(r.data, runtime);
+      },
     },
     {
       name: 'lokvis_pdf_compress',
@@ -311,11 +316,11 @@ export function getPdfToolRegistrations(runtime: LokvisRuntime): Array<{
         },
         required: ['input_path'],
       },
-      handler: (p) =>
-        pdfCompress(
-          p as Parameters<typeof pdfCompress>[0],
-          runtime
-        ),
+      handler: async (p) => {
+        const r = validateParams(pdfCompressSchema, p);
+        if (!r.success) return r.error;
+        return pdfCompress(r.data, runtime);
+      },
     },
   ];
 }

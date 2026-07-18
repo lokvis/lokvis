@@ -1,0 +1,18 @@
+---
+/**
+ * G2:嵌入式图片裁剪工具页(cloud apps/web iframe 引用)。
+ *
+ * URL: /embed/en/tools/crop
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/crop" />
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import CropTool from '@/components/tools/CropTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="crop">
+  <CropTool client:only="react" />
+</EmbedLayout>

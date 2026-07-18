@@ -12,8 +12,8 @@ Lokvis 是"AI 时代的本地处理引擎"。这个包把浏览器内的本地�
 - `LokvisMcpTransport` 抽象传输层接口(stdio / SSE 双模式)
 - `ToolRouter` 路由逻辑(浏览器优先,Node 降级)
 - 5 个已实现的 tool(3 image + 2 pdf)
-- `McpAuthenticator` API Key 鉴权(可选)
-- `McpBilling` plan 级别配额控制(cloud AI tool 用)
+- `CloudAuthenticator` API Key 鉴权(可选)
+- `CloudBilling` plan 级别配额控制(cloud AI tool 用)
 
 ## 架构(混合模式 E,推荐)
 

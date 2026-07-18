@@ -1,0 +1,118 @@
+---
+/**
+ * EmbedLayout — 极简嵌入布局(G2)。
+ *
+ * 供 cloud apps/web 通过 <iframe> 引用 lokvis-open 工具页:
+ *
+ *   <iframe
+ *     src="https://playground.lokvis.dev/embed/en/tools/compress"
+ *     title="Lokvis 图片压缩"
+ *     width="100%"
+ *     height="600"
+ *     allow="clipboard-write"
+ *     sandbox="allow-scripts allow-same-origin allow-downloads"
+ *   />
+ *
+ * 与 ToolLayout 的区别:
+ *   - 无 sidebar / 顶部品牌条 / 底部 Why Lokvis 卡片(最大化工作区)
+ *   - 无 PWA 安装提示 / OfflineIndicator(嵌入场景不需要)
+ *   - 保留 PrivacyBadge(隐私声明是 Lokvis 核心卖点)
+ *   - 保留 SEO meta(支持 cloud 站点直接 iframe 索引或分享预览)
+ *
+ * SEO 评分保障(Lighthouse ≥ 90):
+ *   - 极简 HTML 结构(无 sidebar / 大量 nav)
+ *   - meta description / OG / Twitter Card 完整(复用 TOOL_SEO)
+ *   - 工具组件 client:only="react"(无 SSR 阻塞,首屏 LCP 快)
+ */
+import { TOOL_SEO } from '@/components/tools/seo';
+import { getLangFromUrl } from '@/i18n/utils';
+import { langList, type Language } from '@/i18n/config';
+import { PrivacyBadge } from '@/components/toolkit/PrivacyBadge';
+
+interface Props {
+  /** 工具 slug,对应 TOOL_SEO 的 key,如 'compress' */
+  slug: string;
+  /** 可选:i18n key 之外的额外标题覆盖(默认从 TOOL_SEO 取) */
+  title?: string;
+}
+
+const { slug, title } = Astro.props;
+const seo = TOOL_SEO[slug];
+const lang: Language = getLangFromUrl(Astro.url);
+
+if (!seo) {
+  throw new Error(
+    `EmbedLayout: slug "${slug}" 不在 TOOL_SEO 中。请在 components/tools/seo.ts 注册该工具的 SEO 元数据。`
+  );
+}
+
+// 校验:仅允许 langList 中的语言(避免任意路径注入)
+if (!langList.includes(lang)) {
+  throw new Error(`EmbedLayout: 非法 lang 参数 "${lang}"`);
+}
+
+const fullTitle = title ?? `${seo.title} · Lokvis Embed`;
+const base = import.meta.env.BASE_URL;
+const ogImage = new URL(`${base}og/${slug}.png`, Astro.site).toString();
+const keywords = seo.keywords?.join(', ');
+---
+<!doctype html>
+<html lang={lang} class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    {/* 嵌入场景允许索引(供 cloud 站点 iframe 引用时被搜索引擎收录);
+        playground 主站点仍是 noindex,nofollow(见 PlaygroundLayout) */}
+    <meta name="robots" content="index, follow" />
+    <meta name="description" content={seo.description} />
+    {keywords && <meta name="keywords" content={keywords} />}
+    <title>{fullTitle}</title>
+
+    {/* Open Graph:支持 cloud 站点分享 iframe URL 时显示预览卡 */}
+    <meta property="og:title" content={seo.title} />
+    <meta property="og:description" content={seo.description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content={lang === 'zh' ? 'zh_CN' : 'en_US'} />
+
+    {/* Twitter Card */}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={seo.title} />
+    <meta name="twitter:description" content={seo.description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    {/* CSP:允许被任意父级嵌入(iframe 跨域) */}
+    <meta http-equiv="Content-Security-Policy" content={`frame-ancestors *;`} />
+
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  </head>
+  <body class="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
+    <div class="flex flex-col gap-2 px-3 py-2">
+      <PrivacyBadge client:load lang={lang} />
+    </div>
+    <main class="px-3 pb-4">
+      <slot />
+    </main>
+  </body>
+</html>
+
+<script>
+  // 嵌入式工具页:向父窗口发送 ready 信号(cloud apps/web 可监听此事件调整 iframe 高度)
+  if (window.self !== window.top) {
+    window.parent?.postMessage(
+      { type: 'lokvis:embed:ready', slug: location.pathname.split('/').pop() },
+      '*'
+    );
+    // 高度自适应:监听 body 高度变化,通知父窗口
+    const sendHeight = () => {
+      const h = document.documentElement.scrollHeight;
+      window.parent?.postMessage({ type: 'lokvis:embed:height', height: h }, '*');
+    };
+    window.addEventListener('load', sendHeight);
+    window.addEventListener('resize', sendHeight);
+    // ResizeObserver 监听工具组件渲染后的高度变化
+    const ro = new ResizeObserver(() => sendHeight());
+    ro.observe(document.body);
+  }
+</script>

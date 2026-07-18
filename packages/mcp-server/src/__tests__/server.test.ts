@@ -71,7 +71,9 @@ describe('createLokvisMcpServer', () => {
 
   afterEach(async () => {
     if (tmpDir) {
-      await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+      await rm(tmpDir, { recursive: true, force: true }).catch((err) => {
+        console.warn('[mcp-server test] cleanup tmpDir failed:', err);
+      });
     }
   });
 

@@ -4,15 +4,19 @@
  * 与浏览器版本 `pdfToolsPlugin()` 的区别:
  * - 浏览器版所有 capability 标记为 stub,运行时抛错(不加载 pdf-lib)
  * - Node 版直接绑定 `@lokvis/engine-pdf` 的独立 Blob↔Blob 操作
- *   (mergePdfs / compressPdf,基于 pdf-lib),2 个真实能力 + 5 个 stub
+ *   (mergePdfs / splitPdf / compressPdf / rotatePdf / addWatermark,
+ *    基于 pdf-lib),5 个真实能力 + 2 个 stub(ocr / sign)
  *
- * 2 个真实操作:
+ * 5 个真实操作:
  * - pdf.merge(N→1):mergePdfs(Blob[] → Blob)
+ * - pdf.split(1→N):splitPdf(Blob → Blob[])
  * - pdf.compress(1→1):compressPdf(Blob → Blob)
+ * - pdf.rotate(1→1):rotatePdf(Blob → Blob)
+ * - pdf.watermark(1→1):addWatermark(Blob → Blob)
  *
- * 5 个 stub 操作(待 engine-pdf 实装后补):
- * - pdf.split(1→N)
- * - pdf.rotate / pdf.watermark / pdf.ocr / pdf.sign(1→1)
+ * 2 个 stub 操作(暂未实装):
+ * - pdf.ocr(1→1):依赖 tesseract.js,留 Phase 3
+ * - pdf.sign(1→1):合规风险,留 Phase 4 企业版
  *
  * 用途:
  * - MCP Server(Node 端 pdf tool 实际执行器)
@@ -37,7 +41,10 @@ import type {
 } from '@lokvis/schema';
 import {
   mergePdfs as opMergePdfs,
+  splitPdf as opSplitPdf,
   compressPdf as opCompressPdf,
+  rotatePdf as opRotatePdf,
+  addWatermark as opAddWatermark,
   getPdfInfo,
 } from '@lokvis/engine-pdf';
 import { PLUGIN_NAME, PLUGIN_VERSION } from './plugin.js';
@@ -50,9 +57,6 @@ export const PDF_INFO_READER_NAME = 'pdf.read-info';
 
 /** Node 环境下未实现的操作集合(标记为 stub) */
 const NODE_STUB_CAPABILITIES = new Set<string>([
-  'pdf.split',
-  'pdf.rotate',
-  'pdf.watermark',
   'pdf.ocr',
   'pdf.sign',
 ]);
@@ -80,8 +84,8 @@ type SplitPdfOperation = (
 function unsupportedMessage(capability: string): string {
   return (
     `Operation "${capability}" is not supported by the pdf-lib engine in Node environment. ` +
-    `Supported operations: merge, compress. ` +
-    `Future operations: split, rotate, watermark, ocr, sign.`
+    `Supported operations: merge, split, compress, rotate, watermark. ` +
+    `Future operations: ocr (Phase 3), sign (Phase 4).`
   );
 }
 
@@ -101,18 +105,6 @@ function createUnsupportedSingleOp(capability: string): SinglePdfOperation {
   };
 }
 
-/**
- * 构造 split(1→N)形态的 stub 操作。
- *
- * 与 createUnsupportedSingleOp 行为一致,仅签名不同(Blob → Blob[]),
- * 避免 `as unknown as` 双断言(AGENTS.md 禁止)。
- */
-function createUnsupportedSplitOp(capability: string): SplitPdfOperation {
-  return async (_blob, _params) => {
-    throw new Error(unsupportedMessage(capability));
-  };
-}
-
 /** 从输出 Blob 派生 PDF Asset 元数据 */
 function derivePdfMetadata(outBlob: Blob): AssetMetadata {
   const mimeType = outBlob.type || 'application/pdf';
@@ -120,14 +112,14 @@ function derivePdfMetadata(outBlob: Blob): AssetMetadata {
   return { mimeType, size: outBlob.size, format };
 }
 
-/** split 形态的 stub deriveMetadata(outputType='data') */
+/** split 形态的 deriveMetadata(outputType='data') */
 function deriveSplitPdfMetadata(outBlob: Blob): AssetMetadata {
   const mimeType = outBlob.type || 'application/octet-stream';
   const format = mimeType.split('/')[1] ?? 'bin';
   return { mimeType, size: outBlob.size, format };
 }
 
-/** ocr 形态的 stub deriveMetadata(outputType='text') */
+/** ocr 形态的 deriveMetadata(outputType='text') */
 function deriveOcrPdfMetadata(outBlob: Blob): AssetMetadata {
   const mimeType = outBlob.type || 'text/plain';
   const format = mimeType.split('/')[1] ?? 'txt';
@@ -137,7 +129,7 @@ function deriveOcrPdfMetadata(outBlob: Blob): AssetMetadata {
 /**
  * 创建 PDF 工具插件(Node 环境,基于 pdf-lib 引擎)
  *
- * 2 真实(merge/compress)+ 5 stub(split/rotate/watermark/ocr/sign),
+ * 5 真实(merge/split/compress/rotate/watermark)+ 2 stub(ocr/sign),
  * 共 7 个 capability 实现。
  *
  * @example
@@ -159,13 +151,13 @@ export async function pdfToolsPluginNode() {
       name: PLUGIN_NAME,
       version: PLUGIN_VERSION,
       description:
-        'Official PDF tools (Node, pdf-lib): merge / compress + stub(split/rotate/watermark/ocr/sign)',
+        'Official PDF tools (Node, pdf-lib): merge / split / compress / rotate / watermark + stub(ocr/sign)',
       capabilities: PDF_CAPABILITIES,
       engine: PLUGIN_ENGINE_NODE,
       permissions: ['asset:read', 'asset:write', 'network:none'],
     },
     (ctx) => {
-      // 7 个能力实现:2 真实 + 5 stub
+      // 7 个能力实现:5 真实 + 2 stub
       const impls = [
         // ─── 真实操作 ────────────────────────────────────
         // pdf.merge: N→1,用 createMergeCapabilityImpl + mergePdfs
@@ -177,6 +169,18 @@ export async function pdfToolsPluginNode() {
             operation: opMergePdfs as MergePdfOperation,
             isStub: false,
             deriveMetadata: derivePdfMetadata,
+          },
+          ctx
+        ),
+        // pdf.split: 1→N,用 createSplitCapabilityImpl + splitPdf
+        createSplitCapabilityImpl(
+          {
+            capability: 'pdf.split',
+            engine: PLUGIN_ENGINE_NODE,
+            outputType: 'data' as AssetType,
+            operation: opSplitPdf as SplitPdfOperation,
+            isStub: false,
+            deriveMetadata: deriveSplitPdfMetadata,
           },
           ctx
         ),
@@ -193,44 +197,33 @@ export async function pdfToolsPluginNode() {
           },
           ctx
         ),
-
-        // ─── stub 操作 ────────────────────────────────────
-        // pdf.split: 1→N,用 createSplitCapabilityImpl + stub operation
-        createSplitCapabilityImpl(
-          {
-            capability: 'pdf.split',
-            engine: PLUGIN_ENGINE_NODE,
-            outputType: 'data' as AssetType,
-            operation: createUnsupportedSplitOp('pdf.split'),
-            isStub: true,
-            deriveMetadata: deriveSplitPdfMetadata,
-          },
-          ctx
-        ),
-        // pdf.rotate / pdf.watermark / pdf.sign: 1→1,outputType='pdf'
+        // pdf.rotate: 1→1,用 createBlobCapabilityImpl + rotatePdf
         createBlobCapabilityImpl(
           {
             capability: 'pdf.rotate',
             engine: PLUGIN_ENGINE_NODE,
             outputType: 'pdf' as AssetType,
-            operation: createUnsupportedSingleOp('pdf.rotate'),
-            isStub: true,
+            operation: opRotatePdf as SinglePdfOperation,
+            isStub: false,
             deriveMetadata: (_source, outBlob) => derivePdfMetadata(outBlob),
           },
           ctx
         ),
+        // pdf.watermark: 1→1,用 createBlobCapabilityImpl + addWatermark
         createBlobCapabilityImpl(
           {
             capability: 'pdf.watermark',
             engine: PLUGIN_ENGINE_NODE,
             outputType: 'pdf' as AssetType,
-            operation: createUnsupportedSingleOp('pdf.watermark'),
-            isStub: true,
+            operation: opAddWatermark as SinglePdfOperation,
+            isStub: false,
             deriveMetadata: (_source, outBlob) => derivePdfMetadata(outBlob),
           },
           ctx
         ),
-        // pdf.ocr: 1→1,outputType='text'
+
+        // ─── stub 操作 ────────────────────────────────────
+        // pdf.ocr: 1→1,outputType='text'(依赖 tesseract.js,留 Phase 3)
         createBlobCapabilityImpl(
           {
             capability: 'pdf.ocr',
@@ -242,6 +235,7 @@ export async function pdfToolsPluginNode() {
           },
           ctx
         ),
+        // pdf.sign: 1→1,outputType='pdf'(合规风险,留 Phase 4 企业版)
         createBlobCapabilityImpl(
           {
             capability: 'pdf.sign',

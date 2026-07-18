@@ -2,7 +2,7 @@
  * Cloud 鉴权模块单元测试(从 mcp-server/src/__tests__/auth.test.ts 迁移,问题 A)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { McpAuthenticator, isValidApiKeyFormat, createAuthenticator } from '../index.js';
+import { CloudAuthenticator, isValidApiKeyFormat, createAuthenticator } from '../index.js';
 import { resolveCloudConfig } from '../cloud-config.js';
 
 describe('isValidApiKeyFormat', () => {
@@ -37,20 +37,20 @@ describe('isValidApiKeyFormat', () => {
   });
 });
 
-describe('McpAuthenticator', () => {
+describe('CloudAuthenticator', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
   it('无 API Key 时返回未认证', async () => {
-    const auth = new McpAuthenticator({ apiKey: undefined });
+    const auth = new CloudAuthenticator({ apiKey: undefined });
     const result = await auth.verify();
     expect(result.authenticated).toBe(false);
     expect(result.error).toContain('No API key');
   });
 
   it('格式不正确的 API Key 应返回错误', async () => {
-    const auth = new McpAuthenticator({ apiKey: 'invalid_key' });
+    const auth = new CloudAuthenticator({ apiKey: 'invalid_key' });
     const result = await auth.verify();
     expect(result.authenticated).toBe(false);
     expect(result.error).toContain('Invalid API key format');
@@ -67,7 +67,7 @@ describe('McpAuthenticator', () => {
       new Response(JSON.stringify(mockUser), { status: 200 })
     );
 
-    const auth = new McpAuthenticator({
+    const auth = new CloudAuthenticator({
       apiKey: 'lk_' + 'a'.repeat(64),
       apiBaseUrl: 'https://api.test.com',
     });
@@ -82,7 +82,7 @@ describe('McpAuthenticator', () => {
       new Response('Unauthorized', { status: 401 })
     );
 
-    const auth = new McpAuthenticator({
+    const auth = new CloudAuthenticator({
       apiKey: 'lk_' + 'a'.repeat(64),
     });
     const result = await auth.verify();
@@ -95,7 +95,7 @@ describe('McpAuthenticator', () => {
       new Response('Server Error', { status: 500 })
     );
 
-    const auth = new McpAuthenticator({
+    const auth = new CloudAuthenticator({
       apiKey: 'lk_' + 'a'.repeat(64),
     });
     const result = await auth.verify();
@@ -106,12 +106,25 @@ describe('McpAuthenticator', () => {
   it('网络错误应返回错误(不抛异常)', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
 
-    const auth = new McpAuthenticator({
+    const auth = new CloudAuthenticator({
       apiKey: 'lk_' + 'a'.repeat(64),
     });
     const result = await auth.verify();
     expect(result.authenticated).toBe(false);
     expect(result.error).toContain('Failed to reach API');
+  });
+
+  it('请求超时应返回超时错误(AbortError)', async () => {
+    // 模拟 AbortController.abort() 抛出的 DOMException
+    const abortError = new DOMException('The operation was aborted.', 'AbortError');
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(abortError);
+
+    const auth = new CloudAuthenticator({
+      apiKey: 'lk_' + 'a'.repeat(64),
+    });
+    const result = await auth.verify();
+    expect(result.authenticated).toBe(false);
+    expect(result.error).toContain('timed out');
   });
 
   it('应使用缓存避免重复请求', async () => {
@@ -125,7 +138,7 @@ describe('McpAuthenticator', () => {
       new Response(JSON.stringify(mockUser), { status: 200 })
     );
 
-    const auth = new McpAuthenticator({
+    const auth = new CloudAuthenticator({
       apiKey: 'lk_' + 'a'.repeat(64),
     });
 
@@ -151,7 +164,7 @@ describe('McpAuthenticator', () => {
       new Response(JSON.stringify(mockUser), { status: 200 })
     );
 
-    const auth = new McpAuthenticator({
+    const auth = new CloudAuthenticator({
       apiKey: 'lk_' + 'a'.repeat(64),
     });
 
@@ -165,8 +178,8 @@ describe('McpAuthenticator', () => {
   });
 
   it('hasApiKey 应正确反映 API Key 是否提供', () => {
-    const withKey = new McpAuthenticator({ apiKey: 'lk_test' });
-    const withoutKey = new McpAuthenticator({ apiKey: undefined });
+    const withKey = new CloudAuthenticator({ apiKey: 'lk_test' });
+    const withoutKey = new CloudAuthenticator({ apiKey: undefined });
     expect(withKey.hasApiKey()).toBe(true);
     expect(withoutKey.hasApiKey()).toBe(false);
   });
@@ -179,7 +192,7 @@ describe('McpAuthenticator', () => {
       new Response(JSON.stringify(mockUser), { status: 200 })
     );
 
-    const auth = new McpAuthenticator({
+    const auth = new CloudAuthenticator({
       apiKey: 'lk_' + 'a'.repeat(64),
       apiBaseUrl: 'https://staging.api.lokvis.com',
     });
@@ -195,7 +208,7 @@ describe('McpAuthenticator', () => {
 });
 
 describe('createAuthenticator', () => {
-  it('应从 CloudConfig 构造 McpAuthenticator', async () => {
+  it('应从 CloudConfig 构造 CloudAuthenticator', async () => {
     const mockUser = {
       id: 'u', email: 'e', username: 'u', plan: 'free',
     };

@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/engine-ai",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Lokvis AI Engine Adapter - Transformers.js / Cloud AI proxy",
   "license": "MIT",
   "type": "module",
@@ -12,6 +12,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./structured": {
+      "types": "./src/structured.ts",
+      "import": "./src/structured.ts"
     }
   },
   "files": [
@@ -27,14 +31,18 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@lokvis/engine-core": "workspace:*",
     "@lokvis/schema": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.6.0"
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
   },
   "publishConfig": {
     "access": "public",
@@ -46,6 +54,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./structured": {
+        "types": "./dist/structured.d.ts",
+        "import": "./dist/structured.js"
       }
     }
   },

@@ -84,6 +84,83 @@ export const TOOL_SEO: Record<string, ToolSeo> = {
       '管理本地浏览器中处理后的图片下载,支持单文件与批量下载。文件始终在浏览器本地,不上传。',
     keywords: ['下载管理', '批量下载', '本地处理'],
   },
+  'pdf-compress': {
+    slug: 'pdf-compress',
+    title: 'PDF 压缩 · 级别 1-9',
+    description:
+      '压缩 PDF 文件大小,支持 1-9 级压缩(1=最快/最低,9=最慢/最高)。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['PDF 压缩', 'pdf.compress', '减小 PDF 体积', 'Node 端处理'],
+  },
+  'pdf-rotate': {
+    slug: 'pdf-rotate',
+    title: 'PDF 旋转 · 90/180/270 + 页码范围',
+    description:
+      '旋转 PDF 页面,支持 90/180/270 度与页码范围选择。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['PDF 旋转', 'pdf.rotate', '旋转 PDF 页面', 'Node 端处理'],
+  },
+  'pdf-watermark': {
+    slug: 'pdf-watermark',
+    title: 'PDF 加水印 · 文字水印',
+    description:
+      '给 PDF 加文字水印,支持颜色、透明度、字号。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['PDF 水印', 'pdf.watermark', 'PDF 加水印', 'Node 端处理'],
+  },
+  'pdf-split': {
+    slug: 'pdf-split',
+    title: 'PDF 拆分 · 单页 / 按页数 / 自定义范围',
+    description:
+      '拆分 PDF 为多个文件,支持每页一个、按页数拆分、自定义范围三种模式。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['PDF 拆分', 'pdf.split', 'PDF 分割', 'Node 端处理'],
+  },
+  'pdf-merge': {
+    slug: 'pdf-merge',
+    title: 'PDF 合并 · N→1',
+    description:
+      '合并多个 PDF 为一个文件,支持对象流选项(输出更小)。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['PDF 合并', 'pdf.merge', 'PDF 拼接', 'Node 端处理'],
+  },
+  'pdf-extract-pages': {
+    slug: 'pdf-extract-pages',
+    title: 'PDF 提取页 · 按页码范围',
+    description:
+      '从 PDF 中提取指定页码范围的页面,如 1-3,5,7-9。复用 pdf.split capability 的 ranges 模式。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['PDF 提取页', '提取 PDF 页', 'pdf.split', 'Node 端处理'],
+  },
+  'video-compress': {
+    slug: 'video-compress',
+    title: '视频压缩 · CRF + Scale',
+    description:
+      '压缩视频,支持 MP4/WebM 输出、CRF(0-51)与分辨率缩放系数(0.25-1)。浏览器端为 stub(不加载 ffmpeg.wasm ~30MB),实际处理在 Node(mcp-server)。',
+    keywords: ['视频压缩', 'video.compress', 'CRF', 'ffmpeg', 'Node 端处理'],
+  },
+  'video-transcode': {
+    slug: 'video-transcode',
+    title: '视频转码 · MP4/WebM/GIF',
+    description:
+      '视频格式转码,支持 MP4/WebM/GIF 互转,可选 codec(libx264 / libvpx-vp9 / gif)。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['视频转码', 'video.transcode', 'MP4', 'WebM', 'GIF', 'Node 端处理'],
+  },
+  'video-trim': {
+    slug: 'video-trim',
+    title: '视频裁剪 · 起止时间',
+    description:
+      '按起止时间裁剪视频片段,HTML5 video 时间轴选择器。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['视频裁剪', 'video.trim', '视频剪辑', '时间轴', 'Node 端处理'],
+  },
+  'video-to-gif': {
+    slug: 'video-to-gif',
+    title: '视频转 GIF · FPS + 宽度 + 范围',
+    description:
+      '视频转动画 GIF,支持 FPS、宽度与时间范围。输出为 GIF 图像。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['视频转 GIF', 'video.to-gif', '动画 GIF', 'Node 端处理'],
+  },
+  'video-thumbnail': {
+    slug: 'video-thumbnail',
+    title: '视频缩略图 · 截取一帧',
+    description:
+      '从视频指定时间点截取一帧作为缩略图,支持 PNG/JPEG/WebP 输出。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['视频缩略图', 'video.screenshot', '截帧', 'Node 端处理'],
+  },
 };
 
 /**

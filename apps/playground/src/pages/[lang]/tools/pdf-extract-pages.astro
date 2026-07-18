@@ -1,0 +1,12 @@
+---
+import { langList } from '@/i18n/config';
+import ToolLayout from '@/layouts/ToolLayout.astro';
+import PdfExtractPagesTool from '@/components/tools/pdf/PdfExtractPagesTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<ToolLayout slug="pdf-extract-pages">
+  <PdfExtractPagesTool client:only="react" />
+</ToolLayout>

@@ -1,0 +1,18 @@
+---
+/**
+ * G2:嵌入式 PDF 加水印工具页(cloud apps/web iframe 引用)。
+ *
+ * URL: /embed/en/tools/pdf-watermark
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/pdf-watermark" />
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import PdfWatermarkTool from '@/components/tools/pdf/PdfWatermarkTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="pdf-watermark">
+  <PdfWatermarkTool client:only="react" />
+</EmbedLayout>

@@ -1,0 +1,18 @@
+---
+/**
+ * G2:嵌入式下载管理器工具页(cloud apps/web iframe 引用)。
+ *
+ * URL: /embed/en/tools/download
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/download" />
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import DownloadManager from '@/components/tools/DownloadManager.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="download">
+  <DownloadManager client:only="react" />
+</EmbedLayout>

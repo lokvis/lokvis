@@ -16,6 +16,7 @@ import type {
   WorkflowEdge,
   WorkflowNode,
 } from '@lokvis/schema';
+import { MAX_WORKFLOW_STEPS } from '@lokvis/schema';
 
 /** buildLinearWorkflow 的最小输入节点结构(WorkspaceNode 的子集) */
 export interface BuildLinearWorkflowNode {
@@ -47,13 +48,28 @@ function assetTypeToCategory(type: AssetType): WorkflowCategory {
   }
 }
 
-/** 把工作台节点序列构建为线性 Workflow(无校验,步数由 UI 层在 addNode 时拦截) */
+/**
+ * 把工作台节点序列构建为线性 Workflow。
+ *
+ * O-11:构造时校验步数上限(MAX_WORKFLOW_STEPS),防御绕过 UI 层直接调用
+ * buildLinearWorkflow 传入超长节点序列的场景。UI 层(workflow-slice.ts)
+ * 已在 addNode 时拦截,此处为防御性编程。
+ *
+ * 不调用 validateWorkflow 完整校验 —— buildLinearWorkflow 不感知 capability
+ * 注册表,无法做 capability 兼容性校验;结构校验由 workflowSchema.safeParse
+ * 在 runtime.run() 入口完成。
+ */
 export function buildLinearWorkflow(
   nodes: BuildLinearWorkflowNode[],
   inputType: AssetType
 ): Workflow {
   if (nodes.length === 0) {
     throw new Error('Workflow is empty');
+  }
+  if (nodes.length > MAX_WORKFLOW_STEPS) {
+    throw new Error(
+      `Workflow has ${nodes.length} nodes, exceeds max ${MAX_WORKFLOW_STEPS} (MAX_WORKFLOW_STEPS).`
+    );
   }
   const workflowNodes: WorkflowNode[] = nodes.map((n) => ({
     id: n.id,
@@ -70,7 +86,7 @@ export function buildLinearWorkflow(
   }
   return {
     $schema: 'https://lokvis.dev/schemas/workflow.json',
-    id: `wf_${Date.now().toString(36)}`,
+    id: `wf_${crypto.randomUUID()}`,
     name: 'Workspace Workflow',
     version: '1.0.0',
     description: 'Workspace linear workflow',

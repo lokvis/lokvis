@@ -13,7 +13,6 @@ export { audioToolsPlugin as default, audioToolsPlugin } from './plugin.js';
 export {
   buildAudioCapabilityImplementations,
   type AudioOperationEntry,
-  type AudioOperationKind,
-  type SingleAudioOperation,
+  type AudioOperation,
   type MergeAudioOperation,
 } from './operations.js';

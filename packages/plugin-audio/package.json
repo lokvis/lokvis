@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/plugin-audio",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Lokvis Audio Tools Plugin - trim / normalize / merge / transcode",
   "license": "MIT",
   "type": "module",
@@ -12,6 +12,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./node": {
+      "types": "./src/node-plugin.ts",
+      "import": "./src/node-plugin.ts"
     }
   },
   "files": [
@@ -27,6 +31,8 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -36,7 +42,17 @@
     "@lokvis/engine-audio": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.6.0"
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "peerDependencies": {
+    "ffmpeg-static": "^5.2.0"
+  },
+  "peerDependenciesMeta": {
+    "ffmpeg-static": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public",
@@ -48,6 +64,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./node": {
+        "types": "./dist/node-plugin.d.ts",
+        "import": "./dist/node-plugin.js"
       }
     }
   },

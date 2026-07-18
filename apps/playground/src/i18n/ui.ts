@@ -73,6 +73,28 @@ export const ui: Dict = {
   'nav.tools.batch.desc': { en: 'Batch concurrent processing (concurrency 4)', zh: '批量并发处理（并发 4）' },
   'nav.tools.download.label': { en: 'Download Manager', zh: '下载管理器' },
   'nav.tools.download.desc': { en: 'Single/batch download management', zh: '单/批量下载管理' },
+  'nav.tools.pdfCompress.label': { en: 'PDF Compress', zh: 'PDF 压缩' },
+  'nav.tools.pdfCompress.desc': { en: 'pdf.compress · level 1-9', zh: 'pdf.compress · 级别 1-9' },
+  'nav.tools.pdfRotate.label': { en: 'PDF Rotate', zh: 'PDF 旋转' },
+  'nav.tools.pdfRotate.desc': { en: 'pdf.rotate · 90/180/270', zh: 'pdf.rotate · 90/180/270' },
+  'nav.tools.pdfWatermark.label': { en: 'PDF Watermark', zh: 'PDF 水印' },
+  'nav.tools.pdfWatermark.desc': { en: 'pdf.watermark · text watermark', zh: 'pdf.watermark · 文字水印' },
+  'nav.tools.pdfSplit.label': { en: 'PDF Split', zh: 'PDF 拆分' },
+  'nav.tools.pdfSplit.desc': { en: 'pdf.split · 1→N', zh: 'pdf.split · 1→N' },
+  'nav.tools.pdfMerge.label': { en: 'PDF Merge', zh: 'PDF 合并' },
+  'nav.tools.pdfMerge.desc': { en: 'pdf.merge · N→1', zh: 'pdf.merge · N→1' },
+  'nav.tools.pdfExtractPages.label': { en: 'PDF Extract Pages', zh: 'PDF 提取页' },
+  'nav.tools.pdfExtractPages.desc': { en: 'pdf.split · extract pages', zh: 'pdf.split · 提取页' },
+  'nav.tools.videoCompress.label': { en: 'Video Compress', zh: '视频压缩' },
+  'nav.tools.videoCompress.desc': { en: 'video.compress · crf + scale', zh: 'video.compress · crf + 缩放' },
+  'nav.tools.videoTranscode.label': { en: 'Video Transcode', zh: '视频转码' },
+  'nav.tools.videoTranscode.desc': { en: 'video.transcode · mp4/webm/gif', zh: 'video.transcode · mp4/webm/gif' },
+  'nav.tools.videoTrim.label': { en: 'Video Trim', zh: '视频裁剪' },
+  'nav.tools.videoTrim.desc': { en: 'video.trim · start + end', zh: 'video.trim · 起止时间' },
+  'nav.tools.videoToGif.label': { en: 'Video to GIF', zh: '视频转 GIF' },
+  'nav.tools.videoToGif.desc': { en: 'video.to-gif · animated GIF', zh: 'video.to-gif · 动图' },
+  'nav.tools.videoThumbnail.label': { en: 'Video Thumbnail', zh: '视频缩略图' },
+  'nav.tools.videoThumbnail.desc': { en: 'video.screenshot · capture frame', zh: 'video.screenshot · 截取帧' },
 
   // ─── More 菜单项 ───────────────────────────────────────
   'nav.image.label': { en: 'Image Workflow (legacy)', zh: '图像工作流（旧版）' },
@@ -464,6 +486,157 @@ export const ui: Dict = {
   'batch.statusDone': { en: 'Done', zh: '已完成' },
   'batch.statusError': { en: 'Failed', zh: '失败' },
 
+  // ─── PDF 工具页通用 ───────────────────────────────────
+  'pdf.stubHint': {
+    en: 'PDF processing runs in Node (mcp-server). Browser plugin-pdf is stub-only.',
+    zh: 'PDF 处理在 Node 端运行(mcp-server)。浏览器 plugin-pdf 仅为 stub。',
+  },
+
+  // ─── PDF Compress Tool ────────────────────────────────
+  'pdfCompress.title': { en: 'PDF Compress', zh: 'PDF 压缩' },
+  'pdfCompress.subtitle': { en: 'pdf.compress · level 1-9', zh: 'pdf.compress · 级别 1-9' },
+  'pdfCompress.level': { en: 'Compression level', zh: '压缩级别' },
+  'pdfCompress.levelHint': { en: '1=fastest/lowest, 9=slowest/highest', zh: '1=最快/最低,9=最慢/最高' },
+  'pdfCompress.btn': { en: 'Compress', zh: '压缩' },
+  'pdfCompress.busy': { en: 'Compressing…', zh: '压缩中…' },
+  'pdfCompress.uploadHint': { en: 'Select or drop a PDF', zh: '选择或拖入 PDF' },
+  'pdfCompress.reselect': { en: '← Reselect PDF', zh: '← 重新选择 PDF' },
+
+  // ─── PDF Rotate Tool ──────────────────────────────────
+  'pdfRotate.title': { en: 'PDF Rotate', zh: 'PDF 旋转' },
+  'pdfRotate.subtitle': { en: 'pdf.rotate · 90/180/270 + page range', zh: 'pdf.rotate · 90/180/270 + 页码范围' },
+  'pdfRotate.angle': { en: 'Angle', zh: '角度' },
+  'pdfRotate.pages': { en: 'Pages (optional)', zh: '页码范围(可选)' },
+  'pdfRotate.pagesPlaceholder': { en: 'e.g. 1-3,5,7', zh: '如 1-3,5,7' },
+  'pdfRotate.pagesHint': { en: 'Empty = all pages', zh: '留空 = 所有页' },
+  'pdfRotate.btn': { en: 'Rotate', zh: '旋转' },
+  'pdfRotate.busy': { en: 'Rotating…', zh: '旋转中…' },
+  'pdfRotate.uploadHint': { en: 'Select or drop a PDF', zh: '选择或拖入 PDF' },
+  'pdfRotate.reselect': { en: '← Reselect PDF', zh: '← 重新选择 PDF' },
+
+  // ─── PDF Watermark Tool ───────────────────────────────
+  'pdfWatermark.title': { en: 'PDF Watermark', zh: 'PDF 水印' },
+  'pdfWatermark.subtitle': { en: 'pdf.watermark · text + color + opacity', zh: 'pdf.watermark · 文字 + 颜色 + 透明度' },
+  'pdfWatermark.text': { en: 'Watermark text', zh: '水印文字' },
+  'pdfWatermark.color': { en: 'Color', zh: '颜色' },
+  'pdfWatermark.opacity': { en: 'Opacity', zh: '透明度' },
+  'pdfWatermark.fontSize': { en: 'Font size', zh: '字号' },
+  'pdfWatermark.btn': { en: 'Watermark', zh: '加水印' },
+  'pdfWatermark.busy': { en: 'Watermarking…', zh: '加水印中…' },
+  'pdfWatermark.uploadHint': { en: 'Select or drop a PDF', zh: '选择或拖入 PDF' },
+  'pdfWatermark.reselect': { en: '← Reselect PDF', zh: '← 重新选择 PDF' },
+
+  // ─── PDF Split Tool ───────────────────────────────────
+  'pdfSplit.title': { en: 'PDF Split', zh: 'PDF 拆分' },
+  'pdfSplit.subtitle': { en: 'pdf.split · single / pagesPerFile / ranges', zh: 'pdf.split · 单页 / 按页数 / 自定义范围' },
+  'pdfSplit.mode': { en: 'Mode', zh: '模式' },
+  'pdfSplit.modeSingle': { en: 'One page per file', zh: '每页一个文件' },
+  'pdfSplit.modePagesPerFile': { en: 'Pages per file', zh: '按页数拆分' },
+  'pdfSplit.modeRanges': { en: 'Custom ranges', zh: '自定义范围' },
+  'pdfSplit.pagesPerFile': { en: 'Pages per file', zh: '每文件页数' },
+  'pdfSplit.ranges': { en: 'Ranges', zh: '范围' },
+  'pdfSplit.rangesHint': { en: 'e.g. 1-3,4-6,7', zh: '如 1-3,4-6,7' },
+  'pdfSplit.btn': { en: 'Split', zh: '拆分' },
+  'pdfSplit.busy': { en: 'Splitting…', zh: '拆分中…' },
+  'pdfSplit.uploadHint': { en: 'Select or drop a PDF', zh: '选择或拖入 PDF' },
+  'pdfSplit.reselect': { en: '← Reselect PDF', zh: '← 重新选择 PDF' },
+
+  // ─── PDF Merge Tool ───────────────────────────────────
+  'pdfMerge.title': { en: 'PDF Merge', zh: 'PDF 合并' },
+  'pdfMerge.subtitle': { en: 'pdf.merge · N→1', zh: 'pdf.merge · N→1' },
+  'pdfMerge.multiInputHint': {
+    en: 'Merge requires multiple inputs. Current playground UI supports single input preview only — multi-input will land in Phase 3 (BatchQueue integration).',
+    zh: '合并需要多个输入。当前 playground UI 仅支持单输入预览——多输入将在 Phase 3(集成 BatchQueue)落地。',
+  },
+  'pdfMerge.useObjectStreams': { en: 'Use object streams', zh: '使用对象流' },
+  'pdfMerge.useObjectStreamsHint': {
+    en: 'Smaller output, slightly slower',
+    zh: '输出更小,略慢',
+  },
+  'pdfMerge.btn': { en: 'Merge', zh: '合并' },
+  'pdfMerge.busy': { en: 'Merging…', zh: '合并中…' },
+  'pdfMerge.uploadHint': { en: 'Select or drop a PDF', zh: '选择或拖入 PDF' },
+  'pdfMerge.reselect': { en: '← Reselect PDF', zh: '← 重新选择 PDF' },
+
+  // ─── PDF Extract Pages Tool ───────────────────────────
+  'pdfExtractPages.title': { en: 'PDF Extract Pages', zh: 'PDF 提取页' },
+  'pdfExtractPages.subtitle': { en: 'pdf.split · extract specific pages', zh: 'pdf.split · 提取指定页' },
+  'pdfExtractPages.ranges': { en: 'Pages to extract', zh: '要提取的页' },
+  'pdfExtractPages.rangesHint': { en: 'e.g. 1-3,5,7-9', zh: '如 1-3,5,7-9' },
+  'pdfExtractPages.btn': { en: 'Extract', zh: '提取' },
+  'pdfExtractPages.busy': { en: 'Extracting…', zh: '提取中…' },
+  'pdfExtractPages.uploadHint': { en: 'Select or drop a PDF', zh: '选择或拖入 PDF' },
+  'pdfExtractPages.reselect': { en: '← Reselect PDF', zh: '← 重新选择 PDF' },
+
+  // ─── Video 工具页通用 ─────────────────────────────────
+  'video.stubHint': {
+    en: 'Video processing runs in Node (mcp-server). Browser plugin-video is stub-only (ffmpeg.wasm ~30MB not loaded).',
+    zh: '视频处理在 Node 端运行(mcp-server)。浏览器 plugin-video 仅为 stub(未加载 ffmpeg.wasm ~30MB)。',
+  },
+
+  // ─── Video Compress Tool ──────────────────────────────
+  'videoCompress.title': { en: 'Video Compress', zh: '视频压缩' },
+  'videoCompress.subtitle': { en: 'video.compress · crf + scale', zh: 'video.compress · crf + 缩放' },
+  'videoCompress.format': { en: 'Format', zh: '格式' },
+  'videoCompress.crf': { en: 'CRF', zh: 'CRF' },
+  'videoCompress.crfHint': { en: '0=lossless, 51=worst (default 23)', zh: '0=无损, 51=最差(默认 23)' },
+  'videoCompress.scale': { en: 'Scale', zh: '缩放系数' },
+  'videoCompress.scaleHint': { en: '0.25=quarter res, 1=original', zh: '0.25=四分之一分辨率, 1=原始' },
+  'videoCompress.btn': { en: 'Compress', zh: '压缩' },
+  'videoCompress.busy': { en: 'Compressing…', zh: '压缩中…' },
+  'videoCompress.uploadHint': { en: 'Select or drop a video', zh: '选择或拖入视频' },
+  'videoCompress.reselect': { en: '← Reselect video', zh: '← 重新选择视频' },
+
+  // ─── Video Transcode Tool ─────────────────────────────
+  'videoTranscode.title': { en: 'Video Transcode', zh: '视频转码' },
+  'videoTranscode.subtitle': { en: 'video.transcode · mp4/webm/gif', zh: 'video.transcode · mp4/webm/gif' },
+  'videoTranscode.format': { en: 'Target format', zh: '目标格式' },
+  'videoTranscode.codec': { en: 'Codec (optional)', zh: '编解码器(可选)' },
+  'videoTranscode.codecHint': { en: 'e.g. libx264 / libvpx-vp9 / gif', zh: '如 libx264 / libvpx-vp9 / gif' },
+  'videoTranscode.btn': { en: 'Transcode', zh: '转码' },
+  'videoTranscode.busy': { en: 'Transcoding…', zh: '转码中…' },
+  'videoTranscode.uploadHint': { en: 'Select or drop a video', zh: '选择或拖入视频' },
+  'videoTranscode.reselect': { en: '← Reselect video', zh: '← 重新选择视频' },
+
+  // ─── Video Trim Tool ──────────────────────────────────
+  'videoTrim.title': { en: 'Video Trim', zh: '视频裁剪' },
+  'videoTrim.subtitle': { en: 'video.trim · start + end', zh: 'video.trim · 起止时间' },
+  'videoTrim.start': { en: 'Start', zh: '起点' },
+  'videoTrim.end': { en: 'End', zh: '终点' },
+  'videoTrim.durationLabel': { en: 'Duration', zh: '时长' },
+  'videoTrim.clipLength': { en: 'Clip length', zh: '片段长度' },
+  'videoTrim.loadFirst': { en: 'Load a video to enable trim', zh: '请先加载视频以启用裁剪' },
+  'videoTrim.btn': { en: 'Trim', zh: '裁剪' },
+  'videoTrim.busy': { en: 'Trimming…', zh: '裁剪中…' },
+  'videoTrim.uploadHint': { en: 'Select or drop a video', zh: '选择或拖入视频' },
+  'videoTrim.reselect': { en: '← Reselect video', zh: '← 重新选择视频' },
+
+  // ─── Video To GIF Tool ────────────────────────────────
+  'videoToGif.title': { en: 'Video to GIF', zh: '视频转 GIF' },
+  'videoToGif.subtitle': { en: 'video.to-gif · fps + width + range', zh: 'video.to-gif · fps + 宽度 + 范围' },
+  'videoToGif.fps': { en: 'FPS', zh: '帧率' },
+  'videoToGif.width': { en: 'Width (px)', zh: '宽度 (px)' },
+  'videoToGif.useRange': { en: 'Use time range', zh: '使用时间范围' },
+  'videoToGif.useRangeHint': { en: 'Convert only a segment (default: full video)', zh: '仅转换片段(默认:整个视频)' },
+  'videoToGif.start': { en: 'Start', zh: '起点' },
+  'videoToGif.end': { en: 'End', zh: '终点' },
+  'videoToGif.btn': { en: 'Convert', zh: '转换' },
+  'videoToGif.busy': { en: 'Converting…', zh: '转换中…' },
+  'videoToGif.uploadHint': { en: 'Select or drop a video', zh: '选择或拖入视频' },
+  'videoToGif.reselect': { en: '← Reselect video', zh: '← 重新选择视频' },
+
+  // ─── Video Thumbnail Tool ─────────────────────────────
+  'videoThumbnail.title': { en: 'Video Thumbnail', zh: '视频缩略图' },
+  'videoThumbnail.subtitle': { en: 'video.screenshot · capture a frame', zh: 'video.screenshot · 截取一帧' },
+  'videoThumbnail.time': { en: 'Time', zh: '时间点' },
+  'videoThumbnail.format': { en: 'Format', zh: '格式' },
+  'videoThumbnail.durationLabel': { en: 'Duration', zh: '时长' },
+  'videoThumbnail.loadFirst': { en: 'Load a video to enable screenshot', zh: '请先加载视频以启用截图' },
+  'videoThumbnail.btn': { en: 'Capture', zh: '截取' },
+  'videoThumbnail.busy': { en: 'Capturing…', zh: '截取中…' },
+  'videoThumbnail.uploadHint': { en: 'Select or drop a video', zh: '选择或拖入视频' },
+  'videoThumbnail.reselect': { en: '← Reselect video', zh: '← 重新选择视频' },
+
   // ─── Download Manager Tool ────────────────────────────
   'download.title': { en: 'Download Manager', zh: '下载管理器' },
   'download.subtitle': { en: 'Single/batch download management', zh: '单/批量下载管理' },
@@ -596,6 +769,61 @@ export const ui: Dict = {
   'playground.shareHint': { en: 'Copy a shareable URL (with embedded code) to clipboard', zh: '复制可分享的链接(含嵌入代码)到剪贴板' },
   'playground.resetHint': { en: 'Reset to the original snippet code', zh: '重置为原始 snippet 代码' },
   'playground.runShortcutHint': { en: 'Run (Ctrl/Cmd + Enter)', zh: '运行 (Ctrl/Cmd + Enter)' },
+
+  // ─── G1:Plan 模拟 + 升级提示 ──────────────────────────
+  'plan.toggle.label': { en: 'Plan:', zh: '计划:' },
+  'plan.toggle.hint': { en: 'Simulate plan to test Pro gating', zh: '模拟计划以测试 Pro 门控' },
+  'plan.free': { en: 'Free', zh: '免费' },
+  'plan.pro': { en: 'Pro', zh: 'Pro' },
+  'plan.cloud_pro': { en: 'Cloud Pro', zh: 'Cloud Pro' },
+  'plan.enterprise': { en: 'Enterprise', zh: '企业版' },
+  'upgrade.title': { en: 'Upgrade required', zh: '需要升级' },
+  'upgrade.cta': { en: 'Upgrade to Cloud Pro', zh: '升级到 Cloud Pro' },
+  'upgrade.close': { en: 'Close', zh: '关闭' },
+  'upgrade.later': { en: 'Maybe later', zh: '稍后再说' },
+  'upgrade.reasonBatchLimit': {
+    en: 'Free plan is limited to 10 files per batch. Upgrade to Pro for unlimited batch processing.',
+    zh: '免费计划每批最多 10 个文件。升级到 Pro 可无限制批量处理。',
+  },
+  'upgrade.reasonWorkflowLimit': {
+    en: 'Free plan can save up to 5 workflows. Upgrade to Pro for unlimited workflows.',
+    zh: '免费计划最多保存 5 个工作流。升级到 Pro 可无限保存。',
+  },
+  'upgrade.reasonPresetLimit': {
+    en: 'Free plan can save up to 3 custom presets. Upgrade to Pro for unlimited presets.',
+    zh: '免费计划最多保存 3 个自定义预设。升级到 Pro 可无限保存。',
+  },
+  'upgrade.reasonAiQuota': {
+    en: 'Cloud AI features require a Cloud Pro subscription ($9/month). Free and Pro plans do not include AI calls.',
+    zh: 'Cloud AI 功能需要 Cloud Pro 订阅($9/月)。Free 和 Pro 计划不含 AI 调用配额。',
+  },
+  'upgrade.reasonGeneric': {
+    en: 'You have reached the Free plan limit. Upgrade to unlock more features.',
+    zh: '已达到免费计划限制。升级以解锁更多功能。',
+  },
+
+  // ─── G2 嵌入式工具索引页 ───────────────────────────────
+  'embed.title': { en: 'Embeddable Tools', zh: '可嵌入工具' },
+  'embed.subtitle': {
+    en: 'Embed any Lokvis tool into your site via iframe. Files stay in the user browser — no upload, no server-side processing.',
+    zh: '通过 iframe 将任意 Lokvis 工具嵌入你的站点。文件始终留在用户浏览器,不上传、不在服务端处理。',
+  },
+  'embed.usage': {
+    en: 'Copy the iframe snippet below into your HTML. Replace the lang prefix (en/zh) as needed.',
+    zh: '将下方的 iframe 代码片段复制到你的 HTML 中。按需替换语言前缀(en/zh)。',
+  },
+  'embed.preview': { en: 'Preview', zh: '预览' },
+  'embed.cat.image': { en: 'Image Tools', zh: '图像工具' },
+  'embed.cat.pdf': { en: 'PDF Tools', zh: 'PDF 工具' },
+  'embed.cat.video': { en: 'Video Tools', zh: '视频工具' },
+  'embed.postMessageTitle': {
+    en: 'PostMessage Integration (optional)',
+    zh: 'PostMessage 集成(可选)',
+  },
+  'embed.postMessageDesc': {
+    en: 'Embedded pages emit postMessage events so the parent window can detect readiness and auto-resize the iframe height.',
+    zh: '嵌入式页面会发射 postMessage 事件,父窗口可据此检测就绪状态并自适应 iframe 高度。',
+  },
 };
 
 export type TranslationKey = keyof typeof ui;

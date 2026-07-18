@@ -22,7 +22,9 @@ afterEach(async () => {
     s.close();
   }
   for (const b of bridges.splice(0)) {
-    await b.close().catch(() => {});
+    await b.close().catch((err) => {
+      console.warn('[mcp-server test] browser-bridge close failed:', err);
+    });
   }
 });
 

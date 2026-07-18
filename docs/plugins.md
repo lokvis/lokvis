@@ -1,7 +1,7 @@
 # 插件开发（Plugins）
 
 > 插件是向 Lokvis 添加能力的唯一方式。
-> 2026 AI 生态转型后，**MCP Server 是推荐路径**；Plugin SDK 维持为 Alpha 预览。
+> 2026 AI 生态转型后，**MCP Server 是推荐路径**；Plugin SDK 处于 Beta 预览。
 
 > **仓库范围（[ADR-012](./adr/012-商业资产迁出.md)）**：开源仓库（MIT）仅保留
 > `apps/docs/`（文档站）与 `apps/playground/`（SDK/Runtime/Plugin demo）。
@@ -19,8 +19,8 @@ Lokvis 提供两种扩展机制：
 | **适用场景** | 在自有网站嵌入 Lokvis，需要自定义浏览器内能力 | 让 AI 客户端（Claude/ChatGPT/Cursor）调用本地能力 |
 | **协议** | Lokvis 自定义 | MCP 标准 |
 | **触达范围** | 仅 Lokvis 用户 | 所有 MCP 兼容客户端 |
-| **优先级** | Alpha 预览（教学） | **推荐方式** |
-| **阶段** | Phase 1 Alpha | Phase 2 GA |
+| **优先级** | Beta 预览（教学） | **推荐方式** |
+| **阶段** | Phase 2 Beta | Phase 2 GA |
 
 **选 Plugin SDK**：你在自己的网站通过 `@lokvis/sdk` 嵌入 Lokvis，需要自定义浏览器内能力。
 
@@ -103,6 +103,14 @@ export default function myPlugin() {
 lokvis plugin create my-plugin
 ```
 
+生成的骨架已包含 `definePlugin` + `createBlobCapabilityImpl` 的完整模板。两个
+完整示例插件位于 `examples/`：
+
+| 示例 | Asset-flow 形态 | 工厂 | 演示能力 |
+|------|----------------|------|---------|
+| [`examples/plugin-grayscale`](../examples/plugin-grayscale) | 1→1 (single) | `createBlobCapabilityImpl` | `image.grayscale`（canvas 像素灰度化） |
+| [`examples/plugin-batch-watermark`](../examples/plugin-batch-watermark) | N→1 (merge) | `createMergeCapabilityImpl` | `image.batch-watermark`（多图水印 + contact sheet 拼接） |
+
 ---
 
 ## 官方插件
@@ -110,9 +118,9 @@ lokvis plugin create my-plugin
 | 插件 | 能力数 | 引擎 | 状态 |
 |------|--------|------|------|
 | `@lokvis/plugin-image` | 9 | Canvas + createImageBitmap | ✅ 已实现 |
-| `@lokvis/plugin-video` | 7 | ffmpeg.wasm（计划） | 🟡 stub |
-| `@lokvis/plugin-pdf` | 7 | pdf-lib（计划） | 🟡 stub |
-| `@lokvis/plugin-audio` | 4 | Web Audio API + lamejs（计划） | 🟡 stub |
+| `@lokvis/plugin-video` | 7 | ffmpeg.wasm（浏览器 stub）/ ffmpeg-static（Node） | ✅ 已实现（Node）/ 🟡 stub（浏览器） |
+| `@lokvis/plugin-pdf` | 7 | pdf-lib（浏览器 stub）/ pdfcpu（Node） | ✅ 已实现（Node）/ 🟡 stub（浏览器） |
+| `@lokvis/plugin-audio` | 4 | ffmpeg.wasm（浏览器 stub）/ ffmpeg-static（Node） | ✅ 已实现（Node）/ 🟡 stub（浏览器） |
 | `@lokvis/plugin-ai` | 5 | transformers + cloud-proxy（计划） | 🟡 stub |
 | `@lokvis/plugin-dev` | 4 | 无（内置实现） | ✅ 已实现 |
 
@@ -130,14 +138,16 @@ lokvis plugin create my-plugin
 |------|--------|--------|
 | 战略角色 | 生态核心 | **兼容层**，仅浏览器内嵌入 |
 | 正式发布 | Phase 2 v1 | **Phase 3 或取消** |
-| 优先级 | P0 | **P3**（Alpha 预览保留） |
+| 优先级 | P0 | **P3**（Beta 预览保留） |
 
 保留原因：
 1. 浏览器内嵌入场景仍需要 Plugin SDK
 2. 教学价值：帮助开发者理解 Lokvis 能力模型
 3. 未来兼容：若 MCP 生态变化，可作为 fallback
 
-不删除，但不主动投入。当前维持在 `0.2.2`（Alpha 预览，不发 GA）。
+不删除，但不主动投入。当前维持在 `0.4.0`（Beta 预览，不发 GA）。
+Beta 阶段保持 API 稳定（避免 `0.4.x` 内的破坏性变更），GA（`1.0`）推迟到
+Phase 3 视生态情况决定。
 
 ---
 

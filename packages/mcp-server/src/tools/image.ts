@@ -31,6 +31,14 @@ import {
   formatSize,
 } from './fs-helpers.js';
 import { buildSingleTransformWorkflow } from './workflow-helpers.js';
+import {
+  resizeSchema,
+  compressSchema,
+  convertSchema,
+  cropSchema,
+  watermarkSchema,
+  validateParams,
+} from './schemas.js';
 
 /** 文件扩展名 → MIME 类型(构造输入 File 时使用,runtime 据此推断格式) */
 const EXT_TO_MIME: Record<string, string> = {
@@ -549,11 +557,11 @@ export function getImageToolRegistrations(runtime: LokvisRuntime): Array<{
         },
         required: ['input_path'],
       },
-      handler: (p) =>
-        imageResize(
-          p as Parameters<typeof imageResize>[0],
-          runtime
-        ),
+      handler: async (p) => {
+        const r = validateParams(resizeSchema, p);
+        if (!r.success) return r.error;
+        return imageResize(r.data, runtime);
+      },
     },
     {
       name: 'lokvis_image_compress',
@@ -580,11 +588,11 @@ export function getImageToolRegistrations(runtime: LokvisRuntime): Array<{
         },
         required: ['input_path'],
       },
-      handler: (p) =>
-        imageCompress(
-          p as Parameters<typeof imageCompress>[0],
-          runtime
-        ),
+      handler: async (p) => {
+        const r = validateParams(compressSchema, p);
+        if (!r.success) return r.error;
+        return imageCompress(r.data, runtime);
+      },
     },
     {
       name: 'lokvis_image_convert',
@@ -615,11 +623,11 @@ export function getImageToolRegistrations(runtime: LokvisRuntime): Array<{
         },
         required: ['input_path', 'format'],
       },
-      handler: (p) =>
-        imageConvert(
-          p as Parameters<typeof imageConvert>[0],
-          runtime
-        ),
+      handler: async (p) => {
+        const r = validateParams(convertSchema, p);
+        if (!r.success) return r.error;
+        return imageConvert(r.data, runtime);
+      },
     },
     {
       name: 'lokvis_image_crop',
@@ -656,11 +664,11 @@ export function getImageToolRegistrations(runtime: LokvisRuntime): Array<{
         },
         required: ['input_path', 'x', 'y', 'width', 'height'],
       },
-      handler: (p) =>
-        imageCrop(
-          p as Parameters<typeof imageCrop>[0],
-          runtime
-        ),
+      handler: async (p) => {
+        const r = validateParams(cropSchema, p);
+        if (!r.success) return r.error;
+        return imageCrop(r.data, runtime);
+      },
     },
     {
       name: 'lokvis_image_watermark',
@@ -709,11 +717,11 @@ export function getImageToolRegistrations(runtime: LokvisRuntime): Array<{
         },
         required: ['input_path'],
       },
-      handler: (p) =>
-        imageWatermark(
-          p as Parameters<typeof imageWatermark>[0],
-          runtime
-        ),
+      handler: async (p) => {
+        const r = validateParams(watermarkSchema, p);
+        if (!r.success) return r.error;
+        return imageWatermark(r.data, runtime);
+      },
     },
   ];
 }

@@ -110,6 +110,36 @@ export const AI_OPTIMIZE_WORKFLOW: Capability = {
   mcpExposure: 'public',
 };
 
+export const AI_DIAGNOSE_ERROR: Capability = {
+  name: 'ai.diagnose-error',
+  description: 'Diagnose a workflow execution error and suggest remediation',
+  inputTypes: ['data'],
+  outputTypes: ['data'],
+  params: [
+    {
+      name: 'error',
+      type: 'object',
+      required: true,
+      description: 'Error object (message, stack, code) from the failed execution',
+    },
+    {
+      name: 'workflow',
+      type: 'object',
+      required: false,
+      description: 'Workflow definition that failed (optional context)',
+    },
+    {
+      name: 'nodeId',
+      type: 'string',
+      required: false,
+      description: 'Node ID where the error occurred (optional)',
+    },
+  ],
+  performance: 'slow',
+  batchable: false,
+  mcpExposure: 'public',
+};
+
 /** 所有内置 ai 能力预设(由 codegen 从 manifest 生成) */
 export const AI_CAPABILITIES: Capability[] = [
   AI_OCR,
@@ -117,4 +147,5 @@ export const AI_CAPABILITIES: Capability[] = [
   AI_BACKGROUND_REMOVE,
   AI_GENERATE_WORKFLOW,
   AI_OPTIMIZE_WORKFLOW,
+  AI_DIAGNOSE_ERROR,
 ];

@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/plugin-sdk",
-  "version": "0.2.2",
+  "version": "0.4.0",
   "description": "Lokvis Plugin SDK - Build plugins for the Lokvis Runtime",
   "license": "MIT",
   "author": "Lokvis",

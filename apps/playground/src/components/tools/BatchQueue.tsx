@@ -8,11 +8,14 @@
  * 并发池:维护一个 queueRef(源) + state(渲染),每次有 done/error 就补满到 4。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Workflow } from '@lokvis/sdk';
+import type { Workflow, Plan } from '@lokvis/sdk';
+import { FREE_BATCH_LIMIT } from '@lokvis/runtime';
 import { UploadBox } from '@/components/toolkit/UploadBox';
 import { useLokvisRuntime } from '@/components/toolkit/useLokvisRuntime';
 import { downloadBlob, formatBytes } from '@/components/toolkit/download';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { PlanToggle } from '@/components/PlanToggle';
+import { UpgradeDialog, type UpgradeReason } from '@/components/UpgradeDialog';
 import { useLang } from '@/i18n/useLang';
 import { useTranslations } from '@/i18n/utils';
 
@@ -72,11 +75,15 @@ export default function BatchQueue() {
 function BatchQueueContent() {
   const lang = useLang();
   const t = useTranslations(lang);
-  const { runtime, ready, error: initError } = useLokvisRuntime();
+  // G1:plan 模拟(默认 free)。切换时 useLokvisRuntime 重建 runtime,触发四环门控。
+  const [plan, setPlan] = useState<Plan>('free');
+  const { runtime, ready, error: initError } = useLokvisRuntime({ plan });
   const runtimeRef = useRef(runtime);
   useEffect(() => {
     runtimeRef.current = runtime;
   }, [runtime]);
+  // G1:升级提示状态(null=不显示,UpgradeReason=显示对应文案)
+  const [upgradeReason, setUpgradeReason] = useState<UpgradeReason | null>(null);
 
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const queueRef = useRef<QueueItem[]>([]);
@@ -221,6 +228,13 @@ function BatchQueueContent() {
   const handleFiles = useCallback(
     (files: File[]) => {
       if (files.length === 0) return;
+      // G1:Free plan 触达 batch 上限时显示升级提示(四环之一)
+      // 注:BatchQueue 自身并发逻辑不强制此上限(用 runtime.batch.enqueue 才会抛
+      // BatchLimitExceededError);这里手动检查以演示 G1 的 UI 路径。
+      const projectedTotal = queueRef.current.length + files.length;
+      if (plan === 'free' && projectedTotal > FREE_BATCH_LIMIT) {
+        setUpgradeReason('batchLimit');
+      }
       const newItems: QueueItem[] = files.map((file) => ({
         id: nextId(),
         file,
@@ -230,7 +244,7 @@ function BatchQueueContent() {
       commit([...queueRef.current, ...newItems]);
       setError(null);
     },
-    [commit]
+    [commit, plan]
   );
 
   const handleProcessAll = useCallback(() => {
@@ -283,8 +297,14 @@ function BatchQueueContent() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-sm font-semibold text-zinc-100">{t('batch.title')}</h1>
-        <p className="mt-0.5 text-xs text-zinc-500">{t('batch.subtitle')}</p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-sm font-semibold text-zinc-100">{t('batch.title')}</h1>
+            <p className="mt-0.5 text-xs text-zinc-500">{t('batch.subtitle')}</p>
+          </div>
+          {/* G1:Plan 模拟切换器(测试四环门控) */}
+          <PlanToggle plan={plan} onChange={setPlan} />
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
@@ -418,6 +438,12 @@ function BatchQueueContent() {
           </div>
         )}
       </div>
+
+      {/* G1:升级提示对话框(Free 用户触达 batch 上限时弹出) */}
+      <UpgradeDialog
+        reason={upgradeReason}
+        onClose={() => setUpgradeReason(null)}
+      />
     </div>
   );
 }

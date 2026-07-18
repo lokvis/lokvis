@@ -147,8 +147,8 @@ describe('AI 能力预设', () => {
     expect(prompt?.required).toBe(true);
   });
 
-  it('AI_CAPABILITIES 应包含 5 个能力', () => {
-    expect(AI_CAPABILITIES).toHaveLength(5);
+  it('AI_CAPABILITIES 应包含 6 个能力', () => {
+    expect(AI_CAPABILITIES).toHaveLength(6);
   });
 });
 

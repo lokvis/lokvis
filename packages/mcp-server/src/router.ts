@@ -4,15 +4,14 @@
  * 路由优先级:
  *   1. 浏览器连接模式(完整能力):若 BrowserBridge 已连接,优先转发到浏览器
  *   2. Node 降级模式(基础能力):浏览器未连接时,直接调用 tool handler
- *      (image tool handler 经 runtime.run() 走完整 capability 系统,
- *       pdf tool handler 直接调 engine-pdf;TD-1.1 长期方案)
+ *      (image / pdf tool handler 均经 runtime.run() 走完整 capability 系统)
  *   3. 都不可用:抛错并提示用户打开 lokvis.app
  *
  * 详见 docs/AI生态冲击调整方案.md §3.5。
  *
- * 实装状态(2026-07-17):image tools 经 runtime.run() 走 capability 系统
- * (TD-1.1 已清偿);pdf tools 仍直接调 engine-pdf(待 plugin-pdf/node 实装后清偿)。
- * NodeEngineAdapter 中间层已移除,tool handler 自身就是完整执行单元。
+ * 实装状态(2026-07-18):image + pdf tools 均经 runtime.run(workflow, inputs)
+ * 走完整 capability 系统(TD-1.1 / TD-1.3 / TD-1.4 已清偿)。NodeEngineAdapter
+ * 中间层已移除,tool handler 自身就是完整执行单元。
  */
 
 /** Tool handler 签名:接收 params,返回任意结果(通常是 McpToolResult) */

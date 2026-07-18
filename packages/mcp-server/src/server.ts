@@ -13,7 +13,7 @@ import { imageToolsPluginNode } from '@lokvis/plugin-image/node';
 import { pdfToolsPluginNode } from '@lokvis/plugin-pdf/node';
 import type { CloudConfig } from '@lokvis/cloud-bridge';
 import { createAuthenticator, createBilling } from '@lokvis/cloud-bridge';
-import type { McpAuthenticator, McpBilling } from '@lokvis/cloud-bridge';
+import type { CloudAuthenticator, CloudBilling } from '@lokvis/cloud-bridge';
 import { McpServerAdapter } from './mcp-server-adapter.js';
 import { NodeAssetStore } from './node-asset-store.js';
 import { getImageToolRegistrations } from './tools/image.js';
@@ -171,9 +171,9 @@ export async function createLokvisMcpServer(
   /** ToolRouter(image tool 调用经此路由:浏览器优先 → Node 降级) */
   router: ToolRouter;
   /** Cloud 鉴权器(若 cloud 配置提供,否则 undefined) */
-  authenticator?: McpAuthenticator;
+  authenticator?: CloudAuthenticator;
   /** Cloud 计费器(若 cloud 配置提供,否则 undefined) */
-  billing?: McpBilling;
+  billing?: CloudBilling;
 }> {
   const {
     workdir,
@@ -242,9 +242,11 @@ export async function createLokvisMcpServer(
   const allRegistrations = [...imageRegistrations, ...pdfRegistrations];
 
   // 构造 toolHandlers Map:tool name → handler(Node 降级路径直接调用)
+  // tool.handler 类型为 (params) => Promise<McpToolResult>,可赋值给 ToolHandler
+  // (返回类型协变:Promise<McpToolResult> → Promise<unknown>),无需断言
   const toolHandlers = new Map<string, ToolHandler>();
   for (const tool of allRegistrations) {
-    toolHandlers.set(tool.name, tool.handler as ToolHandler);
+    toolHandlers.set(tool.name, tool.handler);
   }
 
   // ToolRouter:浏览器优先(完整能力)→ Node 降级(直接调 tool handler)

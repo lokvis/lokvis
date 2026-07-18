@@ -12,7 +12,7 @@ import type {
   PluginContext,
 } from '@lokvis/schema';
 
-const { audioToolsPlugin, PLUGIN_NAME, PLUGIN_VERSION } =
+const { audioToolsPlugin, PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_ENGINE } =
   await import('../plugin.js');
 const {
   buildAudioCapabilityImplementations,
@@ -91,12 +91,14 @@ describe('audioToolsPlugin 定义', () => {
   it('应暴露正确的插件常量', () => {
     expect(PLUGIN_NAME).toBe('lokvis-audio-tools');
     expect(PLUGIN_VERSION).toBe('0.1.0');
+    expect(PLUGIN_ENGINE).toBe('ffmpeg-wasm');
   });
 
   it('应返回 config 与 install 函数', () => {
     const plugin = audioToolsPlugin();
     expect(plugin.config.name).toBe(PLUGIN_NAME);
     expect(plugin.config.version).toBe(PLUGIN_VERSION);
+    expect(plugin.config.engine).toBe(PLUGIN_ENGINE);
     expect(typeof plugin.install).toBe('function');
   });
 
@@ -150,15 +152,19 @@ describe('audioToolsPlugin install', () => {
 });
 
 describe('buildAudioCapabilityImplementations', () => {
-  it('AUDIO_OPERATION_ENTRIES 应有 4 个条目', () => {
-    expect(AUDIO_OPERATION_ENTRIES).toHaveLength(4);
+  it('AUDIO_OPERATION_ENTRIES 应有 3 个 1→1 条目（merge 单独走 createMergeCapabilityImpl）', () => {
+    expect(AUDIO_OPERATION_ENTRIES).toHaveLength(3);
+  });
+
+  it('每个条目的 engine 应为 ffmpeg-wasm', () => {
+    expect(AUDIO_OPERATION_ENTRIES.every((e) => e.engine === 'ffmpeg-wasm')).toBe(true);
   });
 
   it('每个条目都应有 operation 函数', () => {
     expect(AUDIO_OPERATION_ENTRIES.every((e) => typeof e.operation === 'function')).toBe(true);
   });
 
-  it('应生成 4 个实现', () => {
+  it('应生成 4 个实现（3 single + 1 merge）', () => {
     const { ctx } = createMockContext();
     const impls = buildAudioCapabilityImplementations(ctx);
     expect(impls).toHaveLength(4);
@@ -170,20 +176,18 @@ describe('buildAudioCapabilityImplementations', () => {
     expect(impls.every((i) => i.status === 'stub')).toBe(true);
   });
 
-  it('trim/normalize 实现的 engine 应为 web-audio', () => {
+  it('所有实现 engine 应为 ffmpeg-wasm', () => {
     const { ctx } = createMockContext();
     const impls = buildAudioCapabilityImplementations(ctx);
-    const trimImpl = impls.find((i) => i.capability === 'audio.trim')!;
-    const normalizeImpl = impls.find((i) => i.capability === 'audio.normalize')!;
-    expect(trimImpl.engine).toBe('web-audio');
-    expect(normalizeImpl.engine).toBe('web-audio');
+    expect(impls.every((i) => i.engine === 'ffmpeg-wasm')).toBe(true);
   });
 
-  it('transcode 实现的 engine 应为 lamejs', () => {
+  it('audio.merge 应存在且 status 为 stub', () => {
     const { ctx } = createMockContext();
     const impls = buildAudioCapabilityImplementations(ctx);
-    const transcodeImpl = impls.find((i) => i.capability === 'audio.transcode')!;
-    expect(transcodeImpl.engine).toBe('lamejs');
+    const mergeImpl = impls.find((i) => i.capability === 'audio.merge');
+    expect(mergeImpl).toBeDefined();
+    expect(mergeImpl!.status).toBe('stub');
   });
 
   it('各 single 实现 execute 应抛 "not implemented in stub"', async () => {

@@ -9,10 +9,20 @@
  * - 本地 tool(image/pdf)不消耗 credits,无需计费
  * - cloud AI tool(ai.ocr / ai.generate-workflow 等)消耗 credits
  * - 余额不足时返回 402 + 充值链接
+ *
+ * G1:增加可观测日志。所有 checkCloudAiCall / recordCloudAiCall /
+ * getEntitlements 决策点通过 `[lokvis:billing]` 前缀输出结构化日志,
+ * 便于排查"为何用户被拒/放行"与配额降级路径。
  */
 
 import type { AuthenticatedUser } from './auth.js';
 import type { CloudConfig } from './cloud-config.js';
+
+/** fetch 请求超时(10s,billing 请求应比 auth 更快返回) */
+const FETCH_TIMEOUT_MS = 10_000;
+
+/** 计费日志前缀(G1 可观测性约定) */
+const LOG_PREFIX = '[lokvis:billing]';
 
 /** Entitlements 响应(D1 完成后会含 credits 余额) */
 interface EntitlementsResponse {
@@ -45,7 +55,7 @@ export interface BillingCheckResult {
  *   不再硬编码
  * - 价格文案用 config.pricePerCallCents 动态生成($0.01 → ${price/100})
  */
-export class McpBilling {
+export class CloudBilling {
   private readonly apiBaseUrl: string;
   private readonly apiKey: string | undefined;
   private readonly upgradeUrl: string;
@@ -87,6 +97,9 @@ export class McpBilling {
     // 检查 plan 级别配额
     const planQuota = this.planQuotas[user.plan] ?? 0;
     if (planQuota === 0) {
+      console.info(
+        `${LOG_PREFIX} checkCloudAiCall denied: user=${user.id} plan=${user.plan} reason=plan_quota_zero`
+      );
       return {
         allowed: false,
         reason: `Plan "${user.plan}" does not include AI calls. Upgrade to Cloud Pro.`,
@@ -97,6 +110,9 @@ export class McpBilling {
     // 检查每日调用次数
     const todayCount = this.dailyCallCount.get(user.id) ?? 0;
     if (planQuota !== Infinity && todayCount >= planQuota) {
+      console.info(
+        `${LOG_PREFIX} checkCloudAiCall denied: user=${user.id} plan=${user.plan} reason=daily_limit_reached used=${todayCount}/${planQuota}`
+      );
       return {
         allowed: false,
         reason: `Daily AI call limit (${planQuota}) reached. Resets at midnight UTC.`,
@@ -108,6 +124,9 @@ export class McpBilling {
     // D3:检查 credits 余额
     if (entitlements.credits.ai <= 0) {
       const priceDollars = (this.pricePerCallCents / 100).toFixed(2);
+      console.info(
+        `${LOG_PREFIX} checkCloudAiCall denied: user=${user.id} plan=${user.plan} reason=insufficient_credits balance=${entitlements.credits.ai}`
+      );
       return {
         allowed: false,
         reason: `Insufficient AI credits. Free $5 credits used up. $${priceDollars}/call thereafter.`,
@@ -115,10 +134,11 @@ export class McpBilling {
       };
     }
 
-    return {
-      allowed: true,
-      remaining: planQuota === Infinity ? Infinity : planQuota - todayCount,
-    };
+    const remaining = planQuota === Infinity ? Infinity : planQuota - todayCount;
+    console.info(
+      `${LOG_PREFIX} checkCloudAiCall allowed: user=${user.id} plan=${user.plan} remaining=${remaining === Infinity ? 'unlimited' : remaining}`
+    );
+    return { allowed: true, remaining };
   }
 
   /**
@@ -129,18 +149,34 @@ export class McpBilling {
   async recordCloudAiCall(user: AuthenticatedUser): Promise<void> {
     const count = this.dailyCallCount.get(user.id) ?? 0;
     this.dailyCallCount.set(user.id, count + 1);
+    console.info(
+      `${LOG_PREFIX} recordCloudAiCall: user=${user.id} plan=${user.plan} newDailyCount=${count + 1}`
+    );
 
     // D3:调用 cloud API 扣减 credits（1 credit = pricePerCallCents 美分）
     if (!this.apiKey) return;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      await fetch(`${this.apiBaseUrl}/v1/credits/deduct`, {
+      const res = await fetch(`${this.apiBaseUrl}/v1/credits/deduct`, {
         method: 'POST',
         headers: { 'x-api-key': this.apiKey, 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: 1, reason: 'consume:ai_call' }),
+        signal: controller.signal,
       });
-    } catch {
-      // fire-and-forget:扣减失败不阻塞 tool 返回
+      if (!res.ok) {
+        console.warn(
+          `${LOG_PREFIX} credits/deduct failed: user=${user.id} status=${res.status} (fire-and-forget, daily limit still applies)`
+        );
+      }
+    } catch (err) {
+      // fire-and-forget:扣减失败(含超时)不阻塞 tool 返回
       // 降级:依赖 dailyCallCount 限流，避免无限调用
+      console.warn(
+        `${LOG_PREFIX} credits/deduct network error: user=${user.id} err=${err instanceof Error ? err.message : String(err)} (fire-and-forget, daily limit still applies)`
+      );
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -155,6 +191,9 @@ export class McpBilling {
 
     // 无 API Key 时使用 plan 静态映射（credits 未知，不限制）
     if (!this.apiKey) {
+      console.info(
+        `${LOG_PREFIX} getEntitlements fallback: user=${user.id} plan=${user.plan} reason=no_api_key (credits=Infinity)`
+      );
       const fallback: EntitlementsResponse = {
         plan: user.plan,
         quotas: {
@@ -171,12 +210,23 @@ export class McpBilling {
 
     try {
       const url = `${this.apiBaseUrl}/v1/users/me/entitlements`;
-      const res = await fetch(url, {
-        headers: { 'x-api-key': this.apiKey },
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          headers: { 'x-api-key': this.apiKey },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!res.ok) {
         // 降级到 plan 静态映射（credits 未知，不限制）
+        console.warn(
+          `${LOG_PREFIX} getEntitlements fallback: user=${user.id} status=${res.status} reason=http_error (credits=Infinity)`
+        );
         const fallback: EntitlementsResponse = {
           plan: user.plan,
           quotas: {
@@ -193,9 +243,15 @@ export class McpBilling {
       const data = (await res.json()) as EntitlementsResponse;
       this.cachedEntitlements = data;
       this.cacheExpiry = Date.now() + 5 * 60 * 1000;
+      console.info(
+        `${LOG_PREFIX} getEntitlements ok: user=${user.id} plan=${data.plan} credits.ai=${data.credits.ai} (cached 5min)`
+      );
       return data;
-    } catch {
+    } catch (err) {
       // 降级到 plan 静态映射（credits 未知，不限制）
+      console.warn(
+        `${LOG_PREFIX} getEntitlements fallback: user=${user.id} err=${err instanceof Error ? err.message : String(err)} reason=network (credits=Infinity)`
+      );
       const fallback: EntitlementsResponse = {
         plan: user.plan,
         quotas: {
@@ -217,7 +273,7 @@ export class McpBilling {
 }
 
 /**
- * 从 CloudConfig 构造 McpBilling。
+ * 从 CloudConfig 构造 CloudBilling。
  *
  * 便于 mcp-server/cli.ts 等消费方一行注入:
  * ```ts
@@ -225,8 +281,8 @@ export class McpBilling {
  * const billing = createBilling(config);
  * ```
  */
-export function createBilling(config: CloudConfig): McpBilling {
-  return new McpBilling({
+export function createBilling(config: CloudConfig): CloudBilling {
+  return new CloudBilling({
     apiKey: config.apiKey,
     apiBaseUrl: config.apiBaseUrl,
     upgradeUrl: config.upgradeUrl,
