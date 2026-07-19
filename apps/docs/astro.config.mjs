@@ -53,6 +53,9 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { label: 'Embed the SDK', slug: 'guides/embed-sdk' },
+                { label: 'Quick Actions Integration', slug: 'guides/quick-actions' },
+                { label: 'Quick Actions Theming', slug: 'guides/quick-actions-theme' },
+                { label: 'Custom Image Engine', slug: 'guides/custom-engine' },
                 { label: 'Write Your First Plugin', slug: 'guides/write-first-plugin' },
               ],
             },
@@ -125,6 +128,9 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { label: '嵌入 SDK', slug: 'guides/embed-sdk' },
+                { label: 'Quick Actions 接入指南', slug: 'guides/quick-actions' },
+                { label: 'Quick Actions 主题定制', slug: 'guides/quick-actions-theme' },
+                { label: '自定义图像引擎', slug: 'guides/custom-engine' },
                 { label: '编写第一个插件', slug: 'guides/write-first-plugin' },
               ],
             },
