@@ -84,6 +84,13 @@ export const TOOL_SEO: Record<string, ToolSeo> = {
       '拖入图片立即转换格式,4 个预设:PNG(无损透明)/ WebP(q90)/ AVIF(q80)/ JPEG(q90)。零配置快速转换,文件不上传,隐私安全。',
     keywords: ['一键转换', '格式转换', 'PNG 转 WebP', 'WebP 转 JPEG', 'AVIF', '零配置', '本地处理'],
   },
+  'quick-watermark': {
+    slug: 'quick-watermark',
+    title: '一键图片加水印 · 文字水印 · 3 种预设',
+    description:
+      '拖入图片立即加文字水印,3 个预设:右下角小字 / 居中大字 / 平铺水印。支持自定义水印文字。零配置快速加水印,文件不上传,隐私安全。',
+    keywords: ['一键水印', '快速加水印', '文字水印', '9 宫格', '平铺水印', '零配置', '本地处理'],
+  },
   'watermark-batch': {
     slug: 'watermark-batch',
     title: '批量图片加水印 · 并发 4 · 多文件',

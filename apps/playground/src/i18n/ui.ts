@@ -478,6 +478,18 @@ export const ui: Dict = {
   'quickConvert.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
   'quickConvert.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
 
+  // ─── Quick Watermark Tool ─────────────────────────────
+  'quickWatermark.title': { en: 'Quick Watermark', zh: '一键加水印', ja: 'クイックウォーターマーク', es: 'Marca de agua rápida', de: 'Schnelles Wasserzeichen', fr: 'Filigrane rapide' },
+  'quickWatermark.subtitle': { en: 'Drop image → add text watermark', zh: '拖入图片 → 加文字水印', ja: '画像をドロップ → テキスト透かし', es: 'Suelta imagen → añadir marca de agua', de: 'Bild ablegen → Text-Wasserzeichen hinzufügen', fr: 'Déposez l\'image → ajouter un filigrane texte' },
+  'quickWatermark.presetSmallBr': { en: 'Bottom-right small', zh: '右下角小字', ja: '右下小文字', es: 'Abajo-derecha pequeño', de: 'Unten-rechts klein', fr: 'Bas-droite petit' },
+  'quickWatermark.presetLargeCenter': { en: 'Center large', zh: '居中大字', ja: '中央大文字', es: 'Centro grande', de: 'Mitte groß', fr: 'Centre grand' },
+  'quickWatermark.presetTile': { en: 'Tiled', zh: '平铺', ja: 'タイル状', es: 'Mosaico', de: 'Kacheln', fr: 'Mosaïque' },
+  'quickWatermark.dropHint': { en: 'Click or drop image', zh: '点击或拖入图片', ja: 'クリックまたは画像をドロップ', es: 'Haz clic o suelta una imagen', de: 'Klicken oder Bild ablegen', fr: 'Cliquez ou déposez une image' },
+  'quickWatermark.textPlaceholder': { en: 'Watermark text', zh: '水印文字', ja: '透かしテキスト', es: 'Texto de marca de agua', de: 'Wasserzeichentext', fr: 'Texte du filigrane' },
+  'quickWatermark.processing': { en: 'Watermarking…', zh: '加水印中…', ja: '透かし追加中…', es: 'Añadiendo marca…', de: 'Wasserzeichen hinzufügen…', fr: 'Ajout du filigrane…' },
+  'quickWatermark.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
+  'quickWatermark.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
+
   // ─── Watermark Batch Tool ─────────────────────────────
   'watermark.batch.title': { en: 'Watermark Batch', zh: '批量水印', ja: 'ウォーターマーク一括', es: 'Marca de agua por lotes', de: 'Wasserzeichen-Stapel', fr: 'Filigrane par lot' },
   'watermark.batch.subtitle': { en: 'image.watermark · batch watermark (concurrency 4)', zh: 'image.watermark · 批量加水印（并发 4）', ja: 'image.watermark · 一括ウォーターマーク（並行 4）', es: 'image.watermark · marca de agua por lotes (concurrencia 4)', de: 'image.watermark · Stapel-Wasserzeichen (Nebenläufigkeit 4)', fr: 'image.watermark · filigrane par lot (concurrence 4)' },

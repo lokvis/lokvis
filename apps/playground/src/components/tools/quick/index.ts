@@ -128,5 +128,45 @@ export type {
   ResetButtonProps as ConvertResetButtonProps,
 } from './ImageQuickConvert';
 
+// ─── Quick Watermark ─────────────────────────────────────
+
+// Layer 0:Hook
+export {
+  useQuickWatermark,
+  WATERMARK_PRESETS,
+  DEFAULT_WATERMARK_TEXT,
+  type WatermarkPreset,
+  type WatermarkPresetConfig,
+  type UseQuickWatermarkOptions,
+  type UseQuickWatermarkResult,
+} from './useQuickWatermark';
+
+// Layer 1:Primitives
+export { QuickWatermark } from './primitives/QuickWatermark';
+export type {
+  QuickWatermarkRootProps,
+  QuickWatermarkUploadProps,
+  QuickWatermarkPresetSwitcherProps,
+  QuickWatermarkPreviewProps,
+  QuickWatermarkTextInputProps,
+  QuickWatermarkDownloadButtonProps,
+  QuickWatermarkErrorDisplayProps,
+  QuickWatermarkResetButtonProps,
+} from './primitives/QuickWatermark';
+
+// Layer 2:Default UI
+export { default as ImageQuickWatermark } from './ImageQuickWatermark';
+export type {
+  ImageQuickWatermarkProps,
+  QuickWatermarkComponents,
+  UploadBoxProps as WatermarkUploadBoxProps,
+  PreviewBoxProps as WatermarkPreviewBoxProps,
+  PresetSwitcherProps as WatermarkPresetSwitcherProps,
+  TextInputProps as WatermarkTextInputProps,
+  DownloadButtonProps as WatermarkDownloadButtonProps,
+  ErrorDisplayProps as WatermarkErrorDisplayProps,
+  ResetButtonProps as WatermarkResetButtonProps,
+} from './ImageQuickWatermark';
+
 // Theme
 export { themeToCssVars, type QuickTheme } from './theme';
