@@ -1,0 +1,23 @@
+---
+/**
+ * 嵌入式一键图片格式转换(quick convert)工具页。
+ *
+ * URL: /embed/en/tools/quick-convert
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/quick-convert" />
+ *
+ * 三方接入路径之一:零配置 iframe 嵌入。
+ * 完全自定义请用 useQuickConvert() hook 或 QuickConvert 原语。
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import ImageQuickConvert from '@/components/tools/quick/ImageQuickConvert.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="quick-convert">
+  <div class="mx-auto w-full max-w-3xl py-2">
+    <ImageQuickConvert client:only="react" initialPreset="webp" />
+  </div>
+</EmbedLayout>

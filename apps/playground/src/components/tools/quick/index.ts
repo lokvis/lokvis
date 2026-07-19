@@ -90,5 +90,43 @@ export type {
   ResetButtonProps as ResizeResetButtonProps,
 } from './ImageQuickResize';
 
+// ─── Quick Convert ────────────────────────────────────────
+
+// Layer 0:Hook
+export {
+  useQuickConvert,
+  CONVERT_PRESETS,
+  type ConvertPreset,
+  type ConvertPresetConfig,
+  type UseQuickConvertResult,
+} from './useQuickConvert';
+
+// Layer 1:Primitives
+export { QuickConvert } from './primitives/QuickConvert';
+export type {
+  QuickConvertRootProps,
+  QuickConvertUploadProps,
+  QuickConvertPresetSwitcherProps,
+  QuickConvertPreviewProps,
+  QuickConvertFormatBadgeProps,
+  QuickConvertDownloadButtonProps,
+  QuickConvertErrorDisplayProps,
+  QuickConvertResetButtonProps,
+} from './primitives/QuickConvert';
+
+// Layer 2:Default UI
+export { default as ImageQuickConvert } from './ImageQuickConvert';
+export type {
+  ImageQuickConvertProps,
+  QuickConvertComponents,
+  UploadBoxProps as ConvertUploadBoxProps,
+  PreviewBoxProps as ConvertPreviewBoxProps,
+  PresetSwitcherProps as ConvertPresetSwitcherProps,
+  DownloadButtonProps as ConvertDownloadButtonProps,
+  FormatBadgeProps,
+  ErrorDisplayProps as ConvertErrorDisplayProps,
+  ResetButtonProps as ConvertResetButtonProps,
+} from './ImageQuickConvert';
+
 // Theme
 export { themeToCssVars, type QuickTheme } from './theme';

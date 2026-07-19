@@ -77,6 +77,13 @@ export const TOOL_SEO: Record<string, ToolSeo> = {
       '拖入图片按预设缩放,内置 IG 1:1(1080×1080)、YouTube 16:9(1280×720)、TikTok 9:16(1080×1920)、原图 50% 四个预设。零配置快速缩放,文件不上传,隐私安全。',
     keywords: ['一键缩放', '快速缩放', 'Instagram 1:1', 'YouTube 16:9', 'TikTok 9:16', '零配置', '本地处理'],
   },
+  'quick-convert': {
+    slug: 'quick-convert',
+    title: '一键图片格式转换 · PNG / WebP / AVIF / JPEG',
+    description:
+      '拖入图片立即转换格式,4 个预设:PNG(无损透明)/ WebP(q90)/ AVIF(q80)/ JPEG(q90)。零配置快速转换,文件不上传,隐私安全。',
+    keywords: ['一键转换', '格式转换', 'PNG 转 WebP', 'WebP 转 JPEG', 'AVIF', '零配置', '本地处理'],
+  },
   'watermark-batch': {
     slug: 'watermark-batch',
     title: '批量图片加水印 · 并发 4 · 多文件',

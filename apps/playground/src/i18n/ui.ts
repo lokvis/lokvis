@@ -466,6 +466,18 @@ export const ui: Dict = {
   'quickResize.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
   'quickResize.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
 
+  // ─── Quick Convert Tool ───────────────────────────────
+  'quickConvert.title': { en: 'Quick Convert', zh: '一键转格式', ja: 'クイック変換', es: 'Conversión rápida', de: 'Schnelle Konvertierung', fr: 'Conversion rapide' },
+  'quickConvert.subtitle': { en: 'Drop image → convert format', zh: '拖入图片 → 转换格式', ja: '画像をドロップ → 形式変換', es: 'Suelta imagen → convertir formato', de: 'Bild ablegen → Format konvertieren', fr: 'Déposez l\'image → convertir le format' },
+  'quickConvert.presetPng': { en: 'PNG', zh: 'PNG', ja: 'PNG', es: 'PNG', de: 'PNG', fr: 'PNG' },
+  'quickConvert.presetWebp': { en: 'WebP', zh: 'WebP', ja: 'WebP', es: 'WebP', de: 'WebP', fr: 'WebP' },
+  'quickConvert.presetAvif': { en: 'AVIF', zh: 'AVIF', ja: 'AVIF', es: 'AVIF', de: 'AVIF', fr: 'AVIF' },
+  'quickConvert.presetJpeg': { en: 'JPEG', zh: 'JPEG', ja: 'JPEG', es: 'JPEG', de: 'JPEG', fr: 'JPEG' },
+  'quickConvert.dropHint': { en: 'Click or drop image', zh: '点击或拖入图片', ja: 'クリックまたは画像をドロップ', es: 'Haz clic o suelta una imagen', de: 'Klicken oder Bild ablegen', fr: 'Cliquez ou déposez une image' },
+  'quickConvert.processing': { en: 'Converting…', zh: '转换中…', ja: '変換中…', es: 'Convirtiendo…', de: 'Konvertieren…', fr: 'Conversion…' },
+  'quickConvert.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
+  'quickConvert.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
+
   // ─── Watermark Batch Tool ─────────────────────────────
   'watermark.batch.title': { en: 'Watermark Batch', zh: '批量水印', ja: 'ウォーターマーク一括', es: 'Marca de agua por lotes', de: 'Wasserzeichen-Stapel', fr: 'Filigrane par lot' },
   'watermark.batch.subtitle': { en: 'image.watermark · batch watermark (concurrency 4)', zh: 'image.watermark · 批量加水印（并发 4）', ja: 'image.watermark · 一括ウォーターマーク（並行 4）', es: 'image.watermark · marca de agua por lotes (concurrencia 4)', de: 'image.watermark · Stapel-Wasserzeichen (Nebenläufigkeit 4)', fr: 'image.watermark · filigrane par lot (concurrence 4)' },
