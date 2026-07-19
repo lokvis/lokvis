@@ -443,6 +443,17 @@ export const ui: Dict = {
   'watermark.uploadHint': { en: 'Select or drop an image', zh: '选择或拖入图片', ja: '画像を選択またはドロップ', es: 'Selecciona o suelta una imagen', de: 'Bild auswählen oder ablegen', fr: 'Sélectionne ou dépose une image' },
   'watermark.reselect': { en: '← Reselect image', zh: '← 重新选择图片', ja: '← 画像を再選択', es: '← Reseleccionar imagen', de: '← Bild erneut auswählen', fr: '← Resélectionner l\'image' },
 
+  // ─── Quick Compress (Layer 2 默认 UI 用) ──────────────
+  'quickCompress.title': { en: 'Quick Compress', zh: '一键压缩', ja: 'クイック圧縮', es: 'Compresión rápida', de: 'Schnelle Komprimierung', fr: 'Compression rapide' },
+  'quickCompress.subtitle': { en: 'Drop image → auto compress to WebP', zh: '拖入图片 → 立即压缩为 WebP', ja: '画像をドロップ → WebP に自動圧縮', es: 'Suelta imagen → comprimir automáticamente a WebP', de: 'Bild ablegen → automatisch zu WebP komprimieren', fr: 'Déposez l\'image → compression auto en WebP' },
+  'quickCompress.presetBalanced': { en: 'Balanced', zh: '均衡', ja: 'バランス', es: 'Equilibrado', de: 'Ausgewogen', fr: 'Équilibré' },
+  'quickCompress.presetHighQuality': { en: 'High Quality', zh: '高质量', ja: '高品質', es: 'Alta calidad', de: 'Hohe Qualität', fr: 'Haute qualité' },
+  'quickCompress.presetSmall': { en: 'Small', zh: '小体积', ja: '小サイズ', es: 'Pequeño', de: 'Klein', fr: 'Petit' },
+  'quickCompress.dropHint': { en: 'Click or drop image', zh: '点击或拖入图片', ja: 'クリックまたは画像をドロップ', es: 'Haz clic o suelta una imagen', de: 'Klicken oder Bild ablegen', fr: 'Cliquez ou déposez une image' },
+  'quickCompress.processing': { en: 'Compressing…', zh: '压缩中…', ja: '圧縮中…', es: 'Comprimiendo…', de: 'Komprimieren…', fr: 'Compression…' },
+  'quickCompress.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
+  'quickCompress.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
+
   // ─── Watermark Batch Tool ─────────────────────────────
   'watermark.batch.title': { en: 'Watermark Batch', zh: '批量水印', ja: 'ウォーターマーク一括', es: 'Marca de agua por lotes', de: 'Wasserzeichen-Stapel', fr: 'Filigrane par lot' },
   'watermark.batch.subtitle': { en: 'image.watermark · batch watermark (concurrency 4)', zh: 'image.watermark · 批量加水印（并发 4）', ja: 'image.watermark · 一括ウォーターマーク（並行 4）', es: 'image.watermark · marca de agua por lotes (concurrencia 4)', de: 'image.watermark · Stapel-Wasserzeichen (Nebenläufigkeit 4)', fr: 'image.watermark · filigrane par lot (concurrence 4)' },

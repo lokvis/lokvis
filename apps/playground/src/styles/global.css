@@ -34,6 +34,32 @@
   --lokvis-overlay: rgb(0 0 0 / 0.7);
 }
 
+/* Quick Action 组件 CSS 变量默认值(Layer 2 共用)
+   ─────────────────────────────────────────────────
+   所有 Quick Action 组件根元素都加 .lokvis-quick-* class,
+   提供 CSS 变量默认值。三方可在自己 CSS 中覆盖,或通过
+   <ImageQuickCompress theme={{...}} /> 程序化配置(转 inline style,优先级更高)。 */
+.lokvis-quick-compress,
+.lokvis-quick-resize,
+.lokvis-quick-convert,
+.lokvis-quick-watermark,
+.lokvis-quick-crop,
+.lokvis-quick-pipeline {
+  --lokvis-primary: #6366f1;
+  --lokvis-primary-hover: #4f46e5;
+  --lokvis-bg: transparent;
+  --lokvis-surface: #18181b;
+  --lokvis-surface-hover: #27272a;
+  --lokvis-border: #27272a;
+  --lokvis-text: #f4f4f5;
+  --lokvis-text-muted: #71717a;
+  --lokvis-success: #10b981;
+  --lokvis-warning: #f59e0b;
+  --lokvis-error: #ef4444;
+  --lokvis-radius: 0.5rem;
+  --lokvis-font-family: inherit;
+}
+
 html,
 body {
   margin: 0;

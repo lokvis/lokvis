@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Vitest 根配置
@@ -15,6 +16,12 @@ import { defineConfig } from 'vitest/config';
  *   `pnpm test:fast` 跳过覆盖率用于快速迭代。
  */
 export default defineConfig({
+  resolve: {
+    alias: {
+      // playground 的 `@/*` 路径别名(与 apps/playground/tsconfig.json 一致)
+      '@': fileURLToPath(new URL('./apps/playground/src/', import.meta.url)),
+    },
+  },
   test: {
     // 包含所有包内的测试文件(.ts 逻辑测试 + .tsx 组件测试)
     // 组件测试文件用 `// @vitest-environment jsdom` 注解单独切换环境,

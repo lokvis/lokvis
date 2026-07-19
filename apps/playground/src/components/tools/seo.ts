@@ -63,6 +63,13 @@ export const TOOL_SEO: Record<string, ToolSeo> = {
       '本地浏览器给图片加文字水印,支持 9 宫格位置、字体大小、颜色、透明度。文件不上传,隐私安全。',
     keywords: ['图片水印', '文字水印', '加水印', '9 宫格', '本地处理'],
   },
+  'quick-compress': {
+    slug: 'quick-compress',
+    title: '一键图片压缩 · 拖入即压缩 · WebP',
+    description:
+      '拖入图片立即压缩为 WebP,3 个预设(均衡/高质量/小体积),无需任何参数配置。零配置快速压缩,文件不上传,隐私安全。',
+    keywords: ['一键压缩', '快速压缩', 'WebP', '拖入即压缩', '零配置', '本地处理'],
+  },
   'watermark-batch': {
     slug: 'watermark-batch',
     title: '批量图片加水印 · 并发 4 · 多文件',
