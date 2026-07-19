@@ -490,6 +490,19 @@ export const ui: Dict = {
   'quickWatermark.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
   'quickWatermark.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
 
+  // ─── Quick Crop Tool ──────────────────────────────────
+  'quickCrop.title': { en: 'Quick Crop', zh: '一键裁剪', ja: 'クイッククロップ', es: 'Recorte rápido', de: 'Schneller Zuschnitt', fr: 'Recadrage rapide' },
+  'quickCrop.subtitle': { en: 'Drop image → crop by aspect ratio', zh: '拖入图片 → 按比例裁剪', ja: '画像をドロップ → アスペクト比で切り抜き', es: 'Suelta imagen → recortar por proporción', de: 'Bild ablegen → nach Seitenverhältnis zuschneiden', fr: 'Déposez l\'image → recadrer par ratio' },
+  'quickCrop.presetSquare': { en: '1:1 Square', zh: '1:1 正方形', ja: '1:1 正方形', es: '1:1 Cuadrado', de: '1:1 Quadrat', fr: '1:1 Carré' },
+  'quickCrop.preset43': { en: '4:3', zh: '4:3', ja: '4:3', es: '4:3', de: '4:3', fr: '4:3' },
+  'quickCrop.preset169': { en: '16:9', zh: '16:9', ja: '16:9', es: '16:9', de: '16:9', fr: '16:9' },
+  'quickCrop.presetFree': { en: 'Free', zh: '自由', ja: 'フリー', es: 'Libre', de: 'Frei', fr: 'Libre' },
+  'quickCrop.cropArea': { en: 'Crop area', zh: '裁剪区域', ja: 'クロップ領域', es: 'Área de recorte', de: 'Zuschnittbereich', fr: 'Zone de recadrage' },
+  'quickCrop.dropHint': { en: 'Click or drop image', zh: '点击或拖入图片', ja: 'クリックまたは画像をドロップ', es: 'Haz clic o suelta una imagen', de: 'Klicken oder Bild ablegen', fr: 'Cliquez ou déposez une image' },
+  'quickCrop.processing': { en: 'Cropping…', zh: '裁剪中…', ja: '切り抜き中…', es: 'Recortando…', de: 'Zuschneiden…', fr: 'Recadrage…' },
+  'quickCrop.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
+  'quickCrop.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
+
   // ─── Watermark Batch Tool ─────────────────────────────
   'watermark.batch.title': { en: 'Watermark Batch', zh: '批量水印', ja: 'ウォーターマーク一括', es: 'Marca de agua por lotes', de: 'Wasserzeichen-Stapel', fr: 'Filigrane par lot' },
   'watermark.batch.subtitle': { en: 'image.watermark · batch watermark (concurrency 4)', zh: 'image.watermark · 批量加水印（并发 4）', ja: 'image.watermark · 一括ウォーターマーク（並行 4）', es: 'image.watermark · marca de agua por lotes (concurrencia 4)', de: 'image.watermark · Stapel-Wasserzeichen (Nebenläufigkeit 4)', fr: 'image.watermark · filigrane par lot (concurrence 4)' },

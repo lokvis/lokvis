@@ -168,5 +168,44 @@ export type {
   ResetButtonProps as WatermarkResetButtonProps,
 } from './ImageQuickWatermark';
 
+// ─── Quick Crop ───────────────────────────────────────────
+
+// Layer 0:Hook
+export {
+  useQuickCrop,
+  CROP_PRESETS,
+  type CropPreset,
+  type CropPresetConfig,
+  type CropRect,
+  type UseQuickCropResult,
+} from './useQuickCrop';
+
+// Layer 1:Primitives
+export { QuickCrop } from './primitives/QuickCrop';
+export type {
+  QuickCropRootProps,
+  QuickCropUploadProps,
+  QuickCropPresetSwitcherProps,
+  QuickCropPreviewProps,
+  QuickCropAreaProps,
+  QuickCropDownloadButtonProps,
+  QuickCropErrorDisplayProps,
+  QuickCropResetButtonProps,
+} from './primitives/QuickCrop';
+
+// Layer 2:Default UI
+export { default as ImageQuickCrop } from './ImageQuickCrop';
+export type {
+  ImageQuickCropProps,
+  QuickCropComponents,
+  UploadBoxProps as CropUploadBoxProps,
+  PreviewBoxProps as CropPreviewBoxProps,
+  PresetSwitcherProps as CropPresetSwitcherProps,
+  CropAreaBoxProps,
+  DownloadButtonProps as CropDownloadButtonProps,
+  ErrorDisplayProps as CropErrorDisplayProps,
+  ResetButtonProps as CropResetButtonProps,
+} from './ImageQuickCrop';
+
 // Theme
 export { themeToCssVars, type QuickTheme } from './theme';
