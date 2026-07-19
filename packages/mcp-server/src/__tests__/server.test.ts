@@ -35,7 +35,7 @@ const createBillingMock = vi.fn(() => ({ check: vi.fn() }));
 vi.mock('@lokvis/cloud-bridge', () => ({
   createAuthenticator: createAuthenticatorMock,
   createBilling: createBillingMock,
-  resolveCloudConfig: vi.fn(() => ({ apiBaseUrl: 'https://test.example', upgradeUrl: 'https://test.example/billing', planQuotas: {}, pricePerCallCents: 1 })),
+  resolveCloudConfig: vi.fn(() => ({ apiBaseUrl: 'https://test.example', upgradeUrl: 'https://test.example/billing', planQuotas: {}, pricePerCallCents: 1, pppPricing: { default: 1.0 } })),
 }));
 
 const { createLokvisMcpServer } = await import('../server.js');
@@ -254,6 +254,7 @@ describe('createLokvisMcpServer', () => {
       upgradeUrl: 'https://app.test.example/billing',
       planQuotas: { free: 0, pro: 10 },
       pricePerCallCents: 2,
+      pppPricing: { default: 1.0, US: 1.0, CN: 0.5 },
     };
     const { authenticator, billing } = await createLokvisMcpServer({ cloud: cloudConfig });
     expect(authenticator).toBeDefined();

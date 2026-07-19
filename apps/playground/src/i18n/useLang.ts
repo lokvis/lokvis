@@ -13,11 +13,16 @@ import { useState, useEffect } from 'react';
 import { getLangFromUrl } from './utils';
 import { defaultLang, type Language } from './config';
 
+/** 受支持的 6 语言代码集合，用于 htmlLang 校验 */
+const SUPPORTED_HTML_LANGS: ReadonlySet<string> = new Set(['en', 'zh', 'ja', 'es', 'de', 'fr']);
+
 /** 从 document.documentElement.lang 读取语言，回退到 URL 解析 */
 function detectLang(): Language {
   if (typeof document === 'undefined') return defaultLang;
   const htmlLang = document.documentElement.lang;
-  if (htmlLang === 'en' || htmlLang === 'zh') return htmlLang;
+  if (htmlLang && SUPPORTED_HTML_LANGS.has(htmlLang)) {
+    return htmlLang as Language;
+  }
   // 回退方案：从 URL 解析
   return getLangFromUrl(window.location.href);
 }

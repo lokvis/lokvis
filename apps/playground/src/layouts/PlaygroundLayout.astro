@@ -1,7 +1,7 @@
 ---
 import '../styles/global.css';
 import { getLangFromUrl, t, switchLangPath, type Language } from '@/i18n/utils';
-import { langList } from '@/i18n/config';
+import { langList, languages } from '@/i18n/config';
 
 /**
  * Playground 极简壳（W14.1 升级 + i18n）
@@ -134,6 +134,11 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'tools/video-trim', labelKey: 'nav.tools.videoTrim.label', href: `${langBase}tools/video-trim`, descKey: 'nav.tools.videoTrim.desc' },
       { id: 'tools/video-to-gif', labelKey: 'nav.tools.videoToGif.label', href: `${langBase}tools/video-to-gif`, descKey: 'nav.tools.videoToGif.desc' },
       { id: 'tools/video-thumbnail', labelKey: 'nav.tools.videoThumbnail.label', href: `${langBase}tools/video-thumbnail`, descKey: 'nav.tools.videoThumbnail.desc' },
+      { id: 'tools/audio-trim', labelKey: 'nav.tools.audioTrim.label', href: `${langBase}tools/audio-trim`, descKey: 'nav.tools.audioTrim.desc' },
+      { id: 'tools/audio-normalize', labelKey: 'nav.tools.audioNormalize.label', href: `${langBase}tools/audio-normalize`, descKey: 'nav.tools.audioNormalize.desc' },
+      { id: 'tools/audio-transcode', labelKey: 'nav.tools.audioTranscode.label', href: `${langBase}tools/audio-transcode`, descKey: 'nav.tools.audioTranscode.desc' },
+      { id: 'tools/audio-merge', labelKey: 'nav.tools.audioMerge.label', href: `${langBase}tools/audio-merge`, descKey: 'nav.tools.audioMerge.desc' },
+      { id: 'tools/ai-generator', labelKey: 'nav.tools.aiGenerator.label', href: `${langBase}tools/ai-generator`, descKey: 'nav.tools.aiGenerator.desc' },
     ],
   },
   {
@@ -249,15 +254,17 @@ const currentPath = Astro.url.pathname;
         <div class="flex items-center gap-3">
           {/* PWA 在线状态点（W15.5）—— 绿色在线 / 红色离线 */}
           <OfflineStatusDot client:only="react" />
-          {/* 语言切换器：切换时保留当前页面路径 */}
-          <div class="flex items-center gap-1 rounded-md border border-zinc-800 bg-zinc-900 px-1 py-0.5 text-[10px]">
+          {/* 语言切换器：6 语言按钮组（EN/ZH/JA/ES/DE/FR），切换时保留当前页面路径 */}
+          <div class="flex items-center gap-0.5 rounded-md border border-zinc-800 bg-zinc-900 px-1 py-0.5 text-[10px]">
             {langList.map((l) => (
               <a
                 href={switchLangPath(currentPath, l)}
+                title={languages[l]}
                 class={`rounded px-1.5 py-0.5 font-medium transition-colors ${
                   l === lang ? 'bg-indigo-600 text-white' : 'text-zinc-500 hover:text-zinc-300'
                 }`}
                 aria-current={l === lang ? 'true' : undefined}
+                aria-label={languages[l]}
               >{l.toUpperCase()}</a>
             ))}
           </div>

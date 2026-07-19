@@ -42,7 +42,7 @@ describe('createPlugin', () => {
       ['含空格', 'my plugin'],
       ['含点', 'my.plugin'],
       ['空字符串', ''],
-    ])('非法名称 "%s" (%s) 应抛错', async (_label, name) => {
+    ])('非法名称 "%s" (%s) 应抛错(S1 P1: zod 校验)', async (_label, name) => {
       await expect(createPlugin(name)).rejects.toThrow(
         'Plugin name must be lowercase kebab-case (a-z, 0-9, -) or scoped (@scope/name)'
       );

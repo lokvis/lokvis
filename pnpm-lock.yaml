@@ -105,6 +105,12 @@ importers:
       '@lokvis/engine-image':
         specifier: workspace:*
         version: link:../../packages/engine-image
+      '@lokvis/plugin-ai':
+        specifier: workspace:*
+        version: link:../../packages/plugin-ai
+      '@lokvis/plugin-audio':
+        specifier: workspace:*
+        version: link:../../packages/plugin-audio
       '@lokvis/plugin-dev':
         specifier: workspace:*
         version: link:../../packages/plugin-dev
@@ -132,6 +138,9 @@ importers:
       '@lokvis/ui-react':
         specifier: workspace:*
         version: link:../../packages/ui-react
+      '@lokvis/workflow':
+        specifier: workspace:*
+        version: link:../../packages/workflow
       '@sentry/browser':
         specifier: ^8.40.0
         version: 8.55.2
@@ -329,6 +338,9 @@ importers:
       '@lokvis/sdk':
         specifier: workspace:*
         version: link:../sdk
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^22.0.0

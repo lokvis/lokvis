@@ -1,0 +1,12 @@
+---
+import { langList } from '@/i18n/config';
+import ToolLayout from '@/layouts/ToolLayout.astro';
+import AudioTrimTool from '@/components/tools/audio/AudioTrimTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<ToolLayout slug="audio-trim">
+  <AudioTrimTool client:only="react" />
+</ToolLayout>

@@ -55,6 +55,17 @@ const fullTitle = title ?? `${seo.title} · Lokvis Embed`;
 const base = import.meta.env.BASE_URL;
 const ogImage = new URL(`${base}og/${slug}.png`, Astro.site).toString();
 const keywords = seo.keywords?.join(', ');
+
+// og:locale 映射：6 语言 → ISO 语言代码
+const OG_LOCALE_MAP: Record<Language, string> = {
+  en: 'en_US',
+  zh: 'zh_CN',
+  ja: 'ja_JP',
+  es: 'es_ES',
+  de: 'de_DE',
+  fr: 'fr_FR',
+};
+const ogLocale = OG_LOCALE_MAP[lang];
 ---
 <!doctype html>
 <html lang={lang} class="dark">
@@ -74,7 +85,7 @@ const keywords = seo.keywords?.join(', ');
     <meta property="og:description" content={seo.description} />
     <meta property="og:image" content={ogImage} />
     <meta property="og:type" content="website" />
-    <meta property="og:locale" content={lang === 'zh' ? 'zh_CN' : 'en_US'} />
+    <meta property="og:locale" content={ogLocale} />
 
     {/* Twitter Card */}
     <meta name="twitter:card" content="summary_large_image" />

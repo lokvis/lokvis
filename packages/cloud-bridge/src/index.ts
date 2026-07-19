@@ -30,7 +30,7 @@ export type { BillingCheckResult } from './billing.js';
 export {
   resolveCloudConfig,
 } from './cloud-config.js';
-export type { CloudConfig } from './cloud-config.js';
+export type { CloudConfig, PppPricing } from './cloud-config.js';
 
 // F1:Cloud AI Client(封装 /v1/ai/* 调用,供 engine-ai cloud-proxy 转发)
 export {

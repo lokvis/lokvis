@@ -61,10 +61,124 @@ export const DEV_PROFILE: Capability = {
   batchable: true,
 };
 
+export const DEV_REGEX_TEST: Capability = {
+  name: 'developer.regex.test',
+  description: 'Test a regular expression against input text (matches / groups / indices)',
+  inputTypes: ['text', 'data'],
+  outputTypes: ['data'],
+  params: [
+    {
+      name: 'pattern',
+      type: 'string',
+      required: true,
+      description: 'Regular expression pattern (without delimiters)',
+    },
+    { name: 'flags', type: 'string', default: '', description: 'Regex flags (g/i/m/s/u/y)' },
+    {
+      name: 'testText',
+      type: 'string',
+      description: 'Text to test against (alternative to passing text asset as input)',
+    },
+  ],
+  performance: 'fast',
+  batchable: false,
+};
+
+export const DEV_DIFF: Capability = {
+  name: 'developer.diff',
+  description: 'Compute line-by-line diff between two text inputs',
+  inputTypes: ['text', 'data'],
+  outputTypes: ['data'],
+  params: [
+    { name: 'left', type: 'string', description: 'Left text (alternative to first input asset)' },
+    {
+      name: 'right',
+      type: 'string',
+      description: 'Right text (alternative to second input asset)',
+    },
+    {
+      name: 'context',
+      type: 'number',
+      default: 3,
+      min: 0,
+      description: 'Lines of context around each hunk',
+    },
+  ],
+  performance: 'fast',
+  batchable: false,
+};
+
+export const DEV_BASE64: Capability = {
+  name: 'developer.base64',
+  description: 'Base64 encode or decode input (text or binary)',
+  inputTypes: ['text', 'data', 'image'],
+  outputTypes: ['data', 'text'],
+  params: [
+    {
+      name: 'mode',
+      type: 'enum',
+      default: 'encode',
+      values: ['encode', 'decode'],
+      description: 'encode: text/binary → base64; decode: base64 → text/binary',
+    },
+    {
+      name: 'input',
+      type: 'string',
+      description: 'Inline input text (alternative to passing asset as input)',
+    },
+  ],
+  performance: 'fast',
+  batchable: true,
+};
+
+export const DEV_HASH: Capability = {
+  name: 'developer.hash',
+  description: 'Compute cryptographic hash (SHA-1/SHA-256/SHA-384/SHA-512/MD5) of input',
+  inputTypes: ['text', 'data', 'image', 'video', 'audio', 'pdf'],
+  outputTypes: ['data'],
+  params: [
+    {
+      name: 'algorithm',
+      type: 'enum',
+      default: 'sha-256',
+      values: ['sha-1', 'sha-256', 'sha-384', 'sha-512', 'md5'],
+      description: 'Hash algorithm (MD5 not for security use)',
+    },
+    {
+      name: 'input',
+      type: 'string',
+      description: 'Inline input text (alternative to passing asset as input)',
+    },
+  ],
+  performance: 'fast',
+  batchable: true,
+};
+
+export const DEV_JWT_DECODE: Capability = {
+  name: 'developer.jwt.decode',
+  description: 'Decode JWT header and payload (no signature verification)',
+  inputTypes: ['text', 'data'],
+  outputTypes: ['data'],
+  params: [
+    {
+      name: 'token',
+      type: 'string',
+      description: 'JWT string (alternative to passing text asset as input)',
+    },
+  ],
+  performance: 'fast',
+  batchable: false,
+};
+
 /** 所有内置 developer 能力预设(由 codegen 从 manifest 生成) */
 export const DEV_CAPABILITIES: Capability[] = [
   DEV_INSPECT_CAPABILITIES,
   DEV_INSPECT_ASSET,
   DEV_VALIDATE_WORKFLOW,
   DEV_PROFILE,
+  DEV_REGEX_TEST,
+  DEV_DIFF,
+  DEV_BASE64,
+  DEV_HASH,
+  DEV_JWT_DECODE,
 ];

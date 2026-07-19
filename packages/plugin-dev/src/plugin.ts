@@ -6,6 +6,11 @@
  * - developer.inspect.asset：检视资产元数据与结构
  * - developer.validate.workflow：校验 Workflow 定义（不执行）
  * - developer.profile：能力执行耗时剖析
+ * - developer.regex.test：正则表达式测试器
+ * - developer.diff：文本行级 diff（LCS 算法）
+ * - developer.base64：Base64 编解码
+ * - developer.hash：哈希计算（SHA-1/256/384/512/MD5）
+ * - developer.jwt.decode：JWT 解码器（不验证签名）
  *
  * 该插件不依赖任何外部 Engine，所有能力在 Plugin 内直接实现,
  * 能力实现拆分到 capabilities/ 目录,本文件只保留 definePlugin 编排。

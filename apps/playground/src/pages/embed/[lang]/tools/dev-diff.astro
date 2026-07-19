@@ -1,0 +1,17 @@
+---
+/**
+ * 嵌入式文本 Diff 对比工具(cloud apps/web iframe 引用)。
+ *
+ * URL: /embed/en/tools/dev-diff
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import DiffTool from '@/components/tools/dev/DiffTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="dev-diff">
+  <DiffTool client:only="react" />
+</EmbedLayout>

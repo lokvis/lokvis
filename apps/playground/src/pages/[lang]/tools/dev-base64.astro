@@ -1,0 +1,12 @@
+---
+import { langList } from '@/i18n/config';
+import ToolLayout from '@/layouts/ToolLayout.astro';
+import Base64Tool from '@/components/tools/dev/Base64Tool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<ToolLayout slug="dev-base64">
+  <Base64Tool client:only="react" />
+</ToolLayout>

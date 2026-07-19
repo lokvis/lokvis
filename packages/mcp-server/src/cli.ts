@@ -15,10 +15,17 @@
  *   LOKVIS_UPGRADE_URL  - 充值链接(默认 https://app.lokvis.com/billing)
  *   LOKVIS_PLAN_QUOTAS_JSON - plan 配额表 JSON(默认内置 free/pro/cloud_pro/enterprise)
  *   LOKVIS_PRICE_PER_CALL_CENTS - 每次 AI 调用价格美分(默认 1)
+ *
+ * SSE 模式专属(Phase 3 M1):
+ *   LOKVIS_SSE_MAX_CONNECTIONS - 最大并发会话数(默认 10)
+ *   LOKVIS_SSE_CORS_ORIGINS    - 允许跨域的 Origin 白名单,逗号分隔(默认空,不允许跨域)
+ *   LOKVIS_SSE_AUTH_TOKEN      - SSE 鉴权 token(默认回退到 LOKVIS_API_KEY;未设置时跳过鉴权)
+ *   LOKVIS_SSE_HEARTBEAT_MS    - 心跳间隔毫秒(默认 15000,设 0 禁用)
  */
 
 import { createLokvisMcpServer } from './server.js';
 import { resolveCloudConfig } from '@lokvis/cloud-bridge';
+import type { LokvisSseServer } from './sse-transport.js';
 
 async function main(): Promise<void> {
   const workdir = process.env.LOKVIS_WORKDIR;
@@ -29,6 +36,16 @@ async function main(): Promise<void> {
   const port = Number(process.env.LOKVIS_PORT ?? 3001);
   const bridgePortEnv = process.env.LOKVIS_BRIDGE_PORT;
   const bridgePort = bridgePortEnv ? Number(bridgePortEnv) : undefined;
+
+  // SSE 模式选项(Phase 3 M1 硬化)
+  const sseMaxConnections = Number(process.env.LOKVIS_SSE_MAX_CONNECTIONS ?? 10);
+  const sseCorsOrigins = process.env.LOKVIS_SSE_CORS_ORIGINS
+    ? process.env.LOKVIS_SSE_CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+  // authToken 默认回退到 LOKVIS_API_KEY(若存在);两者都未设置时为 undefined(跳过鉴权)
+  const sseAuthToken =
+    process.env.LOKVIS_SSE_AUTH_TOKEN ?? process.env.LOKVIS_API_KEY ?? undefined;
+  const sseHeartbeatMs = Number(process.env.LOKVIS_SSE_HEARTBEAT_MS ?? 15000);
 
   // cloud 配置从 env 读取(apiBaseUrl / upgradeUrl / planQuotas / pricePerCallCents / apiKey)
   // 注入 createLokvisMcpServer 后,server 侧创建 authenticator + billing:
@@ -65,12 +82,18 @@ async function main(): Promise<void> {
   }
   console.error(`[lokvis-mcp] Starting server (mode: ${mode})...`);
 
+  // SSE server 引用(仅 mode='sse' 时赋值);shutdown 时需要关闭它
+  let sse: LokvisSseServer | undefined;
+
   // 优雅关闭:收到 SIGINT/SIGTERM 时关闭所有资源
   let shuttingDown = false;
   const shutdown = async (signal: string) => {
     if (shuttingDown) return;
     shuttingDown = true;
     console.error(`[lokvis-mcp] Received ${signal}, shutting down...`);
+    if (sse) {
+      await sse.close().catch((err) => console.warn('[lokvis-mcp] SSE close failed:', err));
+    }
     await bridge.close().catch((err) => console.warn('[lokvis-mcp] bridge close failed:', err));
     await server.close().catch((err) => console.warn('[lokvis-mcp] server close failed:', err));
     process.exit(0);
@@ -85,7 +108,12 @@ async function main(): Promise<void> {
     await bridge.close().catch((err) => console.warn('[lokvis-mcp] bridge close failed:', err));
   } else if (mode === 'sse') {
     // SSE 模式:HTTP server 监听,Web 客户端经 /sse 连接
-    const sse = await server.startSse(port);
+    sse = await server.startSse(port, {
+      maxConnections: sseMaxConnections,
+      corsOrigins: sseCorsOrigins,
+      authToken: sseAuthToken,
+      heartbeatIntervalMs: sseHeartbeatMs,
+    });
     console.error(`[lokvis-mcp] SSE server listening on http://127.0.0.1:${sse.getPort()}/sse`);
     // 不退出:保持 HTTP server 运行,等待关闭信号
   } else {

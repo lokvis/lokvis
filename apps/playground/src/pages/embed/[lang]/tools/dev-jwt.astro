@@ -1,0 +1,17 @@
+---
+/**
+ * 嵌入式 JWT 解码器(cloud apps/web iframe 引用)。
+ *
+ * URL: /embed/en/tools/dev-jwt
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import JwtDecoder from '@/components/tools/dev/JwtDecoder.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="dev-jwt">
+  <JwtDecoder client:only="react" />
+</EmbedLayout>

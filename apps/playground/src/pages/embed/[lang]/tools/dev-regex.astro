@@ -1,0 +1,17 @@
+---
+/**
+ * 嵌入式正则表达式测试器(cloud apps/web iframe 引用)。
+ *
+ * URL: /embed/en/tools/dev-regex
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import RegexTester from '@/components/tools/dev/RegexTester.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="dev-regex">
+  <RegexTester client:only="react" />
+</EmbedLayout>

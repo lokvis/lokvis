@@ -1,0 +1,12 @@
+---
+import { langList } from '@/i18n/config';
+import ToolLayout from '@/layouts/ToolLayout.astro';
+import AudioTranscodeTool from '@/components/tools/audio/AudioTranscodeTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<ToolLayout slug="audio-transcode">
+  <AudioTranscodeTool client:only="react" />
+</ToolLayout>

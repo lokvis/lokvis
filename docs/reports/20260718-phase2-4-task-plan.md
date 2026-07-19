@@ -585,16 +585,16 @@ Schema (@lokvis/schema)      ← 底层稳定核心：类型 + 校验器 + 常�
 
 ### Phase 3 任务总览
 
-| 轨道 | 任务 | 估时 | 优先级 | 依赖 |
-|---|---|---|---|---|
-| H | Marketplace 基础设施 | 60h | P0 | Phase 2 |
-| H | Marketplace UI | 40h | P0 | H1 |
-| I | AI Workflow 生成器 | 48h | P0 | F1 |
-| J | Audio Workspace UI | 28h | P1 | B3 |
-| K | i18n 6 语言 + PPP | 32h | P1 | 无 |
-| L | 企业版预览 | 40h | P2 | G1 |
-| M | MCP SSE 模式 | 20h | P2 | 轨道 A |
-| **合计** | | **268h** | | |
+| 轨道 | 任务 | 估时 | 优先级 | 依赖 | 状态 |
+|---|---|---|---|---|---|
+| H | Marketplace 基础设施 | 60h | P0 | Phase 2 | ⛔ 阻塞（cloud 侧评价/分成） |
+| H | Marketplace UI | 40h | P0 | H1 | ⛔ 阻塞（依赖 H1） |
+| I | AI Workflow 生成器 | 48h | P0 | F1 | 🟡 可推进（F1 已完成） |
+| J | Audio Workspace UI | 28h | P1 | B3 | 🟡 可推进（B3 已完成） |
+| K | i18n 6 语言 + PPP | 32h | P1 | 无 | 🟡 部分可推进（i18n 可做；PPP 定价在 cloud 侧阻塞） |
+| L | 企业版预览 | 40h | P2 | G1 | ⛔ 阻塞（cloud 侧企业版 API） |
+| M | MCP SSE 模式 | 20h | P2 | 轨道 A | 🟡 可推进（轨道 A 已完成） |
+| **合计** | | **268h** | | | |
 
 ### Phase 3 里程碑
 
@@ -743,17 +743,17 @@ Schema (@lokvis/schema)      ← 底层稳定核心：类型 + 校验器 + 常�
 
 ### Phase 4 任务总览
 
-| 轨道 | 任务 | 估时 | 优先级 | 依赖 |
-|---|---|---|---|---|
-| N | Tauri 桌面应用 | 80h | P0 | Phase 3 |
-| O | 企业版正式 | 120h | P0 | L1 |
-| P | 本地 AI Workspace | 100h | P1 | Phase 3 |
-| Q | Data Workspace | 60h | P2 | Phase 3 |
-| R | Developer Workspace | 40h | P2 | 无 |
-| S | CLI 正式发布 | 32h | P1 | TD-4.3 |
-| S | 公共 API + Webhook | 60h | P2 | Phase 3 |
-| S | 嵌入式 Widget | 48h | P2 | Phase 3 |
-| **合计** | | **540h** | | |
+| 轨道 | 任务 | 估时 | 优先级 | 依赖 | 状态 |
+|---|---|---|---|---|---|
+| N | Tauri 桌面应用 | 80h | P0 | Phase 3 | ⛔ 阻塞（依赖 Phase 3 完成） |
+| O | 企业版正式 | 120h | P0 | L1 | ⛔ 阻塞（cloud 侧 SOC 2 / 白标） |
+| P | 本地 AI Workspace | 100h | P1 | Phase 3 | ⛔ 阻塞（依赖 Phase 3 完成） |
+| Q | Data Workspace | 60h | P2 | Phase 3 | ⛔ 阻塞（依赖 Phase 3 完成） |
+| R | Developer Workspace | 40h | P2 | 无 | ✅ 已完成（2026-07-19） |
+| S | CLI 正式发布 | 32h | P1 | TD-4.3 | ✅ 已完成（2026-07-19） |
+| S | 公共 API + Webhook | 60h | P2 | Phase 3 | ⛔ 阻塞（cloud 侧 API） |
+| S | 嵌入式 Widget | 48h | P2 | Phase 3 | ⛔ 阻塞（依赖 Phase 3 完成） |
+| **合计** | | **540h** | | | |
 
 ### Phase 4 里程碑
 
@@ -854,11 +854,33 @@ Phase 4 轨道 N/O/P (桌面版 + 企业版 + AI Workspace)
 
 ### Phase 3（2027.07-2028.06）
 
-按 H → I → J → K → L → M 顺序推进
+按 H → I → J → K → L → M 顺序推进。
+
+**当前可推进（lokvis-open 侧，不依赖 cloud）**：
+- I1 AI Workflow 生成器（F1 已完成）— 48h P0
+- J1 Audio Workspace UI（B3 已完成）— 28h P1
+- K1 i18n 6 语言扩展（i18n 部分；PPP 定价需 cloud 配合）— 32h P1
+- M1 MCP SSE 模式（轨道 A 已完成）— 20h P2
+
+**阻塞（依赖 cloud 侧实装）**：
+- H1/H2 Marketplace（cloud 侧评价系统 / 70-30 分成）
+- L1 企业版预览（cloud 侧企业版 API）
 
 ### Phase 4（2028.07-2029.06）
 
-按 N → O → P → Q → R → S 顺序推进（N/O 可并行）
+按 N → O → P → Q → R → S 顺序推进（N/O 可并行）。
+
+**已完成**：
+- ✅ R1 Developer Workspace（2026-07-19，5 工具 + 51 测试 + 10 .astro 页面）
+- ✅ S1 CLI 正式发布（2026-07-19，zod 校验 + validate/list 命令 + 集成测试）
+
+**阻塞（依赖 Phase 3 完成 / cloud 侧）**：
+- N1 Tauri 桌面应用（依赖 Phase 3）
+- O1 企业版正式（依赖 L1 + cloud 侧 SOC 2）
+- P1 本地 AI Workspace（依赖 Phase 3）
+- Q1 Data Workspace（依赖 Phase 3）
+- S2 公共 API + Webhook（cloud 侧任务）
+- S3 嵌入式 Widget（依赖 Phase 3）
 
 ---
 

@@ -1,0 +1,18 @@
+---
+/**
+ * G2:嵌入式音频响度归一工具页(cloud apps/web iframe 引用)。
+ *
+ * URL: /embed/en/tools/audio-normalize
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/audio-normalize" />
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import AudioNormalizeTool from '@/components/tools/audio/AudioNormalizeTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="audio-normalize">
+  <AudioNormalizeTool client:only="react" />
+</EmbedLayout>

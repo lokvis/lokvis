@@ -1,0 +1,12 @@
+---
+import { langList } from '@/i18n/config';
+import ToolLayout from '@/layouts/ToolLayout.astro';
+import JwtDecoder from '@/components/tools/dev/JwtDecoder.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<ToolLayout slug="dev-jwt">
+  <JwtDecoder client:only="react" />
+</ToolLayout>

@@ -159,8 +159,8 @@ describe('内置能力集合', () => {
     expect(names).toContain('asset.archive');
   });
 
-  it('DEV_CAPABILITIES 应包含 4 个开发工具', () => {
-    expect(DEV_CAPABILITIES).toHaveLength(4);
+  it('DEV_CAPABILITIES 应包含 9 个开发工具', () => {
+    expect(DEV_CAPABILITIES).toHaveLength(9);
     expect(DEV_CAPABILITIES.every((c) => c.name.startsWith('developer.'))).toBe(true);
   });
 

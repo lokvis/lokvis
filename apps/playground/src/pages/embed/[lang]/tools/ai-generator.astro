@@ -1,0 +1,18 @@
+---
+/**
+ * G2:嵌入式 AI 工作流生成器工具页(cloud apps/web iframe 引用)。
+ *
+ * URL: /embed/en/tools/ai-generator
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/ai-generator" />
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import AiWorkflowGeneratorTool from '@/components/tools/ai/AiWorkflowGeneratorTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="ai-generator">
+  <AiWorkflowGeneratorTool client:only="react" />
+</EmbedLayout>

@@ -6,6 +6,7 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { z } from 'zod';
 
 export interface CreatePluginOptions {
   /** 作者名 */
@@ -15,25 +16,35 @@ export interface CreatePluginOptions {
 }
 
 /**
- * 名称格式校验:支持两种形式
+ * 名称格式校验 schema(S1 P1:zod 化校验所有输入)。
+ *
+ * 支持两种形式:
  * - 普通名:`my-plugin`(lowercase kebab-case)
  * - scoped 名:`@scope/name`(npm scoped package)
  *
  * 注意:此前版本用 `^[a-z0-9-]+$` 校验,会拒绝所有 scoped 名,
  * 导致下方 `name.startsWith('@')` 分支成为不可达死代码。
  * 现放宽到 scoped 形式以支持用户自定义命名空间。
+ *
+ * zod schema 在 safeParse 失败时返回 issues,错误消息与原 NAME_PATTERN
+ * 一致(保持测试兼容)。
  */
-const NAME_PATTERN = /^@?[a-z0-9-]+(?:\/[a-z0-9-]+)?$/;
+const NAME_ERROR_MESSAGE =
+  'Plugin name must be lowercase kebab-case (a-z, 0-9, -) or scoped (@scope/name)';
+
+const pluginNameSchema = z
+  .string()
+  .regex(/^@?[a-z0-9-]+(?:\/[a-z0-9-]+)?$/, NAME_ERROR_MESSAGE);
 
 export async function createPlugin(
   name: string,
   targetDir?: string,
   options: CreatePluginOptions = {}
 ): Promise<string> {
-  if (!NAME_PATTERN.test(name)) {
-    throw new Error(
-      'Plugin name must be lowercase kebab-case (a-z, 0-9, -) or scoped (@scope/name)'
-    );
+  // zod 校验输入(S1 P1):统一通过 schema.safeParse,失败时抛与原实现一致的错误
+  const nameResult = pluginNameSchema.safeParse(name);
+  if (!nameResult.success) {
+    throw new Error(nameResult.error.issues[0]?.message ?? NAME_ERROR_MESSAGE);
   }
 
   const dir = resolve(process.cwd(), targetDir ?? name);

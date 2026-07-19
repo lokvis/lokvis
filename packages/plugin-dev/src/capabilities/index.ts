@@ -9,6 +9,11 @@ import { createInspectCapabilitiesImpl } from './inspect-capabilities.js';
 import { createInspectAssetImpl } from './inspect-asset.js';
 import { createValidateWorkflowImpl } from './validate-workflow.js';
 import { createProfileImpl } from './profile.js';
+import { createRegexTestImpl } from './regex-test.js';
+import { createDiffImpl } from './diff.js';
+import { createBase64Impl } from './base64.js';
+import { createHashImpl } from './hash.js';
+import { createJwtDecodeImpl } from './jwt.decode.js';
 
 /**
  * 构造所有开发者工具能力的 CapabilityImplementation
@@ -22,6 +27,11 @@ export function buildDevCapabilityImplementations(
     createInspectAssetImpl(ctx),
     createValidateWorkflowImpl(ctx),
     createProfileImpl(ctx),
+    createRegexTestImpl(ctx),
+    createDiffImpl(ctx),
+    createBase64Impl(ctx),
+    createHashImpl(ctx),
+    createJwtDecodeImpl(ctx),
   ];
 }
 
@@ -29,3 +39,8 @@ export { createInspectCapabilitiesImpl } from './inspect-capabilities.js';
 export { createInspectAssetImpl } from './inspect-asset.js';
 export { createValidateWorkflowImpl } from './validate-workflow.js';
 export { createProfileImpl } from './profile.js';
+export { createRegexTestImpl } from './regex-test.js';
+export { createDiffImpl } from './diff.js';
+export { createBase64Impl } from './base64.js';
+export { createHashImpl } from './hash.js';
+export { createJwtDecodeImpl } from './jwt.decode.js';

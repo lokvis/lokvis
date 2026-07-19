@@ -1,0 +1,12 @@
+---
+import { langList } from '@/i18n/config';
+import ToolLayout from '@/layouts/ToolLayout.astro';
+import AudioMergeTool from '@/components/tools/audio/AudioMergeTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<ToolLayout slug="audio-merge">
+  <AudioMergeTool client:only="react" />
+</ToolLayout>

@@ -120,6 +120,44 @@ describe('resolveCloudConfig', () => {
     });
   });
 
+  describe('K1:PPP 定价表(pppPricing)', () => {
+    it('默认 pppPricing 应含 default/US/CN/IN 等国家', () => {
+      const config = resolveCloudConfig({});
+      expect(config.pppPricing).toBeDefined();
+      expect(config.pppPricing.default).toBe(1.0);
+      expect(config.pppPricing.US).toBe(1.0);
+      expect(config.pppPricing.CN).toBe(0.5);
+      expect(config.pppPricing.IN).toBe(0.3);
+    });
+
+    it('LOKVIS_PPP_PRICING_JSON 应覆盖 pppPricing', () => {
+      const config = resolveCloudConfig({
+        LOKVIS_PPP_PRICING_JSON: '{"default":1.0,"XX":0.15}',
+      });
+      expect(config.pppPricing.default).toBe(1.0);
+      expect(config.pppPricing.XX).toBe(0.15);
+    });
+
+    it('LOKVIS_PPP_PRICING_JSON 非法 JSON 应回退默认表', () => {
+      const config = resolveCloudConfig({
+        LOKVIS_PPP_PRICING_JSON: '{invalid json',
+      });
+      expect(config.pppPricing.default).toBe(1.0);
+      expect(config.pppPricing.US).toBe(1.0);
+    });
+
+    it('LOKVIS_PPP_PRICING_JSON 含非 number 值应过滤', () => {
+      const config = resolveCloudConfig({
+        LOKVIS_PPP_PRICING_JSON: '{"default":1.0,"bad":"string","zero":0,"neg":-1,"ok":0.5}',
+      });
+      expect(config.pppPricing.default).toBe(1.0);
+      expect(config.pppPricing.ok).toBe(0.5);
+      expect(config.pppPricing.bad).toBeUndefined();
+      expect(config.pppPricing.zero).toBeUndefined();
+      expect(config.pppPricing.neg).toBeUndefined();
+    });
+  });
+
   describe('默认 process.env', () => {
     it('不传 env 参数时使用 process.env', () => {
       // 仅验证不抛错,具体值取决于运行环境
@@ -127,6 +165,7 @@ describe('resolveCloudConfig', () => {
       expect(typeof config.apiBaseUrl).toBe('string');
       expect(typeof config.upgradeUrl).toBe('string');
       expect(typeof config.pricePerCallCents).toBe('number');
+      expect(typeof config.pppPricing).toBe('object');
     });
   });
 });

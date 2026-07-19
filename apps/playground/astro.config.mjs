@@ -14,10 +14,11 @@ export default defineConfig({
   base: '/',
   server: { port: 5601 },
 
-  // i18n:中英双语,路径前缀 /en/ /zh/,英文为默认语言
+  // i18n:6 语言(en/zh/ja/es/de/fr),路径前缀 /en/ /zh/ /ja/ /es/ /de/ /fr/,英文为默认语言
+  // 新语言缺失 key 时通过 utils.ts 的 t() fallback 机制回退到 en
   i18n: {
     defaultLocale: 'en',
-    locales: ['en', 'zh'],
+    locales: ['en', 'zh', 'ja', 'es', 'de', 'fr'],
     routing: {
       prefixDefaultLocale: true,
     },

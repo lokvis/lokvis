@@ -42,12 +42,21 @@ const EMBED_TOOLS = [
   { slug: 'video-trim', category: 'video' },
   { slug: 'video-to-gif', category: 'video' },
   { slug: 'video-thumbnail', category: 'video' },
+  // audio
+  { slug: 'audio-trim', category: 'audio' },
+  { slug: 'audio-normalize', category: 'audio' },
+  { slug: 'audio-transcode', category: 'audio' },
+  { slug: 'audio-merge', category: 'audio' },
+  // ai
+  { slug: 'ai-generator', category: 'ai' },
 ] as const;
 
 const CATEGORIES: Record<string, { titleKey: string }> = {
   image: { titleKey: 'embed.cat.image' },
   pdf: { titleKey: 'embed.cat.pdf' },
   video: { titleKey: 'embed.cat.video' },
+  audio: { titleKey: 'embed.cat.audio' },
+  ai: { titleKey: 'embed.cat.ai' },
 };
 
 const base = import.meta.env.BASE_URL;

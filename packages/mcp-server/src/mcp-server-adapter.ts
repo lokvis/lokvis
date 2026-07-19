@@ -30,6 +30,7 @@ import type {
   McpPromptHandler,
 } from './server.js';
 import { LokvisSseServer } from './sse-transport.js';
+import type { LokvisSseServerOptions } from './sse-transport.js';
 
 /** 内部 tool 注册记录 */
 interface RegisteredTool {
@@ -74,13 +75,24 @@ export class McpServerAdapter implements LokvisMcpServer {
   private readonly prompts = new Map<string, RegisteredPrompt>();
 
   constructor(
-    name: string,
-    version: string,
+    private readonly name: string,
+    private readonly version: string,
     /** 注入自定义 transport(测试用),默认创建 StdioServerTransport */
     private readonly transportFactory?: () => Transport
   ) {
-    this.server = new Server(
-      { name, version },
+    this.server = this.createServerInstance();
+  }
+
+  /**
+   * 创建一个全新的 Server 实例并挂载所有已注册的 handler。
+   *
+   * 用于 SSE 多会话场景:每个 SSE 连接需要一个独立的 Server 实例
+   * (SDK Server 一次只能 connect 一个 transport)。
+   * handler 闭包捕获 this,因此读取的是当前最新的 tools/resources/prompts Map。
+   */
+  private createServerInstance(): Server {
+    const server = new Server(
+      { name: this.name, version: this.version },
       {
         capabilities: {
           tools: {},
@@ -89,13 +101,14 @@ export class McpServerAdapter implements LokvisMcpServer {
         },
       }
     );
-    this.setupHandlers();
+    this.attachHandlers(server);
+    return server;
   }
 
-  /** 设置 MCP 请求 handler(tool/resource/prompt 的 list 和 call) */
-  private setupHandlers(): void {
+  /** 在指定 Server 实例上挂载 MCP 请求 handler(tool/resource/prompt 的 list 和 call) */
+  private attachHandlers(server: Server): void {
     // ─── Tools ──────────────────────────────────────────
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: Array.from(this.tools.values()).map((t) => ({
         name: t.name,
         description: t.description,
@@ -103,7 +116,7 @@ export class McpServerAdapter implements LokvisMcpServer {
       })),
     }));
 
-    this.server.setRequestHandler(CallToolRequestSchema, async (request): Promise<any> => {
+    server.setRequestHandler(CallToolRequestSchema, async (request): Promise<any> => {
       const { name, arguments: args } = request.params;
       const tool = this.tools.get(name);
       if (!tool) {
@@ -130,7 +143,7 @@ export class McpServerAdapter implements LokvisMcpServer {
     });
 
     // ─── Resources ──────────────────────────────────────
-    this.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+    server.setRequestHandler(ListResourcesRequestSchema, async () => ({
       resources: Array.from(this.resources.values()).map((r) => ({
         uri: r.uri,
         name: r.name,
@@ -139,7 +152,7 @@ export class McpServerAdapter implements LokvisMcpServer {
       })),
     }));
 
-    this.server.setRequestHandler(ReadResourceRequestSchema, async (request): Promise<any> => {
+    server.setRequestHandler(ReadResourceRequestSchema, async (request): Promise<any> => {
       const { uri } = request.params;
       const resource = this.resources.get(uri);
       if (!resource) {
@@ -149,7 +162,7 @@ export class McpServerAdapter implements LokvisMcpServer {
     });
 
     // ─── Prompts ────────────────────────────────────────
-    this.server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+    server.setRequestHandler(ListPromptsRequestSchema, async () => ({
       prompts: Array.from(this.prompts.values()).map((p) => ({
         name: p.name,
         description: p.description,
@@ -165,7 +178,7 @@ export class McpServerAdapter implements LokvisMcpServer {
       })),
     }));
 
-    this.server.setRequestHandler(GetPromptRequestSchema, async (request): Promise<any> => {
+    server.setRequestHandler(GetPromptRequestSchema, async (request): Promise<any> => {
       const { name } = request.params;
       const prompt = this.prompts.get(name);
       if (!prompt) {
@@ -225,9 +238,18 @@ export class McpServerAdapter implements LokvisMcpServer {
    *
    * 与 start()(stdio 阻塞)互斥;调用方选择其中一种。
    * 返回 LokvisSseServer 供调用方 close()。
+   *
+   * 传入 server 工厂以支持多会话并发:每个 SSE 连接创建独立 Server 实例。
+   * options 透传 maxConnections/corsOrigins/authToken/heartbeatIntervalMs。
    */
-  async startSse(port: number): Promise<LokvisSseServer> {
-    const sse = new LokvisSseServer(this.server, { port });
+  async startSse(
+    port: number,
+    options?: Omit<LokvisSseServerOptions, 'port'>
+  ): Promise<LokvisSseServer> {
+    const sse = new LokvisSseServer(
+      () => this.createServerInstance(),
+      { port, ...options }
+    );
     await sse.start();
     return sse;
   }

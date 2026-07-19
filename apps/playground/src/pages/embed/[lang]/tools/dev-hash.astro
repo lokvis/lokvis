@@ -1,0 +1,17 @@
+---
+/**
+ * 嵌入式哈希计算器(cloud apps/web iframe 引用)。
+ *
+ * URL: /embed/en/tools/dev-hash
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import HashTool from '@/components/tools/dev/HashTool.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="dev-hash">
+  <HashTool client:only="react" />
+</EmbedLayout>

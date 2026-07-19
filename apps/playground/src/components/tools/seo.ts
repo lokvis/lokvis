@@ -161,6 +161,76 @@ export const TOOL_SEO: Record<string, ToolSeo> = {
       '从视频指定时间点截取一帧作为缩略图,支持 PNG/JPEG/WebP 输出。浏览器端为 stub,实际处理在 Node(mcp-server)。',
     keywords: ['视频缩略图', 'video.screenshot', '截帧', 'Node 端处理'],
   },
+  'audio-trim': {
+    slug: 'audio-trim',
+    title: '音频裁剪 · 起止时间',
+    description:
+      '按起止时间裁剪音频片段,HTML5 audio 时间轴选择器。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['音频裁剪', 'audio.trim', '音频剪辑', '时间轴', 'Node 端处理'],
+  },
+  'audio-normalize': {
+    slug: 'audio-normalize',
+    title: '音频响度归一 · 目标 LUFS',
+    description:
+      '将音频响度归一到目标 LUFS(-30~0 dB,默认 -16)。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['音频归一', 'audio.normalize', '响度归一', 'LUFS', 'Node 端处理'],
+  },
+  'audio-transcode': {
+    slug: 'audio-transcode',
+    title: '音频转码 · MP3/WAV/OGG/AAC',
+    description:
+      '音频格式转码,支持 MP3/WAV/OGG/AAC 互转,可选码率(32~320 kbps)。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['音频转码', 'audio.transcode', 'MP3', 'WAV', 'OGG', 'AAC', 'Node 端处理'],
+  },
+  'audio-merge': {
+    slug: 'audio-merge',
+    title: '音频合并 · N→1',
+    description:
+      '合并多个音频为一个文件,支持目标格式选择。浏览器端为 stub,实际处理在 Node(mcp-server)。',
+    keywords: ['音频合并', 'audio.merge', '音频拼接', 'Node 端处理'],
+  },
+  'ai-generator': {
+    slug: 'ai-generator',
+    title: 'AI 工作流生成器 · 自然语言→Workflow',
+    description:
+      '用自然语言描述你想要的操作,AI 自动生成 lokvis workflow。Playground 为开源 demo,不内置 cloud AI,实际生成在 lokvis cloud 运行。',
+    keywords: ['AI 工作流生成器', 'ai.generate-workflow', '自然语言转 workflow', 'cloud AI'],
+  },
+  'dev-regex': {
+    slug: 'dev-regex',
+    title: '正则表达式测试器 · matches / groups / indices',
+    description:
+      '在线正则表达式测试器,支持全局匹配、具名捕获组、零宽匹配防护。浏览器本地执行,不上传。',
+    keywords: ['正则表达式测试', 'regex tester', 'developer.regex.test', '捕获组', '本地处理'],
+  },
+  'dev-diff': {
+    slug: 'dev-diff',
+    title: '文本 Diff 对比 · LCS 行级差异',
+    description:
+      '在线文本对比工具,基于 LCS 算法生成 unified-diff 风格的 hunks。浏览器本地执行,不上传。',
+    keywords: ['文本对比', 'diff', 'developer.diff', 'LCS', 'unified diff', '本地处理'],
+  },
+  'dev-base64': {
+    slug: 'dev-base64',
+    title: 'Base64 编解码 · UTF-8 / 二进制',
+    description:
+      '在线 Base64 编码/解码工具,支持 UTF-8 文本与二进制数据(hex 视图)。浏览器本地执行,不上传。',
+    keywords: ['Base64 编码', 'Base64 解码', 'developer.base64', 'UTF-8', '本地处理'],
+  },
+  'dev-hash': {
+    slug: 'dev-hash',
+    title: '哈希计算器 · SHA-1/256/384/512/MD5',
+    description:
+      '在线哈希计算器,支持 SHA-1/SHA-256/SHA-384/SHA-512/MD5。SHA 用 Web Crypto API,MD5 纯 TS 实现。浏览器本地执行。',
+    keywords: ['哈希计算', 'SHA-256', 'MD5', 'developer.hash', 'Web Crypto', '本地处理'],
+  },
+  'dev-jwt': {
+    slug: 'dev-jwt',
+    title: 'JWT 解码器 · header / payload(不验签)',
+    description:
+      '在线 JWT 解码器,解析三段结构(header.payload.signature),提取常见字段(alg/typ/sub/iat/exp)。不验证签名。浏览器本地执行。',
+    keywords: ['JWT 解码', 'JWT decode', 'developer.jwt.decode', 'base64url', '本地处理'],
+  },
 };
 
 /**

@@ -28,6 +28,11 @@ export type BuiltinCapabilityName =
   | 'developer.inspect.asset'
   | 'developer.validate.workflow'
   | 'developer.profile'
+  | 'developer.regex.test'
+  | 'developer.diff'
+  | 'developer.base64'
+  | 'developer.hash'
+  | 'developer.jwt.decode'
   | 'image.resize'
   | 'image.compress'
   | 'image.convert'
@@ -68,6 +73,11 @@ export const BUILTIN_CAPABILITY_NAMES: readonly BuiltinCapabilityName[] = [
   'developer.inspect.asset',
   'developer.validate.workflow',
   'developer.profile',
+  'developer.regex.test',
+  'developer.diff',
+  'developer.base64',
+  'developer.hash',
+  'developer.jwt.decode',
   'image.resize',
   'image.compress',
   'image.convert',
