@@ -1,0 +1,23 @@
+---
+/**
+ * 嵌入式一键图片缩放(quick resize)工具页。
+ *
+ * URL: /embed/en/tools/quick-resize
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/quick-resize" />
+ *
+ * 三方接入路径之一:零配置 iframe 嵌入。
+ * 完全自定义请用 useQuickResize() hook 或 QuickResize 原语。
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import ImageQuickResize from '@/components/tools/quick/ImageQuickResize.tsx';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+---
+<EmbedLayout slug="quick-resize">
+  <div class="mx-auto w-full max-w-3xl py-2">
+    <ImageQuickResize client:only="react" initialPreset="ig-square" />
+  </div>
+</EmbedLayout>

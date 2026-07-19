@@ -454,6 +454,18 @@ export const ui: Dict = {
   'quickCompress.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
   'quickCompress.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
 
+  // ─── Quick Resize Tool ────────────────────────────────
+  'quickResize.title': { en: 'Quick Resize', zh: '一键缩放', ja: 'クイックリサイズ', es: 'Redimensionamiento rápido', de: 'Schnelle Größenänderung', fr: 'Redimensionnement rapide' },
+  'quickResize.subtitle': { en: 'Drop image → resize to preset', zh: '拖入图片 → 按预设缩放', ja: '画像をドロップ → プリセットにリサイズ', es: 'Suelta imagen → redimensionar a preset', de: 'Bild ablegen → auf Voreinstellung verkleinern', fr: 'Déposez l\'image → redimensionner selon le preset' },
+  'quickResize.presetIgSquare': { en: 'IG 1:1', zh: 'IG 1:1', ja: 'IG 1:1', es: 'IG 1:1', de: 'IG 1:1', fr: 'IG 1:1' },
+  'quickResize.presetYtLandscape': { en: 'YouTube 16:9', zh: 'YouTube 16:9', ja: 'YouTube 16:9', es: 'YouTube 16:9', de: 'YouTube 16:9', fr: 'YouTube 16:9' },
+  'quickResize.presetTkPortrait': { en: 'TikTok 9:16', zh: 'TikTok 9:16', ja: 'TikTok 9:16', es: 'TikTok 9:16', de: 'TikTok 9:16', fr: 'TikTok 9:16' },
+  'quickResize.presetHalf': { en: '50%', zh: '50%', ja: '50%', es: '50%', de: '50%', fr: '50%' },
+  'quickResize.dropHint': { en: 'Click or drop image', zh: '点击或拖入图片', ja: 'クリックまたは画像をドロップ', es: 'Haz clic o suelta una imagen', de: 'Klicken oder Bild ablegen', fr: 'Cliquez ou déposez une image' },
+  'quickResize.processing': { en: 'Resizing…', zh: '缩放中…', ja: 'リサイズ中…', es: 'Redimensionando…', de: 'Größe ändern…', fr: 'Redimensionnement…' },
+  'quickResize.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
+  'quickResize.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
+
   // ─── Watermark Batch Tool ─────────────────────────────
   'watermark.batch.title': { en: 'Watermark Batch', zh: '批量水印', ja: 'ウォーターマーク一括', es: 'Marca de agua por lotes', de: 'Wasserzeichen-Stapel', fr: 'Filigrane par lot' },
   'watermark.batch.subtitle': { en: 'image.watermark · batch watermark (concurrency 4)', zh: 'image.watermark · 批量加水印（并发 4）', ja: 'image.watermark · 一括ウォーターマーク（並行 4）', es: 'image.watermark · marca de agua por lotes (concurrencia 4)', de: 'image.watermark · Stapel-Wasserzeichen (Nebenläufigkeit 4)', fr: 'image.watermark · filigrane par lot (concurrence 4)' },
