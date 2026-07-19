@@ -6,11 +6,11 @@
  *   - PIPELINE_PRESETS 常量(4 个预设 + 各 steps 数量)
  *   - buildPipelineWorkflow(用 WorkflowBuilder 构造,节点数与预设一致)
  *   - handleFiles 透传
- *   - autoRun:inputId 变化触发逐节点 run(用 mock runtime 模拟)
- *   - 中间结果捕获(steps 数组)
+ *   - autoRun:inputId 变化触发单次 runtime.run(用 mock runWorkflowRaw 模拟)
+ *   - 中间结果捕获(从 result.stepOutputs 读取各步产物)
  *   - setPreset 在已有输入时立即重跑
  *   - setPreset 在 busy 时不重跑
- *   - onComplete 去重触发
+ *   - onComplete 去重触发(Blob 引用判等)
  *   - reset / clearError
  *   - run() 手动触发
  *   - error 透传
@@ -19,11 +19,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import type { UseImageToolResult } from '@/components/toolkit/useImageTool';
+import type { WorkflowResult } from '@lokvis/sdk';
 import { getImageInfo } from '@/components/toolkit/download';
 import {
   useImagePipeline,
   PIPELINE_PRESETS,
   buildPipelineWorkflow,
+  type PipelinePreset,
 } from '../useImagePipeline';
 
 const getImageInfoMock = vi.mocked(getImageInfo);
@@ -58,6 +60,7 @@ vi.mock('@/components/toolkit/download', () => ({
 const importAssetMock = vi.fn();
 const exportAssetMock = vi.fn();
 const runtimeRunMock = vi.fn();
+const eventBusOnMock = vi.fn(() => vi.fn()); // returns unsubscribe
 
 function makeMockRuntime() {
   return {
@@ -66,6 +69,7 @@ function makeMockRuntime() {
     exportAsset: exportAssetMock,
     cancel: vi.fn(),
     dispose: vi.fn(),
+    eventBus: { on: eventBusOnMock, off: vi.fn(), emit: vi.fn(), onAny: vi.fn(), clear: vi.fn() },
   } as unknown as UseImageToolResult['runtime'];
 }
 
@@ -73,6 +77,7 @@ const handleFilesMock = vi.fn();
 const resetMock = vi.fn();
 const clearErrorMock = vi.fn();
 const runWorkflowMock = vi.fn();
+const runWorkflowRawMock = vi.fn();
 
 function setMockState(overrides: Partial<UseImageToolResult> = {}) {
   stateRef.current = {
@@ -89,6 +94,7 @@ function setMockState(overrides: Partial<UseImageToolResult> = {}) {
     error: null,
     handleFiles: handleFilesMock,
     runWorkflow: runWorkflowMock,
+    runWorkflowRaw: runWorkflowRawMock,
     reset: resetMock,
     clearError: clearErrorMock,
     ...overrides,
@@ -103,6 +109,9 @@ function resetMocks() {
   resetMock.mockReset();
   clearErrorMock.mockReset();
   runWorkflowMock.mockReset();
+  runWorkflowRawMock.mockReset();
+  eventBusOnMock.mockReset();
+  eventBusOnMock.mockImplementation(() => vi.fn());
   getImageInfoMock.mockReset();
   // 重新设置默认 mock 实现(mockReset 会清除实现)
   getImageInfoMock.mockImplementation(async (blob: Blob) => ({
@@ -113,16 +122,31 @@ function resetMocks() {
   }));
 }
 
-/** 模拟 runtime.run:每次返回新 AssetId,exportAsset 返回 Blob */
-function mockRuntimeChain(stepCount: number) {
-  const blob = new Blob([`step-output`], { type: 'image/webp' });
-  for (let i = 0; i < stepCount; i++) {
-    runtimeRunMock.mockResolvedValueOnce({
-      status: 'completed',
-      outputs: [`asset-output-${i + 1}`],
-    });
+/**
+ * 模拟单次 runWorkflowRaw 调用:返回 WorkflowResult,其中 stepOutputs 按
+ * buildPipelineWorkflow(preset) 实际生成的 node.id 填充。exportAsset 每步
+ * 返回相同 Blob(测试不关心实际图像内容,只关心步骤数量与索引)。
+ */
+function mockPipelineRun(preset: PipelinePreset) {
+  const wf = buildPipelineWorkflow(preset);
+  const stepOutputs: Record<string, string[]> = {};
+  for (const node of wf.nodes) {
+    stepOutputs[node.id] = [`${node.id}-output`];
+  }
+  const finalOutput = wf.nodes[wf.nodes.length - 1]!.id + '-output';
+  const result: WorkflowResult = {
+    workflowId: wf.id,
+    outputs: [finalOutput],
+    stepOutputs,
+    duration: 100,
+    status: 'completed',
+  };
+  runWorkflowRawMock.mockResolvedValueOnce(result);
+  const blob = new Blob([`pipeline-output`], { type: 'image/webp' });
+  for (let i = 0; i < wf.nodes.length; i++) {
     exportAssetMock.mockResolvedValueOnce(blob);
   }
+  return wf;
 }
 
 describe('useImagePipeline', () => {
@@ -251,31 +275,32 @@ describe('useImagePipeline', () => {
   });
 
   describe('autoRun', () => {
-    it('inputId 变化时触发逐节点 run(ecommerce = 3 步)', async () => {
+    it('inputId 变化时触发单次 runWorkflowRaw(ecommerce = 3 步)', async () => {
       setMockState({
         inputId: 'input-1',
         ready: true,
         inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
       });
-      mockRuntimeChain(3);
+      mockPipelineRun('ecommerce');
       const { rerender } = renderHook(() => useImagePipeline());
       rerender();
       await act(async () => {
         await Promise.resolve();
       });
       await waitFor(() => {
-        expect(runtimeRunMock).toHaveBeenCalledTimes(3);
+        expect(runWorkflowRawMock).toHaveBeenCalledTimes(1);
       });
+      // 每步调用一次 exportAsset(3 步)
       expect(exportAssetMock).toHaveBeenCalledTimes(3);
     });
 
-    it('social 预设只触发 2 次 run', async () => {
+    it('social 预设也是单次 run(2 步 export)', async () => {
       setMockState({
         inputId: 'input-1',
         ready: true,
         inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
       });
-      mockRuntimeChain(2);
+      mockPipelineRun('social');
       const { rerender } = renderHook(() =>
         useImagePipeline({ initialPreset: 'social' })
       );
@@ -284,8 +309,9 @@ describe('useImagePipeline', () => {
         await Promise.resolve();
       });
       await waitFor(() => {
-        expect(runtimeRunMock).toHaveBeenCalledTimes(2);
+        expect(runWorkflowRawMock).toHaveBeenCalledTimes(1);
       });
+      expect(exportAssetMock).toHaveBeenCalledTimes(2);
     });
 
     it('autoRun=false 时不自动触发', async () => {
@@ -301,7 +327,7 @@ describe('useImagePipeline', () => {
       await act(async () => {
         await Promise.resolve();
       });
-      expect(runtimeRunMock).not.toHaveBeenCalled();
+      expect(runWorkflowRawMock).not.toHaveBeenCalled();
     });
 
     it('每步完成后,steps 数组累积更新', async () => {
@@ -310,7 +336,7 @@ describe('useImagePipeline', () => {
         ready: true,
         inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
       });
-      mockRuntimeChain(2);
+      mockPipelineRun('social');
       const { rerender, result } = renderHook(() =>
         useImagePipeline({ initialPreset: 'social' })
       );
@@ -327,32 +353,13 @@ describe('useImagePipeline', () => {
       expect(result.current.steps[1]!.capability).toBe('image.compress');
     });
 
-    it('每步执行时 currentStep 反映当前步骤索引', async () => {
-      setMockState({
-        inputId: 'input-1',
-        ready: true,
-        inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
-      });
-      mockRuntimeChain(3);
-      const { rerender, result } = renderHook(() =>
-        useImagePipeline({ initialPreset: 'ecommerce' })
-      );
-      rerender();
-      await act(async () => {
-        await Promise.resolve();
-      });
-      await waitFor(() => {
-        expect(result.current.currentStep).toBe(-1);
-      });
-    });
-
     it('完成后 currentStep=-1,busy=false', async () => {
       setMockState({
         inputId: 'input-1',
         ready: true,
         inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
       });
-      mockRuntimeChain(2);
+      mockPipelineRun('social');
       const { rerender, result } = renderHook(() =>
         useImagePipeline({ initialPreset: 'social' })
       );
@@ -372,7 +379,7 @@ describe('useImagePipeline', () => {
         ready: true,
         inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
       });
-      mockRuntimeChain(2);
+      mockPipelineRun('social');
       const { rerender, result } = renderHook(() =>
         useImagePipeline({ initialPreset: 'social' })
       );
@@ -387,17 +394,19 @@ describe('useImagePipeline', () => {
       expect(result.current.outputBlob).toBe(result.current.steps[1]!.blob);
     });
 
-    it('某步失败时设置 error,停止后续步骤', async () => {
+    it('run 失败时设置 error,不输出 steps', async () => {
       setMockState({
         inputId: 'input-1',
         ready: true,
         inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
       });
-      // 第一步失败
-      runtimeRunMock.mockResolvedValueOnce({
+      // runWorkflowRaw 返回 failed 结果
+      runWorkflowRawMock.mockResolvedValueOnce({
+        workflowId: 'wf-x',
+        outputs: [],
+        duration: 10,
         status: 'failed',
         error: 'Step 1 failed',
-        outputs: [],
       });
       const { rerender, result } = renderHook(() =>
         useImagePipeline({ initialPreset: 'social' })
@@ -411,6 +420,25 @@ describe('useImagePipeline', () => {
       });
       expect(result.current.busy).toBe(false);
       expect(result.current.steps).toHaveLength(0);
+    });
+
+    it('run 抛异常时设置 error', async () => {
+      setMockState({
+        inputId: 'input-1',
+        ready: true,
+        inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
+      });
+      runWorkflowRawMock.mockRejectedValueOnce(new Error('runtime exploded'));
+      const { rerender, result } = renderHook(() =>
+        useImagePipeline({ initialPreset: 'social' })
+      );
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => {
+        expect(result.current.error).toContain('runtime exploded');
+      });
     });
   });
 
@@ -428,7 +456,7 @@ describe('useImagePipeline', () => {
       act(() => {
         result.current.setPreset('blog');
       });
-      expect(runtimeRunMock).not.toHaveBeenCalled();
+      expect(runWorkflowRawMock).not.toHaveBeenCalled();
     });
 
     it('已有输入时立即重跑(用新 preset)', async () => {
@@ -437,13 +465,13 @@ describe('useImagePipeline', () => {
         ready: true,
         inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
       });
-      mockRuntimeChain(3); // blog = 3 步
+      mockPipelineRun('blog');
       const { result } = renderHook(() => useImagePipeline());
       await act(async () => {
         result.current.setPreset('blog');
       });
       await waitFor(() => {
-        expect(runtimeRunMock).toHaveBeenCalledTimes(3);
+        expect(runWorkflowRawMock).toHaveBeenCalledTimes(1);
       });
     });
   });
@@ -456,7 +484,7 @@ describe('useImagePipeline', () => {
         ready: true,
         inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
       });
-      mockRuntimeChain(2);
+      mockPipelineRun('social');
       const { rerender } = renderHook(() =>
         useImagePipeline({ initialPreset: 'social', onComplete })
       );
@@ -472,6 +500,44 @@ describe('useImagePipeline', () => {
       expect(arg.steps).toHaveLength(2);
       expect(arg.inputSize).toBe(1000);
       expect(arg.outputBlob).toBeInstanceOf(Blob);
+    });
+
+    it('同一 Blob 不重复触发 onComplete', async () => {
+      const onComplete = vi.fn();
+      setMockState({
+        inputId: 'input-1',
+        ready: true,
+        inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
+      });
+      // 两次 run 返回同一 Blob(同一引用),onComplete 只触发一次
+      const blob = new Blob([`same`], { type: 'image/webp' });
+      const wf = buildPipelineWorkflow('social');
+      const stepOutputs: Record<string, string[]> = {};
+      for (const node of wf.nodes) stepOutputs[node.id] = [`${node.id}-out`];
+      runWorkflowRawMock.mockResolvedValue({
+        workflowId: wf.id,
+        outputs: [wf.nodes[wf.nodes.length - 1]!.id + '-out'],
+        stepOutputs,
+        duration: 10,
+        status: 'completed',
+      });
+      exportAssetMock.mockResolvedValue(blob);
+
+      const { rerender, result } = renderHook(() =>
+        useImagePipeline({ initialPreset: 'social', onComplete })
+      );
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => {
+        expect(onComplete).toHaveBeenCalledTimes(1);
+      });
+      // 手动再跑一次(同一 Blob),onComplete 不应再次触发
+      await act(async () => {
+        await result.current.run();
+      });
+      expect(onComplete).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -490,10 +556,12 @@ describe('useImagePipeline', () => {
         ready: true,
         inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
       });
-      runtimeRunMock.mockResolvedValueOnce({
+      runWorkflowRawMock.mockResolvedValueOnce({
+        workflowId: 'wf-x',
+        outputs: [],
+        duration: 10,
         status: 'failed',
         error: 'oops',
-        outputs: [],
       });
       const { rerender, result } = renderHook(() => useImagePipeline());
       rerender();
@@ -511,20 +579,21 @@ describe('useImagePipeline', () => {
   });
 
   describe('run()', () => {
-    it('手动触发 run,逐节点执行', async () => {
+    it('手动触发 run,执行单次 runWorkflowRaw', async () => {
       setMockState({
         inputId: 'input-1',
         ready: true,
         inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
       });
-      mockRuntimeChain(3);
+      mockPipelineRun('ecommerce');
       const { result } = renderHook(() =>
         useImagePipeline({ autoRun: false })
       );
       await act(async () => {
         await result.current.run();
       });
-      expect(runtimeRunMock).toHaveBeenCalledTimes(3);
+      expect(runWorkflowRawMock).toHaveBeenCalledTimes(1);
+      expect(exportAssetMock).toHaveBeenCalledTimes(3);
     });
 
     it('无 inputId 时 run() 不触发', async () => {
@@ -534,7 +603,7 @@ describe('useImagePipeline', () => {
       await act(async () => {
         await result.current.run();
       });
-      expect(runtimeRunMock).not.toHaveBeenCalled();
+      expect(runWorkflowRawMock).not.toHaveBeenCalled();
     });
   });
 

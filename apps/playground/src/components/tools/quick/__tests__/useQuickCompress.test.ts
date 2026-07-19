@@ -33,6 +33,7 @@ import { useQuickCompress, COMPRESS_PRESETS } from '../useQuickCompress';
 // ─── 工具函数 ───────────────────────────────────────────────
 
 const runWorkflowMock = vi.fn();
+const runWorkflowRawMock = vi.fn();
 const handleFilesMock = vi.fn();
 const resetMock = vi.fn();
 const clearErrorMock = vi.fn();
@@ -56,6 +57,7 @@ function setMockState(overrides: Partial<UseImageToolResult> = {}) {
     error: null,
     handleFiles: handleFilesMock,
     runWorkflow: runWorkflowMock,
+    runWorkflowRaw: runWorkflowRawMock,
     reset: resetMock,
     clearError: clearErrorMock,
     ...overrides,
@@ -64,6 +66,7 @@ function setMockState(overrides: Partial<UseImageToolResult> = {}) {
 
 function resetMocks() {
   runWorkflowMock.mockReset();
+  runWorkflowRawMock.mockReset();
   handleFilesMock.mockReset();
   resetMock.mockReset();
   clearErrorMock.mockReset();

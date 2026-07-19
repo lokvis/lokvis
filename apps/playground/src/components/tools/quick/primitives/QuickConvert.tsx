@@ -27,6 +27,7 @@ import {
   type UseQuickConvertResult,
   type UseQuickActionOptions,
 } from '../useQuickConvert';
+import { fileMatchesAccept, guessExtension, DefaultPresetButton } from './shared';
 
 // ─── Context ────────────────────────────────────────────────
 
@@ -71,18 +72,6 @@ export interface QuickConvertUploadProps {
   disabled?: boolean;
   'aria-label'?: string;
   id?: string;
-}
-
-function fileMatchesAccept(file: File, accept: string): boolean {
-  if (!accept) return true;
-  const patterns = accept.split(',').map((p) => p.trim().toLowerCase());
-  const mime = file.type.toLowerCase();
-  const name = file.name.toLowerCase();
-  return patterns.some((p) => {
-    if (p.endsWith('/*')) return mime.startsWith(p.slice(0, -1));
-    if (p.startsWith('.')) return name.endsWith(p);
-    return mime === p;
-  });
 }
 
 export function QuickConvertUpload({
@@ -201,28 +190,6 @@ export function QuickConvertPresetSwitcher({
   );
 }
 
-interface DefaultPresetButtonProps {
-  preset: ConvertPreset;
-  isSelected: boolean;
-  onClick: () => void;
-  disabled: boolean;
-}
-
-function DefaultPresetButton({ preset, isSelected, onClick, disabled }: DefaultPresetButtonProps) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={isSelected}
-      disabled={disabled}
-      onClick={onClick}
-      style={{ fontWeight: isSelected ? 600 : 400 }}
-    >
-      {preset}
-    </button>
-  );
-}
-
 // ─── Preview ────────────────────────────────────────────────
 
 export interface QuickConvertPreviewProps {
@@ -330,23 +297,6 @@ export function QuickConvertDownloadButton({
       {children}
     </button>
   );
-}
-
-function guessExtension(blob: Blob): string {
-  switch (blob.type) {
-    case 'image/png':
-      return 'png';
-    case 'image/jpeg':
-      return 'jpg';
-    case 'image/webp':
-      return 'webp';
-    case 'image/avif':
-      return 'avif';
-    case 'image/gif':
-      return 'gif';
-    default:
-      return 'img';
-  }
 }
 
 // ─── ErrorDisplay ───────────────────────────────────────────

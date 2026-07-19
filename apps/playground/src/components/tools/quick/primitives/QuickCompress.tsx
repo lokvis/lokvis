@@ -33,6 +33,7 @@ import {
   type UseQuickCompressResult,
   type UseQuickActionOptions,
 } from '../useQuickCompress';
+import { fileMatchesAccept, DefaultPresetButton } from './shared';
 
 // ─── Context ────────────────────────────────────────────────
 
@@ -83,18 +84,6 @@ export interface QuickCompressUploadProps {
   'aria-label'?: string;
   /** id 用于关联 <input type=file> 与 label */
   id?: string;
-}
-
-function fileMatchesAccept(file: File, accept: string): boolean {
-  if (!accept) return true;
-  const patterns = accept.split(',').map((p) => p.trim().toLowerCase());
-  const mime = file.type.toLowerCase();
-  const name = file.name.toLowerCase();
-  return patterns.some((p) => {
-    if (p.endsWith('/*')) return mime.startsWith(p.slice(0, -1));
-    if (p.startsWith('.')) return name.endsWith(p);
-    return mime === p;
-  });
 }
 
 /** 上传区原语:零样式,提供拖拽 + 点击 + ARIA */
@@ -215,28 +204,6 @@ export function QuickCompressPresetSwitcher({
         );
       })}
     </div>
-  );
-}
-
-interface DefaultPresetButtonProps {
-  preset: CompressPreset;
-  isSelected: boolean;
-  onClick: () => void;
-  disabled: boolean;
-}
-
-function DefaultPresetButton({ preset, isSelected, onClick, disabled }: DefaultPresetButtonProps) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={isSelected}
-      disabled={disabled}
-      onClick={onClick}
-      style={{ fontWeight: isSelected ? 600 : 400 }}
-    >
-      {preset}
-    </button>
   );
 }
 

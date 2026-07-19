@@ -153,11 +153,20 @@ export interface WorkflowResult {
   workflowId: string;
   /** 输出 Asset ID 列表 */
   outputs: import('./asset.js').AssetId[];
-  /** 执行耗时（毫秒） */
+  /**
+   * 各 transform 节点的输出 Asset ID(按 node.id 索引)。
+   *
+   * 仅在单 target 工作流(无 `outputs.targets`)执行成功时填充,
+   * 多 target 场景由于同一节点会有多份输出而留空(undefined)。
+   * 调用方据此获取中间步骤结果(如 pipeline UI 展示各步产物),
+   * 无需自行拆分工作流绕过 runtime 调度。
+   */
+  stepOutputs?: Record<string, import('./asset.js').AssetId[]>;
+  /** 执行耗时(毫秒) */
   duration: number;
   /** 执行状态 */
   status: 'completed' | 'cancelled' | 'failed';
-  /** 错误信息（status=failed 时） */
+  /** 错误信息(status=failed 时) */
   error?: string;
 }
 

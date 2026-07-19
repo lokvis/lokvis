@@ -219,6 +219,13 @@ export class WorkflowExecutor {
       // 保存原始输入资产,每个 target 执行前重置
       const inputAssets = [...currentAssets];
       const allOutputs: Asset[] = [];
+      /**
+       * 各 transform 节点的输出 AssetId(按 node.id 索引)。
+       * 仅单 target 场景填充(多 target 同一节点会有多份输出,
+       * 索引歧义,留空让调用方走事件总线监听 node:finished)。
+       */
+      const stepOutputs: Record<string, AssetId[]> = {};
+      const isSingleTarget = targetParamSets.length === 1;
 
       for (const targetParams of targetParamSets) {
         // 每个 target 开始前重置为原始输入
@@ -273,6 +280,12 @@ export class WorkflowExecutor {
           const outputs = await impl.execute(currentAssets, mergedParams, ctx);
           currentAssets = outputs;
 
+          // 单 target 时记录该节点输出,供调用方读取中间结果
+          // (多 target 场景跳过,避免 last-write-wins 语义歧义)
+          if (isSingleTarget) {
+            stepOutputs[node.id] = currentAssets.map((a) => a.id);
+          }
+
           this.config.eventBus.emit({
             type: 'node:finished',
             workflowId,
@@ -293,6 +306,9 @@ export class WorkflowExecutor {
       const result: WorkflowResult = {
         workflowId,
         outputs: allOutputs.map((a) => a.id),
+        // 单 target 且非取消时暴露中间步骤输出;其他场景保持 undefined,
+        // 调用方需要中间结果时应改用 eventBus 监听 node:finished 事件
+        stepOutputs: isSingleTarget && state.status !== 'cancelled' ? stepOutputs : undefined,
         duration: Date.now() - startTime,
         status: state.status === 'cancelled' ? 'cancelled' : 'completed',
       };

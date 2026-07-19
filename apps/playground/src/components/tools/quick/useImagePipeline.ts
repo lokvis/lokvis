@@ -4,7 +4,7 @@
  * 行为:
  *   1. 复用 useImageTool(获取 runtime + 输入生命周期)
  *   2. 用 WorkflowBuilder 构造多节点 workflow(符合 AGENTS.md 架构约束)
- *   3. 逐步执行 workflow.nodes,捕获每步中间结果(可展开查看)
+ *   3. 单次 runtime.run 执行整个 pipeline,从 result.stepOutputs 读取各步中间产物
  *   4. autoRun=true 时,上传后自动跑完整 pipeline
  *   5. 切换 preset 时,若有输入则自动重跑
  *   6. 输出完成后触发 onComplete(可串联到下一个 hook)
@@ -17,13 +17,14 @@
  *
  * 与单步 QuickAction 区别:
  *   - 单步用 buildSingleStepImageWorkflow + tool.runWorkflow
- *   - Pipeline 用 WorkflowBuilder 构造 workflow,但逐节点执行(以捕获中间结果)
+ *   - Pipeline 用 WorkflowBuilder 构造 workflow + tool.runWorkflowRaw(返回原始
+ *     WorkflowResult,含 stepOutputs)。通过 eventBus 订阅 node:started 事件
+ *     更新 currentStep,无需逐节点拆分 workflow。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AssetId, Workflow } from '@lokvis/sdk';
+import type { Workflow } from '@lokvis/sdk';
 import { WorkflowBuilder } from '@lokvis/workflow';
 import { useImageTool } from '@/components/toolkit/useImageTool';
-import { buildSingleStepImageWorkflow } from '@/components/toolkit/workflow-builder';
 import { getImageInfo, type ImageInfo } from '@/components/toolkit/download';
 
 /** 重新导出共享类型(供 Layer 1/2 引用) */
@@ -227,8 +228,10 @@ export function buildPipelineWorkflow(preset: PipelinePreset): Workflow {
  *
  * 实现说明:
  *   - 用 WorkflowBuilder 构造 workflow(满足架构约束 + 用于 UI 展示节点信息)
- *   - 但执行时逐节点单独 run(因为 runtime.run 只返回最终输出,
- *     为了捕获中间结果,我们逐节点执行 + 链式传递 AssetId)
+ *   - 单次 runtime.run 执行整个 workflow;从 result.stepOutputs 读取各步中间
+ *     产物(executor 已在单 target 场景下填充该字段)
+ *   - 通过 eventBus 订阅 node:started 事件更新 currentStep,实现步骤进度展示
+ *   - onComplete 去重用 Blob 引用判等(与其它 5 个单步 hook 一致)
  */
 export function useImagePipeline(
   options?: UseImagePipelineOptions
@@ -242,14 +245,15 @@ export function useImagePipeline(
   const [error, setError] = useState<string | null>(null);
 
   const lastRunInputId = useRef<string | null>(null);
-  const lastNotifiedSignature = useRef<string | null>(null);
+  // 与其它 5 个单步 hook 一致:用 Blob 引用判等,避免不同输出同尺寸误判
+  const lastNotifiedBlob = useRef<Blob | null>(null);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
   // 用 useMemo 缓存 workflow,避免每次渲染都重建
   const workflow = useMemo(() => buildPipelineWorkflow(preset), [preset]);
 
-  /** 实际执行 pipeline:逐节点 run,捕获每步输出 */
+  /** 实际执行 pipeline:单次 runtime.run + 从 stepOutputs 读取中间产物 */
   const runPipeline = useCallback(
     async (nextPreset: PipelinePreset): Promise<void> => {
       if (!tool.runtime || !tool.inputId) return;
@@ -259,30 +263,41 @@ export function useImagePipeline(
       setSteps([]);
       setCurrentStep(0);
 
-      const collected: PipelineStepOutput[] = [];
-      let currentInputId: AssetId = tool.inputId;
+      // 通过 node:id → 步骤索引 映射,把 eventBus 的 nodeId 翻译为 currentStep
+      const nodeIdToIndex = new Map<string, number>();
+      wf.nodes.forEach((n, i) => nodeIdToIndex.set(n.id, i));
+
+      // 订阅 node:started 事件更新 currentStep(executor 在每个 transform 节点
+      // 开始前 emit)。run 结束后取消订阅,避免泄漏。
+      const unsubscribe = tool.runtime.eventBus.on('node:started', (event) => {
+        if (event.workflowId !== wf.id) return;
+        const idx = nodeIdToIndex.get(event.nodeId);
+        if (idx !== undefined) setCurrentStep(idx);
+      });
 
       try {
+        const result = await tool.runWorkflowRaw(wf);
+        if (!result || result.status !== 'completed') {
+          throw new Error(result?.error ?? 'Pipeline failed');
+        }
+        // 从 stepOutputs 读取各步中间产物(executor 单 target 场景已填充)
+        const stepOutputs = result.stepOutputs;
+        if (!stepOutputs) {
+          throw new Error(
+            'runtime did not expose stepOutputs; pipeline requires single-target workflow'
+          );
+        }
+
+        const collected: PipelineStepOutput[] = [];
         for (let i = 0; i < wf.nodes.length; i++) {
           const node = wf.nodes[i]!;
           const nodeLabel = node.label ?? node.capability ?? `Step ${i + 1}`;
           const nodeCapability = node.capability ?? '';
-          setCurrentStep(i);
-          // 用单节点 workflow 包装当前节点能力(runtime.run 接口要求 Workflow)
-          const stepWf = buildSingleStepImageWorkflow(
-            nodeCapability,
-            node.params ?? {},
-            `PipelineStep-${i + 1}`,
-            nodeLabel
-          );
-          const result = await tool.runtime.run(stepWf, [currentInputId]);
-          if (result.status !== 'completed' || !result.outputs[0]) {
-            throw new Error(
-              result.error ?? `Step ${i + 1} (${nodeLabel}) failed`
-            );
+          const outputIds = stepOutputs[node.id];
+          if (!outputIds || !outputIds[0]) {
+            throw new Error(`Step ${i + 1} (${nodeLabel}) produced no output`);
           }
-          currentInputId = result.outputs[0];
-          const blob = await tool.runtime.exportAsset(currentInputId);
+          const blob = await tool.runtime.exportAsset(outputIds[0]);
           const info = (await getImageInfo(blob)) ?? {
             width: 0,
             height: 0,
@@ -302,12 +317,11 @@ export function useImagePipeline(
         }
         setCurrentStep(-1);
 
-        // 触发 onComplete(用 collected 签名去重)
+        // 触发 onComplete(用 finalStep.blob 引用判等,与单步 hook 一致)
         if (collected.length > 0 && tool.inputInfo) {
           const finalStep = collected[collected.length - 1]!;
-          const signature = `${tool.inputId}:${nextPreset}:${finalStep.blob.size}`;
-          if (signature !== lastNotifiedSignature.current) {
-            lastNotifiedSignature.current = signature;
+          if (finalStep.blob !== lastNotifiedBlob.current) {
+            lastNotifiedBlob.current = finalStep.blob;
             onCompleteRef.current?.({
               outputBlob: finalStep.blob,
               outputUrl: finalStep.url,
@@ -322,10 +336,11 @@ export function useImagePipeline(
         setCurrentStep(-1);
         setError(err instanceof Error ? err.message : String(err));
       } finally {
+        unsubscribe();
         setBusy(false);
       }
     },
-    [tool.runtime, tool.inputId, tool.inputInfo]
+    [tool.runtime, tool.inputId, tool.inputInfo, tool.runWorkflowRaw]
   );
 
   // autoRun:inputId 变化时触发一次 pipeline
@@ -360,6 +375,7 @@ export function useImagePipeline(
       setSteps([]);
       setCurrentStep(-1);
       setError(null);
+      lastNotifiedBlob.current = null;
       await tool.handleFiles(files);
     },
     [tool, steps]
@@ -372,6 +388,7 @@ export function useImagePipeline(
     setSteps([]);
     setCurrentStep(-1);
     setError(null);
+    lastNotifiedBlob.current = null;
     tool.reset();
   }, [steps, tool]);
 

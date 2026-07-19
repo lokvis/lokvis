@@ -35,7 +35,6 @@ export default defineConfig({
     ],
     environment: 'node',
     globals: false,
-    // 工作区解析由 pnpm 处理，无需额外 alias
     coverage: {
       provider: 'v8',
       // text:终端表格; text-summary:汇总块; json-summary:结构化 JSON(供 CI 消费); lcov:CI/lcov
