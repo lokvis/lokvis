@@ -503,6 +503,18 @@ export const ui: Dict = {
   'quickCrop.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
   'quickCrop.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
 
+  // ─── Quick Pipeline Tool ──────────────────────────────
+  'quickPipeline.title': { en: 'Image Pipeline', zh: '图片流水线', ja: '画像パイプライン', es: 'Pipeline de imagen', de: 'Bild-Pipeline', fr: 'Pipeline d\'image' },
+  'quickPipeline.subtitle': { en: 'Drop image → run multi-step pipeline', zh: '拖入图片 → 跑多步流水线', ja: '画像をドロップ → マルチステップパイプライン', es: 'Suelta imagen → ejecutar pipeline multi-paso', de: 'Bild ablegen → Multi-Step-Pipeline ausführen', fr: 'Déposez l\'image → exécuter le pipeline multi-étapes' },
+  'quickPipeline.presetEcommerce': { en: 'E-commerce', zh: '电商主图', ja: 'ECメイン画像', es: 'E-commerce', de: 'E-Commerce', fr: 'E-commerce' },
+  'quickPipeline.presetSocial': { en: 'Social', zh: '社交分享', ja: 'ソーシャル', es: 'Social', de: 'Social', fr: 'Social' },
+  'quickPipeline.presetThumbnail': { en: 'Thumbnail', zh: '网页缩略图', ja: 'サムネイル', es: 'Miniatura', de: 'Thumbnail', fr: 'Vignette' },
+  'quickPipeline.presetBlog': { en: 'Blog', zh: '博客配图', ja: 'ブログ画像', es: 'Blog', de: 'Blog', fr: 'Blog' },
+  'quickPipeline.steps': { en: 'Steps', zh: '步骤', ja: 'ステップ', es: 'Pasos', de: 'Schritte', fr: 'Étapes' },
+  'quickPipeline.processing': { en: 'Running pipeline…', zh: '执行流水线中…', ja: 'パイプライン実行中…', es: 'Ejecutando pipeline…', de: 'Pipeline wird ausgeführt…', fr: 'Pipeline en cours…' },
+  'quickPipeline.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
+  'quickPipeline.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
+
   // ─── Watermark Batch Tool ─────────────────────────────
   'watermark.batch.title': { en: 'Watermark Batch', zh: '批量水印', ja: 'ウォーターマーク一括', es: 'Marca de agua por lotes', de: 'Wasserzeichen-Stapel', fr: 'Filigrane par lot' },
   'watermark.batch.subtitle': { en: 'image.watermark · batch watermark (concurrency 4)', zh: 'image.watermark · 批量加水印（并发 4）', ja: 'image.watermark · 一括ウォーターマーク（並行 4）', es: 'image.watermark · marca de agua por lotes (concurrencia 4)', de: 'image.watermark · Stapel-Wasserzeichen (Nebenläufigkeit 4)', fr: 'image.watermark · filigrane par lot (concurrence 4)' },

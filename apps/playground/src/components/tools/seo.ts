@@ -98,6 +98,13 @@ export const TOOL_SEO: Record<string, ToolSeo> = {
       '拖入图片立即按比例裁剪,4 个预设:1:1 正方形 / 4:3 / 16:9 / 自由。自动居中最大化裁剪,文件不上传,隐私安全。',
     keywords: ['一键裁剪', '快速裁剪', '图片裁剪', '1:1', '4:3', '16:9', '比例裁剪', '零配置', '本地处理'],
   },
+  'quick-pipeline': {
+    slug: 'quick-pipeline',
+    title: '图片流水线 · 多步串联 · 4 种预设 pipeline',
+    description:
+      '拖入图片自动跑完多步 pipeline,4 个预设:电商主图 / 社交分享 / 网页缩略图 / 博客配图。各步中间结果可查看,文件不上传,隐私安全。',
+    keywords: ['图片流水线', 'pipeline', '多步串联', 'resize + compress + watermark', '电商主图', '社交分享', '网页缩略图', '博客配图', '零配置', '本地处理'],
+  },
   'watermark-batch': {
     slug: 'watermark-batch',
     title: '批量图片加水印 · 并发 4 · 多文件',

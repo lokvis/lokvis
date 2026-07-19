@@ -207,5 +207,48 @@ export type {
   ResetButtonProps as CropResetButtonProps,
 } from './ImageQuickCrop';
 
+// ─── Quick Pipeline(Layer 3) ────────────────────────────
+
+// Layer 0:Hook
+export {
+  useImagePipeline,
+  PIPELINE_PRESETS,
+  buildPipelineWorkflow,
+  type PipelinePreset,
+  type PipelinePresetConfig,
+  type PipelineStepConfig,
+  type PipelineStepOutput,
+  type PipelineResult,
+  type UseImagePipelineOptions,
+  type UseImagePipelineResult,
+} from './useImagePipeline';
+
+// Layer 1:Primitives
+export { QuickPipeline } from './primitives/QuickPipeline';
+export type {
+  QuickPipelineRootProps,
+  QuickPipelineUploadProps,
+  QuickPipelinePresetSwitcherProps,
+  QuickPipelinePreviewProps,
+  QuickPipelineStepListProps,
+  QuickPipelineDownloadButtonProps,
+  QuickPipelineErrorDisplayProps,
+  QuickPipelineResetButtonProps,
+} from './primitives/QuickPipeline';
+
+// Layer 2:Default UI
+export { default as ImageQuickPipeline } from './ImageQuickPipeline';
+export type {
+  ImageQuickPipelineProps,
+  QuickPipelineComponents,
+  UploadBoxProps as PipelineUploadBoxProps,
+  PreviewBoxProps as PipelinePreviewBoxProps,
+  PresetSwitcherProps as PipelinePresetSwitcherProps,
+  StepListBoxProps,
+  DownloadButtonProps as PipelineDownloadButtonProps,
+  ErrorDisplayProps as PipelineErrorDisplayProps,
+  ResetButtonProps as PipelineResetButtonProps,
+} from './ImageQuickPipeline';
+
 // Theme
 export { themeToCssVars, type QuickTheme } from './theme';
