@@ -43,14 +43,52 @@ export { default as ImageQuickCompress } from './ImageQuickCompress';
 export type {
   ImageQuickCompressProps,
   QuickCompressComponents,
-  UploadBoxProps,
-  PreviewBoxProps,
-  PresetSwitcherProps,
-  DownloadButtonProps,
+  UploadBoxProps as CompressUploadBoxProps,
+  PreviewBoxProps as CompressPreviewBoxProps,
+  PresetSwitcherProps as CompressPresetSwitcherProps,
+  DownloadButtonProps as CompressDownloadButtonProps,
   RatioBadgeProps,
-  ErrorDisplayProps,
-  ResetButtonProps,
+  ErrorDisplayProps as CompressErrorDisplayProps,
+  ResetButtonProps as CompressResetButtonProps,
 } from './ImageQuickCompress';
+
+// ─── Quick Resize ─────────────────────────────────────────
+
+// Layer 0:Hook
+export {
+  useQuickResize,
+  RESIZE_PRESETS,
+  type ResizePreset,
+  type ResizePresetConfig,
+  type UseQuickResizeResult,
+} from './useQuickResize';
+
+// Layer 1:Primitives
+export { QuickResize } from './primitives/QuickResize';
+export type {
+  QuickResizeRootProps,
+  QuickResizeUploadProps,
+  QuickResizePresetSwitcherProps,
+  QuickResizePreviewProps,
+  QuickResizeDimensionBadgeProps,
+  QuickResizeDownloadButtonProps,
+  QuickResizeErrorDisplayProps,
+  QuickResizeResetButtonProps,
+} from './primitives/QuickResize';
+
+// Layer 2:Default UI
+export { default as ImageQuickResize } from './ImageQuickResize';
+export type {
+  ImageQuickResizeProps,
+  QuickResizeComponents,
+  UploadBoxProps as ResizeUploadBoxProps,
+  PreviewBoxProps as ResizePreviewBoxProps,
+  PresetSwitcherProps as ResizePresetSwitcherProps,
+  DownloadButtonProps as ResizeDownloadButtonProps,
+  DimensionBadgeProps,
+  ErrorDisplayProps as ResizeErrorDisplayProps,
+  ResetButtonProps as ResizeResetButtonProps,
+} from './ImageQuickResize';
 
 // Theme
 export { themeToCssVars, type QuickTheme } from './theme';
