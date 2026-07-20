@@ -14,6 +14,7 @@
  * ```
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PluginLoadEntry } from '@lokvis/sdk';
 import { useImageTool } from '@/components/toolkit/useImageTool';
 import { buildSingleStepImageWorkflow } from '@/components/toolkit/workflow-builder';
 import type { ImageInfo } from '@/components/toolkit/download';
@@ -41,6 +42,13 @@ export interface UseQuickActionOptions<Preset extends string = string> {
   onComplete?: (result: QuickActionResult) => void;
   /** 注入输入(用于 pipeline 模式:上一个 hook 的输出作为本 hook 输入) */
   inputBlob?: Blob | null;
+  /**
+   * 预加载插件列表(W23)。透传给底层 useLokvisRuntime。
+   * - undefined(默认):使用 [imageToolsPlugin()](向后兼容)
+   * - []:显式不加载任何插件
+   * - [imageToolsPlugin(), audioToolsPlugin(), ...]:三方组合多媒体插件
+   */
+  plugins?: PluginLoadEntry[];
 }
 
 /** onComplete 回调的结果对象 */
@@ -93,8 +101,8 @@ export interface UseQuickCompressResult {
 export function useQuickCompress(
   options?: UseQuickActionOptions<CompressPreset>
 ): UseQuickCompressResult {
-  const { initialPreset = 'balanced', autoRun = true, onComplete } = options ?? {};
-  const tool = useImageTool();
+  const { initialPreset = 'balanced', autoRun = true, onComplete, plugins } = options ?? {};
+  const tool = useImageTool(plugins);
   const [preset, setPresetState] = useState<CompressPreset>(initialPreset);
 
   // 用 ref 标记"已对当前 inputId 触发过压缩",避免 effect 在 preset 变化时重复触发

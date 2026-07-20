@@ -81,8 +81,8 @@ export interface UseQuickConvertResult {
 export function useQuickConvert(
   options?: UseQuickActionOptions<ConvertPreset>
 ): UseQuickConvertResult {
-  const { initialPreset = 'webp', autoRun = true, onComplete } = options ?? {};
-  const tool = useImageTool();
+  const { initialPreset = 'webp', autoRun = true, onComplete, plugins } = options ?? {};
+  const tool = useImageTool(plugins);
   const [preset, setPresetState] = useState<ConvertPreset>(initialPreset);
 
   const lastRunInputId = useRef<string | null>(null);

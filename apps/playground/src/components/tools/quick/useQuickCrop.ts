@@ -136,8 +136,8 @@ export function computeCropRect(
 export function useQuickCrop(
   options?: UseQuickActionOptions<CropPreset>
 ): UseQuickCropResult {
-  const { initialPreset = 'square', autoRun = true, onComplete } = options ?? {};
-  const tool = useImageTool();
+  const { initialPreset = 'square', autoRun = true, onComplete, plugins } = options ?? {};
+  const tool = useImageTool(plugins);
   const [preset, setPresetState] = useState<CropPreset>(initialPreset);
 
   const lastRunInputId = useRef<string | null>(null);

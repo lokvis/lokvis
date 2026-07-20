@@ -22,7 +22,7 @@
  *     更新 currentStep,无需逐节点拆分 workflow。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Workflow } from '@lokvis/sdk';
+import type { PluginLoadEntry, Workflow } from '@lokvis/sdk';
 import { WorkflowBuilder } from '@lokvis/workflow';
 import { useImageTool } from '@/components/toolkit/useImageTool';
 import { getImageInfo, type ImageInfo } from '@/components/toolkit/download';
@@ -174,6 +174,13 @@ export interface UseImagePipelineOptions {
   autoRun?: boolean;
   /** 完成回调 */
   onComplete?: (result: PipelineResult) => void;
+  /**
+   * 预加载插件列表(W23)。透传给底层 useLokvisRuntime。
+   * - undefined(默认):使用 [imageToolsPlugin()](向后兼容)
+   * - []:显式不加载任何插件
+   * - [imageToolsPlugin(), audioToolsPlugin(), ...]:三方组合多媒体插件
+   */
+  plugins?: PluginLoadEntry[];
 }
 
 /** useImagePipeline 返回值 */
@@ -236,8 +243,8 @@ export function buildPipelineWorkflow(preset: PipelinePreset): Workflow {
 export function useImagePipeline(
   options?: UseImagePipelineOptions
 ): UseImagePipelineResult {
-  const { initialPreset = 'ecommerce', autoRun = true, onComplete } = options ?? {};
-  const tool = useImageTool();
+  const { initialPreset = 'ecommerce', autoRun = true, onComplete, plugins } = options ?? {};
+  const tool = useImageTool(plugins);
   const [preset, setPresetState] = useState<PipelinePreset>(initialPreset);
   const [steps, setSteps] = useState<PipelineStepOutput[]>([]);
   const [currentStep, setCurrentStep] = useState<number>(-1);

@@ -23,8 +23,13 @@ const stateRef: { current: UseImageToolResult } = {
   current: {} as UseImageToolResult,
 };
 
+// 捕获 useImageTool 收到的 plugins 参数,用于验证 W23 plugins 透传
+const useImageToolCallArgs: unknown[] = [];
 vi.mock('@/components/toolkit/useImageTool', () => ({
-  useImageTool: () => stateRef.current,
+  useImageTool: (plugins?: unknown) => {
+    useImageToolCallArgs.push(plugins);
+    return stateRef.current;
+  },
 }));
 
 // buildSingleStepImageWorkflow 用真实实现(验证 capability/params 正确)
@@ -70,6 +75,7 @@ function resetMocks() {
   handleFilesMock.mockReset();
   resetMock.mockReset();
   clearErrorMock.mockReset();
+  useImageToolCallArgs.length = 0;
 }
 
 // ─── 测试 ───────────────────────────────────────────────────
@@ -259,5 +265,26 @@ describe('useQuickCompress', () => {
     setMockState({ initError: 'runtime init failed' });
     const { result } = renderHook(() => useQuickCompress());
     expect(result.current.initError).toBe('runtime init failed');
+  });
+
+  // ─── W23:plugins 选项透传 ───────────────────────────────
+
+  it('W23:不传 plugins 时,useImageTool 收到 undefined(底层回落到默认 imageToolsPlugin)', () => {
+    renderHook(() => useQuickCompress());
+    expect(useImageToolCallArgs).toEqual([undefined]);
+  });
+
+  it('W23:传入 plugins 数组时,原样透传给 useImageTool(支持三方组合 audio/pdf/video 插件)', () => {
+    // 模拟三方注入 [imageToolsPlugin(), audioToolsPlugin()]
+    const fakeImagePlugin = { config: { name: 'image-tools' }, install: () => {} };
+    const fakeAudioPlugin = { config: { name: 'audio-tools' }, install: () => {} };
+    const plugins = [fakeImagePlugin, fakeAudioPlugin];
+    renderHook(() => useQuickCompress({ plugins }));
+    expect(useImageToolCallArgs).toEqual([plugins]);
+  });
+
+  it('W23:传入空数组 plugins=[] 时,原样透传(表示显式不加载任何插件)', () => {
+    renderHook(() => useQuickCompress({ plugins: [] }));
+    expect(useImageToolCallArgs).toEqual([[]]);
   });
 });

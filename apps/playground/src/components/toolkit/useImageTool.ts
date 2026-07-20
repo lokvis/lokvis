@@ -9,9 +9,12 @@
  *   - runWorkflow(workflow) 统一执行 + 导出 output Blob
  *
  * 抽出此 hook 后,工具页只需定义参数面板 + buildWorkflow(params)。
+ *
+ * W23:接受可选 `plugins` 参数,透传给 useLokvisRuntime。三方接入可组合
+ * image / audio / pdf / video 插件。undefined 时使用默认 [imageToolsPlugin()]。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AssetId, Workflow, WorkflowResult } from '@lokvis/sdk';
+import type { AssetId, PluginLoadEntry, Workflow, WorkflowResult } from '@lokvis/sdk';
 import { useLokvisRuntime } from './useLokvisRuntime';
 import { getImageInfo, type ImageInfo } from './download';
 
@@ -54,8 +57,8 @@ export interface UseImageToolResult {
   clearError: () => void;
 }
 
-export function useImageTool(): UseImageToolResult {
-  const { runtime, ready, error: initError } = useLokvisRuntime();
+export function useImageTool(plugins?: PluginLoadEntry[]): UseImageToolResult {
+  const { runtime, ready, error: initError } = useLokvisRuntime(undefined, plugins);
   const [inputId, setInputId] = useState<AssetId | null>(null);
   const [inputUrl, setInputUrl] = useState<string | null>(null);
   const [inputInfo, setInputInfo] = useState<ImageInfo | null>(null);

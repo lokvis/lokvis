@@ -115,8 +115,8 @@ function buildResizeParams(
 export function useQuickResize(
   options?: UseQuickActionOptions<ResizePreset>
 ): UseQuickResizeResult {
-  const { initialPreset = 'ig-square', autoRun = true, onComplete } = options ?? {};
-  const tool = useImageTool();
+  const { initialPreset = 'ig-square', autoRun = true, onComplete, plugins } = options ?? {};
+  const tool = useImageTool(plugins);
   const [preset, setPresetState] = useState<ResizePreset>(initialPreset);
 
   const lastRunInputId = useRef<string | null>(null);
