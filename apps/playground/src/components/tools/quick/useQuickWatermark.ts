@@ -119,8 +119,9 @@ export function useQuickWatermark(
     initialText = DEFAULT_WATERMARK_TEXT,
     autoRun = true,
     onComplete,
+    plugins,
   } = options ?? {};
-  const tool = useImageTool();
+  const tool = useImageTool(plugins);
   const [preset, setPresetState] = useState<WatermarkPreset>(initialPreset);
   const [text, setTextState] = useState<string>(initialText);
 
