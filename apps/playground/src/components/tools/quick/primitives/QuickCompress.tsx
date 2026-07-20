@@ -152,7 +152,6 @@ export function QuickCompressUpload({
         ref={inputRef}
         type="file"
         accept={accept}
-        className="hidden"
         style={{ display: 'none' }}
         onChange={(e) => {
           handleFiles(e.target.files);
