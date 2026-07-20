@@ -443,77 +443,9 @@ export const ui: Dict = {
   'watermark.uploadHint': { en: 'Select or drop an image', zh: '选择或拖入图片', ja: '画像を選択またはドロップ', es: 'Selecciona o suelta una imagen', de: 'Bild auswählen oder ablegen', fr: 'Sélectionne ou dépose une image' },
   'watermark.reselect': { en: '← Reselect image', zh: '← 重新选择图片', ja: '← 画像を再選択', es: '← Reseleccionar imagen', de: '← Bild erneut auswählen', fr: '← Resélectionner l\'image' },
 
-  // ─── Quick Compress (Layer 2 默认 UI 用) ──────────────
-  'quickCompress.title': { en: 'Quick Compress', zh: '一键压缩', ja: 'クイック圧縮', es: 'Compresión rápida', de: 'Schnelle Komprimierung', fr: 'Compression rapide' },
-  'quickCompress.subtitle': { en: 'Drop image → auto compress to WebP', zh: '拖入图片 → 立即压缩为 WebP', ja: '画像をドロップ → WebP に自動圧縮', es: 'Suelta imagen → comprimir automáticamente a WebP', de: 'Bild ablegen → automatisch zu WebP komprimieren', fr: 'Déposez l\'image → compression auto en WebP' },
-  'quickCompress.presetBalanced': { en: 'Balanced', zh: '均衡', ja: 'バランス', es: 'Equilibrado', de: 'Ausgewogen', fr: 'Équilibré' },
-  'quickCompress.presetHighQuality': { en: 'High Quality', zh: '高质量', ja: '高品質', es: 'Alta calidad', de: 'Hohe Qualität', fr: 'Haute qualité' },
-  'quickCompress.presetSmall': { en: 'Small', zh: '小体积', ja: '小サイズ', es: 'Pequeño', de: 'Klein', fr: 'Petit' },
-  'quickCompress.dropHint': { en: 'Click or drop image', zh: '点击或拖入图片', ja: 'クリックまたは画像をドロップ', es: 'Haz clic o suelta una imagen', de: 'Klicken oder Bild ablegen', fr: 'Cliquez ou déposez une image' },
-  'quickCompress.processing': { en: 'Compressing…', zh: '压缩中…', ja: '圧縮中…', es: 'Comprimiendo…', de: 'Komprimieren…', fr: 'Compression…' },
-  'quickCompress.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
-  'quickCompress.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
-
-  // ─── Quick Resize Tool ────────────────────────────────
-  'quickResize.title': { en: 'Quick Resize', zh: '一键缩放', ja: 'クイックリサイズ', es: 'Redimensionamiento rápido', de: 'Schnelle Größenänderung', fr: 'Redimensionnement rapide' },
-  'quickResize.subtitle': { en: 'Drop image → resize to preset', zh: '拖入图片 → 按预设缩放', ja: '画像をドロップ → プリセットにリサイズ', es: 'Suelta imagen → redimensionar a preset', de: 'Bild ablegen → auf Voreinstellung verkleinern', fr: 'Déposez l\'image → redimensionner selon le preset' },
-  'quickResize.presetIgSquare': { en: 'IG 1:1', zh: 'IG 1:1', ja: 'IG 1:1', es: 'IG 1:1', de: 'IG 1:1', fr: 'IG 1:1' },
-  'quickResize.presetYtLandscape': { en: 'YouTube 16:9', zh: 'YouTube 16:9', ja: 'YouTube 16:9', es: 'YouTube 16:9', de: 'YouTube 16:9', fr: 'YouTube 16:9' },
-  'quickResize.presetTkPortrait': { en: 'TikTok 9:16', zh: 'TikTok 9:16', ja: 'TikTok 9:16', es: 'TikTok 9:16', de: 'TikTok 9:16', fr: 'TikTok 9:16' },
-  'quickResize.presetHalf': { en: '50%', zh: '50%', ja: '50%', es: '50%', de: '50%', fr: '50%' },
-  'quickResize.dropHint': { en: 'Click or drop image', zh: '点击或拖入图片', ja: 'クリックまたは画像をドロップ', es: 'Haz clic o suelta una imagen', de: 'Klicken oder Bild ablegen', fr: 'Cliquez ou déposez une image' },
-  'quickResize.processing': { en: 'Resizing…', zh: '缩放中…', ja: 'リサイズ中…', es: 'Redimensionando…', de: 'Größe ändern…', fr: 'Redimensionnement…' },
-  'quickResize.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
-  'quickResize.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
-
-  // ─── Quick Convert Tool ───────────────────────────────
-  'quickConvert.title': { en: 'Quick Convert', zh: '一键转格式', ja: 'クイック変換', es: 'Conversión rápida', de: 'Schnelle Konvertierung', fr: 'Conversion rapide' },
-  'quickConvert.subtitle': { en: 'Drop image → convert format', zh: '拖入图片 → 转换格式', ja: '画像をドロップ → 形式変換', es: 'Suelta imagen → convertir formato', de: 'Bild ablegen → Format konvertieren', fr: 'Déposez l\'image → convertir le format' },
-  'quickConvert.presetPng': { en: 'PNG', zh: 'PNG', ja: 'PNG', es: 'PNG', de: 'PNG', fr: 'PNG' },
-  'quickConvert.presetWebp': { en: 'WebP', zh: 'WebP', ja: 'WebP', es: 'WebP', de: 'WebP', fr: 'WebP' },
-  'quickConvert.presetAvif': { en: 'AVIF', zh: 'AVIF', ja: 'AVIF', es: 'AVIF', de: 'AVIF', fr: 'AVIF' },
-  'quickConvert.presetJpeg': { en: 'JPEG', zh: 'JPEG', ja: 'JPEG', es: 'JPEG', de: 'JPEG', fr: 'JPEG' },
-  'quickConvert.dropHint': { en: 'Click or drop image', zh: '点击或拖入图片', ja: 'クリックまたは画像をドロップ', es: 'Haz clic o suelta una imagen', de: 'Klicken oder Bild ablegen', fr: 'Cliquez ou déposez une image' },
-  'quickConvert.processing': { en: 'Converting…', zh: '转换中…', ja: '変換中…', es: 'Convirtiendo…', de: 'Konvertieren…', fr: 'Conversion…' },
-  'quickConvert.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
-  'quickConvert.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
-
-  // ─── Quick Watermark Tool ─────────────────────────────
-  'quickWatermark.title': { en: 'Quick Watermark', zh: '一键加水印', ja: 'クイックウォーターマーク', es: 'Marca de agua rápida', de: 'Schnelles Wasserzeichen', fr: 'Filigrane rapide' },
-  'quickWatermark.subtitle': { en: 'Drop image → add text watermark', zh: '拖入图片 → 加文字水印', ja: '画像をドロップ → テキスト透かし', es: 'Suelta imagen → añadir marca de agua', de: 'Bild ablegen → Text-Wasserzeichen hinzufügen', fr: 'Déposez l\'image → ajouter un filigrane texte' },
-  'quickWatermark.presetSmallBr': { en: 'Bottom-right small', zh: '右下角小字', ja: '右下小文字', es: 'Abajo-derecha pequeño', de: 'Unten-rechts klein', fr: 'Bas-droite petit' },
-  'quickWatermark.presetLargeCenter': { en: 'Center large', zh: '居中大字', ja: '中央大文字', es: 'Centro grande', de: 'Mitte groß', fr: 'Centre grand' },
-  'quickWatermark.presetTile': { en: 'Tiled', zh: '平铺', ja: 'タイル状', es: 'Mosaico', de: 'Kacheln', fr: 'Mosaïque' },
-  'quickWatermark.dropHint': { en: 'Click or drop image', zh: '点击或拖入图片', ja: 'クリックまたは画像をドロップ', es: 'Haz clic o suelta una imagen', de: 'Klicken oder Bild ablegen', fr: 'Cliquez ou déposez une image' },
-  'quickWatermark.textPlaceholder': { en: 'Watermark text', zh: '水印文字', ja: '透かしテキスト', es: 'Texto de marca de agua', de: 'Wasserzeichentext', fr: 'Texte du filigrane' },
-  'quickWatermark.processing': { en: 'Watermarking…', zh: '加水印中…', ja: '透かし追加中…', es: 'Añadiendo marca…', de: 'Wasserzeichen hinzufügen…', fr: 'Ajout du filigrane…' },
-  'quickWatermark.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
-  'quickWatermark.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
-
-  // ─── Quick Crop Tool ──────────────────────────────────
-  'quickCrop.title': { en: 'Quick Crop', zh: '一键裁剪', ja: 'クイッククロップ', es: 'Recorte rápido', de: 'Schneller Zuschnitt', fr: 'Recadrage rapide' },
-  'quickCrop.subtitle': { en: 'Drop image → crop by aspect ratio', zh: '拖入图片 → 按比例裁剪', ja: '画像をドロップ → アスペクト比で切り抜き', es: 'Suelta imagen → recortar por proporción', de: 'Bild ablegen → nach Seitenverhältnis zuschneiden', fr: 'Déposez l\'image → recadrer par ratio' },
-  'quickCrop.presetSquare': { en: '1:1 Square', zh: '1:1 正方形', ja: '1:1 正方形', es: '1:1 Cuadrado', de: '1:1 Quadrat', fr: '1:1 Carré' },
-  'quickCrop.preset43': { en: '4:3', zh: '4:3', ja: '4:3', es: '4:3', de: '4:3', fr: '4:3' },
-  'quickCrop.preset169': { en: '16:9', zh: '16:9', ja: '16:9', es: '16:9', de: '16:9', fr: '16:9' },
-  'quickCrop.presetFree': { en: 'Free', zh: '自由', ja: 'フリー', es: 'Libre', de: 'Frei', fr: 'Libre' },
-  'quickCrop.cropArea': { en: 'Crop area', zh: '裁剪区域', ja: 'クロップ領域', es: 'Área de recorte', de: 'Zuschnittbereich', fr: 'Zone de recadrage' },
-  'quickCrop.dropHint': { en: 'Click or drop image', zh: '点击或拖入图片', ja: 'クリックまたは画像をドロップ', es: 'Haz clic o suelta una imagen', de: 'Klicken oder Bild ablegen', fr: 'Cliquez ou déposez une image' },
-  'quickCrop.processing': { en: 'Cropping…', zh: '裁剪中…', ja: '切り抜き中…', es: 'Recortando…', de: 'Zuschneiden…', fr: 'Recadrage…' },
-  'quickCrop.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
-  'quickCrop.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
-
-  // ─── Quick Pipeline Tool ──────────────────────────────
-  'quickPipeline.title': { en: 'Image Pipeline', zh: '图片流水线', ja: '画像パイプライン', es: 'Pipeline de imagen', de: 'Bild-Pipeline', fr: 'Pipeline d\'image' },
-  'quickPipeline.subtitle': { en: 'Drop image → run multi-step pipeline', zh: '拖入图片 → 跑多步流水线', ja: '画像をドロップ → マルチステップパイプライン', es: 'Suelta imagen → ejecutar pipeline multi-paso', de: 'Bild ablegen → Multi-Step-Pipeline ausführen', fr: 'Déposez l\'image → exécuter le pipeline multi-étapes' },
-  'quickPipeline.presetEcommerce': { en: 'E-commerce', zh: '电商主图', ja: 'ECメイン画像', es: 'E-commerce', de: 'E-Commerce', fr: 'E-commerce' },
-  'quickPipeline.presetSocial': { en: 'Social', zh: '社交分享', ja: 'ソーシャル', es: 'Social', de: 'Social', fr: 'Social' },
-  'quickPipeline.presetThumbnail': { en: 'Thumbnail', zh: '网页缩略图', ja: 'サムネイル', es: 'Miniatura', de: 'Thumbnail', fr: 'Vignette' },
-  'quickPipeline.presetBlog': { en: 'Blog', zh: '博客配图', ja: 'ブログ画像', es: 'Blog', de: 'Blog', fr: 'Blog' },
-  'quickPipeline.steps': { en: 'Steps', zh: '步骤', ja: 'ステップ', es: 'Pasos', de: 'Schritte', fr: 'Étapes' },
-  'quickPipeline.processing': { en: 'Running pipeline…', zh: '执行流水线中…', ja: 'パイプライン実行中…', es: 'Ejecutando pipeline…', de: 'Pipeline wird ausgeführt…', fr: 'Pipeline en cours…' },
-  'quickPipeline.download': { en: 'Download', zh: '下载', ja: 'ダウンロード', es: 'Descargar', de: 'Herunterladen', fr: 'Télécharger' },
-  'quickPipeline.retry': { en: 'Try another', zh: '再试一张', ja: 'もう一枚', es: 'Probar otra', de: 'Eine andere probieren', fr: 'Essayer une autre' },
+  // ─── Quick* 系列 keys 已迁移到 @lokvis/quick-image 包内 ──
+  // playground 不再维护;Layer 2 默认 UI 通过包内字典 + locale prop 渲染。
+  // 三方覆盖文案请用 <QuickI18nProvider translations={...}> 或组件 translations prop。
 
   // ─── Watermark Batch Tool ─────────────────────────────
   'watermark.batch.title': { en: 'Watermark Batch', zh: '批量水印', ja: 'ウォーターマーク一括', es: 'Marca de agua por lotes', de: 'Wasserzeichen-Stapel', fr: 'Filigrane par lot' },

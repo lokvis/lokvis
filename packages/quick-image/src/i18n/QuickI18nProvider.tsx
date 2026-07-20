@@ -58,6 +58,13 @@ export interface QuickI18nContextValue {
 
 const QuickI18nContext = createContext<QuickI18nContextValue | null>(null);
 
+/**
+ * Context 对象(导出供 class 组件 static contextType 使用,如 ErrorBoundary)。
+ *
+ * 消费方一般使用 useQuickI18nContext() hook;此导出仅为类组件兼容性提供。
+ */
+export { QuickI18nContext };
+
 export interface QuickI18nProviderProps extends QuickI18nContextValue {
   children: ReactNode;
 }

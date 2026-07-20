@@ -14,6 +14,8 @@ import type { ComponentType, CSSProperties, ReactNode } from 'react';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useLang } from './i18n/useLang';
 import { useTranslations } from './i18n/utils';
+import type { Language } from './i18n/config';
+import type { QuickTranslations } from './i18n/QuickI18nProvider';
 import { themeToCssVars, type QuickTheme } from './theme';
 import { QuickCrop } from './primitives/QuickCrop';
 import {
@@ -226,6 +228,10 @@ export interface ImageQuickCropProps extends UseQuickActionOptions<CropPreset> {
   showResetButton?: boolean;
   theme?: QuickTheme;
   components?: Partial<QuickCropComponents>;
+  /** 显式 locale 覆盖(优先级高于 QuickI18nProvider 与 <html lang> 检测) */
+  locale?: Language;
+  /** 翻译覆盖(优先级高于 QuickI18nProvider.translations) */
+  translations?: QuickTranslations;
 }
 
 // ─── 默认 UI 实现 ─────────────────────────────────────────
@@ -240,10 +246,12 @@ function ImageQuickCropDefault({
   showResetButton = true,
   theme,
   components,
+  locale,
+  translations,
   ...hookOptions
 }: ImageQuickCropProps) {
-  const lang = useLang();
-  const t = useTranslations(lang);
+  const lang = useLang(locale);
+  const t = useTranslations(lang, translations);
   const cssVars = themeToCssVars(theme);
 
   const {
@@ -309,7 +317,7 @@ function ImageQuickCropDefault({
 
 export default function ImageQuickCrop(props: ImageQuickCropProps) {
   return (
-    <ErrorBoundary>
+    <ErrorBoundary locale={props.locale} translations={props.translations}>
       <ImageQuickCropDefault {...props} />
     </ErrorBoundary>
   );

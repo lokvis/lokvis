@@ -15,9 +15,11 @@ import { ImageQuickConvert } from '@lokvis/quick-image';
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
 }
+
+const { lang } = Astro.params;
 ---
 <EmbedLayout slug="quick-convert">
   <div class="mx-auto w-full max-w-3xl py-2">
-    <ImageQuickConvert client:only="react" initialPreset="webp" />
+    <ImageQuickConvert client:only="react" initialPreset="webp" locale={lang} />
   </div>
 </EmbedLayout>

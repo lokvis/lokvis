@@ -260,3 +260,15 @@ export type {
 
 // ─── Theme ────────────────────────────────────────────────
 export { themeToCssVars, type QuickTheme } from './theme';
+
+// ─── i18n(Task 2 解耦) ──────────────────────────────────
+// QuickI18nProvider:让消费方显式注入 locale + 可选翻译覆盖,
+// 而不依赖 playground 的 <html lang> / URL 路径前缀。
+export {
+  QuickI18nProvider,
+  useQuickI18nContext,
+  type QuickI18nProviderProps,
+  type QuickI18nContextValue,
+  type QuickTranslations,
+} from './i18n/QuickI18nProvider';
+export type { Language } from './i18n/config';

@@ -15,9 +15,11 @@ import { ImageQuickWatermark } from '@lokvis/quick-image';
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
 }
+
+const { lang } = Astro.params;
 ---
 <EmbedLayout slug="quick-watermark">
   <div class="mx-auto w-full max-w-3xl py-2">
-    <ImageQuickWatermark client:only="react" initialPreset="small-br" initialText="Lokvis" />
+    <ImageQuickWatermark client:only="react" initialPreset="small-br" initialText="Lokvis" locale={lang} />
   </div>
 </EmbedLayout>

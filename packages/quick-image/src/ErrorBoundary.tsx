@@ -16,13 +16,17 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { captureException } from './internal/sentry';
 import { getLangFromUrl, t } from './i18n/utils';
 import type { Language } from './i18n/config';
-import type { QuickTranslations } from './i18n/QuickI18nProvider';
+import {
+  QuickI18nContext,
+  type QuickI18nContextValue,
+  type QuickTranslations,
+} from './i18n/QuickI18nProvider';
 
 interface Props {
   children: ReactNode;
-  /** 显式 locale 覆盖(优先级高于 URL 检测) */
+  /** 显式 locale 覆盖(优先级高于 Provider / URL 检测) */
   locale?: Language;
-  /** 翻译覆盖(可选,来自 QuickI18nProvider.translations 或 Layer 2 组件透传) */
+  /** 翻译覆盖(可选,优先于 Provider.translations) */
   translations?: QuickTranslations;
   /** 自定义 fallback,未提供时用默认错误提示 */
   fallback?: (error: Error, reset: () => void) => ReactNode;
@@ -38,6 +42,10 @@ interface State {
 const MAX_RETRY = 3;
 
 export class ErrorBoundary extends Component<Props, State> {
+  // 类组件读取 QuickI18nProvider(优先级低于 locale / translations prop)
+  static contextType = QuickI18nContext;
+  declare context: QuickI18nContextValue | null;
+
   state: State = { error: null, retryCount: 0 };
 
   static getDerivedStateFromError(error: Error): State {
@@ -65,11 +73,16 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) {
         return this.props.fallback(this.state.error, this.reset);
       }
-      // ErrorBoundary 是 class 组件,无法用 hook;优先用 locale prop,
-      // 否则从 URL 提取 lang(Task 2 解耦:不再依赖 <html lang>)
+      // ErrorBoundary 是 class 组件,无法用 hook;优先级:
+      //   1. locale prop(显式覆盖)
+      //   2. QuickI18nProvider.locale(context)
+      //   3. URL 路径前缀解析(回退)
+      // translations 同理:prop 优先 → context.translations
+      const ctx = this.context;
       const lang = this.props.locale
+        ?? ctx?.locale
         ?? getLangFromUrl(typeof window !== 'undefined' ? window.location.href : '/');
-      const overrides = this.props.translations;
+      const overrides = this.props.translations ?? ctx?.translations;
       const canRetry = this.state.retryCount < MAX_RETRY;
       return (
         <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">

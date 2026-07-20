@@ -44,7 +44,8 @@ export function getLangFromUrl(url: URL | string): Language {
 /**
  * 翻译函数:根据 lang + key 返回对应字符串。
  *
- * 优先级:overrides[key][lang] → ui[key][lang] → ui[key][defaultLang] → key 本身
+ * 优先级:overrides[key][lang] → overrides[key][defaultLang] → ui[key][lang]
+ *        → ui[key][defaultLang] → key 本身
  *
  * @param lang 当前语言
  * @param key 翻译 key(如 'quickCompress.title')
@@ -55,23 +56,30 @@ export function t(
   key: string,
   overrides?: QuickTranslations
 ): string {
-  // 1. 消费方覆盖优先
-  const override = overrides?.[key]?.[lang];
-  if (override) return override;
-  // 2. 包内字典
+  // 1. 消费方覆盖优先:先尝试 lang,再回退到 defaultLang(en)
+  const override = overrides?.[key];
+  if (override) {
+    const overrideLang = override[lang];
+    if (overrideLang) return overrideLang;
+    const overrideDefault = override[defaultLang];
+    if (overrideDefault) return overrideDefault;
+  }
+  // 2. 包内字典:lang → defaultLang → key
   return ui[key]?.[lang] ?? ui[key]?.[defaultLang] ?? key;
 }
 
 /**
  * 创建翻译函数(React 组件用)。
  *
- * 自动从 QuickI18nProvider 读取 translations 覆盖;无 Provider 时仅用包内字典。
+ * 优先级:explicitOverrides 参数 → QuickI18nProvider.translations → 包内字典。
  *
  * @param lang 当前语言(由 useLang 推导)
+ * @param explicitOverrides 组件 translations prop 传入的显式覆盖(优先级最高)
  */
-export function useTranslations(lang: Language) {
+export function useTranslations(lang: Language, explicitOverrides?: QuickTranslations) {
   const ctx = useQuickI18nContext();
-  const overrides = ctx?.translations;
+  // 显式 prop 优先于 Provider.translations
+  const overrides = explicitOverrides ?? ctx?.translations;
   return (key: string) => t(lang, key, overrides);
 }
 

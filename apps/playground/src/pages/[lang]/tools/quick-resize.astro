@@ -6,9 +6,11 @@ import { ImageQuickResize } from '@lokvis/quick-image';
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
 }
+
+const { lang } = Astro.params;
 ---
 <ToolLayout slug="quick-resize">
   <div class="mx-auto w-full max-w-3xl px-4 py-4">
-    <ImageQuickResize client:only="react" initialPreset="ig-square" />
+    <ImageQuickResize client:only="react" initialPreset="ig-square" locale={lang} />
   </div>
 </ToolLayout>
