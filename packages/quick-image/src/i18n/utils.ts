@@ -1,18 +1,21 @@
 /**
- * i18n 工具函数(@lokvis/quick-image 内部副本)。
+ * i18n 工具函数(@lokvis/quick-image 内部)。
  *
- * 与 apps/playground/src/i18n/utils.ts 保持一致;
- * 包内独立维护避免与 playground 相互耦合。
+ * Task 2 解耦后,所有翻译函数支持 translations overrides(来自 QuickI18nProvider)。
+ * 覆盖优先级:overrides[key][lang] → 包内 ui[key][lang] → ui[key][defaultLang] → key 本身。
  *
  * - getLangFromUrl: 从 URL 路径提取语言(/en/xxx → 'en')
- * - t: 翻译函数,根据 lang 返回对应字符串;缺失时回退到 defaultLang(en),再缺失返回 key 本身
- * - useTranslations: 创建翻译函数(React 组件用)
+ * - t: 翻译函数,支持 overrides 优先
+ * - useTranslations: 创建翻译函数(React 组件用,自动读取 Provider)
  */
 import { defaultLang, type Language } from './config';
 import { ui } from './ui';
+import { useQuickI18nContext, type QuickTranslations } from './QuickI18nProvider';
 
 // re-export 类型,方便外部 import { type Language } from '@lokvis/quick-image'
 export type { Language };
+// re-export QuickTranslations 供消费方构造 overrides 类型
+export type { QuickTranslations };
 
 /** 6 语言列表,用于 URL 路径前缀检测 */
 const SUPPORTED_LANGS: ReadonlySet<string> = new Set(['en', 'zh', 'ja', 'es', 'de', 'fr']);
@@ -38,15 +41,38 @@ export function getLangFromUrl(url: URL | string): Language {
   return defaultLang;
 }
 
-/** 翻译函数:根据 lang 返回 key 对应的字符串
- *  fallback 链:lang → defaultLang(en) → key 本身 */
-export function t(lang: Language, key: string): string {
+/**
+ * 翻译函数:根据 lang + key 返回对应字符串。
+ *
+ * 优先级:overrides[key][lang] → ui[key][lang] → ui[key][defaultLang] → key 本身
+ *
+ * @param lang 当前语言
+ * @param key 翻译 key(如 'quickCompress.title')
+ * @param overrides 消费方注入的翻译覆盖(可选)
+ */
+export function t(
+  lang: Language,
+  key: string,
+  overrides?: QuickTranslations
+): string {
+  // 1. 消费方覆盖优先
+  const override = overrides?.[key]?.[lang];
+  if (override) return override;
+  // 2. 包内字典
   return ui[key]?.[lang] ?? ui[key]?.[defaultLang] ?? key;
 }
 
-/** 创建翻译函数(React 组件用) */
+/**
+ * 创建翻译函数(React 组件用)。
+ *
+ * 自动从 QuickI18nProvider 读取 translations 覆盖;无 Provider 时仅用包内字典。
+ *
+ * @param lang 当前语言(由 useLang 推导)
+ */
 export function useTranslations(lang: Language) {
-  return (key: string) => t(lang, key);
+  const ctx = useQuickI18nContext();
+  const overrides = ctx?.translations;
+  return (key: string) => t(lang, key, overrides);
 }
 
 /** 获取当前语言下的 URL(在路径前插入 lang 前缀) */
