@@ -10,7 +10,7 @@
  */
 import { langList } from '@/i18n/config';
 import EmbedLayout from '@/layouts/EmbedLayout.astro';
-import ImageQuickCompress from '@/components/tools/quick/ImageQuickCompress.tsx';
+import { PlaygroundImageQuickCompress } from '@/components/tools/quick/playground.tsx';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
@@ -18,6 +18,6 @@ export function getStaticPaths() {
 ---
 <EmbedLayout slug="quick-compress">
   <div class="mx-auto w-full max-w-3xl py-2">
-    <ImageQuickCompress client:only="react" initialPreset="balanced" />
+    <PlaygroundImageQuickCompress client:only="react" initialPreset="balanced" />
   </div>
 </EmbedLayout>

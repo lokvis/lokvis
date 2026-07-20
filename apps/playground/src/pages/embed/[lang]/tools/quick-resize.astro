@@ -10,7 +10,7 @@
  */
 import { langList } from '@/i18n/config';
 import EmbedLayout from '@/layouts/EmbedLayout.astro';
-import ImageQuickResize from '@/components/tools/quick/ImageQuickResize.tsx';
+import { PlaygroundImageQuickResize } from '@/components/tools/quick/playground.tsx';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
@@ -18,6 +18,6 @@ export function getStaticPaths() {
 ---
 <EmbedLayout slug="quick-resize">
   <div class="mx-auto w-full max-w-3xl py-2">
-    <ImageQuickResize client:only="react" initialPreset="ig-square" />
+    <PlaygroundImageQuickResize client:only="react" initialPreset="ig-square" />
   </div>
 </EmbedLayout>

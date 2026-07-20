@@ -18,15 +18,8 @@ vi.mock('@/components/toolkit/useImageTool', () => ({
   useImageTool: () => stateRef.current,
 }));
 
-vi.mock('@/i18n/useLang', () => ({
-  useLang: () => 'en',
-}));
-
-vi.mock('@/i18n/utils', () => ({
-  useTranslations: () => (key: string) => key,
-  t: (_lang: string, key: string) => key,
-  getLangFromUrl: () => 'en',
-}));
+// 注:Layer 2 默认 UI 已解耦 playground i18n(W23),
+// 组件通过 useQuickStrings() 读取 DEFAULT_QUICK_STRINGS(英文)。
 
 const runWorkflowMock = vi.fn();
 const runWorkflowRawMock = vi.fn();
@@ -82,8 +75,8 @@ describe('ImageQuickCrop 默认 UI', () => {
 
   it('渲染标题与副标', () => {
     render(<ImageQuickCrop />);
-    expect(screen.getByText('quickCrop.title')).toBeInTheDocument();
-    expect(screen.getByText('quickCrop.subtitle')).toBeInTheDocument();
+    expect(screen.getByText('Quick Crop')).toBeInTheDocument();
+    expect(screen.getByText('Drop image → crop to preset ratio')).toBeInTheDocument();
   });
 
   it('默认渲染 4 个预设按钮(radio)', () => {
@@ -100,7 +93,7 @@ describe('ImageQuickCrop 默认 UI', () => {
 
   it('默认渲染 CropArea(显示 cropArea 标签)', () => {
     render(<ImageQuickCrop />);
-    expect(screen.getByText('quickCrop.cropArea')).toBeInTheDocument();
+    expect(screen.getByText('Crop Area')).toBeInTheDocument();
   });
 
   it('showPresetSwitcher=false 隐藏预设切换器', () => {
@@ -110,7 +103,7 @@ describe('ImageQuickCrop 默认 UI', () => {
 
   it('showCropArea=false 隐藏裁剪区域', () => {
     render(<ImageQuickCrop showCropArea={false} />);
-    expect(screen.queryByText('quickCrop.cropArea')).toBeNull();
+    expect(screen.queryByText('Crop Area')).toBeNull();
   });
 
   it('showBeforeAfter=false 时只渲染 1 个 preview(CropArea 还显示 1 个 "No image")', () => {
@@ -142,12 +135,12 @@ describe('ImageQuickCrop 默认 UI', () => {
   it('showDownloadButton=false 时,即使有输出也不显示下载按钮', () => {
     setMockState({ outputBlob: new Blob(['x'], { type: 'image/webp' }) });
     render(<ImageQuickCrop showDownloadButton={false} />);
-    expect(screen.queryByText('quickCrop.download')).toBeNull();
+    expect(screen.queryByText('Download')).toBeNull();
   });
 
   it('showResetButton=false 时隐藏重置按钮', () => {
     render(<ImageQuickCrop showResetButton={false} />);
-    expect(screen.queryByText('quickCrop.retry')).toBeNull();
+    expect(screen.queryByText('Try another')).toBeNull();
   });
 
   it('theme prop 转 CSS 变量,应用到根元素', () => {
@@ -184,7 +177,7 @@ describe('ImageQuickCrop 默认 UI', () => {
     const CustomCropArea = () => <div data-testid="custom-crop">custom crop</div>;
     render(<ImageQuickCrop components={{ CropAreaBox: CustomCropArea }} />);
     expect(screen.getByTestId('custom-crop')).toBeInTheDocument();
-    // CropAreaBox 替换后,不再渲染默认 CropArea(quickCrop.cropArea 标签仍存在)
+    // CropAreaBox 替换后,不再渲染默认 CropArea(Crop Area 标签仍存在)
   });
 
   it('components prop 替换 DownloadButton', () => {

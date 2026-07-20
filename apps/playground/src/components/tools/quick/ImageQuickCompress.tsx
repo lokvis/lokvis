@@ -15,10 +15,9 @@
  */
 import type { ComponentType, CSSProperties, ReactNode } from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { useLang } from '@/i18n/useLang';
-import { useTranslations } from '@/i18n/utils';
 import { formatBytes } from '@/components/toolkit/download';
 import { themeToCssVars, type QuickTheme } from './theme';
+import { useQuickStrings } from './strings';
 import { QuickCompress } from './primitives/QuickCompress';
 import type { CompressPreset, UseQuickActionOptions } from './useQuickCompress';
 
@@ -249,8 +248,7 @@ function ImageQuickCompressDefault({
   components,
   ...hookOptions
 }: ImageQuickCompressProps) {
-  const lang = useLang();
-  const t = useTranslations(lang);
+  const s = useQuickStrings();
   const cssVars = themeToCssVars(theme);
 
   const {
@@ -279,10 +277,10 @@ function ImageQuickCompressDefault({
         <header className="flex flex-col gap-2">
           <div>
             <h2 className="text-sm font-semibold" style={{ color: 'var(--lokvis-text)' }}>
-              {t('quickCompress.title')}
+              {s.compress.title}
             </h2>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--lokvis-text-muted)' }}>
-              {t('quickCompress.subtitle')}
+              {s.compress.subtitle}
             </p>
           </div>
           <UploadBox />
@@ -299,8 +297,8 @@ function ImageQuickCompressDefault({
         <footer className="flex flex-col gap-2">
           {showRatio && <RatioBadge />}
           <div className="flex items-center justify-end gap-2">
-            {showDownloadButton && <DownloadButton>{t('quickCompress.download')}</DownloadButton>}
-            {showResetButton && <ResetButton>{t('quickCompress.retry')}</ResetButton>}
+            {showDownloadButton && <DownloadButton>{s.compress.download}</DownloadButton>}
+            {showResetButton && <ResetButton>{s.compress.retry}</ResetButton>}
           </div>
           <ErrorDisplay />
         </footer>

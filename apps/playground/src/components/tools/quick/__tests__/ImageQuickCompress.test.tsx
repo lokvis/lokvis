@@ -27,16 +27,8 @@ vi.mock('@/components/toolkit/useImageTool', () => ({
   useImageTool: () => stateRef.current,
 }));
 
-// useLang / useTranslations mock:返回固定翻译,避免 fallback 链干扰
-vi.mock('@/i18n/useLang', () => ({
-  useLang: () => 'en',
-}));
-
-vi.mock('@/i18n/utils', () => ({
-  useTranslations: () => (key: string) => key,
-  t: (_lang: string, key: string) => key,
-  getLangFromUrl: () => 'en',
-}));
+// 注:Layer 2 默认 UI 已解耦 playground i18n(W23),
+// 组件通过 useQuickStrings() 读取 DEFAULT_QUICK_STRINGS(英文)。
 
 const runWorkflowMock = vi.fn();
 const runWorkflowRawMock = vi.fn();
@@ -94,8 +86,8 @@ describe('ImageQuickCompress 默认 UI', () => {
 
   it('渲染标题与副标', () => {
     render(<ImageQuickCompress />);
-    expect(screen.getByText('quickCompress.title')).toBeInTheDocument();
-    expect(screen.getByText('quickCompress.subtitle')).toBeInTheDocument();
+    expect(screen.getByText('Quick Compress')).toBeInTheDocument();
+    expect(screen.getByText('Drop image → auto compress to WebP')).toBeInTheDocument();
   });
 
   it('默认渲染 3 个预设按钮(radio)', () => {
@@ -132,12 +124,12 @@ describe('ImageQuickCompress 默认 UI', () => {
   it('showDownloadButton=false 时,即使有输出也不显示下载按钮', () => {
     setMockState({ outputBlob: new Blob(['x'], { type: 'image/webp' }) });
     render(<ImageQuickCompress showDownloadButton={false} />);
-    expect(screen.queryByText('quickCompress.download')).toBeNull();
+    expect(screen.queryByText('Download')).toBeNull();
   });
 
   it('showResetButton=false 时隐藏重置按钮', () => {
     render(<ImageQuickCompress showResetButton={false} />);
-    expect(screen.queryByText('quickCompress.retry')).toBeNull();
+    expect(screen.queryByText('Try another')).toBeNull();
   });
 
   it('showRatio=false 时,即使有输出也不显示压缩率', () => {

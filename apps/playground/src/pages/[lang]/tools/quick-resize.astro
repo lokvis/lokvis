@@ -1,7 +1,7 @@
 ---
 import { langList } from '@/i18n/config';
 import ToolLayout from '@/layouts/ToolLayout.astro';
-import ImageQuickResize from '@/components/tools/quick/ImageQuickResize.tsx';
+import { PlaygroundImageQuickResize } from '@/components/tools/quick/playground.tsx';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
@@ -9,6 +9,6 @@ export function getStaticPaths() {
 ---
 <ToolLayout slug="quick-resize">
   <div class="mx-auto w-full max-w-3xl px-4 py-4">
-    <ImageQuickResize client:only="react" initialPreset="ig-square" />
+    <PlaygroundImageQuickResize client:only="react" initialPreset="ig-square" />
   </div>
 </ToolLayout>

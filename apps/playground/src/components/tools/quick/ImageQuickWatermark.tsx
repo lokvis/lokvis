@@ -12,9 +12,8 @@
  */
 import type { ComponentType, CSSProperties, ReactNode } from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { useLang } from '@/i18n/useLang';
-import { useTranslations } from '@/i18n/utils';
 import { themeToCssVars, type QuickTheme } from './theme';
+import { useQuickStrings } from './strings';
 import { QuickWatermark } from './primitives/QuickWatermark';
 import {
   WATERMARK_PRESETS,
@@ -243,8 +242,7 @@ function ImageQuickWatermarkDefault({
   components,
   ...hookOptions
 }: ImageQuickWatermarkProps) {
-  const lang = useLang();
-  const t = useTranslations(lang);
+  const s = useQuickStrings();
   const cssVars = themeToCssVars(theme);
 
   const {
@@ -272,10 +270,10 @@ function ImageQuickWatermarkDefault({
         <header className="flex flex-col gap-2">
           <div>
             <h2 className="text-sm font-semibold" style={{ color: 'var(--lokvis-text)' }}>
-              {t('quickWatermark.title')}
+              {s.watermark.title}
             </h2>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--lokvis-text-muted)' }}>
-              {t('quickWatermark.subtitle')}
+              {s.watermark.subtitle}
             </p>
           </div>
           <UploadBox />
@@ -290,8 +288,8 @@ function ImageQuickWatermarkDefault({
 
         <footer className="flex flex-col gap-2">
           <div className="flex items-center justify-end gap-2">
-            {showDownloadButton && <DownloadButton>{t('quickWatermark.download')}</DownloadButton>}
-            {showResetButton && <ResetButton>{t('quickWatermark.retry')}</ResetButton>}
+            {showDownloadButton && <DownloadButton>{s.watermark.download}</DownloadButton>}
+            {showResetButton && <ResetButton>{s.watermark.retry}</ResetButton>}
           </div>
           <ErrorDisplay />
         </footer>

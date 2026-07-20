@@ -25,15 +25,8 @@ vi.mock('@/components/toolkit/useImageTool', () => ({
   useImageTool: () => stateRef.current,
 }));
 
-vi.mock('@/i18n/useLang', () => ({
-  useLang: () => 'en',
-}));
-
-vi.mock('@/i18n/utils', () => ({
-  useTranslations: () => (key: string) => key,
-  t: (_lang: string, key: string) => key,
-  getLangFromUrl: () => 'en',
-}));
+// 注:Layer 2 默认 UI 已解耦 playground i18n(W23),
+// 组件通过 useQuickStrings() 读取 DEFAULT_QUICK_STRINGS(英文)。
 
 const runWorkflowMock = vi.fn();
 const runWorkflowRawMock = vi.fn();
@@ -89,8 +82,8 @@ describe('ImageQuickResize 默认 UI', () => {
 
   it('渲染标题与副标', () => {
     render(<ImageQuickResize />);
-    expect(screen.getByText('quickResize.title')).toBeInTheDocument();
-    expect(screen.getByText('quickResize.subtitle')).toBeInTheDocument();
+    expect(screen.getByText('Quick Resize')).toBeInTheDocument();
+    expect(screen.getByText('Drop image → resize to preset')).toBeInTheDocument();
   });
 
   it('默认渲染 4 个预设按钮(radio)', () => {
@@ -125,12 +118,12 @@ describe('ImageQuickResize 默认 UI', () => {
   it('showDownloadButton=false 时,即使有输出也不显示下载按钮', () => {
     setMockState({ outputBlob: new Blob(['x'], { type: 'image/webp' }) });
     render(<ImageQuickResize showDownloadButton={false} />);
-    expect(screen.queryByText('quickResize.download')).toBeNull();
+    expect(screen.queryByText('Download')).toBeNull();
   });
 
   it('showResetButton=false 时隐藏重置按钮', () => {
     render(<ImageQuickResize showResetButton={false} />);
-    expect(screen.queryByText('quickResize.retry')).toBeNull();
+    expect(screen.queryByText('Try another')).toBeNull();
   });
 
   it('showDimension=false 时,即使有输出也不显示尺寸徽章', () => {

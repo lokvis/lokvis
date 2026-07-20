@@ -15,9 +15,8 @@
  */
 import type { ComponentType, CSSProperties, ReactNode } from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { useLang } from '@/i18n/useLang';
-import { useTranslations } from '@/i18n/utils';
 import { themeToCssVars, type QuickTheme } from './theme';
+import { useQuickStrings } from './strings';
 import { QuickPipeline } from './primitives/QuickPipeline';
 import {
   PIPELINE_PRESETS,
@@ -247,8 +246,7 @@ function ImageQuickPipelineDefault({
   components,
   ...hookOptions
 }: ImageQuickPipelineProps) {
-  const lang = useLang();
-  const t = useTranslations(lang);
+  const s = useQuickStrings();
   const cssVars = themeToCssVars(theme);
 
   const {
@@ -276,10 +274,10 @@ function ImageQuickPipelineDefault({
         <header className="flex flex-col gap-2">
           <div>
             <h2 className="text-sm font-semibold" style={{ color: 'var(--lokvis-text)' }}>
-              {t('quickPipeline.title')}
+              {s.pipeline.title}
             </h2>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--lokvis-text-muted)' }}>
-              {t('quickPipeline.subtitle')}
+              {s.pipeline.subtitle}
             </p>
           </div>
           <UploadBox />
@@ -289,7 +287,7 @@ function ImageQuickPipelineDefault({
         {showStepList && (
           <div className="flex flex-col gap-1">
             <span className="text-xs" style={{ color: 'var(--lokvis-text-muted)' }}>
-              {t('quickPipeline.steps')}
+              {s.pipeline.steps}
             </span>
             <StepListBox />
           </div>
@@ -302,8 +300,8 @@ function ImageQuickPipelineDefault({
 
         <footer className="flex flex-col gap-2">
           <div className="flex items-center justify-end gap-2">
-            {showDownloadButton && <DownloadButton>{t('quickPipeline.download')}</DownloadButton>}
-            {showResetButton && <ResetButton>{t('quickPipeline.retry')}</ResetButton>}
+            {showDownloadButton && <DownloadButton>{s.pipeline.download}</DownloadButton>}
+            {showResetButton && <ResetButton>{s.pipeline.retry}</ResetButton>}
           </div>
           <ErrorDisplay />
         </footer>

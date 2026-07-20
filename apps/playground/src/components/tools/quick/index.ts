@@ -252,3 +252,18 @@ export type {
 
 // Theme
 export { themeToCssVars, type QuickTheme } from './theme';
+
+// Strings(W23 解耦 playground i18n)
+export {
+  DEFAULT_QUICK_STRINGS,
+  QuickStringsProvider,
+  useQuickStrings,
+  type QuickStrings,
+  type QuickFamilyStrings,
+  type QuickCompressStrings,
+  type QuickResizeStrings,
+  type QuickConvertStrings,
+  type QuickWatermarkStrings,
+  type QuickCropStrings,
+  type QuickPipelineStrings,
+} from './strings';

@@ -18,15 +18,8 @@ vi.mock('@/components/toolkit/useImageTool', () => ({
   useImageTool: () => stateRef.current,
 }));
 
-vi.mock('@/i18n/useLang', () => ({
-  useLang: () => 'en',
-}));
-
-vi.mock('@/i18n/utils', () => ({
-  useTranslations: () => (key: string) => key,
-  t: (_lang: string, key: string) => key,
-  getLangFromUrl: () => 'en',
-}));
+// 注:Layer 2 默认 UI 已解耦 playground i18n(W23),
+// 组件通过 useQuickStrings() 读取 DEFAULT_QUICK_STRINGS(英文)。
 
 const runWorkflowMock = vi.fn();
 const runWorkflowRawMock = vi.fn();
@@ -82,8 +75,8 @@ describe('ImageQuickPipeline 默认 UI', () => {
 
   it('渲染标题与副标', () => {
     render(<ImageQuickPipeline />);
-    expect(screen.getByText('quickPipeline.title')).toBeInTheDocument();
-    expect(screen.getByText('quickPipeline.subtitle')).toBeInTheDocument();
+    expect(screen.getByText('Quick Pipeline')).toBeInTheDocument();
+    expect(screen.getByText('Drop image → run multi-step pipeline')).toBeInTheDocument();
   });
 
   it('默认渲染 4 个预设按钮(radio)', () => {
@@ -100,7 +93,7 @@ describe('ImageQuickPipeline 默认 UI', () => {
 
   it('默认渲染 StepList(显示 steps 标签)', () => {
     render(<ImageQuickPipeline />);
-    expect(screen.getByText('quickPipeline.steps')).toBeInTheDocument();
+    expect(screen.getByText('Steps')).toBeInTheDocument();
   });
 
   it('showPresetSwitcher=false 隐藏预设切换器', () => {
@@ -110,7 +103,7 @@ describe('ImageQuickPipeline 默认 UI', () => {
 
   it('showStepList=false 隐藏步骤列表', () => {
     render(<ImageQuickPipeline showStepList={false} />);
-    expect(screen.queryByText('quickPipeline.steps')).toBeNull();
+    expect(screen.queryByText('Steps')).toBeNull();
   });
 
   it('showBeforeAfter=false 时只渲染 1 个 preview(无图片)', () => {
@@ -128,12 +121,12 @@ describe('ImageQuickPipeline 默认 UI', () => {
   it('showDownloadButton=false 时,即使有输出也不显示下载按钮', () => {
     setMockState({ outputBlob: new Blob(['x'], { type: 'image/webp' }) });
     render(<ImageQuickPipeline showDownloadButton={false} />);
-    expect(screen.queryByText('quickPipeline.download')).toBeNull();
+    expect(screen.queryByText('Download')).toBeNull();
   });
 
   it('showResetButton=false 时隐藏重置按钮', () => {
     render(<ImageQuickPipeline showResetButton={false} />);
-    expect(screen.queryByText('quickPipeline.retry')).toBeNull();
+    expect(screen.queryByText('Try another')).toBeNull();
   });
 
   it('theme prop 转 CSS 变量,应用到根元素', () => {

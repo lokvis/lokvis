@@ -10,7 +10,7 @@
  */
 import { langList } from '@/i18n/config';
 import EmbedLayout from '@/layouts/EmbedLayout.astro';
-import ImageQuickCrop from '@/components/tools/quick/ImageQuickCrop.tsx';
+import { PlaygroundImageQuickCrop } from '@/components/tools/quick/playground.tsx';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
@@ -18,6 +18,6 @@ export function getStaticPaths() {
 ---
 <EmbedLayout slug="quick-crop">
   <div class="mx-auto w-full max-w-3xl py-2">
-    <ImageQuickCrop client:only="react" initialPreset="square" />
+    <PlaygroundImageQuickCrop client:only="react" initialPreset="square" />
   </div>
 </EmbedLayout>

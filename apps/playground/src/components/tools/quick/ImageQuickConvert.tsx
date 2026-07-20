@@ -10,9 +10,8 @@
  */
 import type { ComponentType, CSSProperties, ReactNode } from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { useLang } from '@/i18n/useLang';
-import { useTranslations } from '@/i18n/utils';
 import { themeToCssVars, type QuickTheme } from './theme';
+import { useQuickStrings } from './strings';
 import { QuickConvert } from './primitives/QuickConvert';
 import { CONVERT_PRESETS, type ConvertPreset, type UseQuickActionOptions } from './useQuickConvert';
 
@@ -227,8 +226,7 @@ function ImageQuickConvertDefault({
   components,
   ...hookOptions
 }: ImageQuickConvertProps) {
-  const lang = useLang();
-  const t = useTranslations(lang);
+  const s = useQuickStrings();
   const cssVars = themeToCssVars(theme);
 
   const {
@@ -256,10 +254,10 @@ function ImageQuickConvertDefault({
         <header className="flex flex-col gap-2">
           <div>
             <h2 className="text-sm font-semibold" style={{ color: 'var(--lokvis-text)' }}>
-              {t('quickConvert.title')}
+              {s.convert.title}
             </h2>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--lokvis-text-muted)' }}>
-              {t('quickConvert.subtitle')}
+              {s.convert.subtitle}
             </p>
           </div>
           <UploadBox />
@@ -274,8 +272,8 @@ function ImageQuickConvertDefault({
         <footer className="flex flex-col gap-2">
           {showFormat && <FormatBadge />}
           <div className="flex items-center justify-end gap-2">
-            {showDownloadButton && <DownloadButton>{t('quickConvert.download')}</DownloadButton>}
-            {showResetButton && <ResetButton>{t('quickConvert.retry')}</ResetButton>}
+            {showDownloadButton && <DownloadButton>{s.convert.download}</DownloadButton>}
+            {showResetButton && <ResetButton>{s.convert.retry}</ResetButton>}
           </div>
           <ErrorDisplay />
         </footer>

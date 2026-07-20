@@ -10,9 +10,8 @@
  */
 import type { ComponentType, CSSProperties, ReactNode } from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { useLang } from '@/i18n/useLang';
-import { useTranslations } from '@/i18n/utils';
 import { themeToCssVars, type QuickTheme } from './theme';
+import { useQuickStrings } from './strings';
 import { QuickResize } from './primitives/QuickResize';
 import { RESIZE_PRESETS, type ResizePreset, type UseQuickActionOptions } from './useQuickResize';
 
@@ -231,8 +230,7 @@ function ImageQuickResizeDefault({
   components,
   ...hookOptions
 }: ImageQuickResizeProps) {
-  const lang = useLang();
-  const t = useTranslations(lang);
+  const s = useQuickStrings();
   const cssVars = themeToCssVars(theme);
 
   const {
@@ -260,10 +258,10 @@ function ImageQuickResizeDefault({
         <header className="flex flex-col gap-2">
           <div>
             <h2 className="text-sm font-semibold" style={{ color: 'var(--lokvis-text)' }}>
-              {t('quickResize.title')}
+              {s.resize.title}
             </h2>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--lokvis-text-muted)' }}>
-              {t('quickResize.subtitle')}
+              {s.resize.subtitle}
             </p>
           </div>
           <UploadBox />
@@ -278,8 +276,8 @@ function ImageQuickResizeDefault({
         <footer className="flex flex-col gap-2">
           {showDimension && <DimensionBadge />}
           <div className="flex items-center justify-end gap-2">
-            {showDownloadButton && <DownloadButton>{t('quickResize.download')}</DownloadButton>}
-            {showResetButton && <ResetButton>{t('quickResize.retry')}</ResetButton>}
+            {showDownloadButton && <DownloadButton>{s.resize.download}</DownloadButton>}
+            {showResetButton && <ResetButton>{s.resize.retry}</ResetButton>}
           </div>
           <ErrorDisplay />
         </footer>

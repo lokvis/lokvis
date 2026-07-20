@@ -12,9 +12,8 @@
  */
 import type { ComponentType, CSSProperties, ReactNode } from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { useLang } from '@/i18n/useLang';
-import { useTranslations } from '@/i18n/utils';
 import { themeToCssVars, type QuickTheme } from './theme';
+import { useQuickStrings } from './strings';
 import { QuickCrop } from './primitives/QuickCrop';
 import {
   CROP_PRESETS,
@@ -242,8 +241,7 @@ function ImageQuickCropDefault({
   components,
   ...hookOptions
 }: ImageQuickCropProps) {
-  const lang = useLang();
-  const t = useTranslations(lang);
+  const s = useQuickStrings();
   const cssVars = themeToCssVars(theme);
 
   const {
@@ -271,10 +269,10 @@ function ImageQuickCropDefault({
         <header className="flex flex-col gap-2">
           <div>
             <h2 className="text-sm font-semibold" style={{ color: 'var(--lokvis-text)' }}>
-              {t('quickCrop.title')}
+              {s.crop.title}
             </h2>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--lokvis-text-muted)' }}>
-              {t('quickCrop.subtitle')}
+              {s.crop.subtitle}
             </p>
           </div>
           <UploadBox />
@@ -284,7 +282,7 @@ function ImageQuickCropDefault({
         {showCropArea && (
           <div className="flex flex-col gap-1">
             <span className="text-xs" style={{ color: 'var(--lokvis-text-muted)' }}>
-              {t('quickCrop.cropArea')}
+              {s.crop.cropArea}
             </span>
             <CropAreaBox />
           </div>
@@ -297,8 +295,8 @@ function ImageQuickCropDefault({
 
         <footer className="flex flex-col gap-2">
           <div className="flex items-center justify-end gap-2">
-            {showDownloadButton && <DownloadButton>{t('quickCrop.download')}</DownloadButton>}
-            {showResetButton && <ResetButton>{t('quickCrop.retry')}</ResetButton>}
+            {showDownloadButton && <DownloadButton>{s.crop.download}</DownloadButton>}
+            {showResetButton && <ResetButton>{s.crop.retry}</ResetButton>}
           </div>
           <ErrorDisplay />
         </footer>

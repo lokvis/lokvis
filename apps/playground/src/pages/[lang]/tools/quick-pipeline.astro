@@ -1,7 +1,7 @@
 ---
 import { langList } from '@/i18n/config';
 import ToolLayout from '@/layouts/ToolLayout.astro';
-import ImageQuickPipeline from '@/components/tools/quick/ImageQuickPipeline.tsx';
+import { PlaygroundImageQuickPipeline } from '@/components/tools/quick/playground.tsx';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
@@ -9,6 +9,6 @@ export function getStaticPaths() {
 ---
 <ToolLayout slug="quick-pipeline">
   <div class="mx-auto w-full max-w-3xl px-4 py-4">
-    <ImageQuickPipeline client:only="react" initialPreset="ecommerce" />
+    <PlaygroundImageQuickPipeline client:only="react" initialPreset="ecommerce" />
   </div>
 </ToolLayout>
