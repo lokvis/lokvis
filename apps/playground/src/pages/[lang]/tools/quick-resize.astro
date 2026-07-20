@@ -1,7 +1,7 @@
 ---
 import { langList } from '@/i18n/config';
 import ToolLayout from '@/layouts/ToolLayout.astro';
-import ImageQuickResize from '@/components/tools/quick/ImageQuickResize.tsx';
+import { ImageQuickResize } from '@lokvis/quick-image';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));

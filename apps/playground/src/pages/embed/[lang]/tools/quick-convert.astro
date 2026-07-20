@@ -10,7 +10,7 @@
  */
 import { langList } from '@/i18n/config';
 import EmbedLayout from '@/layouts/EmbedLayout.astro';
-import ImageQuickConvert from '@/components/tools/quick/ImageQuickConvert.tsx';
+import { ImageQuickConvert } from '@lokvis/quick-image';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));

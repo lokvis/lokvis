@@ -35,6 +35,7 @@
     "@lokvis/plugin-audio": "workspace:*",
     "@lokvis/plugin-pdf": "workspace:*",
     "@lokvis/plugin-video": "workspace:*",
+    "@lokvis/quick-image": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/schema": "workspace:*",
     "@lokvis/sdk": "workspace:*",

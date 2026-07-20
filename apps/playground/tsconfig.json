@@ -10,6 +10,9 @@
       "@lokvis/sdk": ["../../packages/sdk/src"],
       "@lokvis/ui-core": ["../../packages/ui-core/src"],
       "@lokvis/ui-react": ["../../packages/ui-react/src"],
+      "@lokvis/quick-image": ["../../packages/quick-image/src"],
+      "@lokvis/quick-image/hooks": ["../../packages/quick-image/src/hooks"],
+      "@lokvis/quick-image/primitives": ["../../packages/quick-image/src/primitives"],
       "@/*": ["src/*"]
     }
   },
