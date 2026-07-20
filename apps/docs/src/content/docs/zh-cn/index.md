@@ -39,6 +39,7 @@ pnpm dev --filter @lokvis/web
 - [浏览 Capability 目录](/docs/capabilities)
 - [构建你的第一个插件](/docs/plugins)
 - [将 SDK 嵌入宿主 React 应用](/docs/guides/embed-sdk)
+- [嵌入单一用途的 Quick Action(压缩 / 缩放 / …)](/docs/guides/quick-actions)
 - [编写你的第一个插件(分步指南)](/docs/guides/write-first-plugin)
 - [不使用 React 构建自定义工作台](/docs/guides/custom-workspace)
 - [在 Node.js 中使用 CLI 进行自动化](/docs/guides/cli-automation)
