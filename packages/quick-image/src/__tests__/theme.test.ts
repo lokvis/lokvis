@@ -56,7 +56,12 @@ describe('themeToCssVars', () => {
   });
 
   it('null 字段被忽略', () => {
-    const result = themeToCssVars({ primary: null as unknown as string } as QuickTheme) as Record<string, string>;
+    // QuickTheme 类型层面 primary 为 string | undefined,不允许 null。
+    // 但运行时 JSON 注入可能产生 null,themeToCssVars 内部用 !== null 防御。
+    // 用 JSON.parse 构造 null 值(JSON.parse 返回 any,as QuickTheme 单次
+    // 断言合规),避免 as unknown as 双断言(AGENTS.md 禁止)。
+    const theme = JSON.parse('{"primary":null}') as QuickTheme;
+    const result = themeToCssVars(theme) as Record<string, string>;
     expect(result['--lokvis-primary']).toBeUndefined();
   });
 });

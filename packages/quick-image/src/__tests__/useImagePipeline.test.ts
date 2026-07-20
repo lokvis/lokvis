@@ -19,7 +19,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import type { UseImageToolResult } from '../internal/useImageTool';
-import type { WorkflowResult } from '@lokvis/sdk';
+import type { LokvisRuntime, WorkflowResult } from '@lokvis/sdk';
 import { getImageInfo } from '../internal/download';
 import {
   useImagePipeline,
@@ -62,15 +62,25 @@ const exportAssetMock = vi.fn();
 const runtimeRunMock = vi.fn();
 const eventBusOnMock = vi.fn(() => vi.fn()); // returns unsubscribe
 
-function makeMockRuntime() {
-  return {
-    run: runtimeRunMock,
-    importAsset: importAssetMock,
-    exportAsset: exportAssetMock,
+function makeMockRuntime(): LokvisRuntime {
+  // Partial<LokvisRuntime> 显式标注:mock 只实现 useImagePipeline 实际调用的
+  // 6 个成员(run/importAsset/exportAsset/cancel/dispose/eventBus),
+  // 其余 30+ 方法未涉及。Partial → LokvisRuntime 单次 as 断言合规
+  // (AGENTS.md 禁止 as unknown as 双断言,单次 as 允许)。
+  const mock: Partial<LokvisRuntime> = {
+    run: runtimeRunMock as LokvisRuntime['run'],
+    importAsset: importAssetMock as LokvisRuntime['importAsset'],
+    exportAsset: exportAssetMock as LokvisRuntime['exportAsset'],
     cancel: vi.fn(),
     dispose: vi.fn(),
-    eventBus: { on: eventBusOnMock, off: vi.fn(), emit: vi.fn(), onAny: vi.fn(), clear: vi.fn() },
-  } as unknown as UseImageToolResult['runtime'];
+    eventBus: {
+      on: eventBusOnMock,
+      emit: vi.fn(),
+      onAny: vi.fn(),
+      clear: vi.fn(),
+    },
+  };
+  return mock as LokvisRuntime;
 }
 
 const handleFilesMock = vi.fn();
@@ -153,14 +163,21 @@ describe('useImagePipeline', () => {
   beforeEach(() => {
     resetMocks();
     setMockState();
-    // jsdom 不支持 URL.createObjectURL/revokeObjectURL,需手动 polyfill
+    // jsdom 不支持 URL.createObjectURL/revokeObjectURL,需手动 polyfill。
+    // 用 Object.defineProperty 避免 as unknown as 双断言(AGENTS.md 禁止)。
     if (!URL.createObjectURL) {
-      (URL as unknown as { createObjectURL: unknown }).createObjectURL = vi.fn(
-        () => 'blob:mock-url'
-      );
+      Object.defineProperty(URL, 'createObjectURL', {
+        value: vi.fn(() => 'blob:mock-url'),
+        writable: true,
+        configurable: true,
+      });
     }
     if (!URL.revokeObjectURL) {
-      (URL as unknown as { revokeObjectURL: unknown }).revokeObjectURL = vi.fn();
+      Object.defineProperty(URL, 'revokeObjectURL', {
+        value: vi.fn(),
+        writable: true,
+        configurable: true,
+      });
     }
   });
 

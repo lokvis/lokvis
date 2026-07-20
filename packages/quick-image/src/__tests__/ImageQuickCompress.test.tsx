@@ -190,9 +190,16 @@ describe('ImageQuickCompress 默认 UI', () => {
   });
 
   it('components prop 替换所有子组件', () => {
-    // 使用 any 兼容多种 prop 形态(部分子组件契约无 children)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Replace: React.ComponentType<any> = ({ children }: { children?: React.ReactNode }) => (
+    // 用精确类型替代 any:覆盖所有 slot 可能传入的 prop(children/type/className/style)。
+    // 所有 slot 的 prop 接口字段都是上述子集,ReplaceProps 是它们的公共超类型,
+    // 因此 ComponentType<ReplaceProps> 可赋值给 ComponentType<具体 slot prop>。
+    type ReplaceProps = {
+      children?: React.ReactNode;
+      type?: 'input' | 'output';
+      className?: string;
+      style?: React.CSSProperties;
+    };
+    const Replace: React.ComponentType<ReplaceProps> = ({ children }: ReplaceProps) => (
       <div data-testid="replaced">{children ?? 'replaced'}</div>
     );
     render(

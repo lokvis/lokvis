@@ -189,8 +189,14 @@ describe('ImageQuickWatermark 默认 UI', () => {
   });
 
   it('components prop 替换所有子组件', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Replace: React.ComponentType<any> = ({ children }: { children?: React.ReactNode }) => (
+    // 用精确类型替代 any:覆盖所有 slot 可能传入的 prop(children/type/className/style)。
+    type ReplaceProps = {
+      children?: React.ReactNode;
+      type?: 'input' | 'output';
+      className?: string;
+      style?: React.CSSProperties;
+    };
+    const Replace: React.ComponentType<ReplaceProps> = ({ children }: ReplaceProps) => (
       <div data-testid="replaced">{children ?? 'replaced'}</div>
     );
     render(
