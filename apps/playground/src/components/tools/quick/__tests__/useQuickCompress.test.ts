@@ -276,8 +276,8 @@ describe('useQuickCompress', () => {
 
   it('W23:传入 plugins 数组时,原样透传给 useImageTool(支持三方组合 audio/pdf/video 插件)', () => {
     // 模拟三方注入 [imageToolsPlugin(), audioToolsPlugin()]
-    const fakeImagePlugin = { config: { name: 'image-tools' }, install: () => {} };
-    const fakeAudioPlugin = { config: { name: 'audio-tools' }, install: () => {} };
+    const fakeImagePlugin = { config: { name: 'image-tools', version: '1.0.0', capabilities: [] }, install: () => {} };
+    const fakeAudioPlugin = { config: { name: 'audio-tools', version: '1.0.0', capabilities: [] }, install: () => {} };
     const plugins = [fakeImagePlugin, fakeAudioPlugin];
     renderHook(() => useQuickCompress({ plugins }));
     expect(useImageToolCallArgs).toEqual([plugins]);

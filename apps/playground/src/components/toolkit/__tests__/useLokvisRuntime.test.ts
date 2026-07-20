@@ -30,7 +30,7 @@ vi.mock('@lokvis/sdk', () => ({
 
 // imageToolsPlugin 是默认插件,只验证它是否被默认调用
 const imageToolsPluginMock = vi.fn(() => ({
-  config: { name: 'image-tools' },
+  config: { name: 'image-tools', version: '1.0.0', capabilities: [] },
   install: () => {},
 }));
 vi.mock('@lokvis/plugin-image', () => ({
@@ -47,7 +47,7 @@ describe('useLokvisRuntime', () => {
     cancelMock.mockReset();
     imageToolsPluginMock.mockReset();
     imageToolsPluginMock.mockReturnValue({
-      config: { name: 'image-tools' },
+      config: { name: 'image-tools', version: '1.0.0', capabilities: [] },
       install: () => {},
     });
   });
@@ -62,8 +62,8 @@ describe('useLokvisRuntime', () => {
   });
 
   it('W23 自定义 plugins:三方组合时,createLokvis 收到原样数组(不追加默认)', async () => {
-    const imagePlugin = { config: { name: 'image-tools' }, install: () => {} };
-    const audioPlugin = { config: { name: 'audio-tools' }, install: () => {} };
+    const imagePlugin = { config: { name: 'image-tools', version: '1.0.0', capabilities: [] }, install: () => {} };
+    const audioPlugin = { config: { name: 'audio-tools', version: '1.0.0', capabilities: [] }, install: () => {} };
     const plugins = [imagePlugin, audioPlugin];
     renderHook(() => useLokvisRuntime(undefined, plugins));
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
@@ -86,20 +86,20 @@ describe('useLokvisRuntime', () => {
   });
 
   it('W23 plugins 不变时不重建 runtime(pluginsKey 稳定)', async () => {
-    const plugins = [{ config: { name: 'p1' }, install: () => {} }];
+    const plugins = [{ config: { name: 'p1', version: '1.0.0', capabilities: [] }, install: () => {} }];
     const { rerender } = renderHook(() => useLokvisRuntime(undefined, plugins));
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     expect(createLokvisMock).toHaveBeenCalledTimes(1);
 
     // 重新渲染:数组引用变化但 name 列表相同 → 不应重建
-    const plugins2 = [{ config: { name: 'p1' }, install: () => {} }];
+    const plugins2 = [{ config: { name: 'p1', version: '1.0.0', capabilities: [] }, install: () => {} }];
     rerender();
     await act(async () => { await Promise.resolve(); });
     expect(createLokvisMock).toHaveBeenCalledTimes(1);
   });
 
   it('W23 plugins name 列表变化时重建 runtime', async () => {
-    const plugins1 = [{ config: { name: 'p1' }, install: () => {} }];
+    const plugins1 = [{ config: { name: 'p1', version: '1.0.0', capabilities: [] }, install: () => {} }];
     const { rerender, unmount } = renderHook(
       ({ pl }) => useLokvisRuntime(undefined, pl),
       { initialProps: { pl: plugins1 } }
@@ -109,8 +109,8 @@ describe('useLokvisRuntime', () => {
 
     // 加入新插件:name 列表变化 → 应重建
     const plugins2 = [
-      { config: { name: 'p1' }, install: () => {} },
-      { config: { name: 'p2' }, install: () => {} },
+      { config: { name: 'p1', version: '1.0.0', capabilities: [] }, install: () => {} },
+      { config: { name: 'p2', version: '1.0.0', capabilities: [] }, install: () => {} },
     ];
     rerender({ pl: plugins2 });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
