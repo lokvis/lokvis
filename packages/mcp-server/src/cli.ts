@@ -17,10 +17,13 @@
  *   LOKVIS_PRICE_PER_CALL_CENTS - 每次 AI 调用价格美分(默认 1)
  *
  * SSE 模式专属(Phase 3 M1):
- *   LOKVIS_SSE_MAX_CONNECTIONS - 最大并发会话数(默认 10)
- *   LOKVIS_SSE_CORS_ORIGINS    - 允许跨域的 Origin 白名单,逗号分隔(默认空,不允许跨域)
- *   LOKVIS_SSE_AUTH_TOKEN      - SSE 鉴权 token(默认回退到 LOKVIS_API_KEY;未设置时跳过鉴权)
- *   LOKVIS_SSE_HEARTBEAT_MS    - 心跳间隔毫秒(默认 15000,设 0 禁用)
+ *   LOKVIS_SSE_MAX_CONNECTIONS    - 最大并发会话数(默认 10)
+ *   LOKVIS_SSE_CORS_ORIGINS       - 允许跨域的 Origin 白名单,逗号分隔(默认空,不允许跨域)
+ *   LOKVIS_SSE_AUTH_TOKEN         - SSE 鉴权 token(默认回退到 LOKVIS_API_KEY;未设置时跳过鉴权)
+ *   LOKVIS_SSE_HEARTBEAT_MS       - 心跳间隔毫秒(默认 15000,设 0 禁用)
+ *   LOKVIS_SSE_LOCALHOST_ONLY    - 仅绑定 127.0.0.1(默认 true,生产建议保持)
+ *   LOKVIS_SSE_MAX_REQUEST_BYTES - POST body 最大字节数(默认 1048576,超出返回 413)
+ *   LOKVIS_SSE_CLOSE_TIMEOUT_MS  - close() 超时毫秒(默认 5000,超时后强制 destroy)
  */
 
 import { createLokvisMcpServer } from './server.js';
@@ -46,6 +49,10 @@ async function main(): Promise<void> {
   const sseAuthToken =
     process.env.LOKVIS_SSE_AUTH_TOKEN ?? process.env.LOKVIS_API_KEY ?? undefined;
   const sseHeartbeatMs = Number(process.env.LOKVIS_SSE_HEARTBEAT_MS ?? 15000);
+  // Phase 3 M1 production-ready 选项
+  const sseLocalhostOnly = parseBool(process.env.LOKVIS_SSE_LOCALHOST_ONLY ?? 'true');
+  const sseMaxRequestBytes = Number(process.env.LOKVIS_SSE_MAX_REQUEST_BYTES ?? 1024 * 1024);
+  const sseCloseTimeoutMs = Number(process.env.LOKVIS_SSE_CLOSE_TIMEOUT_MS ?? 5000);
 
   // cloud 配置从 env 读取(apiBaseUrl / upgradeUrl / planQuotas / pricePerCallCents / apiKey)
   // 注入 createLokvisMcpServer 后,server 侧创建 authenticator + billing:
@@ -113,8 +120,12 @@ async function main(): Promise<void> {
       corsOrigins: sseCorsOrigins,
       authToken: sseAuthToken,
       heartbeatIntervalMs: sseHeartbeatMs,
+      localhostOnly: sseLocalhostOnly,
+      maxRequestBytes: sseMaxRequestBytes,
+      closeTimeoutMs: sseCloseTimeoutMs,
     });
     console.error(`[lokvis-mcp] SSE server listening on http://127.0.0.1:${sse.getPort()}/sse`);
+    console.error(`[lokvis-mcp] Health check: http://127.0.0.1:${sse.getPort()}/health`);
     // 不退出:保持 HTTP server 运行,等待关闭信号
   } else {
     console.error(`[lokvis-mcp] Unknown mode: ${mode}`);
@@ -126,3 +137,13 @@ main().catch((err) => {
   console.error('[lokvis-mcp] Fatal:', err);
   process.exit(1);
 });
+
+/**
+ * 解析环境变量布尔值(空 / 未设置为 false;"1" / "true" / "yes" 不分大小写为 true)。
+ *
+ * 用于 LOKVIS_SSE_LOCALHOST_ONLY 等开关;允许 "false" / "0" / "no" 显式关掉,
+ * 与 12-factor app 的 env boolean 约定一致。
+ */
+function parseBool(v: string | undefined): boolean {
+  return v !== undefined && /^(1|true|yes)$/i.test(v.trim());
+}

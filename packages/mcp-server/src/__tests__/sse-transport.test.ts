@@ -419,4 +419,229 @@ describe('LokvisSseServer', () => {
     expect(receivedEndpoint).toBe(true);
     expect(receivedPing).toBe(true);
   });
+
+  // ─── Phase 3 M1 production-ready:health / body size / timing-safe auth ───
+
+  it('GET /health 返回 JSON 统计(供 LB 探针消费,无需鉴权)', async () => {
+    const sse = new LokvisSseServer(() => makeEchoServer(), {
+      port: 0,
+      // 即便配置 authToken,/health 仍应免鉴权(LB 探针不带 token)
+      authToken: 'secret-token',
+    });
+    servers.push(sse);
+    await sse.start();
+
+    const resp = await fetch(`http://127.0.0.1:${sse.getPort()}/health`);
+    expect(resp.status).toBe(200);
+    expect(resp.headers.get('content-type')).toBe('application/json');
+
+    const stats = (await resp.json()) as {
+      status: string;
+      activeSessions: number;
+      maxConnections: number;
+      uptimeMs: number;
+    };
+    expect(stats.status).toBe('ok');
+    expect(stats.activeSessions).toBe(0);
+    expect(stats.maxConnections).toBe(10);
+    expect(stats.uptimeMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('getStats() 与 GET /health 返回一致(uptimeMs 除外,它随时间变化)', async () => {
+    const sse = new LokvisSseServer(() => makeEchoServer(), {
+      port: 0,
+      maxConnections: 3,
+    });
+    servers.push(sse);
+    await sse.start();
+
+    const resp = await fetch(`http://127.0.0.1:${sse.getPort()}/health`);
+    const httpStats = (await resp.json()) as {
+      status: string;
+      activeSessions: number;
+      maxConnections: number;
+      uptimeMs: number;
+    };
+    const progStats = sse.getStats();
+    // uptimeMs 在两次读取间会变化(毫秒级),只比较稳定字段
+    expect(progStats.status).toBe(httpStats.status);
+    expect(progStats.activeSessions).toBe(httpStats.activeSessions);
+    expect(progStats.maxConnections).toBe(httpStats.maxConnections);
+    expect(progStats.maxConnections).toBe(3);
+    // uptimeMs 应随时间单调递增(httpStats 在前,progStats 在后)
+    expect(progStats.uptimeMs).toBeGreaterThanOrEqual(httpStats.uptimeMs);
+  });
+
+  it('POST body 超过 maxRequestBytes(流式累计)时返回 413 Payload Too Large', async () => {
+    // 用小阈值(64 字节)触发流式累计校验
+    // SDK initialize 消息 ~150 字节会超过此阈值导致自动握手失败,
+    // 故用手动 fetch 建立 SSE 会话 + 手动 POST 超限 body
+    const sse = new LokvisSseServer(() => makeEchoServer(), {
+      port: 0,
+      maxRequestBytes: 64,
+    });
+    servers.push(sse);
+    await sse.start();
+
+    // 1. 手动 GET /sse 提取 sessionId(不走 SDK 自动握手)
+    const sseResp = await fetch(`http://127.0.0.1:${sse.getPort()}/sse`);
+    const reader = sseResp.body!.getReader();
+    const { value } = await reader.read();
+    const firstChunk = new TextDecoder().decode(value);
+    // SDK endpoint 事件格式: `event: endpoint\ndata: /messages?sessionId=xxx\n\n`
+    const match = firstChunk.match(/sessionId=([^\s\n]+)/);
+    expect(match).not.toBeNull();
+    const sessionId = match![1]!;
+
+    // 2. POST 一个超过 64 字节的 body,应立即返回 413
+    const bigBody = 'x'.repeat(100);
+    const postResp = await fetch(
+      `http://127.0.0.1:${sse.getPort()}/messages?sessionId=${sessionId}`,
+      {
+        method: 'POST',
+        body: bigBody,
+        headers: { 'content-type': 'application/json' },
+      }
+    );
+    expect(postResp.status).toBe(413);
+
+    try {
+      await reader.cancel();
+    } catch (err) {
+      console.warn('[mcp-server test] reader cancel failed:', err);
+    }
+  });
+
+  it('Content-Length 超过 maxRequestBytes 时立即返回 413', async () => {
+    // 用小阈值(50 字节),Content-Length 直接超限,无需读 body
+    const sse = new LokvisSseServer(() => makeEchoServer(), {
+      port: 0,
+      maxRequestBytes: 50,
+    });
+    servers.push(sse);
+    await sse.start();
+
+    // 手动建立 SSE 会话(因为 SDK initialize 会超过 50 字节)
+    const sseResp = await fetch(`http://127.0.0.1:${sse.getPort()}/sse`);
+    const reader = sseResp.body!.getReader();
+    const { value } = await reader.read();
+    const firstChunk = new TextDecoder().decode(value);
+    const match = firstChunk.match(/sessionId=([^\s\n]+)/);
+    expect(match).not.toBeNull();
+    const sessionId = match![1]!;
+
+    // POST 时声明 Content-Length: 100(>50),应立即返回 413
+    const postResp = await fetch(
+      `http://127.0.0.1:${sse.getPort()}/messages?sessionId=${sessionId}`,
+      {
+        method: 'POST',
+        body: 'x'.repeat(100),
+        headers: {
+          'content-type': 'application/json',
+          'content-length': '100',
+        },
+      }
+    );
+    expect(postResp.status).toBe(413);
+
+    try {
+      await reader.cancel();
+    } catch (err) {
+      console.warn('[mcp-server test] reader cancel failed:', err);
+    }
+  });
+
+  it('timingSafeEqual:正确 token 可正常 callTool(回归测试)', async () => {
+    const sse = new LokvisSseServer(() => makeEchoServer(), {
+      port: 0,
+      authToken: 'secret-token',
+    });
+    servers.push(sse);
+    await sse.start();
+
+    // 用 SDK Client + Bearer token 走完整握手 + callTool
+    const client = new Client(
+      { name: 'authed-client', version: '0.0.0' },
+      { capabilities: {} }
+    );
+    clients.push(client);
+    const transport = new SSEClientTransport(
+      new URL(`http://127.0.0.1:${sse.getPort()}/sse`),
+      {
+        requestInit: {
+          headers: { Authorization: 'Bearer secret-token' },
+        },
+      }
+    );
+    await client.connect(transport);
+
+    const result = await client.callTool({
+      name: 'echo',
+      arguments: { message: 'timing-safe-ok' },
+    });
+    expect(result.content).toEqual([{ type: 'text', text: 'timing-safe-ok' }]);
+    expect(result.isError).toBeFalsy();
+  });
+
+  it('timingSafeEqual:错误 token 仍被拒绝(401)', async () => {
+    const sse = new LokvisSseServer(() => makeEchoServer(), {
+      port: 0,
+      authToken: 'secret-token',
+    });
+    servers.push(sse);
+    await sse.start();
+
+    // 用 raw fetch 发送错误 Bearer token,应返回 401
+    // (不走 SDK 自动握手,因为 SDK 会重试导致日志噪声)
+    const resp = await fetch(`http://127.0.0.1:${sse.getPort()}/sse`, {
+      headers: { Authorization: 'Bearer wrong-token' },
+    });
+    expect(resp.status).toBe(401);
+  });
+
+  it('close() 同步部分执行后 getStats().status 立即变 shutting_down', async () => {
+    // 验证 shuttingDown 标记驱动 /health 与 getStats 的 production 行为。
+    // close() 函数体第一行 `this.shuttingDown = true` 是同步执行的,
+    // 即使 close() 整体是 async,调用后立即读 getStats() 也能观察到状态切换。
+    // 这是 production 语义:LB / k8s readinessProbe 在 close 进行中应看到
+    // shutting_down,从而停止路由新流量(优雅下线)。
+    const sse = new LokvisSseServer(() => makeEchoServer(), {
+      port: 0,
+      closeTimeoutMs: 1000,
+    });
+    await sse.start();
+    expect(sse.getStats().status).toBe('ok');
+
+    // 不 await:close 进入微任务排队,主线程同步代码先跑
+    // 但 shuttingDown = true 是 close() 同步第一行,调用瞬间即生效。
+    // 这里用 await Promise.resolve() 让 close 同步部分先执行完。
+    const closePromise = sse.close();
+    await Promise.resolve();
+    expect(sse.getStats().status).toBe('shutting_down');
+
+    await closePromise;
+  });
+
+  it('getSessionIds() 返回当前活跃会话 ID 列表副本', async () => {
+    const sse = new LokvisSseServer(() => makeEchoServer(), { port: 0 });
+    servers.push(sse);
+    await sse.start();
+
+    expect(sse.getSessionIds()).toEqual([]);
+
+    const client = new Client(
+      { name: 'test', version: '0.0.0' },
+      { capabilities: {} }
+    );
+    clients.push(client);
+    await client.connect(
+      new SSEClientTransport(new URL(`http://127.0.0.1:${sse.getPort()}/sse`))
+    );
+
+    const ids = sse.getSessionIds();
+    expect(ids).toHaveLength(1);
+    // 副本修改不影响内部状态
+    ids.pop();
+    expect(sse.getSessionIds()).toHaveLength(1);
+  });
 });
