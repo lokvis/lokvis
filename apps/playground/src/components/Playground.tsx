@@ -358,6 +358,9 @@ function PlaygroundContent() {
                   value={code}
                   onChange={setCode}
                   placeholder={t('playground.placeholder')}
+                  // W21.9: 切换自 PlainCodeArea 时焦点已被 Suspense fallback
+                  // 偷走,CodeEditor mount 后自动 view.focus() 把焦点收回。
+                  autoFocus
                 />
               </Suspense>
             ) : (

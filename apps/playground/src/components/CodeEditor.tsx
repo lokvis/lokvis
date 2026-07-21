@@ -17,9 +17,18 @@ export interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  /**
+   * W21.9: mount 后是否自动把焦点收进 CodeMirror view。
+   *
+   * 用于 Playground 的 PlainCodeArea → CodeEditor 切换:
+   * 用户首次 focus textarea 触发 activateEditor=true,<Suspense> 先渲染
+   * fallback div(无 tabindex,会偷走焦点),CodeEditor 加载完成后
+   * 需主动 view.focus() 才能把焦点收回到编辑器,否则键盘输入丢失。
+   */
+  autoFocus?: boolean;
 }
 
-export function CodeEditor({ value, onChange, placeholder }: CodeEditorProps) {
+export function CodeEditor({ value, onChange, placeholder, autoFocus }: CodeEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   // 最新的 onChange 引用，避免 effect 频繁重建
@@ -67,6 +76,20 @@ export function CodeEditor({ value, onChange, placeholder }: CodeEditorProps) {
 
     const view = new EditorView({ state, parent: hostRef.current });
     viewRef.current = view;
+
+    // W21.9: 切换自 PlainCodeArea 时焦点已被 Suspense fallback div 偷走,
+    // mount 完成后立即 view.focus() 把焦点收回到 CodeMirror。
+    // 放在 RAF 内确保 DOM 插入完成后再 focus,避免与 React commit 冲突。
+    if (autoFocus) {
+      const raf = requestAnimationFrame(() => {
+        view.focus();
+      });
+      return () => {
+        cancelAnimationFrame(raf);
+        view.destroy();
+        viewRef.current = null;
+      };
+    }
 
     return () => {
       view.destroy();
