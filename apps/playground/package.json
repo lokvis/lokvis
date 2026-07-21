@@ -35,6 +35,7 @@
     "@lokvis/plugin-audio": "workspace:*",
     "@lokvis/plugin-pdf": "workspace:*",
     "@lokvis/plugin-video": "workspace:*",
+    "@lokvis/quick-image": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/schema": "workspace:*",
     "@lokvis/sdk": "workspace:*",
@@ -51,8 +52,11 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
+    "@testing-library/jest-dom": "^6.4.0",
+    "@testing-library/react": "^16.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "jsdom": "^25.0.0",
     "rollup-plugin-visualizer": "^7.0.1",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

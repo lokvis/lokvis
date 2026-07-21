@@ -1,0 +1,25 @@
+---
+/**
+ * 嵌入式一键图片裁剪(quick crop)工具页。
+ *
+ * URL: /embed/en/tools/quick-crop
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/quick-crop" />
+ *
+ * 三方接入路径之一:零配置 iframe 嵌入。
+ * 完全自定义请用 useQuickCrop() hook 或 QuickCrop 原语。
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import { ImageQuickCrop } from '@lokvis/quick-image';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params;
+---
+<EmbedLayout slug="quick-crop">
+  <div class="mx-auto w-full max-w-3xl py-2">
+    <ImageQuickCrop client:only="react" initialPreset="square" locale={lang} />
+  </div>
+</EmbedLayout>

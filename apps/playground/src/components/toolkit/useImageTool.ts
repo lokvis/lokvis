@@ -9,9 +9,12 @@
  *   - runWorkflow(workflow) 统一执行 + 导出 output Blob
  *
  * 抽出此 hook 后,工具页只需定义参数面板 + buildWorkflow(params)。
+ *
+ * W23:接受可选 `plugins` 参数,透传给 useLokvisRuntime。三方接入可组合
+ * image / audio / pdf / video 插件。undefined 时使用默认 [imageToolsPlugin()]。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AssetId, Workflow } from '@lokvis/sdk';
+import type { AssetId, PluginLoadEntry, Workflow, WorkflowResult } from '@lokvis/sdk';
 import { useLokvisRuntime } from './useLokvisRuntime';
 import { getImageInfo, type ImageInfo } from './download';
 
@@ -38,16 +41,24 @@ export interface UseImageToolResult {
   error: string | null;
   /** 处理上传文件(取首个,多文件时仅取第一个) */
   handleFiles: (files: File[]) => Promise<{ skipped: number }>;
-  /** 执行 workflow 并导出 output */
+  /** 执行 workflow 并导出 output(单步场景:写入 outputBlob/outputInfo 状态) */
   runWorkflow: (workflow: Workflow) => Promise<void>;
+  /**
+   * 执行 workflow 并返回原始 WorkflowResult(不写入 output 状态)。
+   *
+   * 多步 pipeline 场景需读取 result.stepOutputs 取各步中间产物,
+   * 不适合走 runWorkflow(它只暴露最终 Blob)。此方法统一错误归一化 +
+   * busy 状态,避免调用方绕过 hook 直接调 runtime.run。
+   */
+  runWorkflowRaw: (workflow: Workflow) => Promise<WorkflowResult | null>;
   /** 重置全部状态并 revoke 旧 URL */
   reset: () => void;
   /** 手动清错误 */
   clearError: () => void;
 }
 
-export function useImageTool(): UseImageToolResult {
-  const { runtime, ready, error: initError } = useLokvisRuntime();
+export function useImageTool(plugins?: PluginLoadEntry[]): UseImageToolResult {
+  const { runtime, ready, error: initError } = useLokvisRuntime(undefined, plugins);
   const [inputId, setInputId] = useState<AssetId | null>(null);
   const [inputUrl, setInputUrl] = useState<string | null>(null);
   const [inputInfo, setInputInfo] = useState<ImageInfo | null>(null);
@@ -92,27 +103,37 @@ export function useImageTool(): UseImageToolResult {
     [runtime, revokeInputUrl]
   );
 
-  const runWorkflow = useCallback(
-    async (workflow: Workflow): Promise<void> => {
-      if (!runtime || !inputId) return;
+  const runWorkflowRaw = useCallback(
+    async (workflow: Workflow): Promise<WorkflowResult | null> => {
+      if (!runtime || !inputId) return null;
       setBusy(true);
       setError(null);
       try {
         const result = await runtime.run(workflow, [inputId]);
-        if (result.status === 'completed' && result.outputs[0]) {
-          const blob = await runtime.exportAsset(result.outputs[0]);
-          setOutputBlob(blob);
-          setOutputInfo(await getImageInfo(blob));
-        } else {
+        if (result.status !== 'completed') {
           setError(result.error ?? '处理失败');
+          return result;
         }
+        return result;
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
+        return null;
       } finally {
         setBusy(false);
       }
     },
     [runtime, inputId]
+  );
+
+  const runWorkflow = useCallback(
+    async (workflow: Workflow): Promise<void> => {
+      const result = await runWorkflowRaw(workflow);
+      if (!result || result.status !== 'completed' || !result.outputs[0]) return;
+      const blob = await runtime!.exportAsset(result.outputs[0]);
+      setOutputBlob(blob);
+      setOutputInfo(await getImageInfo(blob));
+    },
+    [runtime, runWorkflowRaw]
   );
 
   const reset = useCallback(() => {
@@ -160,6 +181,7 @@ export function useImageTool(): UseImageToolResult {
     error,
     handleFiles,
     runWorkflow,
+    runWorkflowRaw,
     reset,
     clearError,
   };

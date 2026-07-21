@@ -1,0 +1,25 @@
+---
+/**
+ * 嵌入式图片流水线(quick pipeline)工具页。
+ *
+ * URL: /embed/en/tools/quick-pipeline
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/quick-pipeline" />
+ *
+ * 三方接入路径之一:零配置 iframe 嵌入。
+ * 完全自定义请用 useImagePipeline() hook 或 QuickPipeline 原语。
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import { ImageQuickPipeline } from '@lokvis/quick-image';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params;
+---
+<EmbedLayout slug="quick-pipeline">
+  <div class="mx-auto w-full max-w-3xl py-2">
+    <ImageQuickPipeline client:only="react" initialPreset="ecommerce" locale={lang} />
+  </div>
+</EmbedLayout>

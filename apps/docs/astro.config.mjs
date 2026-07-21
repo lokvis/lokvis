@@ -53,6 +53,7 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { label: 'Embed the SDK', slug: 'guides/embed-sdk' },
+                { label: 'Quick Actions', slug: 'guides/quick-actions' },
                 { label: 'Write Your First Plugin', slug: 'guides/write-first-plugin' },
               ],
             },
@@ -125,6 +126,7 @@ export default defineConfig({
               collapsed: true,
               items: [
                 { label: '嵌入 SDK', slug: 'guides/embed-sdk' },
+                { label: 'Quick Actions 一键工具', slug: 'guides/quick-actions' },
                 { label: '编写第一个插件', slug: 'guides/write-first-plugin' },
               ],
             },

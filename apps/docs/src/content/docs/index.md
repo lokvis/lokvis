@@ -39,6 +39,7 @@ pnpm dev --filter @lokvis/web
 - [Browse the Capability catalog](/docs/capabilities)
 - [Build your first plugin](/docs/plugins)
 - [Embed the SDK into a host React app](/docs/guides/embed-sdk)
+- [Embed single-purpose Quick Actions (compress / resize / …)](/docs/guides/quick-actions)
 - [Write your first plugin (step-by-step)](/docs/guides/write-first-plugin)
 - [Build a custom workspace without React](/docs/guides/custom-workspace)
 - [Automate with the CLI in Node.js](/docs/guides/cli-automation)

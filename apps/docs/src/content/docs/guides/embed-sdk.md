@@ -177,6 +177,7 @@ Open the printed URL, drag an image onto the Workspace, and the resize / compres
 
 ## Next steps
 
+- [Quick Actions](./quick-actions) — embed a single-purpose tool (compress / resize / convert / watermark / crop / pipeline) with a three-layer API instead of the full `<Workspace />`.
 - [Write your first plugin](./write-first-plugin) — declare a capability, wrap an engine operation, register it via `definePlugin()`.
 - [Custom Workspace](./custom-workspace) — build a minimal workbench with only `@lokvis/sdk` (no React UI).
 - [SDK reference](../sdk) — full `LokvisRuntime` API table.

@@ -177,6 +177,7 @@ pnpm dev
 
 ## 后续步骤
 
+- [Quick Actions 一键工具](./quick-actions) —— 用三层 API 嵌入单一用途的工具(压缩 / 缩放 / 转换 / 水印 / 裁剪 / pipeline),替代完整 `<Workspace />`。
 - [编写你的第一个插件](./write-first-plugin) —— 声明一个能力、包装一个引擎操作、通过 `definePlugin()` 注册。
 - [自定义 Workspace](./custom-workspace) —— 仅用 `@lokvis/sdk`（无 React UI）构建最小工作台。
 - [SDK 参考](../sdk) —— 完整的 `LokvisRuntime` API 表。

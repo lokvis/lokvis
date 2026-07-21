@@ -443,6 +443,10 @@ export const ui: Dict = {
   'watermark.uploadHint': { en: 'Select or drop an image', zh: '选择或拖入图片', ja: '画像を選択またはドロップ', es: 'Selecciona o suelta una imagen', de: 'Bild auswählen oder ablegen', fr: 'Sélectionne ou dépose une image' },
   'watermark.reselect': { en: '← Reselect image', zh: '← 重新选择图片', ja: '← 画像を再選択', es: '← Reseleccionar imagen', de: '← Bild erneut auswählen', fr: '← Resélectionner l\'image' },
 
+  // ─── Quick* 系列 keys 已迁移到 @lokvis/quick-image 包内 ──
+  // playground 不再维护;Layer 2 默认 UI 通过包内字典 + locale prop 渲染。
+  // 三方覆盖文案请用 <QuickI18nProvider translations={...}> 或组件 translations prop。
+
   // ─── Watermark Batch Tool ─────────────────────────────
   'watermark.batch.title': { en: 'Watermark Batch', zh: '批量水印', ja: 'ウォーターマーク一括', es: 'Marca de agua por lotes', de: 'Wasserzeichen-Stapel', fr: 'Filigrane par lot' },
   'watermark.batch.subtitle': { en: 'image.watermark · batch watermark (concurrency 4)', zh: 'image.watermark · 批量加水印（并发 4）', ja: 'image.watermark · 一括ウォーターマーク（並行 4）', es: 'image.watermark · marca de agua por lotes (concurrencia 4)', de: 'image.watermark · Stapel-Wasserzeichen (Nebenläufigkeit 4)', fr: 'image.watermark · filigrane par lot (concurrence 4)' },

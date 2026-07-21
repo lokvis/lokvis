@@ -63,6 +63,48 @@ export const TOOL_SEO: Record<string, ToolSeo> = {
       '本地浏览器给图片加文字水印,支持 9 宫格位置、字体大小、颜色、透明度。文件不上传,隐私安全。',
     keywords: ['图片水印', '文字水印', '加水印', '9 宫格', '本地处理'],
   },
+  'quick-compress': {
+    slug: 'quick-compress',
+    title: '一键图片压缩 · 拖入即压缩 · WebP',
+    description:
+      '拖入图片立即压缩为 WebP,3 个预设(均衡/高质量/小体积),无需任何参数配置。零配置快速压缩,文件不上传,隐私安全。',
+    keywords: ['一键压缩', '快速压缩', 'WebP', '拖入即压缩', '零配置', '本地处理'],
+  },
+  'quick-resize': {
+    slug: 'quick-resize',
+    title: '一键图片缩放 · IG / YouTube / TikTok 预设',
+    description:
+      '拖入图片按预设缩放,内置 IG 1:1(1080×1080)、YouTube 16:9(1280×720)、TikTok 9:16(1080×1920)、原图 50% 四个预设。零配置快速缩放,文件不上传,隐私安全。',
+    keywords: ['一键缩放', '快速缩放', 'Instagram 1:1', 'YouTube 16:9', 'TikTok 9:16', '零配置', '本地处理'],
+  },
+  'quick-convert': {
+    slug: 'quick-convert',
+    title: '一键图片格式转换 · PNG / WebP / AVIF / JPEG',
+    description:
+      '拖入图片立即转换格式,4 个预设:PNG(无损透明)/ WebP(q90)/ AVIF(q80)/ JPEG(q90)。零配置快速转换,文件不上传,隐私安全。',
+    keywords: ['一键转换', '格式转换', 'PNG 转 WebP', 'WebP 转 JPEG', 'AVIF', '零配置', '本地处理'],
+  },
+  'quick-watermark': {
+    slug: 'quick-watermark',
+    title: '一键图片加水印 · 文字水印 · 3 种预设',
+    description:
+      '拖入图片立即加文字水印,3 个预设:右下角小字 / 居中大字 / 平铺水印。支持自定义水印文字。零配置快速加水印,文件不上传,隐私安全。',
+    keywords: ['一键水印', '快速加水印', '文字水印', '9 宫格', '平铺水印', '零配置', '本地处理'],
+  },
+  'quick-crop': {
+    slug: 'quick-crop',
+    title: '一键图片裁剪 · 1:1 / 4:3 / 16:9 / 自由 · 4 种预设',
+    description:
+      '拖入图片立即按比例裁剪,4 个预设:1:1 正方形 / 4:3 / 16:9 / 自由。自动居中最大化裁剪,文件不上传,隐私安全。',
+    keywords: ['一键裁剪', '快速裁剪', '图片裁剪', '1:1', '4:3', '16:9', '比例裁剪', '零配置', '本地处理'],
+  },
+  'quick-pipeline': {
+    slug: 'quick-pipeline',
+    title: '图片流水线 · 多步串联 · 4 种预设 pipeline',
+    description:
+      '拖入图片自动跑完多步 pipeline,4 个预设:电商主图 / 社交分享 / 网页缩略图 / 博客配图。各步中间结果可查看,文件不上传,隐私安全。',
+    keywords: ['图片流水线', 'pipeline', '多步串联', 'resize + compress + watermark', '电商主图', '社交分享', '网页缩略图', '博客配图', '零配置', '本地处理'],
+  },
   'watermark-batch': {
     slug: 'watermark-batch',
     title: '批量图片加水印 · 并发 4 · 多文件',
