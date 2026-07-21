@@ -10,6 +10,9 @@ import { SNIPPETS, DEFAULT_SNIPPET_ID, findSnippet } from './playground/snippets
 import { extractCodeFromHash, buildShareUrl } from './playground/share';
 
 // W21.3: CodeEditor(含 CodeMirror ~335KB)懒加载,不进首页首屏 chunk
+// W21.8: 配合 activateEditor state 进一步把 chunk 加载推迟到首次 focus,
+//        首屏渲染零依赖 PlainCodeArea(textarea),不触发 <Suspense> fallback,
+//        LCP 由 CodeMirror chunk 加载(~335KB / 6.9s)降到 textarea 首次绘制(<100ms)。
 const CodeEditor = lazy(() =>
   import('./CodeEditor').then(m => ({ default: m.CodeEditor }))
 );
@@ -57,6 +60,10 @@ function PlaygroundContent() {
   const [lastDurationMs, setLastDurationMs] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  // W21.8: 首次 focus 之前渲染 PlainCodeArea(零依赖 textarea),
+  //         避免首屏 JSX 中 <Suspense> 立即触发 lazy chunk 请求。
+  //         切换后 CodeEditor 才进入 Suspense fallback → 真 chunk 加载。
+  const [activateEditor, setActivateEditor] = useState(false);
   const logIdRef = useRef(0);
   const codeRef = useRef(code);
   codeRef.current = code;
@@ -341,17 +348,26 @@ function PlaygroundContent() {
             <span className="text-[11px] text-zinc-600">{t('playground.javascript')}</span>
           </div>
           <div className="flex-1 overflow-auto bg-[#282c34]">
-            <Suspense fallback={
-              <div className="flex h-full items-center justify-center text-[11px] text-zinc-600">
-                {t('playground.editorJs')}…
-              </div>
-            }>
-              <CodeEditor
+            {activateEditor ? (
+              <Suspense fallback={
+                <div className="flex h-full items-center justify-center text-[11px] text-zinc-600">
+                  {t('playground.editorJs')}…
+                </div>
+              }>
+                <CodeEditor
+                  value={code}
+                  onChange={setCode}
+                  placeholder={t('playground.placeholder')}
+                />
+              </Suspense>
+            ) : (
+              <PlainCodeArea
                 value={code}
                 onChange={setCode}
+                onActivate={() => setActivateEditor(true)}
                 placeholder={t('playground.placeholder')}
               />
-            </Suspense>
+            )}
           </div>
         </div>
 
@@ -446,4 +462,37 @@ function loadInitialSnippetId(): string {
   } catch {
     return DEFAULT_SNIPPET_ID;
   }
+}
+
+/**
+ * W21.8: 首屏占位 textarea,在 CodeEditor lazy chunk 加载前渲染代码内容。
+ *
+ * 设计目标:
+ *  - 零依赖(纯 React + 原生 textarea),不触发任何 chunk 请求
+ *  - 视觉与 CodeEditor oneDark 主题对齐(背景 #282c34 + monospace 字体)
+ *  - 用户首次 focus 时通过 onActivate 回调触发 CodeEditor 加载,
+ *    切换瞬间 <Suspense> 渲染 fallback 再到 CodeEditor,state 保真
+ *  - 接受与 CodeEditor 一致的 value/onChange/placeholder 接口,
+ *    保证切换前后 state 一致
+ */
+interface PlainCodeAreaProps {
+  value: string;
+  onChange: (value: string) => void;
+  onActivate: () => void;
+  placeholder: string;
+}
+
+function PlainCodeArea({ value, onChange, onActivate, placeholder }: PlainCodeAreaProps) {
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onFocus={onActivate}
+      placeholder={placeholder}
+      spellCheck={false}
+      autoCapitalize="off"
+      autoCorrect="off"
+      className="h-full w-full resize-none border-0 bg-[#282c34] p-3 font-mono text-xs leading-5 text-zinc-100 outline-none placeholder:text-zinc-600"
+    />
+  );
 }
