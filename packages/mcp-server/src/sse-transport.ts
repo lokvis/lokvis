@@ -426,17 +426,43 @@ export class LokvisSseServer {
     }
 
     // 流式累计校验:Content-Length 可能缺失(chunked encoding),
-    // 用 data 事件累计字节数,超限时立即中断
+    // 用 data 事件累计字节数,超限时立即中断。
+    //
+    // M1.1: 中止不仅要回 413 + 移除监听器,还要彻底拆掉 transport 后续操作,
+    // 否则 SDK transport 仍会尝试从 req 读 body,在 res 已 end 后再 write 抛错
+    // (ERR_STREAM_WRITE_AFTER_END)。两件套:
+    //   1. req.destroy() — 销毁 IncomingMessage 流,让 SDK transport
+    //      的 req.on('data') / req.on('end') 立即停止,避免继续累积内存;
+    //      也会让 await handlePostMessage 因 req 流错误而提前 reject。
+    //   2. res.end() 由本回调执行,transport 后续 write 因 writableEnded
+    //      直接被 Node 丢弃;若 transport 已先 end(res.writableEnded=true),
+    //      不再二次 end(避免 ERR_STREAM_WRITE_AFTER_END)。
     let receivedBytes = 0;
     let exceeded = false;
     const onData = (chunk: Buffer) => {
       receivedBytes += chunk.length;
       if (receivedBytes > maxBytes && !exceeded) {
         exceeded = true;
-        // 破坏性中止:回 413 + 拆除监听器 + 拒绝后续读取
+        // 顺序:先标记 → 拆监听器 → 销毁 req → 回 413
         req.removeListener('data', onData);
-        res.statusCode = 413;
-        res.end('Payload Too Large');
+        // req.destroy() 可能触发 'error' 事件;若 SDK 注册了 error handler 会吞掉,
+        // 否则 Node 默认 throw 进程退出。destroy 前先注册兜底 error 监听器吸收异常。
+        req.on('error', () => { /* 已通过 exceeded 标记,忽略后续 socket error */ });
+        try {
+          req.destroy();
+        } catch {
+          /* socket 已关闭等竞态 — 忽略 */
+        }
+        // res 可能已被 transport 写过头部(handlePostMessage 提前 start),
+        // 此时再 res.end() 会抛 ERR_STREAM_WRITE_AFTER_END — 检查 + try/catch 兜底。
+        try {
+          if (!res.writableEnded) {
+            res.statusCode = 413;
+            res.end('Payload Too Large');
+          }
+        } catch {
+          /* transport 已 end — 忽略 */
+        }
         logEvent('warn', 'payload_too_large_streaming', {
           sessionId,
           receivedBytes,
@@ -448,6 +474,8 @@ export class LokvisSseServer {
 
     entry.lastActivityAt = Date.now();
     logEvent('info', 'message_received', { sessionId });
+    // req 被 destroy 后,SDK transport 的 handlePostMessage 内部读 req 流会
+    // 立即 reject('aborted' / 'stream destroyed'),不会继续向 res 写。
     await entry.transport.handlePostMessage(req, res);
     logEvent('info', 'message_sent', { sessionId });
   }
