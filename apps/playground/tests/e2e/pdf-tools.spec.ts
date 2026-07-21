@@ -16,10 +16,15 @@
  */
 import { test, expect } from '@playwright/test';
 import { uploadPdf, runToolAndExpectStubError } from './helpers';
+import { ui } from '../../src/i18n/ui';
 
-/** PDF 工具族共用 stub hint 文案(英文,与 i18n/ui.ts `pdf.stubHint` 一致) */
-const PDF_STUB_HINT =
-  'PDF processing runs in Node (mcp-server). Browser plugin-pdf is stub-only.';
+/**
+ * W22.7: stub hint 文案从 i18n/ui.ts 直接 import,避免硬编码常量与字典脱钩。
+ *
+ * 字典里 `pdf.stubHint.en` 是 PdfToolResultPanel 渲染英文文案的真正来源,
+ * 通过 import 锁定,字典改动后 spec 同步失败而非静默漂移。
+ */
+const PDF_STUB_HINT = ui['pdf.stubHint'].en!;
 
 test.describe('PDF 工具页 stub 提示', () => {
   test('pdf-compress 上传 PDF 后点击 Compress,显示 amber stub 提示', async ({ page }) => {
