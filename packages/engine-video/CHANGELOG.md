@@ -1,5 +1,19 @@
 # @lokvis/engine-video
 
+## 0.4.2
+
+### Patch Changes
+
+- 自 0.4.1 以来的累积发布：
+
+  - feat: Image Workspace Quick Actions 三层架构改造（Headless Hook + 默认 UI + Pipeline 模式）
+  - feat: R1 Developer Workspace + S1 CLI 正式发布
+  - feat: W21.8 CodeMirror LCP 优化、M1 SSE 生产就绪、W22.6 Playwright E2E
+  - fix: 修复 Cloudflare Pages 部署失败（wrangler-action pnpm root 安装报错）
+
+- Updated dependencies []:
+  - @lokvis/schema@0.4.2
+
 ## 0.4.1
 
 ### Patch Changes

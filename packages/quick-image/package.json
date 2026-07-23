@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/quick-image",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Lokvis Quick Image - Three-layer image quick-action components (hooks / primitives / default UI)",
   "license": "MIT",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/cli",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Lokvis CLI - Run workflows, list capabilities, scaffold plugins from the terminal",
   "license": "MIT",
   "type": "module",
