@@ -34,9 +34,15 @@ interface Props {
   slug: string;
   /** 可选:i18n key 之外的额外标题覆盖(默认从 TOOL_SEO 取) */
   title?: string;
+  /**
+   * W21.2: WASM 资源预加载 URL 列表。
+   * AVIF 输出类嵌入工具页(embed convert)传入 `resolveAvifWasmUrl()`,
+   * 浏览器空闲时预取编码器 wasm,缩短首次编码等待。
+   */
+  wasmPreload?: string[];
 }
 
-const { slug, title } = Astro.props;
+const { slug, title, wasmPreload = [] } = Astro.props;
 const seo = TOOL_SEO[slug];
 const lang: Language = getLangFromUrl(Astro.url);
 
@@ -97,6 +103,11 @@ const ogLocale = OG_LOCALE_MAP[lang];
     <meta http-equiv="Content-Security-Policy" content={`frame-ancestors *;`} />
 
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+
+    {/* W21.2: WASM 资源预加载(AVIF 编码器等),与 PlaygroundLayout 注入规则一致 */}
+    {wasmPreload.map((url) => (
+      <link rel="preload" href={url} as="fetch" crossorigin="anonymous" />
+    ))}
   </head>
   <body class="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
     <div class="flex flex-col gap-2 px-3 py-2">

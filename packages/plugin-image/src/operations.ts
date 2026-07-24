@@ -26,6 +26,7 @@ import {
   watermark as opWatermark,
   setBackground as opSetBackground,
   filter as opFilter,
+  encodeIco as opEncodeIco,
 } from '@lokvis/engine-image';
 
 /** Capability 名 → 操作函数的映射类型 */
@@ -57,6 +58,7 @@ const flipOp: ImageOperation = (blob, params, signal) => opFlip(blob, params, si
 const watermarkOp: ImageOperation = (blob, params, signal) => opWatermark(blob, params, signal);
 const backgroundOp: ImageOperation = (blob, params, signal) => opSetBackground(blob, params, signal);
 const filterOp: ImageOperation = (blob, params, signal) => opFilter(blob, params, signal);
+const faviconOp: ImageOperation = (blob, params, signal) => opEncodeIco(blob, params, signal);
 
 /** 全部图像能力实现绑定(operation → engine 映射,能力声明由 generated 提供) */
 export const IMAGE_OPERATION_ENTRIES: ImageOperationEntry[] = [
@@ -69,6 +71,7 @@ export const IMAGE_OPERATION_ENTRIES: ImageOperationEntry[] = [
   { capability: 'image.watermark',   engine: 'canvas', operation: watermarkOp },
   { capability: 'image.background',  engine: 'canvas', operation: backgroundOp },
   { capability: 'image.filter',      engine: 'canvas', operation: filterOp },
+  { capability: 'image.favicon',     engine: 'canvas', operation: faviconOp },
 ];
 
 /** engine-image stub 检测(AGENTS.md 约定:version.includes('stub')) */

@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/example-plugin-grayscale",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Example: a minimal teaching plugin that adds image.grayscale via canvas pixel manipulation",
   "license": "MIT",

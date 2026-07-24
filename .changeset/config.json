@@ -26,7 +26,10 @@
       "@lokvis/plugin-audio",
       "@lokvis/plugin-ai",
       "@lokvis/plugin-dev",
-      "@lokvis/mcp-server"
+      "@lokvis/mcp-server",
+      "@lokvis/embed-image",
+      "@lokvis/embed-pdf",
+      "@lokvis/embed-video"
     ]
   ],
   "linked": [],

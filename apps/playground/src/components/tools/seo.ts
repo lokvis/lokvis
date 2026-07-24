@@ -84,6 +84,13 @@ export const TOOL_SEO: Record<string, ToolSeo> = {
       '拖入图片立即转换格式,4 个预设:PNG(无损透明)/ WebP(q90)/ AVIF(q80)/ JPEG(q90)。零配置快速转换,文件不上传,隐私安全。',
     keywords: ['一键转换', '格式转换', 'PNG 转 WebP', 'WebP 转 JPEG', 'AVIF', '零配置', '本地处理'],
   },
+  'quick-favicon': {
+    slug: 'quick-favicon',
+    title: '一键生成 Favicon · 多尺寸 ICO · 16/32/48/256',
+    description:
+      '拖入图片立即生成多尺寸 ICO favicon,3 个预设:标准(16/32/48)/ 现代(32/48/256)/ 全兼容(16/32/48/256)。零配置快速生成,文件不上传,隐私安全。',
+    keywords: ['一键 favicon', 'favicon 生成', 'ICO', '多尺寸图标', '网站图标', '零配置', '本地处理'],
+  },
   'quick-watermark': {
     slug: 'quick-watermark',
     title: '一键图片加水印 · 文字水印 · 3 种预设',

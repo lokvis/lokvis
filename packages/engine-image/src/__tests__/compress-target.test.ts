@@ -30,6 +30,13 @@ vi.mock('../canvas-engine.js', () => ({
     getContext: () => mockCtx(),
   })),
   get2DContext: vi.fn(() => mockCtx()),
+  detectFormatSupport: vi.fn(async () => ({
+    png: true,
+    jpeg: true,
+    webp: true,
+    avif: true,
+    gif: true,
+  })),
 }));
 
 function mockCtx() {

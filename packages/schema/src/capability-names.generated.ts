@@ -42,6 +42,7 @@ export type BuiltinCapabilityName =
   | 'image.watermark'
   | 'image.background'
   | 'image.filter'
+  | 'image.favicon'
   | 'pdf.merge'
   | 'pdf.split'
   | 'pdf.compress'
@@ -87,6 +88,7 @@ export const BUILTIN_CAPABILITY_NAMES: readonly BuiltinCapabilityName[] = [
   'image.watermark',
   'image.background',
   'image.filter',
+  'image.favicon',
   'pdf.merge',
   'pdf.split',
   'pdf.compress',

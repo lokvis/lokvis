@@ -2,11 +2,15 @@
 import { langList } from '@/i18n/config';
 import ToolLayout from '@/layouts/ToolLayout.astro';
 import CompressTool from '@/components/tools/CompressTool.tsx';
+import { resolveAvifWasmUrl } from '@lokvis/engine-image';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
 }
+
+// W21.2: 压缩工具支持 AVIF 输出,预加载 WASM 编码器(Firefox 等无原生支持时兜底)
+const avifWasmUrl = resolveAvifWasmUrl();
 ---
-<ToolLayout slug="compress">
+<ToolLayout slug="compress" wasmPreload={[avifWasmUrl]}>
   <CompressTool client:only="react" />
 </ToolLayout>

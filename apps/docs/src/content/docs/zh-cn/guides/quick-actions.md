@@ -28,16 +28,16 @@ Quick Actions 是预聚合的单一用途图片工具。每个工具把 Runtime 
 :::note
 Quick Action 三层目前位于 `@lokvis/playground`(私有应用包)下的 `apps/playground/src/components/tools/quick/`,**尚未发布为独立 npm 包**。
 
-按设计文档([`docs/reports/20260719-image-workspace-ui-design.md` §10.2](https://github.com/lokvis/lokvis/blob/main/docs/reports/20260719-image-workspace-ui-design.md))的规划,后续会抽离为独立的 `@lokvis/quick-image` 包,导出三个子路径:
+按设计文档([`docs/reports/20260719-image-workspace-ui-design.md` §10.2](https://github.com/lokvis/lokvis/blob/main/docs/reports/20260719-image-workspace-ui-design.md))的规划,后续会抽离为独立的 `@lokvis/embed-image` 包,导出三个子路径:
 
 ```bash
-pnpm add @lokvis/quick-image @lokvis/plugin-image
+pnpm add @lokvis/embed-image @lokvis/plugin-image
 ```
 
 ```ts
-import ImageQuickCompress from '@lokvis/quick-image';                 // Layer 2
-import { QuickCompress } from '@lokvis/quick-image/primitives';        // Layer 1
-import { useQuickCompress } from '@lokvis/quick-image/hooks';          // Layer 0
+import ImageQuickCompress from '@lokvis/embed-image';                 // Layer 2
+import { QuickCompress } from '@lokvis/embed-image/primitives';        // Layer 1
+import { useQuickCompress } from '@lokvis/embed-image/hooks';          // Layer 0
 ```
 
 抽离落地之前,下文示例统一用 `apps/playground/src/components/tools/quick/` 下的源码路径。集成方可直接复制相关源文件,或等待独立包发布。
@@ -333,7 +333,7 @@ Vite / Cloudflare Pages / Netlify 的配置见 [嵌入 SDK](./embed-sdk)(其中�
 
 以下是当前三方接入方需要留意的差距。它们都已在设计文档中追踪,会在后续 PR 中处理。
 
-1. **尚无独立 npm 包。** 六个家族全部位于 `@lokvis/playground`,并依赖 playground 内部辅助(`useImageTool`、`useLokvisRuntime`、`getImageInfo`、i18n)。当前只能复制源码。抽离为 `@lokvis/quick-image` 已在规划中。
+1. **尚无独立 npm 包。** 六个家族全部位于 `@lokvis/playground`,并依赖 playground 内部辅助(`useImageTool`、`useLokvisRuntime`、`getImageInfo`、i18n)。当前只能复制源码。抽离为 `@lokvis/embed-image` 已在规划中。
 2. **`useLokvisRuntime` 硬编码 `imageToolsPlugin`。** 三方若要在同一 Runtime 里把图像 Quick Action 与 audio / pdf / video 插件组合使用,必须 fork hook 或自行实现等价物。hook 上的 `plugins` 选项已在路线图上。
 3. **Layer 2 默认 UI 拉 `apps/playground/src/i18n` 的文案。** 默认 UI 在 playground 内开箱即用;在 playground 之外,要么通过 `components` prop 替换承载文案的子组件,要么改用 Layer 1 / Layer 0。
 4. **仅图像。** Quick 模式构建在 `useImageTool` + `buildSingleStepImageWorkflow` + `getImageInfo` 之上。尚无 `useQuickAudio` / `useQuickPdf` / `useQuickVideo` 家族。

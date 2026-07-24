@@ -1,7 +1,7 @@
 ---
 import { langList } from '@/i18n/config';
 import ToolLayout from '@/layouts/ToolLayout.astro';
-import { ImageQuickWatermark } from '@lokvis/quick-image';
+import { EmbedImageWatermark } from '@lokvis/embed-image';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
@@ -11,6 +11,6 @@ const { lang } = Astro.params;
 ---
 <ToolLayout slug="quick-watermark">
   <div class="mx-auto w-full max-w-3xl px-4 py-4">
-    <ImageQuickWatermark client:only="react" initialPreset="small-br" initialText="Lokvis" locale={lang} />
+    <EmbedImageWatermark client:only="react" initialPreset="small-br" initialText="Lokvis" mode="dark" locale={lang} />
   </div>
 </ToolLayout>

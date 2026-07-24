@@ -102,6 +102,9 @@ importers:
       '@lokvis/capability':
         specifier: workspace:*
         version: link:../../packages/capability
+      '@lokvis/embed-image':
+        specifier: workspace:*
+        version: link:../../packages/embed-image
       '@lokvis/engine-image':
         specifier: workspace:*
         version: link:../../packages/engine-image
@@ -123,9 +126,6 @@ importers:
       '@lokvis/plugin-video':
         specifier: workspace:*
         version: link:../../packages/plugin-video
-      '@lokvis/quick-image':
-        specifier: workspace:*
-        version: link:../../packages/quick-image
       '@lokvis/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -379,6 +379,129 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.20.0)(jsdom@25.0.1)(lightningcss@1.32.0)
 
+  packages/embed-image:
+    dependencies:
+      '@lokvis/engine-image':
+        specifier: workspace:*
+        version: link:../engine-image
+      '@lokvis/plugin-image':
+        specifier: workspace:*
+        version: link:../plugin-image
+      '@lokvis/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@lokvis/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@lokvis/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+      '@lokvis/workflow':
+        specifier: workspace:*
+        version: link:../workflow
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@testing-library/jest-dom':
+        specifier: ^6.4.0
+        version: 6.9.1
+      '@testing-library/react':
+        specifier: ^16.0.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.17)
+      jsdom:
+        specifier: ^25.0.0
+        version: 25.0.1
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.0
+        version: 5.4.21(@types/node@24.13.2)(lightningcss@1.32.0)
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@24.13.2)(jsdom@25.0.1)(lightningcss@1.32.0)
+
+  packages/embed-pdf:
+    dependencies:
+      '@lokvis/engine-pdf':
+        specifier: workspace:*
+        version: link:../engine-pdf
+      '@lokvis/plugin-pdf':
+        specifier: workspace:*
+        version: link:../plugin-pdf
+      '@lokvis/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@lokvis/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@lokvis/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+      '@lokvis/workflow':
+        specifier: workspace:*
+        version: link:../workflow
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.17)
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
+  packages/embed-video:
+    dependencies:
+      '@lokvis/plugin-video':
+        specifier: workspace:*
+        version: link:../plugin-video
+      '@lokvis/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@lokvis/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@lokvis/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+      '@lokvis/workflow':
+        specifier: workspace:*
+        version: link:../workflow
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.17)
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
   packages/engine-ai:
     dependencies:
       '@lokvis/schema':
@@ -425,6 +548,9 @@ importers:
 
   packages/engine-image:
     dependencies:
+      '@jsquash/avif':
+        specifier: ^2.1.1
+        version: 2.1.1
       '@lokvis/engine-core':
         specifier: workspace:*
         version: link:../engine-core
@@ -685,55 +811,6 @@ importers:
       vitest:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.20.0)(jsdom@25.0.1)(lightningcss@1.32.0)
-
-  packages/quick-image:
-    dependencies:
-      '@lokvis/plugin-image':
-        specifier: workspace:*
-        version: link:../plugin-image
-      '@lokvis/runtime':
-        specifier: workspace:*
-        version: link:../runtime
-      '@lokvis/schema':
-        specifier: workspace:*
-        version: link:../schema
-      '@lokvis/sdk':
-        specifier: workspace:*
-        version: link:../sdk
-      '@lokvis/workflow':
-        specifier: workspace:*
-        version: link:../workflow
-      react:
-        specifier: ^19.0.0
-        version: 19.2.7
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.7(react@19.2.7)
-    devDependencies:
-      '@testing-library/jest-dom':
-        specifier: ^6.4.0
-        version: 6.9.1
-      '@testing-library/react':
-        specifier: ^16.0.0
-        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.17
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.3(@types/react@19.2.17)
-      jsdom:
-        specifier: ^25.0.0
-        version: 25.0.1
-      typescript:
-        specifier: ^5.6.0
-        version: 5.9.3
-      vite:
-        specifier: ^5.4.0
-        version: 5.4.21(@types/node@24.13.2)(lightningcss@1.32.0)
-      vitest:
-        specifier: ^2.1.0
-        version: 2.1.9(@types/node@24.13.2)(jsdom@25.0.1)(lightningcss@1.32.0)
 
   packages/runtime:
     dependencies:
@@ -1892,6 +1969,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@jsquash/avif@2.1.1':
+    resolution: {integrity: sha512-LMRxd0fMgfCLtobDh0/sFYJMMiRJTNYSEEWvRDKXlAeZ08t3gI5V+1thIT0XjXJ+SVG7Zug9B0XPyx0Ti5VRNA==}
 
   '@lezer/common@1.5.2':
     resolution: {integrity: sha512-sxQE460fPZyU3sdc8lafxiPwJHBzZRy/udNFynGQky1SePYBdhkBl1kOagA9uT3pxR8K09bOrmTUqA9wb/PjSQ==}
@@ -5446,6 +5526,9 @@ packages:
     resolution: {integrity: sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==}
     engines: {node: '>=18'}
 
+  wasm-feature-detect@1.8.0:
+    resolution: {integrity: sha512-zksaLKM2fVlnB5jQQDqKXXwYHLQUVH9es+5TOOHwGOVJOCeRBCiPjwSg+3tN2AdTCzjgli4jijCH290kXb/zWQ==}
+
   web-namespaces@2.0.1:
     resolution: {integrity: sha512-bKr1DkiNa2krS7qxNtdrtHAmzuYGFQLiQ13TsorsdT6ULTkPLKuu5+GsFpDlg6JFjUTwX2DyhMPG2be8uPrqsQ==}
 
@@ -6695,6 +6778,10 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@jsquash/avif@2.1.1':
+    dependencies:
+      wasm-feature-detect: 1.8.0
 
   '@lezer/common@1.5.2': {}
 
@@ -10792,6 +10879,8 @@ snapshots:
   w3c-xmlserializer@5.0.0:
     dependencies:
       xml-name-validator: 5.0.0
+
+  wasm-feature-detect@1.8.0: {}
 
   web-namespaces@2.0.1: {}
 

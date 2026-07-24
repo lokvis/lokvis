@@ -482,7 +482,7 @@ Layer 2 默认 UI 即使支持 theme + components prop,仍有局限:
  *
  * @example 三方用原语组装自定义 UI
  * ```tsx
- * import { QuickCompress } from '@lokvis/quick-image/primitives';
+ * import { QuickCompress } from '@lokvis/embed-image/primitives';
  *
  * function MyCustomCompress() {
  *   return (
@@ -729,15 +729,15 @@ Layer 2 默认 UI 的 Tailwind 类名引用 CSS 变量,而非硬编码颜色:
 **三方接入按需选择层级**:
 ```typescript
 // 路径 1:零配置(用 Layer 2)
-import ImageQuickCompress from '@lokvis/quick-image';
+import ImageQuickCompress from '@lokvis/embed-image';
 <ImageQuickCompress />
 
 // 路径 5:原语组装(用 Layer 1)
-import { QuickCompress } from '@lokvis/quick-image/primitives';
+import { QuickCompress } from '@lokvis/embed-image/primitives';
 <QuickCompress.Root>...</QuickCompress.Root>
 
 // 路径 6:完全自定义(用 Layer 0)
-import { useQuickCompress } from '@lokvis/quick-image/hooks';
+import { useQuickCompress } from '@lokvis/embed-image/hooks';
 const state = useQuickCompress();
 ```
 
@@ -1131,7 +1131,7 @@ Quick Workspace 对应:
 | Quick Action 与完整 Tool 功能重叠 | 用户困惑 | 定位区分:Quick = 快速 / Tool = 精细,首页推荐 Quick,提供"高级模式"入口 |
 | Pipeline 模式复杂度上升 | 实施延期 | Phase C 可选,先做 Phase A/B 验证 |
 | Layer 0 hook 被三方误用为"完整 SDK" | 期望落差 | 文档明确:hook 仅提供预设能力,深度定制请用 @lokvis/sdk |
-| 三层架构导致包导出复杂 | 接入方困惑 | 包导出明确分层:`@lokvis/quick-image`(Layer 2)+ `/primitives`(Layer 1)+ `/hooks`(Layer 0) |
+| 三层架构导致包导出复杂 | 接入方困惑 | 包导出明确分层:`@lokvis/embed-image`(Layer 2)+ `/primitives`(Layer 1)+ `/hooks`(Layer 0) |
 | Layer 1 原语 Context 设计不当 | 重渲染性能问题 | 用 React Context + useMemo 优化,仅在状态变化时触发重渲染 |
 | theme prop 与 CSS 变量冲突 | 优先级混乱 | theme prop 生成的 CSS 变量在根元素 style 属性(高优先级),外部 CSS 覆盖需用 `!important` 或更高特异性 |
 | components prop 替换组件契约不匹配 | 运行时错误 | 用 TypeScript 严格类型约束 + Props 接口文档 |
@@ -1145,8 +1145,8 @@ Quick Workspace 对应:
    - 建议:Phase C 仅提供预设 pipeline,自定义编辑留到 Phase D
 3. **Embed SDK 时机**:何时启动 Phase D?
    - 建议:Phase A/B/C 完成后,根据用户反馈决定
-4. **三层是否单独发包**:Layer 0/1/2 放在 `apps/playground/src` 还是独立 `@lokvis/quick-image` 包?
-   - 建议:Phase A 先放在 `apps/playground/src/components/tools/quick/`,Phase B 验证稳定后抽离为独立包 `@lokvis/quick-image`,导出三个子路径(`/`,`/primitives`,`/hooks`)
+4. **三层是否单独发包**:Layer 0/1/2 放在 `apps/playground/src` 还是独立 `@lokvis/embed-image` 包?
+   - 建议:Phase A 先放在 `apps/playground/src/components/tools/quick/`,Phase B 验证稳定后抽离为独立包 `@lokvis/embed-image`,导出三个子路径(`/`,`/primitives`,`/hooks`)
 5. **三方接入文档时机**:何时提供三方接入文档?
    - 建议:Phase A 完成后写最小接入示例(6 种路径),Phase B 完成后写完整文档
 6. **Layer 1 原语是否支持非 React 框架**:是否提供 Vue/Svelte 版本?

@@ -21,6 +21,13 @@ vi.mock('../canvas-engine.js', () => ({
   },
   createCanvas: vi.fn((w: number, h: number) => ({ width: w, height: h, __canvas: true })),
   get2DContext: mockGet2DContext,
+  detectFormatSupport: vi.fn(async () => ({
+    png: true,
+    jpeg: true,
+    webp: true,
+    avif: true,
+    gif: true,
+  })),
 }));
 
 const {

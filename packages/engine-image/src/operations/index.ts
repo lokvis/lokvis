@@ -14,6 +14,7 @@
  * - encode.ts:          编码与格式(compress / convert / setBackground)
  * - watermark.ts:       水印(文字 / 图片)
  * - filters.ts:         简单滤镜(grayscale / invert / sepia / blur)
+ * - ico.ts:             ICO favicon 多尺寸容器编码(encodeIco)
  *
  * 内部模块(不导出,仅供同包其他操作文件引用):
  * - compress-target.ts: 目标体积压缩(compress 内部二分查找实现)
@@ -29,3 +30,4 @@ export * from './transform.js';
 export * from './encode.js';
 export * from './watermark.js';
 export * from './filters.js';
+export * from './ico.js';

@@ -1,5 +1,17 @@
 # @lokvis/ui-react
 
+## 0.5.0
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.5.0
+  - @lokvis/capability@0.5.0
+  - @lokvis/workflow@0.5.0
+  - @lokvis/runtime@0.5.0
+  - @lokvis/sdk@0.5.0
+  - @lokvis/ui-core@0.5.0
+
 ## 0.4.2
 
 ### Patch Changes

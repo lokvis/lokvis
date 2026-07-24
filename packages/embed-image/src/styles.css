@@ -1,0 +1,119 @@
+/**
+ * @lokvis/embed-image 默认样式(Layer 2 共用)。
+ *
+ * 解决 G3:CSS 变量默认值随包发布,第三方 npm 接入不再样式崩坏。
+ *
+ * 用法:
+ *   import '@lokvis/embed-image/styles.css';
+ *
+ * 三方覆盖路径(优先级递增):
+ *   1. 本文件:.lokvis-quick-* 选择器提供 light/dark 默认值
+ *   2. 自定义 CSS:覆盖 .lokvis-quick-* 上的 --lokvis-* 变量
+ *   3. theme prop:转 inline style,优先级最高
+ *
+ * mode 自适应(F1):
+ *   - mode="light"(默认板):data-quick-mode="light" 或未设置 → 浅色板
+ *   - mode="dark":data-quick-mode="dark" → 深色板
+ *   - mode="system":由 useQuickMode(matchMedia) 解析为 light/dark 后写入 data-quick-mode
+ *
+ * 注:未导入本文件时,Layer 2 内联样式的 var(--lokvis-*, <fallback>) 兜底为浅色,
+ *     确保"不崩坏"(F1 验收 #1);完整 mode 切换需导入本文件(F1 验收 #2)。
+ */
+
+/* ─── 浅色默认板(light-first) ─────────────────────────── */
+.lokvis-quick-compress,
+.lokvis-quick-resize,
+.lokvis-quick-convert,
+.lokvis-quick-favicon,
+.lokvis-quick-watermark,
+.lokvis-quick-crop,
+.lokvis-quick-pipeline {
+  --lokvis-primary: #6366f1;
+  --lokvis-primary-hover: #4f46e5;
+  --lokvis-bg: transparent;
+  --lokvis-surface: #ffffff;
+  --lokvis-surface-hover: #f4f4f5;
+  --lokvis-border: #e4e4e7;
+  --lokvis-text: #18181b;
+  --lokvis-text-muted: #71717a;
+  --lokvis-success: #10b981;
+  --lokvis-warning: #f59e0b;
+  --lokvis-error: #ef4444;
+  --lokvis-radius: 0.5rem;
+  --lokvis-font-family: inherit;
+  --lokvis-ring: #6366f1;
+}
+
+/* ─── 深色板(mode="dark" 或 system 解析为 dark) ────────── */
+.lokvis-quick-compress[data-quick-mode='dark'],
+.lokvis-quick-resize[data-quick-mode='dark'],
+.lokvis-quick-convert[data-quick-mode='dark'],
+.lokvis-quick-favicon[data-quick-mode='dark'],
+.lokvis-quick-watermark[data-quick-mode='dark'],
+.lokvis-quick-crop[data-quick-mode='dark'],
+.lokvis-quick-pipeline[data-quick-mode='dark'] {
+  --lokvis-bg: transparent;
+  --lokvis-surface: #18181b;
+  --lokvis-surface-hover: #27272a;
+  --lokvis-border: #27272a;
+  --lokvis-text: #f4f4f5;
+  --lokvis-text-muted: #71717a;
+  --lokvis-ring: #818cf8;
+}
+
+/* ─── focus-visible 环(F4 a11y) ────────────────────────── */
+.lokvis-quick-compress :focus-visible,
+.lokvis-quick-resize :focus-visible,
+.lokvis-quick-convert :focus-visible,
+.lokvis-quick-favicon :focus-visible,
+.lokvis-quick-watermark :focus-visible,
+.lokvis-quick-crop :focus-visible,
+.lokvis-quick-pipeline :focus-visible {
+  outline: 2px solid var(--lokvis-ring, #6366f1);
+  outline-offset: 2px;
+}
+
+/* ─── 处理中 spinner(F2 busy 反馈) ──────────────────────── */
+@keyframes lokvis-quick-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.lokvis-quick-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--lokvis-border, #e4e4e7);
+  border-top-color: var(--lokvis-primary, #6366f1);
+  border-radius: 50%;
+  animation: lokvis-quick-spin 0.6s linear infinite;
+}
+
+/* ─── 处理中 shimmer(F2 busy 反馈:output 预览区骨架) ───── */
+@keyframes lokvis-quick-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.lokvis-quick-shimmer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.lokvis-quick-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--lokvis-surface-hover, rgba(0, 0, 0, 0.04)),
+    transparent
+  );
+  animation: lokvis-quick-shimmer 1.4s infinite;
+}

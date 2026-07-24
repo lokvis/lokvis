@@ -101,6 +101,12 @@ export interface FilterParams {
   radius?: number;
 }
 
+/** ICO favicon 编码参数 */
+export interface EncodeIcoParams {
+  /** 目标尺寸列表(正方形边长 px),默认 [16, 32, 48, 256] */
+  sizes?: number[];
+}
+
 /** 解码后的位图与元数据 */
 export interface DecodedImage {
   bitmap: ImageBitmap;

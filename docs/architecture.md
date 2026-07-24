@@ -115,6 +115,17 @@ idle → ready → restarting → dead/disposed
 
 图像操作在 Worker 内基于 `OffscreenCanvas` + `createImageBitmap` 渲染。Worker 入口调用 `startImageWorker()` 完成 ready 握手、ping→pong、request→response 接线。
 
+### AVIF WASM 编码器私有 Worker（`@lokvis/engine-image` wasm/）
+
+AVIF 的 wasm 兜底编码使用**独立的私有 Worker**（`wasm/avif-worker.ts`），与上文 WorkerHost 管理的通用图像 Worker **互不复用**：
+
+- **与 WorkerHost 的关系**：通用图像 Worker 由 `WorkerHost` 管理，但当前处于 **dormant** 状态——`plugin-image` 在主线程直调 canvas 引擎（`WorkerHost` 基建已铺设但未启用）。AVIF 私有 Worker 不经过 `WorkerHost`，而是 `wasm/avif-encoder.ts` 内的**模块级单例**，仅在「原生 avif 编码不可用 + wasm 兜底启用」时由 `encodeSmart` 按需创建。
+- **为何独立**：libavif codec 实例化较重（wasm ~0.4s），单例复用避免重复初始化；且编码是单次同步 wasm 调用，与通用图像 Worker 的 OffscreenCanvas 渲染职责正交，隔离可避免相互阻塞。
+- **通信协议**：精简的 `request`/`response`（按数字 id 多路复用同一 worker），**无** ping/pong 心跳、**无** progress 事件——libavif 编码无进度/中断钩子（设计文档 D5）。
+- **取消语义**：abort = host 侧 `terminate()` 当前 worker 并拒绝所有 in-flight 请求（含发起方，统一 AbortError），下一次编码自动重建单例。因编码不可中途打断，terminate 是唯一可行的取消手段。
+- **崩溃重建**：worker `error` 事件（wasm 加载失败 / OOM）→ 拒绝所有 pending → 清空单例 → 下次编码自动重建。
+- **wasm 加载**：worker 是独立 realm，读不到主线程配置，host 把解析好的版本化 wasm URL 随消息传入；worker 内 `fetch` + `wasmBinary` 注入实例化单线程胶水（D6 强制单线程，避免 emscripten 嵌套子 worker）。
+
 ---
 
 ## 四、历史栈与 undo/redo（HistoryStack）

@@ -8,7 +8,8 @@
       "dependsOn": [],
       "outputs": [
         "packages/schema/src/**/*.generated.ts",
-        "packages/capability/src/**/*.generated.ts"
+        "packages/capability/src/**/*.generated.ts",
+        "packages/engine-image/src/**/*.generated.ts"
       ],
       "cache": false
     },

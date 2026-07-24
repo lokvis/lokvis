@@ -24,6 +24,7 @@ import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
 import { inferFormat, throwIfAborted } from './utils.js';
 import { compressToTargetSize } from './compress-target.js';
 import { processLargeImageWithTiles, shouldUseTiles } from './tiles.js';
+import { encodeSmart } from './wasm-encode.js';
 
 /** Compress：压缩（同时可改变格式） */
 export async function compress(
@@ -59,7 +60,7 @@ export async function compress(
     const ctx = get2DContext(canvas);
     ctx.drawImage(bitmap, 0, 0);
     throwIfAborted(signal);
-    return canvasEngine.encode(canvas, format, q);
+    return encodeSmart(canvas, format, q, signal);
   } finally {
     bitmap.close?.();
   }
@@ -104,7 +105,7 @@ export async function convert(
     }
     ctx.drawImage(bitmap, 0, 0);
     throwIfAborted(signal);
-    return canvasEngine.encode(canvas, format, q);
+    return encodeSmart(canvas, format, q, signal);
   } finally {
     bitmap.close?.();
   }
@@ -127,7 +128,7 @@ export async function setBackground(
     ctx.drawImage(bitmap, 0, 0);
     throwIfAborted(signal);
     const format = inferFormat(blob, 'png');
-    return canvasEngine.encode(canvas, format, 95);
+    return encodeSmart(canvas, format, 95, signal);
   } finally {
     bitmap.close?.();
   }

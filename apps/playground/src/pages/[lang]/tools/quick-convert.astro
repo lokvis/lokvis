@@ -1,16 +1,20 @@
 ---
 import { langList } from '@/i18n/config';
 import ToolLayout from '@/layouts/ToolLayout.astro';
-import { ImageQuickConvert } from '@lokvis/quick-image';
+import { EmbedImageConvert } from '@lokvis/embed-image';
+import { resolveAvifWasmUrl } from '@lokvis/engine-image';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
 }
 
 const { lang } = Astro.params;
+
+// W21.2: 快转工具支持 AVIF 输出,预加载 WASM 编码器兜底
+const avifWasmUrl = resolveAvifWasmUrl();
 ---
-<ToolLayout slug="quick-convert">
+<ToolLayout slug="quick-convert" wasmPreload={[avifWasmUrl]}>
   <div class="mx-auto w-full max-w-3xl px-4 py-4">
-    <ImageQuickConvert client:only="react" initialPreset="webp" locale={lang} />
+    <EmbedImageConvert client:only="react" initialPreset="webp" mode="dark" locale={lang} />
   </div>
 </ToolLayout>

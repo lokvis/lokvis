@@ -27,7 +27,8 @@
 | SPDX | 名称 | 数量 | 备注 |
 |------|------|------|------|
 | **MIT** | MIT License | 41 | 主体依赖(运行时 20 + dev 18 + types 3),与 Lokvis 同许可证 |
-| **Apache-2.0** | Apache License 2.0 | 5 | `dexie` / `sharp` / `fake-indexeddb` / `typescript` / `typedoc` |
+| **Apache-2.0** | Apache License 2.0 | 6 | `dexie` / `sharp` / `fake-indexeddb` / `typescript` / `typedoc` / `@jsquash/avif` |
+| **BSD-2-Clause** | BSD 2-Clause | (wasm 内嵌) | `libavif` + `aom`,打包于 `@jsquash/avif` 的 `avif_enc.wasm` 内,aom 另含 AOM 专利授权 |
 | **BSD-3-Clause** | BSD 3-Clause | (传递依赖) | 见 `pnpm-license` 报告 |
 | **ISC** | ISC License | (传递依赖) | 见 `pnpm-license` 报告 |
 
@@ -48,6 +49,8 @@
 | [`mitt`](https://github.com/developit/mitt) | `^3.0.1` | 3.0.1 | **MIT** | `@lokvis/runtime` | 事件总线(`EventBus` 实现) |
 | [`zustand`](https://github.com/pmndrs/zustand) | `^5.0.0` | 5.0.14 | **MIT** | `@lokvis/ui-react` | React 状态管理(Workspace store) |
 | [`exifr`](https://github.com/MikeKovba/exifr) | `^7.1.3` | 7.1.3 | **MIT** | `@lokvis/plugin-image` | EXIF 元数据读取 |
+| [`pdf-lib`](https://github.com/Hopding/pdf-lib) | `^1.17.1` | 1.17.1 | **MIT** | `@lokvis/engine-pdf`, `@lokvis/embed-pdf` | PDF 合并 / 拆分 / 压缩 / 旋转 / 水印(浏览器 + Node 同构,动态 import 按需加载) |
+| [`@jsquash/avif`](https://github.com/jamsinclair/jSquash) | `^2.1.1` | 2.1.1 | **Apache-2.0** | `@lokvis/engine-image` | AVIF WASM 编码器(Squoosh 提取,浏览器无原生 avif 编码时的兜底)。wasm 二进制内含 libavif(**BSD-2-Clause**)与 aom(**BSD-2-Clause** + AOM 专利授权),详见下方 [WASM 内嵌许可证](#wasm-内嵌许可证avif) |
 | [`react`](https://github.com/facebook/react) | `^19.0.0` | 19.2.7 | **MIT** | `@lokvis/playground`, `@lokvis/ui-react`(peer) | UI 框架 |
 | [`react-dom`](https://github.com/facebook/react) | `^19.0.0` | 19.2.7 | **MIT** | `@lokvis/playground`, `@lokvis/ui-react`(peer) | React DOM 渲染 |
 | [`astro`](https://github.com/withastro/astro) | `^7.0.0` | 7.0.3 | **MIT** | `@lokvis/playground`, `@lokvis/docs` | 站点生成器 |
@@ -116,7 +119,7 @@
 | 计划包 | 依赖 | 计划引入版本 | SPDX | 用途 | 备注 |
 |--------|------|-------------|------|------|------|
 | `@lokvis/engine-video` | [`@ffmpeg/ffmpeg`](https://github.com/ffmpegwasm/ffmpeg.wasm) + [`@ffmpeg/core`](https://github.com/ffmpegwasm/ffmpeg.wasm) | Phase 2 / W21 | **MIT** + **LGPL-2.1+**(FFmpeg 本体) | 视频转码 / 剪辑 / 截帧 / GIF | FFmpeg 以 WASM 形式分发,LGPL-2.1+ 允许动态链接;`@ffmpeg/core` 默认构建不含 GPL 组件(x264/x265),需使用 LGPL 兼容构建 |
-| `@lokvis/engine-pdf` | [`pdf-lib`](https://github.com/Hopding/pdf-lib) | Phase 2 / W17 | **MIT** | PDF 合并 / 拆分 / 页面操作 / 元数据编辑 | 纯 JS 实现,无原生依赖 |
+| `@lokvis/engine-pdf` | [`pdf-lib`](https://github.com/Hopding/pdf-lib) | **已落地 Phase 1** | **MIT** | PDF 合并 / 拆分 / 页面操作 / 元数据编辑 | 纯 JS 实现,无原生依赖;经 `@lokvis/plugin-pdf/web` 在浏览器端激活 |
 | `@lokvis/engine-audio` | [`lamejs`](https://github.com/zhuker/lamejs) | Phase 2 | **LGPL-2.1** | MP3 编码 | **⚠️ LGPL-2.1**:需评估动态链接合规性;考虑用 [`@breezystack/lamejs`](https://github.com/Breezystack/lamejs)(MIT fork)替代 |
 | `@lokvis/engine-ai` | [`@huggingface/transformers`](https://github.com/huggingface/transformers.js)(原 `@xenova/transformers`) | Phase 2 / M2.1 | **Apache-2.0** | 浏览器端 AI 模型推理(OCR / 图像分类 / caption) | 模型按各自协议分发(通常 MIT / Apache-2.0) |
 
@@ -198,6 +201,26 @@ SOFTWARE.
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
+### WASM 内嵌许可证(avif)
+
+> `@lokvis/engine-image` 通过 `@jsquash/avif`(Apache-2.0)引入预构建的 `avif_enc.wasm`(单线程版,3.3 MB)。
+> 该 wasm 二进制由 Squoosh 项目提取编译,**内部静态链接**了以下两个库,其许可证随二进制分发:
+
+| 内嵌库 | SPDX | 来源 | 说明 |
+|--------|------|------|------|
+| [`libavif`](https://github.com/AOMediaCodec/libavif) | **BSD-2-Clause** | AOMediaCodec | AVIF 编解码封装层 |
+| [`aom`](https://aomedia.googlesource.com/aom/) | **BSD-2-Clause** + AOM 专利授权 | Alliance for Open Media | AV1/AVIF 编码器本体;附带 AOM 专利授权(AOM Patent License 1.0),覆盖 AV1 编码相关必要专利 |
+
+> **合规结论**:libavif 与 aom 均为 BSD-2-Clause 宽松许可证,与 MIT 分发兼容,无 copyleft 负担。
+> aom 的 AOM 专利授权为使用 AV1/AVIF 编码提供了明确的专利许可,规避 AV1 专利池(Avia/LA)的潜在主张。
+> wasm 以独立资产经 CDN/自托管分发(见 `docs/reports/20260724-engine-wasm-avif-encoder.md`),不改变上述许可证义务。
+
+BSD-2-Clause 关键条款:
+
+- 允许商用 / 修改 / 分发(源码或二进制形式)
+-  Redistributions 须保留版权声明、条件列表与免责声明
+- 不得用贡献者名义为衍生产品背书
 
 ### LGPL-2.1(Phase 2:`lamejs`,待评估替代方案)
 

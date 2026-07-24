@@ -440,8 +440,9 @@ async function fetchFromBackupCdns(pathname) {
   if (idx === -1) {
     return null;
   }
-  // 截取 @lokvis/... 部分（包名 + 子路径）拼到 CDN 基址后
-  const suffix = pathname.slice(idx);
+  // BACKUP_CDNS 基址已含 `@lokvis/` 前缀,故截取其后部分(包名 + 子路径)拼接;
+  // 若连同 `@lokvis/` 一起截取会拼出 `.../@lokvis/@lokvis/...` 的非法 URL(恒 404)
+  const suffix = pathname.slice(idx + '@lokvis/'.length);
   for (const cdnBase of BACKUP_CDNS) {
     try {
       const resp = await fetch(cdnBase + suffix);

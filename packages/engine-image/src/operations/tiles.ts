@@ -25,6 +25,7 @@
 import type { ImageChunk, ImageTile, ImageOutputFormat } from '../types.js';
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
 import { throwIfAborted } from './utils.js';
+import { encodeSmart } from './wasm-encode.js';
 
 /** 默认 tile 边长(像素)。512² ≈ 1MB RGBA,单 tile 内存开销可控 */
 export const DEFAULT_TILE_SIZE = 512;
@@ -124,7 +125,7 @@ export async function mergeChunks(
     }
   }
 
-  return canvasEngine.encode(canvas, format, quality);
+  return encodeSmart(canvas, format, quality, signal);
 }
 
 /**
@@ -212,7 +213,7 @@ export async function processLargeImageWithTiles(
     const canvas = createCanvas(tile.width, tile.height);
     const ctx = get2DContext(canvas);
     drawCb(ctx, bitmap, tile);
-    const blob = await canvasEngine.encode(canvas, format, quality);
+    const blob = await encodeSmart(canvas, format, quality, signal);
     chunks.push({ tile, blob });
   }
 

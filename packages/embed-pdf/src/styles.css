@@ -1,0 +1,38 @@
+/**
+ * @lokvis/embed-pdf CSS 变量主题。
+ *
+ * 消费方可通过覆盖这些变量自定义 Layer 2 默认 UI 外观:
+ *   .lokvis-embed-pdf {
+ *     --lokvis-pdf-bg: #1a1a2e;
+ *     --lokvis-pdf-fg: #e0e0e0;
+ *     --lokvis-pdf-accent: #6c63ff;
+ *   }
+ */
+
+.lokvis-embed-pdf {
+  /* 基础色 */
+  --lokvis-pdf-bg: #18181b;
+  --lokvis-pdf-bg-subtle: #27272a;
+  --lokvis-pdf-fg: #fafafa;
+  --lokvis-pdf-fg-muted: #a1a1aa;
+  --lokvis-pdf-border: #3f3f46;
+  --lokvis-pdf-accent: #6366f1;
+  --lokvis-pdf-accent-fg: #ffffff;
+  --lokvis-pdf-error: #ef4444;
+  --lokvis-pdf-success: #22c55e;
+
+  /* 圆角 */
+  --lokvis-pdf-radius: 8px;
+  --lokvis-pdf-radius-sm: 4px;
+
+  /* 间距 */
+  --lokvis-pdf-gap: 12px;
+  --lokvis-pdf-padding: 16px;
+
+  /* 字体 */
+  --lokvis-pdf-font: system-ui, -apple-system, sans-serif;
+  --lokvis-pdf-font-mono: ui-monospace, monospace;
+
+  font-family: var(--lokvis-pdf-font);
+  color: var(--lokvis-pdf-fg);
+}

@@ -1,0 +1,25 @@
+---
+/**
+ * 嵌入式一键生成 favicon(quick favicon)工具页。
+ *
+ * URL: /embed/en/tools/quick-favicon
+ * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/quick-favicon" />
+ *
+ * 三方接入路径之一:零配置 iframe 嵌入。
+ * 完全自定义请用 useImageFavicon() hook 或 QuickFavicon 原语。
+ */
+import { langList } from '@/i18n/config';
+import EmbedLayout from '@/layouts/EmbedLayout.astro';
+import { EmbedImageFavicon } from '@lokvis/embed-image';
+
+export function getStaticPaths() {
+  return langList.map((lang) => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params;
+---
+<EmbedLayout slug="quick-favicon">
+  <div class="mx-auto w-full max-w-3xl py-2">
+    <EmbedImageFavicon client:only="react" initialPreset="full" mode="dark" locale={lang} />
+  </div>
+</EmbedLayout>

@@ -56,3 +56,35 @@ describe('canvasEngine.encode 格式校验', () => {
     ).rejects.toThrow(/ico.*png.*jpeg.*webp.*avif.*gif/);
   });
 });
+
+describe('canvasEngine.encode 静默回退检测', () => {
+  /** fake canvas:模拟浏览器无 AVIF 编码器时 toBlob 静默回退 PNG 的行为 */
+  function createFallbackCanvas(): unknown {
+    return {
+      toBlob: (callback: (blob: Blob | null) => void, _mime: string, _quality: number) => {
+        // 无论请求什么 MIME,都产出 PNG(浏览器回退行为)
+        callback(new Blob([new Uint8Array([0])], { type: 'image/png' }));
+      },
+    };
+  }
+
+  it('请求 avif 但浏览器回退 PNG 时应抛错,而非静默返回 PNG', async () => {
+    const fallbackCanvas = createFallbackCanvas();
+    await expect(
+      canvasEngine.encode(fallbackCanvas as HTMLCanvasElement, 'avif', 80)
+    ).rejects.toThrow(/does not support encoding 'avif'/);
+  });
+
+  it('回退错误消息应指明实际产出的格式', async () => {
+    const fallbackCanvas = createFallbackCanvas();
+    await expect(
+      canvasEngine.encode(fallbackCanvas as HTMLCanvasElement, 'avif', 80)
+    ).rejects.toThrow(/image\/png/);
+  });
+
+  it('请求与产出一致时(webp)应正常返回', async () => {
+    const fakeCanvas = createFakeCanvas();
+    const blob = await canvasEngine.encode(fakeCanvas as HTMLCanvasElement, 'webp', 90);
+    expect(blob.type).toBe('image/webp');
+  });
+});

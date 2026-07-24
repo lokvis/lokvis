@@ -1,5 +1,13 @@
 # @lokvis/example-cli-automation
 
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/cli@0.5.0
+  - @lokvis/schema@0.5.0
+
 ## 0.2.2
 
 ### Patch Changes

@@ -12,6 +12,7 @@
 import type { FilterParams, FilterPreset } from '../types.js';
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
 import { inferFormat, throwIfAborted } from './utils.js';
+import { encodeSmart } from './wasm-encode.js';
 
 const CSS_FILTERS: Record<FilterPreset, (radius?: number) => string> = {
   grayscale: () => 'grayscale(100%)',
@@ -46,7 +47,7 @@ export async function filter(
     throwIfAborted(signal);
 
     const format = inferFormat(blob, 'png');
-    return canvasEngine.encode(canvas, format, 95);
+    return encodeSmart(canvas, format, 95, signal);
   } finally {
     bitmap.close?.();
   }

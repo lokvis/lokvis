@@ -111,9 +111,9 @@ describe('imageToolsPluginNode 定义', () => {
     expect(typeof plugin.install).toBe('function');
   });
 
-  it('config.capabilities 应包含全部 9 个图像能力声明', async () => {
+  it('config.capabilities 应包含全部 10 个图像能力声明', async () => {
     const plugin = await imageToolsPluginNode();
-    expect(plugin.config.capabilities).toHaveLength(9);
+    expect(plugin.config.capabilities).toHaveLength(10);
     const names = plugin.config.capabilities.map((c) => c.name);
     expect(names).toContain('image.resize');
     expect(names).toContain('image.compress');
@@ -124,6 +124,7 @@ describe('imageToolsPluginNode 定义', () => {
     expect(names).toContain('image.flip');
     expect(names).toContain('image.background');
     expect(names).toContain('image.filter');
+    expect(names).toContain('image.favicon');
   });
 });
 
@@ -134,10 +135,10 @@ describe('imageToolsPluginNode install', () => {
     mock = createMockContext();
   });
 
-  it('install 应注册 9 个能力实现', async () => {
+  it('install 应注册 10 个能力实现', async () => {
     const plugin = await imageToolsPluginNode();
     await plugin.install(mock.ctx);
-    expect(mock.registered).toHaveLength(9);
+    expect(mock.registered).toHaveLength(10);
   });
 
   it('所有注册实现的 engine 应为 sharp', async () => {
@@ -156,10 +157,10 @@ describe('imageToolsPluginNode install', () => {
     }
   });
 
-  it('4 个未实现操作的 status 应为 stub', async () => {
+  it('5 个未实现操作的 status 应为 stub', async () => {
     const plugin = await imageToolsPluginNode();
     await plugin.install(mock.ctx);
-    const stubCaps = ['image.rotate', 'image.flip', 'image.background', 'image.filter'];
+    const stubCaps = ['image.rotate', 'image.flip', 'image.background', 'image.filter', 'image.favicon'];
     for (const cap of stubCaps) {
       const impl = mock.registered.find((i) => i.capability === cap)!;
       expect(impl.status).toBe('stub');
@@ -172,7 +173,7 @@ describe('imageToolsPluginNode install', () => {
     expect(mock.logs).toHaveLength(1);
     expect(mock.logs[0]!.level).toBe('info');
     expect(mock.logs[0]!.message).toMatch(/sharp engine/);
-    expect(mock.logs[0]!.message).toMatch(/5 real \+ 4 stub/);
+    expect(mock.logs[0]!.message).toMatch(/5 real \+ 5 stub/);
   });
 
   it('install 应注册 EXIF metadata reader', async () => {

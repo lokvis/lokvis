@@ -1,16 +1,20 @@
 ---
 import { langList } from '@/i18n/config';
 import ToolLayout from '@/layouts/ToolLayout.astro';
-import { ImageQuickCompress } from '@lokvis/quick-image';
+import { EmbedImageCompress } from '@lokvis/embed-image';
+import { resolveAvifWasmUrl } from '@lokvis/engine-image';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
 }
 
 const { lang } = Astro.params;
+
+// W21.2: 快压工具支持 AVIF 输出,预加载 WASM 编码器兜底
+const avifWasmUrl = resolveAvifWasmUrl();
 ---
-<ToolLayout slug="quick-compress">
+<ToolLayout slug="quick-compress" wasmPreload={[avifWasmUrl]}>
   <div class="mx-auto w-full max-w-3xl px-4 py-4">
-    <ImageQuickCompress client:only="react" initialPreset="balanced" locale={lang} />
+    <EmbedImageCompress client:only="react" initialPreset="balanced" mode="dark" locale={lang} />
   </div>
 </ToolLayout>

@@ -6,11 +6,11 @@
  * 引用方:<iframe src="https://playground.lokvis.dev/embed/en/tools/quick-watermark" />
  *
  * 三方接入路径之一:零配置 iframe 嵌入。
- * 完全自定义请用 useQuickWatermark() hook 或 QuickWatermark 原语。
+ * 完全自定义请用 useImageWatermark() hook 或 QuickWatermark 原语。
  */
 import { langList } from '@/i18n/config';
 import EmbedLayout from '@/layouts/EmbedLayout.astro';
-import { ImageQuickWatermark } from '@lokvis/quick-image';
+import { EmbedImageWatermark } from '@lokvis/embed-image';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
@@ -20,6 +20,6 @@ const { lang } = Astro.params;
 ---
 <EmbedLayout slug="quick-watermark">
   <div class="mx-auto w-full max-w-3xl py-2">
-    <ImageQuickWatermark client:only="react" initialPreset="small-br" initialText="Lokvis" locale={lang} />
+    <EmbedImageWatermark client:only="react" initialPreset="small-br" initialText="Lokvis" mode="dark" locale={lang} />
   </div>
 </EmbedLayout>

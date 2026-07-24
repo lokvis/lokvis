@@ -1,5 +1,15 @@
 # @lokvis/plugin-audio
 
+## 0.5.0
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.5.0
+  - @lokvis/capability@0.5.0
+  - @lokvis/engine-audio@0.5.0
+  - @lokvis/plugin-sdk@0.5.0
+
 ## 0.4.2
 
 ### Patch Changes

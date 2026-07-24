@@ -41,6 +41,7 @@ export const canvasEngine: ImageEngineAdapter = {
     'image.watermark',
     'image.background',
     'image.filter',
+    'image.favicon',
   ],
 
   async isSupported() {
@@ -76,19 +77,31 @@ export const canvasEngine: ImageEngineAdapter = {
     }
     const q = Math.min(1, Math.max(0, quality / 100));
 
+    let blob: Blob;
     if (canvas instanceof OffscreenCanvas) {
-      return canvas.convertToBlob({ type: mime, quality: q });
+      blob = await canvas.convertToBlob({ type: mime, quality: q });
+    } else {
+      blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (b) => {
+            if (b) resolve(b);
+            else reject(new Error(`Failed to encode canvas as ${format}`));
+          },
+          mime,
+          q
+        );
+      });
     }
-    return new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error(`Failed to encode canvas as ${format}`));
-        },
-        mime,
-        q
+
+    // 浏览器缺少对应编码器时(如 AVIF),toBlob / convertToBlob 会按规范
+    // 静默回退为 PNG。比对实际产出 MIME,避免把错误格式静默交给上层
+    // (用户选 AVIF 却得到 PNG)。上层应先用 detectFormatSupport 门控。
+    if (blob.type !== mime) {
+      throw new Error(
+        `This browser does not support encoding '${format}' (produced '${blob.type || 'unknown'}' instead).`
       );
-    });
+    }
+    return blob;
   },
 };
 
@@ -108,9 +121,11 @@ export async function detectFormatSupport(): Promise<Record<ImageOutputFormat, b
 
   for (const fmt of ['webp', 'avif'] as ImageOutputFormat[]) {
     try {
-      const blob = await canvasEngine.encode(testCanvas, fmt, 80);
-      // 检查实际产出 MIME
-      results[fmt] = blob.type === MIME_BY_FORMAT[fmt] || blob.size > 0;
+      // encode() 在浏览器静默回退 PNG 时会抛错,故成功返回即代表真实支持。
+      // (旧实现用 `blob.type === mime || blob.size > 0` 判断,回退的非空
+      //  PNG 会被误判为支持,已修复。)
+      await canvasEngine.encode(testCanvas, fmt, 80);
+      results[fmt] = true;
     } catch {
       results[fmt] = false;
     }

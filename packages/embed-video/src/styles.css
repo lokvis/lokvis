@@ -1,0 +1,24 @@
+/**
+ * @lokvis/embed-video CSS 变量主题。
+ */
+
+.lokvis-embed-video {
+  --lokvis-video-bg: #18181b;
+  --lokvis-video-bg-subtle: #27272a;
+  --lokvis-video-fg: #fafafa;
+  --lokvis-video-fg-muted: #a1a1aa;
+  --lokvis-video-border: #3f3f46;
+  --lokvis-video-accent: #8b5cf6;
+  --lokvis-video-accent-fg: #ffffff;
+  --lokvis-video-error: #ef4444;
+  --lokvis-video-success: #22c55e;
+
+  --lokvis-video-radius: 8px;
+  --lokvis-video-radius-sm: 4px;
+  --lokvis-video-gap: 12px;
+  --lokvis-video-padding: 16px;
+  --lokvis-video-font: system-ui, -apple-system, sans-serif;
+
+  font-family: var(--lokvis-video-font);
+  color: var(--lokvis-video-fg);
+}

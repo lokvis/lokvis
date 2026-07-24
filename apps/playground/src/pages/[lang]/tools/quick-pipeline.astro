@@ -1,7 +1,7 @@
 ---
 import { langList } from '@/i18n/config';
 import ToolLayout from '@/layouts/ToolLayout.astro';
-import { ImageQuickPipeline } from '@lokvis/quick-image';
+import { EmbedImagePipeline } from '@lokvis/embed-image';
 
 export function getStaticPaths() {
   return langList.map((lang) => ({ params: { lang } }));
@@ -11,6 +11,6 @@ const { lang } = Astro.params;
 ---
 <ToolLayout slug="quick-pipeline">
   <div class="mx-auto w-full max-w-3xl px-4 py-4">
-    <ImageQuickPipeline client:only="react" initialPreset="ecommerce" locale={lang} />
+    <EmbedImagePipeline client:only="react" initialPreset="ecommerce" mode="dark" locale={lang} />
   </div>
 </ToolLayout>

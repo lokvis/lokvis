@@ -177,6 +177,24 @@ export const IMAGE_FILTER: Capability = {
   batchable: true,
 };
 
+export const IMAGE_FAVICON: Capability = {
+  name: 'image.favicon',
+  description: 'Generate multi-size ICO favicon from image',
+  inputTypes: ['image'],
+  outputTypes: ['image'],
+  params: [
+    {
+      name: 'sizes',
+      type: 'array',
+      required: false,
+      items: 'number',
+      description: 'Target sizes (square edge px). Default [16,32,48,256]',
+    },
+  ],
+  performance: 'medium',
+  batchable: true,
+};
+
 /** 所有内置 image 能力预设(由 codegen 从 manifest 生成) */
 export const IMAGE_CAPABILITIES: Capability[] = [
   IMAGE_RESIZE,
@@ -188,4 +206,5 @@ export const IMAGE_CAPABILITIES: Capability[] = [
   IMAGE_WATERMARK,
   IMAGE_BACKGROUND,
   IMAGE_FILTER,
+  IMAGE_FAVICON,
 ];

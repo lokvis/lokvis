@@ -73,12 +73,13 @@ describe('图像能力预设', () => {
     expect(axisParam?.values).toEqual(['horizontal', 'vertical', 'both']);
   });
 
-  it('IMAGE_CAPABILITIES 应包含全部 9 个图像能力', () => {
-    expect(IMAGE_CAPABILITIES).toHaveLength(9);
+  it('IMAGE_CAPABILITIES 应包含全部 10 个图像能力', () => {
+    expect(IMAGE_CAPABILITIES).toHaveLength(10);
     const names = IMAGE_CAPABILITIES.map((c) => c.name);
     expect(names).toContain('image.resize');
     expect(names).toContain('image.background');
     expect(names).toContain('image.filter');
+    expect(names).toContain('image.favicon');
   });
 });
 

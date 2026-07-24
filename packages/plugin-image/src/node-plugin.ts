@@ -46,6 +46,7 @@ const NODE_STUB_CAPABILITIES = new Set<string>([
   'image.flip',
   'image.background',
   'image.filter',
+  'image.favicon',
 ]);
 
 /**
@@ -99,7 +100,7 @@ export async function imageToolsPluginNode() {
       permissions: ['asset:read', 'asset:write', 'network:none'],
     },
     (ctx) => {
-      // 9 个能力的实现绑定项(5 真实 + 4 stub)
+      // 10 个能力的实现绑定项(5 真实 + 5 stub)
       // engine-image/node 操作签名已对齐 ImageOperation(blob, Record<string, unknown>, signal),
       // 无需类型断言(AGENTS.md「禁止 as unknown as 双断言」精神)
       const entries: Array<{ capability: string; operation: ImageOperation }> = [
@@ -112,6 +113,7 @@ export async function imageToolsPluginNode() {
         { capability: 'image.flip', operation: createUnsupportedNodeOp('image.flip') },
         { capability: 'image.background', operation: createUnsupportedNodeOp('image.background') },
         { capability: 'image.filter', operation: createUnsupportedNodeOp('image.filter') },
+        { capability: 'image.favicon', operation: createUnsupportedNodeOp('image.favicon') },
       ];
 
       const impls = entries.map((entry) =>

@@ -11,6 +11,7 @@
 import type { WatermarkParams, WatermarkPosition } from '../types.js';
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
 import { inferFormat, throwIfAborted } from './utils.js';
+import { encodeSmart } from './wasm-encode.js';
 
 /**
  * 校验图片水印 URL 是否安全（防 SSRF）。
@@ -145,7 +146,7 @@ export async function watermark(
     throwIfAborted(signal);
 
     const format = inferFormat(blob, 'png');
-    return canvasEngine.encode(canvas, format, 95);
+    return encodeSmart(canvas, format, 95, signal);
   } finally {
     // W21.6: 确保异常路径(throwIfAborted / SSRF / fetch / encode 抛错)也释放 bitmap
     bitmap.close?.();

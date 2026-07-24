@@ -34,6 +34,9 @@
 | 文档 | 说明 |
 |------|------|
 | [W21.7 Lighthouse 基线](./reports/W21.7-lighthouse-baseline-2026-07-17.md) | 2026-07-17 首次实跑 Lighthouse 基线（Performance 62/100, LCP 6.9s） |
+| [quick-image 功能完整性任务计划](./reports/20260723-quick-image-functional-completeness.md) | 2026-07-23 Layer 2 默认 UI 功能缺口修复（7 项 16h）+ 独立性边界原则（中性第三方测试）；与 cloud 原生 UI 改造解耦 |
+| [quick-image Favicon/ICO 生成能力](./reports/20260724-quick-image-favicon-ico.md) | 2026-07-24 新增 `image.favicon` capability + `encodeIco` engine 操作 + `useQuickFavicon` hook 全栈实现方案（7 项 14h） |
+| [WASM 图像编码器接入设计（AVIF 优先）](./reports/20260724-engine-wasm-avif-encoder.md) | 2026-07-24 AVIF WASM 编码器 native-first/wasm-fallback 方案（6 项 14h）+ 全量 Squoosh 式 WASM 优劣与必要性评审 |
 | [归档报告](./reports/archive/) | 已完成的里程碑验收、历史诊断快照与任务计划 |
 
 ### Blog & 叙事
@@ -110,6 +113,9 @@ lokvis-open/docs/
 │   └── O3-engine-ai定位.md
 └── reports/                       # 诊断报告与里程碑验收
     ├── W21.7-lighthouse-baseline-2026-07-17.md  # 现行 LCP 基线
+    ├── 20260723-quick-image-functional-completeness.md  # Layer 2 功能缺口修复
+    ├── 20260724-quick-image-favicon-ico.md              # Favicon/ICO 生成能力设计
+    ├── 20260724-engine-wasm-avif-encoder.md             # WASM 图像编码器接入设计（AVIF 优先）
     ├── lighthouse-2026-07-17.html                # 原始报告
     ├── lighthouse-2026-07-17.json                # 原始数据
     └── archive/                                  # 已归档的历史快照(14 份)

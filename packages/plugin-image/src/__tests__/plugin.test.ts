@@ -24,6 +24,7 @@ vi.mock('@lokvis/engine-image', () => ({
   watermark: vi.fn(async (blob: Blob) => blob),
   setBackground: vi.fn(async (blob: Blob) => blob),
   filter: vi.fn(async (blob: Blob) => blob),
+  encodeIco: vi.fn(async (blob: Blob) => blob),
 }));
 
 // 在 vi.mock 之后导入被测模块
@@ -111,9 +112,9 @@ describe('imageToolsPlugin 定义', () => {
     expect(typeof plugin.install).toBe('function');
   });
 
-  it('config.capabilities 应包含全部 9 个图像能力声明', () => {
+  it('config.capabilities 应包含全部 10 个图像能力声明', () => {
     const plugin = imageToolsPlugin();
-    expect(plugin.config.capabilities).toHaveLength(9);
+    expect(plugin.config.capabilities).toHaveLength(10);
     const names = plugin.config.capabilities.map((c) => c.name);
     expect(names).toContain('image.resize');
     expect(names).toContain('image.compress');
@@ -123,6 +124,7 @@ describe('imageToolsPlugin 定义', () => {
     expect(names).toContain('image.flip');
     expect(names).toContain('image.watermark');
     expect(names).toContain('image.background');
+    expect(names).toContain('image.favicon');
   });
 
   it('config.permissions 应声明 asset:read / asset:write / network:none', () => {
@@ -140,10 +142,10 @@ describe('imageToolsPlugin install', () => {
     mock = createMockContext();
   });
 
-  it('install 应注册 9 个能力实现', async () => {
+  it('install 应注册 10 个能力实现', async () => {
     const plugin = imageToolsPlugin();
     await plugin.install(mock.ctx);
-    expect(mock.registered).toHaveLength(9);
+    expect(mock.registered).toHaveLength(10);
   });
 
   it('install 应记录 info 日志', async () => {
@@ -151,7 +153,7 @@ describe('imageToolsPlugin install', () => {
     await plugin.install(mock.ctx);
     expect(mock.logs).toHaveLength(1);
     expect(mock.logs[0]!.level).toBe('info');
-    expect(mock.logs[0]!.message).toMatch(/9 image capabilities \+ EXIF reader/);
+    expect(mock.logs[0]!.message).toMatch(/10 image capabilities \+ EXIF reader/);
   });
 
   it('install 应注册 EXIF metadata reader', async () => {
@@ -178,8 +180,8 @@ describe('imageToolsPlugin install', () => {
 });
 
 describe('buildImageCapabilityImplementations', () => {
-  it('IMAGE_OPERATION_ENTRIES 应有 9 个条目', () => {
-    expect(IMAGE_OPERATION_ENTRIES).toHaveLength(9);
+  it('IMAGE_OPERATION_ENTRIES 应有 10 个条目', () => {
+    expect(IMAGE_OPERATION_ENTRIES).toHaveLength(10);
   });
 
   it('每个条目的 engine 应为 canvas', () => {

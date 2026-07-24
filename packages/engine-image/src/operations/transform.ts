@@ -19,6 +19,7 @@ import type {
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
 import { computeTargetSize, inferFormat, throwIfAborted } from './utils.js';
 import { embedPngDpi } from './png-metadata.js';
+import { encodeSmart } from './wasm-encode.js';
 
 /**
  * Resize：调整尺寸
@@ -39,18 +40,51 @@ export async function resize(
   const { bitmap, width: srcW, height: srcH } = await canvasEngine.decode(blob);
   try {
     throwIfAborted(signal);
-    const target = computeTargetSize(srcW, srcH, params as ResizeParams);
-    const canvas = createCanvas(target.width, target.height);
-    const ctx = get2DContext(canvas);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(bitmap, 0, 0, target.width, target.height);
+    const p = params as ResizeParams;
+    const target = computeTargetSize(srcW, srcH, p);
+
+    // cover 且两边都指定时,computeTargetSize 返回的是"覆盖目标框的缩放尺寸"
+    // (保留源比例、尺寸 ≥ 目标框)。真正的输出需再居中裁切到精确目标框,
+    // 与 sharp fit:'cover' / CSS object-fit:cover 语义一致。
+    // 修复前只缩放不裁切,横图 + 竖版预设(如 TikTok 9:16)会输出源图比例。
+    const fit = p.fit ?? 'cover';
+    const maintain = p.maintainAspectRatio ?? true;
+    const isCoverCrop =
+      fit === 'cover' &&
+      maintain &&
+      p.width != null &&
+      p.height != null &&
+      (target.width !== p.width || target.height !== p.height);
+
+    let canvas: HTMLCanvasElement | OffscreenCanvas;
+    if (isCoverCrop) {
+      const outW = p.width!;
+      const outH = p.height!;
+      // 按 cover 缩放反推源图上的居中裁切区域
+      const scale = Math.max(outW / srcW, outH / srcH);
+      const cropW = outW / scale;
+      const cropH = outH / scale;
+      const sx = (srcW - cropW) / 2;
+      const sy = (srcH - cropH) / 2;
+      canvas = createCanvas(outW, outH);
+      const ctx = get2DContext(canvas);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(bitmap, sx, sy, cropW, cropH, 0, 0, outW, outH);
+    } else {
+      canvas = createCanvas(target.width, target.height);
+      const ctx = get2DContext(canvas);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(bitmap, 0, 0, target.width, target.height);
+    }
+
     throwIfAborted(signal);
     const format = inferFormat(blob, 'png');
-    const out = await canvasEngine.encode(canvas, format, 95);
+    const out = await encodeSmart(canvas, format, 95, signal);
     // W8.4:把 DPI 写入 PNG pHYs chunk,供打印软件读取。
     // 仅 PNG 生效;canvas encode 不写物理分辨率,这里补写。
-    const { dpi } = params as ResizeParams;
+    const { dpi } = p;
     if (format === 'png' && typeof dpi === 'number' && dpi > 0) {
       return embedPngDpi(out, dpi);
     }
@@ -76,7 +110,7 @@ export async function crop(
     ctx.drawImage(bitmap, x, y, width, height, 0, 0, width, height);
     throwIfAborted(signal);
     const format = inferFormat(blob, 'png');
-    return canvasEngine.encode(canvas, format, 95);
+    return encodeSmart(canvas, format, 95, signal);
   } finally {
     bitmap.close?.();
   }
@@ -105,7 +139,7 @@ export async function rotate(
     ctx.drawImage(bitmap, -width / 2, -height / 2);
     throwIfAborted(signal);
     const format = inferFormat(blob, 'png');
-    return canvasEngine.encode(canvas, format, 95);
+    return encodeSmart(canvas, format, 95, signal);
   } finally {
     bitmap.close?.();
   }
@@ -134,7 +168,7 @@ export async function flip(
     ctx.drawImage(bitmap, 0, 0);
     throwIfAborted(signal);
     const format = inferFormat(blob, 'png');
-    return canvasEngine.encode(canvas, format, 95);
+    return encodeSmart(canvas, format, 95, signal);
   } finally {
     bitmap.close?.();
   }

@@ -22,6 +22,7 @@
  * 之前为 disabled,使用真实可解码 TEST_MP4 fixture(64×48 / 0.2s 黑色视频)。
  */
 import { expect, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { TEST_PNG } from '../fixtures/images';
 import { TEST_PDF } from '../fixtures/pdf';
 import { TEST_MP4 } from '../fixtures/video';
@@ -143,4 +144,30 @@ export async function waitForVideoMetadata(page: Page): Promise<void> {
   // 等待 10s 以容忍慢速解码(实测 64×48 / 0.2s MP4 在 <100ms 完成)。
   const durationLabel = page.getByText(/Duration|时长/).first();
   await expect(durationLabel).toBeVisible({ timeout: 10_000 });
+}
+
+/**
+ * 点击 Output 区的 Download 按钮,捕获下载事件并读取文件字节。
+ *
+ * 单图工具页的下载由 downloadBlob() 以 `URL.createObjectURL` +  detached
+ * `<a download>` 触发(见 src/components/toolkit/download.ts),Playwright 的
+ * `download` 事件会正常触发。返回原始字节供 magic-bytes 校验(如 AVIF 的
+ * `ftyp` box),以及建议文件名(如 `converted.avif`)。
+ */
+export async function clickDownloadAndReadBytes(
+  page: Page,
+): Promise<{ bytes: Buffer; filename: string }> {
+  const downloadBtn = page.getByRole('button', { name: 'Download' }).first();
+  await expect(downloadBtn).toBeVisible({ timeout: 20_000 });
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    downloadBtn.click(),
+  ]);
+
+  const path = await download.path();
+  if (!path) {
+    throw new Error('Download was not saved to disk (acceptDownloads disabled?)');
+  }
+  return { bytes: readFileSync(path), filename: download.suggestedFilename() };
 }

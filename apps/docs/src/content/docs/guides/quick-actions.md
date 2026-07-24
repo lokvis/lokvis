@@ -28,16 +28,16 @@ Choose `<Workspace />` for a full image studio. Choose a Quick Action when you w
 :::note
 The Quick Action layers currently live inside `@lokvis/playground` (a private app package) at `apps/playground/src/components/tools/quick/`. They are **not yet published as a standalone npm package**.
 
-The roadmap (see [`docs/reports/20260719-image-workspace-ui-design.md` §10.2](https://github.com/lokvis/lokvis/blob/main/docs/reports/20260719-image-workspace-ui-design.md)) calls for extracting them into a dedicated `@lokvis/quick-image` package with three subpath exports:
+The roadmap (see [`docs/reports/20260719-image-workspace-ui-design.md` §10.2](https://github.com/lokvis/lokvis/blob/main/docs/reports/20260719-image-workspace-ui-design.md)) calls for extracting them into a dedicated `@lokvis/embed-image` package with three subpath exports:
 
 ```bash
-pnpm add @lokvis/quick-image @lokvis/plugin-image
+pnpm add @lokvis/embed-image @lokvis/plugin-image
 ```
 
 ```ts
-import ImageQuickCompress from '@lokvis/quick-image';                 // Layer 2
-import { QuickCompress } from '@lokvis/quick-image/primitives';        // Layer 1
-import { useQuickCompress } from '@lokvis/quick-image/hooks';          // Layer 0
+import ImageQuickCompress from '@lokvis/embed-image';                 // Layer 2
+import { QuickCompress } from '@lokvis/embed-image/primitives';        // Layer 1
+import { useQuickCompress } from '@lokvis/embed-image/hooks';          // Layer 0
 ```
 
 Until that extraction lands, the examples below use the source paths under `apps/playground/src/components/tools/quick/`. You can either copy the relevant files into your app or wait for the standalone package.
@@ -333,7 +333,7 @@ See [Embed the SDK](./embed-sdk) for Vite / Cloudflare Pages / Netlify configura
 
 These are the gaps third-party integrators should be aware of today. They are tracked in the design doc and will be addressed in follow-up PRs.
 
-1. **No standalone npm package yet.** All six families live in `@lokvis/playground` and import playground-internal helpers (`useImageTool`, `useLokvisRuntime`, `getImageInfo`, i18n). You currently have to copy the source. Extraction to `@lokvis/quick-image` is planned.
+1. **No standalone npm package yet.** All six families live in `@lokvis/playground` and import playground-internal helpers (`useImageTool`, `useLokvisRuntime`, `getImageInfo`, i18n). You currently have to copy the source. Extraction to `@lokvis/embed-image` is planned.
 2. **`useLokvisRuntime` hard-codes `imageToolsPlugin`.** Third parties that want to combine image Quick Actions with audio / pdf / video plugins in the same Runtime must fork the hook or build their own equivalent. A `plugins` option on the hook is on the roadmap.
 3. **Layer 2 default UI pulls i18n from `apps/playground/src/i18n`.** The default UI works out-of-the-box inside the playground; outside the playground, either replace the text-bearing sub-components via the `components` prop or build on Layer 1 / Layer 0 instead.
 4. **Image-only.** The Quick pattern is built on `useImageTool` + `buildSingleStepImageWorkflow` + `getImageInfo`. There is no `useQuickAudio` / `useQuickPdf` / `useQuickVideo` family yet.

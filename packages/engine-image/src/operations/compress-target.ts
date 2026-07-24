@@ -14,6 +14,7 @@
 import type { ImageOutputFormat } from '../types.js';
 import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
 import { throwIfAborted } from './utils.js';
+import { encodeSmart } from './wasm-encode.js';
 
 /** 目标体积压缩：二分查找质量 */
 export async function compressToTargetSize(
@@ -40,7 +41,7 @@ export async function compressToTargetSize(
     for (let i = 0; i < 6 && lo <= hi; i++) {
       throwIfAborted(signal); // 每轮编码前检查,避免 cancel 后继续做昂贵的 encode
       const mid = Math.floor((lo + hi) / 2);
-      const candidate = await canvasEngine.encode(canvas, format, mid);
+      const candidate = await encodeSmart(canvas, format, mid, signal);
       if (candidate.size <= targetSize) {
         best = candidate;
         lo = mid + 1; // 尝试更高质量
@@ -51,7 +52,7 @@ export async function compressToTargetSize(
     // 如果所有质量都超目标，返回最低质量结果（10 是 lo 下界，安全值）
     if (!best) {
       throwIfAborted(signal);
-      best = await canvasEngine.encode(canvas, format, 10);
+      best = await encodeSmart(canvas, format, 10, signal);
     }
     throwIfAborted(signal);
     return best;

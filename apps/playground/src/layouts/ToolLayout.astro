@@ -33,9 +33,15 @@ interface Props {
   slug: string;
   /** 当前激活的 sidebar 项 ID(默认 `tools/${slug}`) */
   active?: string;
+  /**
+   * W21.2: WASM 资源预加载 URL 列表,透传给 PlaygroundLayout。
+   * AVIF 输出类工具页(convert/compress/quick-*)传入
+   * `resolveAvifWasmUrl()`,浏览器空闲时预取编码器 wasm。
+   */
+  wasmPreload?: string[];
 }
 
-const { slug, active = `tools/${slug}` } = Astro.props;
+const { slug, active = `tools/${slug}`, wasmPreload = [] } = Astro.props;
 const seo = TOOL_SEO[slug];
 const lang = getLangFromUrl(Astro.url);
 const tr = (key: string) => t(lang, key);
@@ -70,6 +76,7 @@ const WHY_CARDS = [
   ogDescription={seo.description}
   ogImage={ogImage}
   ogType="website"
+  wasmPreload={wasmPreload}
 >
   <div class="relative flex flex-col gap-2 px-4 py-2">
     <PrivacyBadge client:load lang={lang} />

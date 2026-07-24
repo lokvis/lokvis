@@ -148,6 +148,23 @@
       ],
       "performance": "fast",
       "batchable": true
+    },
+    {
+      "action": "favicon",
+      "description": "Generate multi-size ICO favicon from image",
+      "inputTypes": ["image"],
+      "outputTypes": ["image"],
+      "params": [
+        {
+          "name": "sizes",
+          "type": "array",
+          "items": "number",
+          "required": false,
+          "description": "Target sizes (square edge px). Default [16,32,48,256]"
+        }
+      ],
+      "performance": "medium",
+      "batchable": true
     }
   ]
 }

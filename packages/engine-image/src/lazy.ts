@@ -47,6 +47,7 @@ const OPERATION_LOADERS: Record<string, OperationFactory> = {
   flip: () => import('./operations/transform.js').then((m) => m.flip),
   background: () => import('./operations/encode.js').then((m) => m.setBackground),
   filter: () => import('./operations/filters.js').then((m) => m.filter),
+  favicon: () => import('./operations/ico.js').then((m) => m.encodeIco),
 };
 
 /** top 5 capability（用于预缓存/预加载范围控制） */

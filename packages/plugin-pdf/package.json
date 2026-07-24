@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/plugin-pdf",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "Lokvis PDF Tools Plugin - merge / split / compress / rotate / watermark / ocr / sign",
   "license": "MIT",
   "type": "module",
@@ -12,6 +12,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./web": {
+      "types": "./src/web-plugin.ts",
+      "import": "./src/web-plugin.ts"
     },
     "./node": {
       "types": "./src/node-plugin.ts",
@@ -52,6 +56,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./web": {
+        "types": "./dist/web-plugin.d.ts",
+        "import": "./dist/web-plugin.js"
       },
       "./node": {
         "types": "./dist/node-plugin.d.ts",

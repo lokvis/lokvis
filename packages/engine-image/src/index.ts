@@ -32,3 +32,14 @@ export {
   TOP_5_OPERATIONS,
 } from './lazy.js';
 export type { BlobOperation } from './lazy.js';
+
+// ─── WASM 编码器配置（AVIF 兜底，设计文档 20260724-engine-wasm-avif-encoder.md）──
+// native-first / wasm-fallback：canvas 原生编码器缺失时自动加载 WASM AVIF 编码器。
+// 消费方可 configureWasmEncoders({ avifUrl }) 自托管 wasm 二进制，或 enabled: false 关闭。
+export {
+  configureWasmEncoders,
+  resolveAvifWasmUrl,
+  wasmEncodersEnabled,
+  resetWasmEncoderConfig,
+} from './wasm-config.js';
+export type { WasmEncoderConfig } from './wasm-config.js';

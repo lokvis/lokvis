@@ -41,30 +41,51 @@
 | `image.watermark` | 水印 | text/image, position (9宫格), opacity |
 | `image.background` | 背景色 | color |
 | `image.filter` | 滤镜预设 | preset (grayscale/invert/sepia/blur), radius (blur 专用，1-100，默认 4) |
+| `image.favicon` | 生成多尺寸 ICO favicon | sizes (正方形边长数组，默认 [16,32,48,256]) |
+
+#### 图像编码引擎支持矩阵
+
+所有编码调用点（compress / convert / setBackground / transform 系列 / filter / watermark / tile / targetSize 二分）统一经 `encodeSmart` 分发：**native-first / wasm-fallback**。原生编码器可用走 Canvas 路径；原生不可用且目标为 avif 且 wasm 兜底启用时，分发到 libavif 私有 worker 编码；否则保持既有 throw 语义（上层用 `detectFormatSupport` 门控，避免静默回退 PNG）。
+
+| 格式 | 原生编码（Canvas） | WASM 兜底 | 说明 |
+|------|:---:|:---:|------|
+| `png` | ✅ 全浏览器 | — | 恒原生支持，短路免探测 |
+| `jpeg` | ✅ 全浏览器 | — | 恒原生支持，短路免探测 |
+| `webp` | ✅ Chrome / Edge / Firefox / Safari 14+ | — | 无 wasm 兜底；不支持时抛错 |
+| `avif` | ⚠️ 仅 Safari 17+ | ✅ libavif（`@jsquash/avif`） | **Chrome / Firefox 无原生 avif 编码**——`canvas.toBlob('image/avif')` 会静默回退 PNG；`encodeSmart` 探测到回退后分发到私有 worker 走 wasm 编码 |
+| `gif` | ❌ | — | Canvas 不支持 gif 编码，抛错 |
+
+> wasm 兜底默认启用，二进制经版本化 CDN（jsdelivr，随 `@lokvis/engine-image` 发布）或自托管加载，Service Worker cache-first 缓存；消费方可用 `configureWasmEncoders({ avifUrl, enabled })` 覆盖。详见 [`docs/reports/20260724-engine-wasm-avif-encoder.md`](./reports/20260724-engine-wasm-avif-encoder.md)。
 
 ### Video（`@lokvis/plugin-video`，ffmpeg.wasm，Phase 2）
 
-| 能力 | 说明 |
-|------|------|
-| `video.compress` | 视频压缩 |
-| `video.transcode` | 转码（MP4/WebM/GIF） |
-| `video.trim` | 裁剪时间段 |
-| `video.merge` | 视频拼接 |
-| `video.extract-audio` | 提取音频 |
-| `video.to-gif` | 转 GIF |
-| `video.screenshot` | 截图 |
+| 能力 | 说明 | 浏览器 | Node |
+|------|------|--------|------|
+| `video.compress` | 视频压缩 | ⛔ stub | ✅ `plugin-video/node`（ffmpeg-static） |
+| `video.transcode` | 转码（MP4/WebM/GIF） | ⛔ stub | ✅ `plugin-video/node` |
+| `video.trim` | 裁剪时间段 | ⛔ stub | ✅ `plugin-video/node` |
+| `video.merge` | 视频拼接 | ⛔ stub | ✅ `plugin-video/node` |
+| `video.extract-audio` | 提取音频 | ⛔ stub | ✅ `plugin-video/node` |
+| `video.to-gif` | 转 GIF | ⛔ stub | ✅ `plugin-video/node` |
+| `video.screenshot` | 截图 | ⛔ stub | ✅ `plugin-video/node` |
 
-### PDF（`@lokvis/plugin-pdf`，pdf-lib，Phase 2）
+> **三方接入**：`@lokvis/embed-video` 提供三层组件（hooks / primitives / default UI），集成契约已完备。当前浏览器引擎为 stub，调用后 error 状态体现"能力不可用"；引擎实装后（wasm / remote backend）hooks 零改动生效。三方可通过 `plugins` 选项注入自定义处理插件（如 remote-processing plugin）。
 
-| 能力 | 说明 |
-|------|------|
-| `pdf.merge` | 合并 |
-| `pdf.split` | 拆分 |
-| `pdf.compress` | 压缩 |
-| `pdf.rotate` | 旋转 |
-| `pdf.watermark` | 水印 |
-| `pdf.ocr` | OCR（tesseract.js） |
-| `pdf.sign` | 数字签名 |
+### PDF（`@lokvis/plugin-pdf`，pdf-lib）
+
+| 能力 | 说明 | 浏览器 | Node |
+|------|------|--------|------|
+| `pdf.merge` | 合并(N→1) | ✅ `plugin-pdf/web` | ✅ `plugin-pdf/node` |
+| `pdf.split` | 拆分(1→N) | ✅ `plugin-pdf/web` | ✅ `plugin-pdf/node` |
+| `pdf.compress` | 压缩 | ✅ `plugin-pdf/web` | ✅ `plugin-pdf/node` |
+| `pdf.rotate` | 旋转 | ✅ `plugin-pdf/web` | ✅ `plugin-pdf/node` |
+| `pdf.watermark` | 水印 | ✅ `plugin-pdf/web` | ✅ `plugin-pdf/node` |
+| `pdf.ocr` | OCR（tesseract.js） | ⛔ stub（Phase 3） | ⛔ stub（Phase 3） |
+| `pdf.sign` | 数字签名 | ⛔ stub（Phase 4） | ⛔ stub（Phase 4） |
+
+> **浏览器端激活路径**：默认入口 `@lokvis/plugin-pdf`（`"."`）为全 stub（不加载 pdf-lib，省首屏）；浏览器端真实处理需使用 `@lokvis/plugin-pdf/web` 子路径导出（`pdfToolsPluginWeb()`），pdf-lib 经动态 import 按需加载（~90KB gzip）。
+>
+> **三方接入**：`@lokvis/embed-pdf` 提供三层组件（hooks / primitives / default UI），内部使用 `plugin-pdf/web`，cloud 等消费方只需 `import { usePdfCompress } from '@lokvis/embed-pdf/hooks'` 即可自建品牌 UI。
 
 ### Audio（`@lokvis/plugin-audio`，Web Audio API，Phase 3）
 

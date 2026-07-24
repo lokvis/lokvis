@@ -30,6 +30,13 @@ vi.mock('../canvas-engine.js', () => ({
     getContext: () => mockCtx(),
   })),
   get2DContext: vi.fn(() => mockCtx()),
+  detectFormatSupport: vi.fn(async () => ({
+    png: true,
+    jpeg: true,
+    webp: true,
+    avif: true,
+    gif: true,
+  })),
 }));
 
 /** 桩 Canvas 2D Context(记录调用但不真正渲染) */
