@@ -6,8 +6,9 @@
  * 通过子路径 `@lokvis/engine-image/node` 暴露,与浏览器主入口
  * `@lokvis/engine-image` 分离(避免浏览器构建引入 sharp)。
  *
- * 与浏览器引擎对齐的 5 个核心操作:
+ * 与浏览器引擎对齐的全部 10 个操作:
  * - resize / compress / convert / crop / watermark
+ * - rotate / flip / background / filter / encodeIco
  *
  * 设计原则:
  * - 操作函数签名与浏览器版完全一致(Blob → Blob + Record<string,any> + AbortSignal)
@@ -29,12 +30,19 @@
 export type {
   ImageOutputFormat,
   FitStrategy,
+  FlipAxis,
   WatermarkPosition,
+  FilterPreset,
   ResizeParams,
   CompressParams,
   ConvertParams,
   CropParams,
+  RotateParams,
+  FlipParams,
+  BackgroundParams,
+  FilterParams,
   WatermarkParams,
+  EncodeIcoParams,
 } from '../types.js';
 
 export type { NodeImageEngineDescriptor } from './types.js';

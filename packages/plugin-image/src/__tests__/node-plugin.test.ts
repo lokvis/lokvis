@@ -3,11 +3,10 @@
  *
  * 验证 imageToolsPluginNode() 的:
  * - 插件定义结构(engine='sharp')
- * - installer 注册行为(9 个能力实现 + EXIF reader)
- * - 5 个真实操作 + 4 个 stub 操作的 isStub 标记
- * - stub 操作执行时抛出明确错误
+ * - installer 注册行为(10 个能力实现 + EXIF reader + metadata reader)
+ * - 全部 10 个操作均为真实实现(isStub=false)
  *
- * engine-image/node 的 5 个操作通过 vi.mock 替换为桩函数,
+ * engine-image/node 的 10 个操作通过 vi.mock 替换为桩函数,
  * 避免测试依赖真实 sharp/libvips 二进制。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -20,12 +19,18 @@ import type {
 
 // 桩 engine-image/node 操作,避免依赖真实 sharp
 vi.mock('@lokvis/engine-image/node', () => ({
-  sharpEngine: { name: 'sharp', version: '0.1.0' },
+  sharpEngine: { name: 'sharp', version: '0.2.0' },
   resize: vi.fn(async (blob: Blob) => blob),
   compress: vi.fn(async (blob: Blob) => blob),
   convert: vi.fn(async (blob: Blob) => blob),
   crop: vi.fn(async (blob: Blob) => blob),
   watermark: vi.fn(async (blob: Blob) => blob),
+  rotate: vi.fn(async (blob: Blob) => blob),
+  flip: vi.fn(async (blob: Blob) => blob),
+  background: vi.fn(async (blob: Blob) => blob),
+  filter: vi.fn(async (blob: Blob) => blob),
+  encodeIco: vi.fn(async (blob: Blob) => blob),
+  getMetadata: vi.fn(async () => ({ width: 200, height: 100, format: 'png' })),
 }));
 
 // exifr 是真实依赖,但 readExifFromBlob 会尝试解析 blob,
@@ -147,23 +152,11 @@ describe('imageToolsPluginNode install', () => {
     expect(mock.registered.every((i) => i.engine === 'sharp')).toBe(true);
   });
 
-  it('5 个真实操作的 status 应非 stub', async () => {
+  it('全部 10 个操作的 status 应非 stub', async () => {
     const plugin = await imageToolsPluginNode();
     await plugin.install(mock.ctx);
-    const realCaps = ['image.resize', 'image.compress', 'image.convert', 'image.crop', 'image.watermark'];
-    for (const cap of realCaps) {
-      const impl = mock.registered.find((i) => i.capability === cap)!;
+    for (const impl of mock.registered) {
       expect(impl.status).not.toBe('stub');
-    }
-  });
-
-  it('5 个未实现操作的 status 应为 stub', async () => {
-    const plugin = await imageToolsPluginNode();
-    await plugin.install(mock.ctx);
-    const stubCaps = ['image.rotate', 'image.flip', 'image.background', 'image.filter', 'image.favicon'];
-    for (const cap of stubCaps) {
-      const impl = mock.registered.find((i) => i.capability === cap)!;
-      expect(impl.status).toBe('stub');
     }
   });
 
@@ -173,7 +166,7 @@ describe('imageToolsPluginNode install', () => {
     expect(mock.logs).toHaveLength(1);
     expect(mock.logs[0]!.level).toBe('info');
     expect(mock.logs[0]!.message).toMatch(/sharp engine/);
-    expect(mock.logs[0]!.message).toMatch(/5 real \+ 5 stub/);
+    expect(mock.logs[0]!.message).toMatch(/all real/);
   });
 
   it('install 应注册 EXIF metadata reader', async () => {
@@ -192,59 +185,71 @@ describe('imageToolsPluginNode install', () => {
   });
 });
 
-describe('imageToolsPluginNode stub 操作行为', () => {
+describe('imageToolsPluginNode 新增操作行为', () => {
   let mock: ReturnType<typeof createMockContext>;
 
   beforeEach(() => {
     mock = createMockContext();
   });
 
-  it('stub 操作(rotate)execute 应抛错包含不支持提示', async () => {
+  it('rotate 操作 execute 应处理输入并返回输出 Asset', async () => {
     const plugin = await imageToolsPluginNode();
     await plugin.install(mock.ctx);
     const rotateImpl = mock.registered.find((i) => i.capability === 'image.rotate')!;
 
-    await expect(
-      rotateImpl.execute([makeInputAsset()], {}, {
+    const outputs = await rotateImpl.execute(
+      [makeInputAsset()],
+      { angle: 90 },
+      {
         workflowId: 'wf',
         nodeId: 'n1',
         signal: new AbortController().signal,
         log: () => {},
-      })
-    ).rejects.toThrow(/not supported by the sharp engine/);
+      }
+    );
+
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0]!.type).toBe('image');
   });
 
-  it('stub 操作(filter)execute 应抛错列出支持的操作', async () => {
+  it('flip 操作 execute 应处理输入并返回输出 Asset', async () => {
+    const plugin = await imageToolsPluginNode();
+    await plugin.install(mock.ctx);
+    const flipImpl = mock.registered.find((i) => i.capability === 'image.flip')!;
+
+    const outputs = await flipImpl.execute(
+      [makeInputAsset()],
+      { axis: 'horizontal' },
+      {
+        workflowId: 'wf',
+        nodeId: 'n1',
+        signal: new AbortController().signal,
+        log: () => {},
+      }
+    );
+
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0]!.type).toBe('image');
+  });
+
+  it('filter 操作 execute 应处理输入并返回输出 Asset', async () => {
     const plugin = await imageToolsPluginNode();
     await plugin.install(mock.ctx);
     const filterImpl = mock.registered.find((i) => i.capability === 'image.filter')!;
 
-    await expect(
-      filterImpl.execute([makeInputAsset()], {}, {
+    const outputs = await filterImpl.execute(
+      [makeInputAsset()],
+      { preset: 'grayscale' },
+      {
         workflowId: 'wf',
         nodeId: 'n1',
         signal: new AbortController().signal,
         log: () => {},
-      })
-    ).rejects.toThrow(/resize, compress, convert, crop, watermark/);
-  });
+      }
+    );
 
-  it('stub 操作在 signal 已 abort 时应抛 AbortError', async () => {
-    const plugin = await imageToolsPluginNode();
-    await plugin.install(mock.ctx);
-    const rotateImpl = mock.registered.find((i) => i.capability === 'image.rotate')!;
-
-    const controller = new AbortController();
-    controller.abort();
-
-    await expect(
-      rotateImpl.execute([makeInputAsset()], {}, {
-        workflowId: 'wf',
-        nodeId: 'n1',
-        signal: controller.signal,
-        log: () => {},
-      })
-    ).rejects.toThrow(/Aborted/);
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0]!.type).toBe('image');
   });
 });
 

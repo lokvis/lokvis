@@ -81,7 +81,7 @@ function Upload(props: { children?: ReactNode | ((state: { isDragging: boolean }
 
 function PresetSwitcher(props: { renderButton?: (preset: PdfCompressPreset, active: boolean) => ReactNode }) {
   const ctx = usePdfCompressContext();
-  const presets: PdfCompressPreset[] = ['balanced', 'high', 'maximum'];
+  const presets: PdfCompressPreset[] = ['fast', 'compress'];
   return createElement(
     'div',
     { role: 'radiogroup', 'aria-label': 'Compression preset' },

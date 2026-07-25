@@ -153,11 +153,12 @@ describe('engine-image/node operations', () => {
       expect(out.size).toBeLessThanOrEqual(high.size + 100); // 容差
     });
 
-    it('targetSize 暂未实现应抛错', async () => {
+    it('targetSize 应通过二分查找产出 ≤ 目标体积的结果', async () => {
       const { compress } = await import('../node/operations/encode.js');
-      await expect(
-        compress(testPng, { format: 'webp', targetSize: 1000 })
-      ).rejects.toThrow(/not yet implemented/);
+      const targetSize = 5000;
+      const out = await compress(testPng, { format: 'webp', targetSize });
+      expect(out.size).toBeLessThanOrEqual(targetSize);
+      expect(out.type).toBe('image/webp');
     });
   });
 
@@ -331,13 +332,18 @@ describe('engine-image/node operations', () => {
     it('sharpEngine 元数据正确', async () => {
       const { sharpEngine } = await import('../node/sharp-engine.js');
       expect(sharpEngine.name).toBe('sharp');
-      expect(sharpEngine.version).toBe('0.1.0');
+      expect(sharpEngine.version).toBe('0.2.0');
       expect(sharpEngine.version).not.toMatch(/stub/);
       expect(sharpEngine.supportedCapabilities).toContain('image.resize');
       expect(sharpEngine.supportedCapabilities).toContain('image.compress');
       expect(sharpEngine.supportedCapabilities).toContain('image.convert');
       expect(sharpEngine.supportedCapabilities).toContain('image.crop');
       expect(sharpEngine.supportedCapabilities).toContain('image.watermark');
+      expect(sharpEngine.supportedCapabilities).toContain('image.rotate');
+      expect(sharpEngine.supportedCapabilities).toContain('image.flip');
+      expect(sharpEngine.supportedCapabilities).toContain('image.background');
+      expect(sharpEngine.supportedCapabilities).toContain('image.filter');
+      expect(sharpEngine.supportedCapabilities).toContain('image.favicon');
     });
 
     it('sharpEngine.isSupported() 应返回 true', async () => {

@@ -2,7 +2,8 @@
  * Sharp 图像引擎(Node.js)
  *
  * 基于 sharp(libvips)实现,与浏览器 canvas 引擎(@lokvis/engine-image 主入口)对齐的
- * 5 个核心操作:resize / compress / convert / crop / watermark。
+ * 全部 10 个操作:resize / compress / convert / crop / watermark /
+ * rotate / flip / background / filter / encodeIco。
  *
  * 设计原则:
  * - 操作函数签名与浏览器 canvas 引擎完全一致(Blob → Blob + Record<string,any> + AbortSignal)
@@ -14,6 +15,8 @@
  * - sharp 内置 libvips,直接处理 Buffer,无 Canvas 中间态
  * - 字体水印使用 sharp 内置 SVG composite(text via SVG <text>),无需 canvas 2D
  * - 图片水印支持 data URL / http(s) URL,SSRF 校验同 engine-image
+ * - 滤镜用 sharp 原生 API(grayscale/negate/recomb/blur)替代 CSS filter
+ * - favicon 用 sharp resize + 手写 ICO 打包替代 canvas drawImage + encode
  *
  * 参考:docs/reports/architecture-deep-diagnostic-20260712.md §M2.2
  */
@@ -21,7 +24,7 @@
 import type { NodeImageEngineDescriptor } from './types.js';
 
 /** Sharp 引擎版本(随包版本) */
-export const SHARP_ENGINE_VERSION = '0.1.0';
+export const SHARP_ENGINE_VERSION = '0.2.0';
 
 /**
  * Sharp 引擎描述符。
@@ -37,8 +40,11 @@ export const sharpEngine: NodeImageEngineDescriptor = {
     'image.convert',
     'image.crop',
     'image.watermark',
-    // 以下能力在 Node 引擎中未实现(rotate/flip/background/filter),
-    // plugin-image 会回退到 stub 实现并给出明确错误提示
+    'image.rotate',
+    'image.flip',
+    'image.background',
+    'image.filter',
+    'image.favicon',
   ],
 
   async isSupported() {

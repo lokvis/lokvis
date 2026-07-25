@@ -13,16 +13,11 @@
  * ImageMetadata 类型由 @lokvis/schema 定义(跨层共享),此处 re-export
  * 保持 engine-image/node 的导入路径不变,消费方可从任一处导入。
  */
-import { throwIfAborted } from './utils.js';
+import { blobToBuffer, throwIfAborted } from './utils.js';
 import type { ImageMetadata } from '@lokvis/schema';
 
 // re-export schema 的共享类型,保持 engine-image/node 导出表面不变
 export type { ImageMetadata };
-
-async function blobToBuffer(blob: Blob): Promise<Buffer> {
-  const arrayBuffer = await blob.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
 
 /**
  * 读取图像元数据(width / height / format),不完整解码。

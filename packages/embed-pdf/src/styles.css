@@ -1,38 +1,60 @@
 /**
  * @lokvis/embed-pdf CSS 变量主题。
  *
+ * 变量命名与 theme.ts THEME_KEY_TO_VAR 完全对齐(--lokvis-pdf-* 命名空间)。
  * 消费方可通过覆盖这些变量自定义 Layer 2 默认 UI 外观:
+ *
  *   .lokvis-embed-pdf {
- *     --lokvis-pdf-bg: #1a1a2e;
- *     --lokvis-pdf-fg: #e0e0e0;
- *     --lokvis-pdf-accent: #6c63ff;
+ *     --lokvis-pdf-primary: #0f0;
+ *     --lokvis-pdf-surface: #1a1a2e;
+ *     --lokvis-pdf-text: #e0e0e0;
  *   }
+ *
+ * 选择器匹配:
+ *   - .lokvis-embed-pdf(父级包裹元素,变量向下级联)
+ *   - [class*="lokvis-embed-pdf-"](各组件根元素)
+ *
+ * 组件内 var() 已含 fallback,本文件为可选增强(提供统一覆盖入口)。
  */
 
-.lokvis-embed-pdf {
-  /* 基础色 */
-  --lokvis-pdf-bg: #18181b;
-  --lokvis-pdf-bg-subtle: #27272a;
-  --lokvis-pdf-fg: #fafafa;
-  --lokvis-pdf-fg-muted: #a1a1aa;
-  --lokvis-pdf-border: #3f3f46;
-  --lokvis-pdf-accent: #6366f1;
-  --lokvis-pdf-accent-fg: #ffffff;
+:where(.lokvis-embed-pdf, [class*='lokvis-embed-pdf-']) {
+  /* 主色 */
+  --lokvis-pdf-primary: #6366f1;
+  --lokvis-pdf-primary-hover: #4f46e5;
+
+  /* 背景 */
+  --lokvis-pdf-bg: transparent;
+  --lokvis-pdf-surface: #ffffff;
+  --lokvis-pdf-surface-hover: #f4f4f5;
+
+  /* 边框 */
+  --lokvis-pdf-border: #e4e4e7;
+
+  /* 文字 */
+  --lokvis-pdf-text: #18181b;
+  --lokvis-pdf-text-muted: #71717a;
+
+  /* 语义色 */
+  --lokvis-pdf-success: #10b981;
+  --lokvis-pdf-warning: #f59e0b;
   --lokvis-pdf-error: #ef4444;
-  --lokvis-pdf-success: #22c55e;
 
   /* 圆角 */
-  --lokvis-pdf-radius: 8px;
-  --lokvis-pdf-radius-sm: 4px;
-
-  /* 间距 */
-  --lokvis-pdf-gap: 12px;
-  --lokvis-pdf-padding: 16px;
+  --lokvis-pdf-radius: 0.5rem;
 
   /* 字体 */
-  --lokvis-pdf-font: system-ui, -apple-system, sans-serif;
-  --lokvis-pdf-font-mono: ui-monospace, monospace;
+  --lokvis-pdf-font-family: inherit;
 
-  font-family: var(--lokvis-pdf-font);
-  color: var(--lokvis-pdf-fg);
+  /* focus 环 */
+  --lokvis-pdf-ring: #6366f1;
+}
+
+/* 暗色模式默认值(当 data-embed-mode="dark" 时) */
+:where([data-embed-mode='dark'].lokvis-embed-pdf, [data-embed-mode='dark'][class*='lokvis-embed-pdf-']) {
+  --lokvis-pdf-primary-hover: #818cf8;
+  --lokvis-pdf-surface: #18181b;
+  --lokvis-pdf-surface-hover: #27272a;
+  --lokvis-pdf-border: #27272a;
+  --lokvis-pdf-text: #f4f4f5;
+  --lokvis-pdf-ring: #818cf8;
 }

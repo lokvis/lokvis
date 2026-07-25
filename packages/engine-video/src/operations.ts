@@ -73,7 +73,7 @@ export async function trimVideo(
  * 合并多个视频(Blob[] → Blob)— 浏览器 stub。
  *
  * @param _blobs 输入视频 Blob 数组
- * @param _params 合并参数(format / transition)
+ * @param _params 合并参数(format)
  */
 export async function mergeVideos(
   _blobs: Blob[],

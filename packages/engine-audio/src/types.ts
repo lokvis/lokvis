@@ -23,8 +23,6 @@ export interface AudioTrimParams {
 export interface AudioMergeParams {
   /** 输出容器格式(默认 mp3) */
   format?: AudioOutputFormat;
-  /** 合并过渡(可选,Phase 2 扩展) */
-  transition?: 'none' | 'fade' | 'cut';
 }
 
 /** 音频转码参数 */

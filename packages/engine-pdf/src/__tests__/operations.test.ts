@@ -322,22 +322,35 @@ describe('engine-pdf operations', () => {
   });
 
   describe('compressPdf', () => {
-    it('level >= 4 启用对象流,输出可被解析,页数不变', async () => {
+    it('mode:"compress" 启用对象流,输出可被解析,页数不变', async () => {
+      const { compressPdf } = await import('../operations.js');
+      const out = await compressPdf(twoPages, { mode: 'compress' });
+      expect(out.type).toBe('application/pdf');
+      expect(await countPages(out)).toBe(2);
+    });
+
+    it('mode:"fast" 不启用对象流,输出仍有效', async () => {
+      const { compressPdf } = await import('../operations.js');
+      const out = await compressPdf(twoPages, { mode: 'fast' });
+      expect(await countPages(out)).toBe(2);
+    });
+
+    it('默认 mode="compress"(不传 params)', async () => {
+      const { compressPdf } = await import('../operations.js');
+      const out = await compressPdf(twoPages);
+      expect(await countPages(out)).toBe(2);
+    });
+
+    it('[deprecated] level >= 4 等价 mode:"compress"', async () => {
       const { compressPdf } = await import('../operations.js');
       const out = await compressPdf(twoPages, { level: 6 });
       expect(out.type).toBe('application/pdf');
       expect(await countPages(out)).toBe(2);
     });
 
-    it('level < 4 不启用对象流,输出仍有效', async () => {
+    it('[deprecated] level < 4 等价 mode:"fast"', async () => {
       const { compressPdf } = await import('../operations.js');
       const out = await compressPdf(twoPages, { level: 2 });
-      expect(await countPages(out)).toBe(2);
-    });
-
-    it('默认 level=6(不传 params)', async () => {
-      const { compressPdf } = await import('../operations.js');
-      const out = await compressPdf(twoPages);
       expect(await countPages(out)).toBe(2);
     });
 
@@ -355,13 +368,11 @@ describe('engine-pdf operations', () => {
       );
     });
 
-    it('对象流 vs 非对象流输出大小可能不同(验证 level 生效)', async () => {
+    it('mode 优先于 level(同时传入时以 mode 为准)', async () => {
       const { compressPdf } = await import('../operations.js');
-      const withObjStreams = await compressPdf(twoPages, { level: 6 });
-      const withoutObjStreams = await compressPdf(twoPages, { level: 2 });
-      // 两者都是有效 PDF(不比较大小,因小 PDF 差异可能为 0)
-      expect(await countPages(withObjStreams)).toBe(2);
-      expect(await countPages(withoutObjStreams)).toBe(2);
+      // mode:'fast' + level:9 → 应走 fast(不启用对象流)
+      const out = await compressPdf(twoPages, { mode: 'fast', level: 9 });
+      expect(await countPages(out)).toBe(2);
     });
   });
 

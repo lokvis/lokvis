@@ -53,8 +53,6 @@ export interface VideoCompressParams {
 export interface VideoMergeParams {
   /** 输出容器格式(默认 mp4) */
   format?: VideoOutputFormat;
-  /** 合并过渡(可选,Phase 2 扩展) */
-  transition?: 'none' | 'fade' | 'cut';
 }
 
 /** 音频提取参数 */

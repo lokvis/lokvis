@@ -1,24 +1,60 @@
 /**
  * @lokvis/embed-video CSS 变量主题。
+ *
+ * 变量命名与 theme.ts THEME_KEY_TO_VAR 完全对齐(--lokvis-video-* 命名空间)。
+ * 消费方可通过覆盖这些变量自定义 Layer 2 默认 UI 外观:
+ *
+ *   .lokvis-embed-video {
+ *     --lokvis-video-primary: #0f0;
+ *     --lokvis-video-surface: #1a1a2e;
+ *     --lokvis-video-text: #e0e0e0;
+ *   }
+ *
+ * 选择器匹配:
+ *   - .lokvis-embed-video(父级包裹元素,变量向下级联)
+ *   - [class*="lokvis-embed-video-"](各组件根元素)
+ *
+ * 组件内 var() 已含 fallback,本文件为可选增强(提供统一覆盖入口)。
  */
 
-.lokvis-embed-video {
-  --lokvis-video-bg: #18181b;
-  --lokvis-video-bg-subtle: #27272a;
-  --lokvis-video-fg: #fafafa;
-  --lokvis-video-fg-muted: #a1a1aa;
-  --lokvis-video-border: #3f3f46;
-  --lokvis-video-accent: #8b5cf6;
-  --lokvis-video-accent-fg: #ffffff;
+:where(.lokvis-embed-video, [class*='lokvis-embed-video-']) {
+  /* 主色 */
+  --lokvis-video-primary: #6366f1;
+  --lokvis-video-primary-hover: #4f46e5;
+
+  /* 背景 */
+  --lokvis-video-bg: transparent;
+  --lokvis-video-surface: #ffffff;
+  --lokvis-video-surface-hover: #f4f4f5;
+
+  /* 边框 */
+  --lokvis-video-border: #e4e4e7;
+
+  /* 文字 */
+  --lokvis-video-text: #18181b;
+  --lokvis-video-text-muted: #71717a;
+
+  /* 语义色 */
+  --lokvis-video-success: #10b981;
+  --lokvis-video-warning: #f59e0b;
   --lokvis-video-error: #ef4444;
-  --lokvis-video-success: #22c55e;
 
-  --lokvis-video-radius: 8px;
-  --lokvis-video-radius-sm: 4px;
-  --lokvis-video-gap: 12px;
-  --lokvis-video-padding: 16px;
-  --lokvis-video-font: system-ui, -apple-system, sans-serif;
+  /* 圆角 */
+  --lokvis-video-radius: 0.5rem;
 
-  font-family: var(--lokvis-video-font);
-  color: var(--lokvis-video-fg);
+  /* 字体 */
+  --lokvis-video-font-family: inherit;
+
+  /* focus 环 */
+  --lokvis-video-ring: #6366f1;
+}
+
+/* 暗色模式默认值(当 data-embed-mode="dark" 时) */
+:where([data-embed-mode='dark'].lokvis-embed-video, [data-embed-mode='dark'][class*='lokvis-embed-video-']) {
+  --lokvis-video-primary-hover: #818cf8;
+  --lokvis-video-surface: #18181b;
+  --lokvis-video-surface-hover: #27272a;
+  --lokvis-video-border: #27272a;
+  --lokvis-video-text: #f4f4f5;
+  --lokvis-video-ring: #818cf8;
 }

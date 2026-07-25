@@ -25,7 +25,20 @@ export interface PdfMergeParams {
 
 /** PDF 压缩参数 */
 export interface PdfCompressParams {
-  /** 压缩级别 0-9(>=4 启用对象流压缩,默认 6) */
+  /**
+   * 压缩模式:
+   * - 'fast': 快速保存,不启用对象流(体积略大,速度快)
+   * - 'compress': 启用对象流压缩(体积更小,默认)
+   *
+   * 注:pdf-lib 仅支持对象流开关,无更细粒度压缩控制。
+   * 深度压缩(图片降采样等)需 ghostscript,留待后续。
+   */
+  mode?: 'fast' | 'compress';
+  /**
+   * @deprecated 使用 mode 代替。
+   * 0-3 等价 mode:'fast',4-9 等价 mode:'compress'。
+   * 仅为向后兼容保留,新代码请用 mode。
+   */
   level?: number;
 }
 
@@ -116,24 +129,33 @@ export async function mergePdfs(
  * 需 ghostscript 等外部工具,留待后续。
  *
  * @param blob 输入 PDF Blob
- * @param params 压缩参数(level: 0-9,>=4 启用对象流,默认 6)
+ * @param params 压缩参数(mode: 'fast' | 'compress',默认 'compress';
+ *   旧版 level 0-9 仍兼容:>=4 等价 'compress',<4 等价 'fast')
  */
 export async function compressPdf(
   blob: Blob,
   params: Record<string, any> = {}
 ): Promise<Blob> {
   const { PDFDocument } = await import('pdf-lib');
-  const level = (params as PdfCompressParams).level ?? 6;
-  if (level < 0 || level > 9) {
-    throw new Error(`compressPdf: level must be between 0 and 9, got ${level}`);
+  const typedParams = params as PdfCompressParams;
+
+  // mode 优先;无 mode 时回退到 deprecated level(向后兼容)
+  let useObjectStreams: boolean;
+  if (typedParams.mode !== undefined) {
+    useObjectStreams = typedParams.mode === 'compress';
+  } else if (typedParams.level !== undefined) {
+    if (typedParams.level < 0 || typedParams.level > 9) {
+      throw new Error(`compressPdf: level must be between 0 and 9, got ${typedParams.level}`);
+    }
+    useObjectStreams = typedParams.level >= 4;
+  } else {
+    useObjectStreams = true; // 默认 'compress'
   }
+
   const bytes = await blobToArrayBuffer(blob);
   const pdfDoc = await PDFDocument.load(bytes);
 
-  // level 0-3: 不启用对象流(快速保存);level 4-9: 启用对象流(压缩率更高)
-  const outputBytes = await pdfDoc.save({
-    useObjectStreams: level >= 4,
-  });
+  const outputBytes = await pdfDoc.save({ useObjectStreams });
 
   return new Blob([uint8ToBlobPart(outputBytes)], { type: 'application/pdf' });
 }

@@ -43,8 +43,9 @@ vi.mock('../internal/format-support', () => ({
 }));
 
 // wasm 兜底开关 mock:默认关闭,保持"纯原生门控"用例语义(avif 原生不支持即禁用)。
+// 注:useImageConvert 通过 @lokvis/plugin-image(Capability 桥接)访问。
 const wasmEncodersEnabledMock = vi.fn(() => false);
-vi.mock('@lokvis/engine-image', () => ({
+vi.mock('@lokvis/plugin-image', () => ({
   wasmEncodersEnabled: () => wasmEncodersEnabledMock(),
 }));
 

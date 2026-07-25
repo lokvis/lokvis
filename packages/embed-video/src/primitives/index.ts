@@ -5,4 +5,10 @@
  */
 
 export { VideoCompress } from './VideoCompress';
+export { VideoTranscode, useVideoTranscodeContext } from './VideoTranscode';
+export { VideoTrim, useVideoTrimContext } from './VideoTrim';
+export { VideoMerge, useVideoMergeContext } from './VideoMerge';
+export { VideoToGif, useVideoToGifContext } from './VideoToGif';
+export { VideoScreenshot, useVideoScreenshotContext } from './VideoScreenshot';
+export { VideoExtractAudio, useVideoExtractAudioContext } from './VideoExtractAudio';
 export { fileMatchesVideo, DefaultPresetButton } from './shared';

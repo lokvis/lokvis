@@ -44,7 +44,7 @@ export async function trimAudio(
  * 合并多个音频(Blob[] → Blob)— 浏览器 stub。
  *
  * @param _blobs 输入音频 Blob 数组
- * @param _params 合并参数(format / transition)
+ * @param _params 合并参数(format)
  */
 export async function mergeAudios(
   _blobs: Blob[],

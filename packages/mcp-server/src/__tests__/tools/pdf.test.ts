@@ -21,6 +21,9 @@ import { pdfToolsPluginNode } from '@lokvis/plugin-pdf/node';
 import {
   pdfMerge,
   pdfCompress,
+  pdfSplit,
+  pdfRotate,
+  pdfWatermark,
   getPdfToolRegistrations,
 } from '../../tools/pdf.js';
 
@@ -203,13 +206,61 @@ describe('PDF tools', () => {
     });
   });
 
+  describe('pdfSplit', () => {
+    it('缺少 pages_per_file 和 ranges 应返回错误', async () => {
+      const result = await pdfSplit({
+        input_path: testPdfPath1,
+      }, runtime);
+      expect(result.isError).toBe(true);
+      const text = (result.content[0] as { text: string }).text;
+      expect(text).toContain('pages_per_file or ranges');
+    });
+
+    it('不存在的文件应返回错误(不抛异常)', async () => {
+      const result = await pdfSplit({
+        input_path: '/nonexistent/file.pdf',
+        pages_per_file: 1,
+      }, runtime);
+      expect(result.isError).toBe(true);
+      const text = (result.content[0] as { text: string }).text;
+      expect(text).toContain('Failed to split');
+    });
+  });
+
+  describe('pdfRotate', () => {
+    it('不存在的文件应返回错误(不抛异常)', async () => {
+      const result = await pdfRotate({
+        input_path: '/nonexistent/file.pdf',
+        angle: '90',
+      }, runtime);
+      expect(result.isError).toBe(true);
+      const text = (result.content[0] as { text: string }).text;
+      expect(text).toContain('Failed to rotate');
+    });
+  });
+
+  describe('pdfWatermark', () => {
+    it('不存在的文件应返回错误(不抛异常)', async () => {
+      const result = await pdfWatermark({
+        input_path: '/nonexistent/file.pdf',
+        text: 'DRAFT',
+      }, runtime);
+      expect(result.isError).toBe(true);
+      const text = (result.content[0] as { text: string }).text;
+      expect(text).toContain('Failed to watermark');
+    });
+  });
+
   describe('getPdfToolRegistrations', () => {
-    it('应返回 2 个 tool 注册', () => {
+    it('应返回 5 个 tool 注册', () => {
       const regs = getPdfToolRegistrations(runtime);
-      expect(regs).toHaveLength(2);
+      expect(regs).toHaveLength(5);
       const names = regs.map((r) => r.name);
       expect(names).toContain('lokvis_pdf_merge');
       expect(names).toContain('lokvis_pdf_compress');
+      expect(names).toContain('lokvis_pdf_split');
+      expect(names).toContain('lokvis_pdf_rotate');
+      expect(names).toContain('lokvis_pdf_watermark');
     });
 
     it('每个注册应有 name/description/inputSchema/handler', () => {

@@ -18,17 +18,15 @@ import { usePdfTool } from '../internal/usePdfTool';
 import { buildSingleStepPdfWorkflow } from '../internal/workflow-builder';
 import type { PdfFileInfo } from '../internal/download';
 
-/** 压缩预设。每个预设对应一个压缩级别(0-9) */
-export type PdfCompressPreset = 'balanced' | 'high' | 'maximum';
+/** 压缩预设。pdf-lib 仅支持对象流开关,故只有两档有实际差异 */
+export type PdfCompressPreset = 'fast' | 'compress';
 
-/** 预设参数表 */
-export const PDF_COMPRESS_PRESETS: Record<PdfCompressPreset, { level: number }> = {
-  /** 均衡:level 6(默认) */
-  balanced: { level: 6 },
-  /** 高压缩:level 8 */
-  high: { level: 8 },
-  /** 极限压缩:level 9 */
-  maximum: { level: 9 },
+/** 预设参数表(使用 engine-pdf 的 mode API) */
+export const PDF_COMPRESS_PRESETS: Record<PdfCompressPreset, { mode: 'fast' | 'compress' }> = {
+  /** 快速:不启用对象流,保存速度快,体积略大 */
+  fast: { mode: 'fast' },
+  /** 压缩:启用对象流压缩,体积更小(默认) */
+  compress: { mode: 'compress' },
 };
 
 /** Embed PDF hook 通用 props(所有 usePdf<Tool> 共享) */
@@ -76,7 +74,7 @@ export interface UsePdfCompressResult {
 export function usePdfCompress(
   options?: UsePdfActionOptions<PdfCompressPreset>
 ): UsePdfCompressResult {
-  const { initialPreset = 'balanced', autoRun = true, onComplete, plugins } = options ?? {};
+  const { initialPreset = 'compress', autoRun = true, onComplete, plugins } = options ?? {};
   const tool = usePdfTool({ plugins });
   const [preset, setPresetState] = useState<PdfCompressPreset>(initialPreset);
 
@@ -92,7 +90,7 @@ export function usePdfCompress(
       const config = PDF_COMPRESS_PRESETS[nextPreset];
       const wf = buildSingleStepPdfWorkflow(
         'pdf.compress',
-        { level: config.level },
+        { mode: config.mode },
         'PdfCompress',
         'Compress PDF with preset'
       );

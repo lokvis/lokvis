@@ -15,12 +15,23 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { captureException } from './internal/sentry';
 import { getLangFromUrl, t } from './i18n/utils';
-import type { Language } from './i18n/config';
+import { type Language } from './i18n/config';
 import {
   QuickI18nContext,
   type QuickI18nContextValue,
   type EmbedTranslations,
 } from './i18n/EmbedI18nProvider';
+
+/** 受支持的 html lang 集合(与 useLang 保持一致) */
+const SUPPORTED_HTML_LANGS: ReadonlySet<string> = new Set(['en', 'zh', 'ja', 'es', 'de', 'fr']);
+
+/** 从 document.documentElement.lang 读取语言(SSR 安全) */
+function detectHtmlLang(): Language | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const htmlLang = document.documentElement.lang;
+  if (htmlLang && SUPPORTED_HTML_LANGS.has(htmlLang)) return htmlLang as Language;
+  return undefined;
+}
 
 interface Props {
   children: ReactNode;
@@ -76,31 +87,40 @@ export class ErrorBoundary extends Component<Props, State> {
       // ErrorBoundary 是 class 组件,无法用 hook;优先级:
       //   1. locale prop(显式覆盖)
       //   2. EmbedI18nProvider.locale(context)
-      //   3. URL 路径前缀解析(回退)
+      //   3. document.documentElement.lang
+      //   4. URL 路径前缀解析(回退)
       // translations 同理:prop 优先 → context.translations
       const ctx = this.context;
       const lang = this.props.locale
         ?? ctx?.locale
+        ?? detectHtmlLang()
         ?? getLangFromUrl(typeof window !== 'undefined' ? window.location.href : '/');
       const overrides = this.props.translations ?? ctx?.translations;
       const canRetry = this.state.retryCount < MAX_RETRY;
       return (
-        <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+        <div
+          className="lokvis-quick-compress flex h-full flex-col items-center justify-center gap-3 p-8 text-center"
+          style={{ color: 'var(--lokvis-text, #18181b)', fontFamily: 'var(--lokvis-font-family, inherit)' }}
+        >
           <div className="text-4xl">⚠️</div>
-          <div className="text-base font-semibold text-zinc-200">
+          <div className="text-base font-semibold" style={{ color: 'var(--lokvis-text, #18181b)' }}>
             {t(lang, 'error.title', overrides)}
           </div>
-          <div className="max-w-md text-xs text-zinc-500">
+          <div className="max-w-md text-xs" style={{ color: 'var(--lokvis-text-muted, #71717a)' }}>
             {t(lang, 'error.logged', overrides)}{canRetry ? t(lang, 'error.retryHint', overrides) : t(lang, 'error.retryExceeded', overrides)}
           </div>
-          <pre className="max-w-md overflow-auto rounded bg-zinc-900 p-3 text-left text-[11px] text-zinc-400">
+          <pre
+            className="max-w-md overflow-auto rounded p-3 text-left text-[11px]"
+            style={{ background: 'var(--lokvis-surface-hover, #f4f4f5)', color: 'var(--lokvis-text-muted, #71717a)' }}
+          >
             {this.state.error.message}
           </pre>
           {canRetry && (
             <button
               type="button"
               onClick={this.reset}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-500"
+              className="rounded-md px-4 py-2 text-xs font-medium text-white"
+              style={{ background: 'var(--lokvis-primary, #6366f1)' }}
             >
               {t(lang, 'common.retry', overrides)}
             </button>

@@ -94,15 +94,20 @@ describe('createLokvisMcpServer', () => {
     expect(manifest.serverName).toBe('lokvis');
   });
 
-  it('默认 domains 应注册 5 个 image tools', async () => {
+  it('默认 domains 应注册 10 个 image tools', async () => {
     const { server } = await createLokvisMcpServer();
     const toolNames = server.getRegisteredToolNames();
-    expect(toolNames).toHaveLength(5);
+    expect(toolNames).toHaveLength(10);
     expect(toolNames).toContain('lokvis_image_resize');
     expect(toolNames).toContain('lokvis_image_compress');
     expect(toolNames).toContain('lokvis_image_convert');
     expect(toolNames).toContain('lokvis_image_crop');
     expect(toolNames).toContain('lokvis_image_watermark');
+    expect(toolNames).toContain('lokvis_image_rotate');
+    expect(toolNames).toContain('lokvis_image_flip');
+    expect(toolNames).toContain('lokvis_image_background');
+    expect(toolNames).toContain('lokvis_image_filter');
+    expect(toolNames).toContain('lokvis_image_favicon');
   });
 
   it('domains=[] 不应注册任何 tool', async () => {
@@ -110,22 +115,25 @@ describe('createLokvisMcpServer', () => {
     expect(server.getRegisteredToolNames()).toHaveLength(0);
   });
 
-  it('domains=[image] 应注册 5 个 image tools', async () => {
+  it('domains=[image] 应注册 10 个 image tools', async () => {
     const { server } = await createLokvisMcpServer({ domains: ['image'] });
-    expect(server.getRegisteredToolNames()).toHaveLength(5);
+    expect(server.getRegisteredToolNames()).toHaveLength(10);
   });
 
-  it('domains=[pdf] 应注册 2 个 pdf tools', async () => {
+  it('domains=[pdf] 应注册 5 个 pdf tools', async () => {
     const { server } = await createLokvisMcpServer({ domains: ['pdf'] });
     const toolNames = server.getRegisteredToolNames();
-    expect(toolNames).toHaveLength(2);
+    expect(toolNames).toHaveLength(5);
     expect(toolNames).toContain('lokvis_pdf_merge');
     expect(toolNames).toContain('lokvis_pdf_compress');
+    expect(toolNames).toContain('lokvis_pdf_split');
+    expect(toolNames).toContain('lokvis_pdf_rotate');
+    expect(toolNames).toContain('lokvis_pdf_watermark');
   });
 
-  it('domains=[image,pdf] 应注册 7 个 tools(5 image + 2 pdf)', async () => {
+  it('domains=[image,pdf] 应注册 15 个 tools(10 image + 5 pdf)', async () => {
     const { server } = await createLokvisMcpServer({ domains: ['image', 'pdf'] });
-    expect(server.getRegisteredToolNames()).toHaveLength(7);
+    expect(server.getRegisteredToolNames()).toHaveLength(15);
   });
 
   it('domains=[image] 应安装 imageToolsPluginNode', async () => {

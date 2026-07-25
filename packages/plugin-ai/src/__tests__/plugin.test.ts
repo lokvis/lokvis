@@ -146,11 +146,20 @@ describe('aiToolsPlugin 定义', () => {
     expect(names).toContain('ai.diagnose-error');
   });
 
-  it('config.permissions 应声明 asset:read / asset:write / network:none', () => {
+  it('config.permissions 无 cloudCaller 时应声明 network:none', () => {
     const plugin = aiToolsPlugin();
     expect(plugin.config.permissions).toContain('asset:read');
     expect(plugin.config.permissions).toContain('asset:write');
     expect(plugin.config.permissions).toContain('network:none');
+  });
+
+  it('config.permissions 有 cloudCaller 时应声明 network:limited', () => {
+    const mockCaller = { generate: async () => ({}) } as any;
+    const plugin = aiToolsPlugin({ cloudCaller: mockCaller });
+    expect(plugin.config.permissions).toContain('asset:read');
+    expect(plugin.config.permissions).toContain('asset:write');
+    expect(plugin.config.permissions).toContain('network:limited');
+    expect(plugin.config.permissions).not.toContain('network:none');
   });
 });
 

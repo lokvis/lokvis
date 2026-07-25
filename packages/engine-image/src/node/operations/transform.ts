@@ -8,32 +8,13 @@
  */
 import type { CropParams } from '../../types.js';
 import {
-  bufferToBlobPart,
+  blobToBuffer,
   computeTargetSize,
   inferFormat,
+  sharpToBlob,
   throwIfAborted,
   toSharpFormat,
 } from './utils.js';
-
-/** 从 Blob 读取 Buffer,供 sharp 处理 */
-async function blobToBuffer(blob: Blob): Promise<Buffer> {
-  const arrayBuffer = await blob.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
-
-/** 从 sharp pipeline 输出 Blob */
-async function sharpToBlob(
-  pipeline: import('sharp').Sharp,
-  format: string,
-  quality: number
-): Promise<Blob> {
-  const buffer = await pipeline
-    .toFormat(format as keyof import('sharp').FormatEnum, { quality })
-    .toBuffer();
-  return new Blob([bufferToBlobPart(buffer)], {
-    type: `image/${format === 'jpeg' ? 'jpeg' : format}`,
-  });
-}
 
 /**
  * Resize:调整尺寸。

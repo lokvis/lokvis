@@ -18,15 +18,20 @@ import { McpServerAdapter } from './mcp-server-adapter.js';
 import { NodeAssetStore } from './node-asset-store.js';
 import { getImageToolRegistrations } from './tools/image.js';
 import { getPdfToolRegistrations } from './tools/pdf.js';
+import { getVideoToolRegistrations } from './tools/video.js';
+import { getAudioToolRegistrations } from './tools/audio.js';
 import { BrowserBridge } from './browser-bridge.js';
 import { ToolRouter } from './router.js';
 import type { ToolHandler } from './router.js';
 
 /**
  * 能力域(决定注册哪些 tools)。
- * 当前 'image'(5 个 tool:resize/compress/convert/crop/watermark)与
- * 'pdf'(2 个 tool:merge/compress)已实装,均经 runtime.run 走完整 capability 系统;
- * 'video'/'audio'/'ai' 为占位(待对应 engine 实装后补 tool handler)。
+ * 当前 'image'(5 个 tool:resize/compress/convert/crop/watermark)、
+ * 'pdf'(5 个 tool:merge/compress/split/rotate/watermark)已实装,
+ * 均经 runtime.run 走完整 capability 系统;
+ * 'video'(7 个 tool)/'audio'(4 个 tool)已注册 handler,但 engine 为 stub
+ * (runtime.run 会返回 "capability not found",待 engine 实装后即可工作);
+ * 'ai' 为占位(待对应 engine 实装后补 tool handler)。
  */
 export type LokvisMcpDomain = 'image' | 'pdf' | 'video' | 'audio' | 'ai';
 
@@ -239,7 +244,20 @@ export async function createLokvisMcpServer(
   const pdfRegistrations = domains.includes('pdf')
     ? getPdfToolRegistrations(runtime)
     : [];
-  const allRegistrations = [...imageRegistrations, ...pdfRegistrations];
+  // video/audio engine 尚未实装(stub),tools 注册后 runtime.run 会返回
+  // "capability not found" 错误。tool handler 结构正确,待 engine 实装后即可工作。
+  const videoRegistrations = domains.includes('video')
+    ? getVideoToolRegistrations(runtime)
+    : [];
+  const audioRegistrations = domains.includes('audio')
+    ? getAudioToolRegistrations(runtime)
+    : [];
+  const allRegistrations = [
+    ...imageRegistrations,
+    ...pdfRegistrations,
+    ...videoRegistrations,
+    ...audioRegistrations,
+  ];
 
   // 构造 toolHandlers Map:tool name → handler(Node 降级路径直接调用)
   // tool.handler 类型为 (params) => Promise<McpToolResult>,可赋值给 ToolHandler

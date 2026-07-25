@@ -87,3 +87,24 @@ export function buildMergeWorkflow(
 ): Workflow {
   return buildCapabilityWorkflow(capability, params, category, assetType, true);
 }
+
+/**
+ * 构造 split(1→N)Workflow。
+ *
+ * 与 buildSingleTransformWorkflow 结构相同(inputs.multiple=false,单个输入);
+ * 区别在于 capability 执行后产出多个 output asset(runtime 通过
+ * result.outputs 数组返回 N 个 asset ID)。
+ *
+ * @param capability 能力名,如 `pdf.split`
+ * @param params 能力参数
+ * @param category 工作流分类
+ * @param assetType 输入输出 Asset 类型
+ */
+export function buildSplitWorkflow(
+  capability: string,
+  params: Record<string, unknown>,
+  category: WorkflowCategory,
+  assetType: AssetType
+): Workflow {
+  return buildCapabilityWorkflow(capability, params, category, assetType, false);
+}

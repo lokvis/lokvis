@@ -37,7 +37,6 @@ import {
 } from '@lokvis/plugin-sdk';
 import {
   transformersEngine,
-  cloudProxyEngine,
   removeBackground as removeBackgroundOp,
   generateWorkflow as generateWorkflowStub,
   optimizeWorkflow as optimizeWorkflowStub,
@@ -68,8 +67,7 @@ export type SingleAiOperation = (
 
 // ─── 引擎 stub 标识(AGENTS.md 约定:version.includes('stub')) ──
 const transformersIsStub = transformersEngine.version.includes('stub');
-// cloud-proxy:version 非 stub,但无 caller 注入时仍走 stub 路径
-const cloudProxyIsStubWithoutCaller = cloudProxyEngine.version.includes('stub');
+// cloud-proxy:version 为 '0.1.0'(非 stub),stub 判定纯由 caller 注入决定(见 buildAiCapabilityImplementations)
 
 // ─── Blob 操作:ocr / caption / background-remove ──────────
 // ocr / caption 的引擎返回结构化对象,桥接层提取 text 封装为 text/plain Blob。
@@ -214,7 +212,7 @@ export function buildAiCapabilityImplementations(
   ctx: PluginContext,
   cloudCaller?: AiCloudCaller
 ): CapabilityImplementation[] {
-  const cloudProxyIsStub = cloudProxyIsStubWithoutCaller || !cloudCaller;
+  const cloudProxyIsStub = !cloudCaller;
 
   // cloud-proxy 操作:有 caller 用真实实装,无 caller 用 stub
   const generateWorkflowOp = cloudCaller

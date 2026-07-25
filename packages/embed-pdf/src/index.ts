@@ -60,3 +60,33 @@ export {
 
 // ─── Internal utilities (public for advanced consumers) ──
 export { getPdfFileInfo, downloadBlob, formatBytes, type PdfFileInfo } from './internal/download';
+
+// ─── i18n ────────────────────────────────────────────────
+export {
+  EmbedPdfI18nProvider,
+  usePdfI18nContext,
+  type EmbedPdfTranslations,
+  type PdfI18nContextValue,
+} from './i18n/EmbedPdfI18nProvider';
+export type { Language } from './i18n/config';
+export { t, useTranslations, getLangFromUrl, localizePath, switchLangPath } from './i18n/utils';
+export { useLang } from './i18n/useLang';
+
+// ─── Theme ───────────────────────────────────────────────
+export {
+  themeToCssVars,
+  useEmbedPdfMode,
+  THEME_KEY_TO_VAR,
+  type EmbedPdfTheme,
+  type EmbedPdfMode,
+} from './theme';
+
+// ─── ErrorBoundary ───────────────────────────────────────
+export { ErrorBoundary } from './ErrorBoundary';
+
+// ─── Layer 2: Default UI ─────────────────────────────────
+export { default as EmbedPdfCompress } from './EmbedPdfCompress';
+export { default as EmbedPdfMerge } from './EmbedPdfMerge';
+export { default as EmbedPdfSplit } from './EmbedPdfSplit';
+export { default as EmbedPdfRotate } from './EmbedPdfRotate';
+export { default as EmbedPdfWatermark } from './EmbedPdfWatermark';

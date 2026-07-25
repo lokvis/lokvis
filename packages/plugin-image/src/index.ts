@@ -30,3 +30,9 @@ export {
   TOP_5_OPERATIONS,
   type BlobOperation,
 } from './engine-prefetch.js';
+// WASM 编码器配置桥接（同 engine-prefetch 架构约束：UI → Capability → Engine）
+export {
+  configureWasmEncoders,
+  wasmEncodersEnabled,
+  type WasmEncoderConfig,
+} from '@lokvis/engine-image';

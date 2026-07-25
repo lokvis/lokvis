@@ -1,12 +1,17 @@
 /**
  * Image tools:MCP tool handlers for image processing.
  *
- * 5 个 tool 经 runtime capability 系统调用(TD-1.1 长期方案):
+ * 10 个 tool 经 runtime capability 系统调用(TD-1.1 长期方案):
  * - lokvis_image_resize: 调整尺寸(image.resize)
  * - lokvis_image_compress: 压缩(image.compress)
  * - lokvis_image_convert: 格式转换(image.convert)
  * - lokvis_image_crop: 裁剪(image.crop)
  * - lokvis_image_watermark: 水印(image.watermark)
+ * - lokvis_image_rotate: 旋转(image.rotate)
+ * - lokvis_image_flip: 翻转(image.flip)
+ * - lokvis_image_background: 背景填充(image.background)
+ * - lokvis_image_filter: 滤镜(image.filter)
+ * - lokvis_image_favicon: ICO favicon 生成(image.favicon)
  *
  * 架构定位:mcp-server 通过 `runtime.run(workflow, inputs)` 走完整 capability
  * 系统(CapabilityRegistry.resolve → createBlobCapabilityImpl → engine operation),
@@ -37,6 +42,11 @@ import {
   convertSchema,
   cropSchema,
   watermarkSchema,
+  rotateSchema,
+  flipSchema,
+  backgroundSchema,
+  filterSchema,
+  faviconSchema,
   validateParams,
 } from './schemas.js';
 
@@ -507,6 +517,295 @@ export async function imageWatermark(
 }
 
 /**
+ * lokvis_image_rotate:旋转图片。
+ *
+ * 参数:
+ * - input_path: 输入图片路径(必填)
+ * - angle: 旋转角度(必填,度数,支持任意角度)
+ * - background: 空白区域填充色(可选,默认 '#ffffff')
+ * - output_path: 输出路径(可选,默认输入路径加 _rotated 后缀)
+ */
+export async function imageRotate(
+  params: {
+    input_path: string;
+    angle: number;
+    background?: string;
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
+  const inputPath = resolve(params.input_path);
+  const { angle } = params;
+  const outputPath = params.output_path
+    ? resolve(params.output_path)
+    : makeOutputPath(inputPath, 'rotated', 'png');
+
+  try {
+    const { outBlob, outMeta } = await runImageTransform(
+      runtime,
+      inputPath,
+      'image.rotate',
+      { angle, background: params.background ?? '#ffffff' }
+    );
+    await blobToFile(outBlob, outputPath);
+
+    const originalSize = await getFileSize(inputPath);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: [
+            `Image rotated successfully.`,
+            `  Input: ${inputPath} (${formatSize(originalSize)})`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
+            `  Angle: ${angle}°`,
+            `  Dimensions: ${formatDimensions(outMeta)}`,
+          ].join('\n'),
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [
+        { type: 'text', text: `Failed to rotate image: ${err}` },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
+ * lokvis_image_flip:翻转图片。
+ *
+ * 参数:
+ * - input_path: 输入图片路径(必填)
+ * - axis: 翻转轴 'horizontal'|'vertical'|'both'(必填)
+ * - output_path: 输出路径(可选,默认输入路径加 _flipped 后缀)
+ */
+export async function imageFlip(
+  params: {
+    input_path: string;
+    axis: 'horizontal' | 'vertical' | 'both';
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
+  const inputPath = resolve(params.input_path);
+  const { axis } = params;
+  const outputPath = params.output_path
+    ? resolve(params.output_path)
+    : makeOutputPath(inputPath, 'flipped', 'png');
+
+  try {
+    const { outBlob, outMeta } = await runImageTransform(
+      runtime,
+      inputPath,
+      'image.flip',
+      { axis }
+    );
+    await blobToFile(outBlob, outputPath);
+
+    const originalSize = await getFileSize(inputPath);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: [
+            `Image flipped successfully.`,
+            `  Input: ${inputPath} (${formatSize(originalSize)})`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
+            `  Axis: ${axis}`,
+            `  Dimensions: ${formatDimensions(outMeta)}`,
+          ].join('\n'),
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [
+        { type: 'text', text: `Failed to flip image: ${err}` },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
+ * lokvis_image_background:替换透明背景为指定颜色。
+ *
+ * 参数:
+ * - input_path: 输入图片路径(必填)
+ * - color: 背景色 CSS 颜色值(必填,如 '#ffffff'、'rgb(255,0,0)')
+ * - output_path: 输出路径(可选,默认输入路径加 _bg 后缀)
+ */
+export async function imageBackground(
+  params: {
+    input_path: string;
+    color: string;
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
+  const inputPath = resolve(params.input_path);
+  const { color } = params;
+  const outputPath = params.output_path
+    ? resolve(params.output_path)
+    : makeOutputPath(inputPath, 'bg', 'png');
+
+  try {
+    const { outBlob, outMeta } = await runImageTransform(
+      runtime,
+      inputPath,
+      'image.background',
+      { color }
+    );
+    await blobToFile(outBlob, outputPath);
+
+    const originalSize = await getFileSize(inputPath);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: [
+            `Background applied successfully.`,
+            `  Input: ${inputPath} (${formatSize(originalSize)})`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
+            `  Background: ${color}`,
+            `  Dimensions: ${formatDimensions(outMeta)}`,
+          ].join('\n'),
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [
+        { type: 'text', text: `Failed to apply background: ${err}` },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
+ * lokvis_image_filter:应用预设滤镜。
+ *
+ * 参数:
+ * - input_path: 输入图片路径(必填)
+ * - preset: 滤镜预设 'grayscale'|'invert'|'sepia'|'blur'(必填)
+ * - radius: 模糊半径(可选,仅 blur 预设生效,默认 4)
+ * - output_path: 输出路径(可选,默认输入路径加 _filtered 后缀)
+ */
+export async function imageFilter(
+  params: {
+    input_path: string;
+    preset: 'grayscale' | 'invert' | 'sepia' | 'blur';
+    radius?: number;
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
+  const inputPath = resolve(params.input_path);
+  const { preset, radius } = params;
+  const outputPath = params.output_path
+    ? resolve(params.output_path)
+    : makeOutputPath(inputPath, 'filtered', 'png');
+
+  try {
+    const { outBlob, outMeta } = await runImageTransform(
+      runtime,
+      inputPath,
+      'image.filter',
+      { preset, radius }
+    );
+    await blobToFile(outBlob, outputPath);
+
+    const originalSize = await getFileSize(inputPath);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: [
+            `Filter applied successfully.`,
+            `  Input: ${inputPath} (${formatSize(originalSize)})`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
+            `  Filter: ${preset}${preset === 'blur' ? ` (radius: ${radius ?? 4})` : ''}`,
+            `  Dimensions: ${formatDimensions(outMeta)}`,
+          ].join('\n'),
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [
+        { type: 'text', text: `Failed to apply filter: ${err}` },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
+ * lokvis_image_favicon:从图片生成多尺寸 ICO favicon。
+ *
+ * 参数:
+ * - input_path: 输入图片路径(必填)
+ * - sizes: 目标尺寸数组(可选,默认 [16, 32, 48, 256])
+ * - output_path: 输出路径(可选,默认输入路径加 .ico 后缀)
+ */
+export async function imageFavicon(
+  params: {
+    input_path: string;
+    sizes?: number[];
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
+  const inputPath = resolve(params.input_path);
+  const sizes = params.sizes ?? [16, 32, 48, 256];
+  const outputPath = params.output_path
+    ? resolve(params.output_path)
+    : makeOutputPath(inputPath, 'favicon', 'ico', 'ico');
+
+  try {
+    const { outBlob } = await runImageTransform(
+      runtime,
+      inputPath,
+      'image.favicon',
+      { sizes }
+    );
+    await blobToFile(outBlob, outputPath);
+
+    const originalSize = await getFileSize(inputPath);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: [
+            `Favicon generated successfully.`,
+            `  Input: ${inputPath} (${formatSize(originalSize)})`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
+            `  Sizes: ${sizes.join(', ')}px`,
+            `  Format: ICO (PNG-in-ICO)`,
+          ].join('\n'),
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [
+        { type: 'text', text: `Failed to generate favicon: ${err}` },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
  * 注册 image tools 到 MCP server adapter。
  *
  * Tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/\./g, '_')}`
@@ -515,6 +814,11 @@ export async function imageWatermark(
  * - image.convert → lokvis_image_convert
  * - image.crop → lokvis_image_crop
  * - image.watermark → lokvis_image_watermark
+ * - image.rotate → lokvis_image_rotate
+ * - image.flip → lokvis_image_flip
+ * - image.background → lokvis_image_background
+ * - image.filter → lokvis_image_filter
+ * - image.favicon → lokvis_image_favicon
  *
  * @param runtime Lokvis Runtime(已安装 imageToolsPluginNode,注册 image capabilities)
  */
@@ -721,6 +1025,163 @@ export function getImageToolRegistrations(runtime: LokvisRuntime): Array<{
         const r = validateParams(watermarkSchema, p);
         if (!r.success) return r.error;
         return imageWatermark(r.data, runtime);
+      },
+    },
+    {
+      name: 'lokvis_image_rotate',
+      description:
+        'Rotate an image by a specified angle (degrees). ' +
+        'Supports arbitrary angles; empty areas are filled with a background color.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          input_path: {
+            type: 'string',
+            description: 'Path to the input image file',
+          },
+          angle: {
+            type: 'number',
+            description: 'Rotation angle in degrees (e.g. 90, 180, 270, or any value)',
+          },
+          background: {
+            type: 'string',
+            description: 'Background color for empty areas (default: #ffffff)',
+          },
+          output_path: {
+            type: 'string',
+            description: 'Path for the output file (optional, defaults to input_rotated.<ext>)',
+          },
+        },
+        required: ['input_path', 'angle'],
+      },
+      handler: async (p) => {
+        const r = validateParams(rotateSchema, p);
+        if (!r.success) return r.error;
+        return imageRotate(r.data, runtime);
+      },
+    },
+    {
+      name: 'lokvis_image_flip',
+      description:
+        'Flip (mirror) an image along a specified axis. ' +
+        'Supports horizontal, vertical, or both axes.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          input_path: {
+            type: 'string',
+            description: 'Path to the input image file',
+          },
+          axis: {
+            type: 'string',
+            enum: ['horizontal', 'vertical', 'both'],
+            description: 'Flip axis: horizontal (left-right), vertical (top-bottom), or both',
+          },
+          output_path: {
+            type: 'string',
+            description: 'Path for the output file (optional, defaults to input_flipped.<ext>)',
+          },
+        },
+        required: ['input_path', 'axis'],
+      },
+      handler: async (p) => {
+        const r = validateParams(flipSchema, p);
+        if (!r.success) return r.error;
+        return imageFlip(r.data, runtime);
+      },
+    },
+    {
+      name: 'lokvis_image_background',
+      description:
+        'Replace transparent areas of an image with a solid background color. ' +
+        'Useful for converting PNG with transparency to JPEG-ready flat images.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          input_path: {
+            type: 'string',
+            description: 'Path to the input image file',
+          },
+          color: {
+            type: 'string',
+            description: 'Background color (CSS color string, e.g. #ffffff, rgb(255,0,0))',
+          },
+          output_path: {
+            type: 'string',
+            description: 'Path for the output file (optional, defaults to input_bg.<ext>)',
+          },
+        },
+        required: ['input_path', 'color'],
+      },
+      handler: async (p) => {
+        const r = validateParams(backgroundSchema, p);
+        if (!r.success) return r.error;
+        return imageBackground(r.data, runtime);
+      },
+    },
+    {
+      name: 'lokvis_image_filter',
+      description:
+        'Apply a preset filter to an image. ' +
+        'Supported filters: grayscale, invert, sepia, blur.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          input_path: {
+            type: 'string',
+            description: 'Path to the input image file',
+          },
+          preset: {
+            type: 'string',
+            enum: ['grayscale', 'invert', 'sepia', 'blur'],
+            description: 'Filter preset to apply',
+          },
+          radius: {
+            type: 'number',
+            description: 'Blur radius in pixels (only for blur preset, default: 4)',
+          },
+          output_path: {
+            type: 'string',
+            description: 'Path for the output file (optional, defaults to input_filtered.<ext>)',
+          },
+        },
+        required: ['input_path', 'preset'],
+      },
+      handler: async (p) => {
+        const r = validateParams(filterSchema, p);
+        if (!r.success) return r.error;
+        return imageFilter(r.data, runtime);
+      },
+    },
+    {
+      name: 'lokvis_image_favicon',
+      description:
+        'Generate a multi-size ICO favicon from an image. ' +
+        'Non-square inputs are center-cropped to square. ' +
+        'Output contains PNG-in-ICO entries for each specified size.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          input_path: {
+            type: 'string',
+            description: 'Path to the input image file',
+          },
+          sizes: {
+            type: 'array',
+            items: { type: 'number' },
+            description: 'Target sizes in pixels (default: [16, 32, 48, 256])',
+          },
+          output_path: {
+            type: 'string',
+            description: 'Path for the output .ico file (optional, defaults to input_favicon.ico)',
+          },
+        },
+        required: ['input_path'],
+      },
+      handler: async (p) => {
+        const r = validateParams(faviconSchema, p);
+        if (!r.success) return r.error;
+        return imageFavicon(r.data, runtime);
       },
     },
   ];

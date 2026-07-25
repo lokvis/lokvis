@@ -226,7 +226,7 @@ export async function trimVideo(
  * 使用 ffmpeg concat demuxer(要求输入格式/编解码一致)。
  *
  * @param blobs 输入视频 Blob 数组(至少 2 个)
- * @param params 合并参数(format / transition)
+ * @param params 合并参数(format)
  */
 export async function mergeVideos(
   blobs: Blob[],
@@ -239,11 +239,6 @@ export async function mergeVideos(
   const format = p.format ?? 'mp4';
   if (format === 'gif') {
     throw new Error('mergeVideos: GIF merge not supported, use toGif after merge');
-  }
-  if (p.transition && p.transition !== 'none') {
-    throw new Error(
-      `mergeVideos: transition "${p.transition}" not yet implemented (Phase 3+)`
-    );
   }
   // concat demuxer 需要 list 文件,只能用临时文件模式
   // 注:此处简化处理,要求所有输入为相同格式

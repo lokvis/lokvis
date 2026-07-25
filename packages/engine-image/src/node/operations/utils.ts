@@ -91,9 +91,37 @@ export function computeTargetSize(
     : { width: w, height: Math.round(w / srcRatio) };
 }
 
-/** 把 ImageOutputFormat 转 sharp format 名(目前 1:1,留作未来扩展) */
-export function toSharpFormat(format: ImageOutputFormat): string {
+/**
+ * 把 ImageOutputFormat 转 sharp format 名(目前 1:1,留作未来扩展)。
+ *
+ * 返回 ImageOutputFormat 而非 string:ImageOutputFormat 是 sharp
+ * keyof FormatEnum 的子集,调用方可直接传给 .toFormat() 无需类型断言。
+ */
+export function toSharpFormat(format: ImageOutputFormat): ImageOutputFormat {
   return format;
+}
+
+/** 从 Blob 读取 Buffer,供 sharp 处理 */
+export async function blobToBuffer(blob: Blob): Promise<Buffer> {
+  const arrayBuffer = await blob.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+/**
+ * 从 sharp pipeline 输出 Blob。
+ *
+ * format 类型为 ImageOutputFormat(⊂ sharp keyof FormatEnum),
+ * 可直接传给 .toFormat() 无需类型断言。
+ */
+export async function sharpToBlob(
+  pipeline: import('sharp').Sharp,
+  format: ImageOutputFormat,
+  quality: number
+): Promise<Blob> {
+  const buffer = await pipeline.toFormat(format, { quality }).toBuffer();
+  return new Blob([bufferToBlobPart(buffer)], {
+    type: `image/${format === 'jpeg' ? 'jpeg' : format}`,
+  });
 }
 
 /**

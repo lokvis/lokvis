@@ -68,7 +68,11 @@ export function aiToolsPlugin(options?: { cloudCaller?: AiCloudCaller }) {
       // engine 字段为单一标识,这里填主引擎名;各 capability 实现的 engine
       // 在 operations.ts 中按 entry.engine 精确指定。
       engine: 'transformers-js',
-      permissions: ['asset:read', 'asset:write', 'network:none'],
+      // 有 cloudCaller 时 cloud-proxy 能力发起网络调用,需 network:limited;
+      // 无 caller 时全部走 stub/本地,不触网。
+      permissions: cloudCaller
+        ? ['asset:read', 'asset:write', 'network:limited']
+        : ['asset:read', 'asset:write', 'network:none'],
     },
     (ctx) => {
       const impls = buildAiCapabilityImplementations(ctx, cloudCaller);

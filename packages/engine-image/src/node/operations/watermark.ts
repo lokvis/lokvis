@@ -17,30 +17,13 @@
  */
 import type { WatermarkParams, WatermarkPosition } from '../../types.js';
 import {
-  bufferToBlobPart,
+  blobToBuffer,
   inferFormat,
   isSafeImageUrl,
+  sharpToBlob,
   throwIfAborted,
   toSharpFormat,
 } from './utils.js';
-
-async function blobToBuffer(blob: Blob): Promise<Buffer> {
-  const arrayBuffer = await blob.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
-
-async function sharpToBlob(
-  pipeline: import('sharp').Sharp,
-  format: string,
-  quality: number
-): Promise<Blob> {
-  const buffer = await pipeline
-    .toFormat(format as keyof import('sharp').FormatEnum, { quality })
-    .toBuffer();
-  return new Blob([bufferToBlobPart(buffer)], {
-    type: `image/${format === 'jpeg' ? 'jpeg' : format}`,
-  });
-}
 
 /** 计算水印位置(与浏览器版 computeWatermarkPosition 一致,margin=16) */
 function computeWatermarkPosition(
@@ -186,18 +169,19 @@ export async function watermark(
     const overlayBuffer = await blobToBuffer(wmBlob);
 
     if (wmPosition === 'tile') {
-      // tile 模式:简化为单位置 composite(tile 完整实现留待后续)
+      // tile 模式:与浏览器版对齐,spacing = max(wmW, wmH),网格铺满
       const wmMeta = await sharp(overlayBuffer).metadata();
-      const pos = computeWatermarkPosition(
-        wmPosition,
-        width,
-        height,
-        wmMeta.width ?? 0,
-        wmMeta.height ?? 0
-      );
-      const pipeline = sharp(srcBuffer).composite([
-        { input: overlayBuffer, left: pos.x, top: pos.y, blend },
-      ]);
+      const wmW = wmMeta.width ?? 0;
+      const wmH = wmMeta.height ?? 0;
+      const spacing = Math.max(wmW, wmH);
+      const overlays: Array<{ input: Buffer; left: number; top: number; blend: typeof blend }> = [];
+      for (let y = 0; y < height + wmH; y += wmH + spacing) {
+        throwIfAborted(signal);
+        for (let x = 0; x < width + wmW; x += wmW + spacing) {
+          overlays.push({ input: overlayBuffer, left: x, top: y, blend });
+        }
+      }
+      const pipeline = sharp(srcBuffer).composite(overlays);
       throwIfAborted(signal);
       const format = inferFormat(blob, 'png');
       return sharpToBlob(pipeline, toSharpFormat(format), 95);

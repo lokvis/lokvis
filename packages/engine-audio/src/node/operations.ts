@@ -164,7 +164,7 @@ export async function trimAudio(
  * 使用 ffmpeg concat demuxer(要求输入格式/编解码一致)。
  *
  * @param blobs 输入音频 Blob 数组(至少 2 个)
- * @param params 合并参数(format / transition)
+ * @param params 合并参数(format)
  */
 export async function mergeAudios(
   blobs: Blob[],
@@ -175,11 +175,6 @@ export async function mergeAudios(
   }
   const p = params as AudioMergeParams;
   const format: AudioOutputFormat = p.format ?? 'mp3';
-  if (p.transition && p.transition !== 'none') {
-    throw new Error(
-      `mergeAudios: transition "${p.transition}" not yet implemented (Phase 3+)`
-    );
-  }
   // concat demuxer 需要 list 文件,只能用临时文件模式
   const tmpDir = await mkdtemp(join(tmpdir(), 'lokvis-audio-merge-'));
   try {

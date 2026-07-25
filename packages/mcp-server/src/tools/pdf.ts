@@ -21,8 +21,8 @@
  * 输出:处理后的文件路径 + 元数据(页数/大小变化)
  */
 
-import { resolve, basename } from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { resolve, basename, join, dirname } from 'node:path';
+import { readFile, mkdir } from 'node:fs/promises';
 import type { LokvisRuntime } from '@lokvis/sdk';
 import type { McpToolResult } from '../server.js';
 import {
@@ -34,10 +34,14 @@ import {
 import {
   buildSingleTransformWorkflow,
   buildMergeWorkflow,
+  buildSplitWorkflow,
 } from './workflow-helpers.js';
 import {
   pdfMergeSchema,
   pdfCompressSchema,
+  pdfSplitSchema,
+  pdfRotateSchema,
+  pdfWatermarkSchema,
   validateParams,
 } from './schemas.js';
 
@@ -250,11 +254,270 @@ export async function pdfCompress(
 }
 
 /**
+ * Split 专用 transform 流程:与 runPdfTransform 类似,但导出 ALL outputs(1→N)。
+ *
+ * pdf.split capability 执行后 result.outputs 包含 N 个 asset ID,
+ * 每个对应一个拆分后的 PDF 文件。
+ */
+async function runPdfSplitTransform(
+  runtime: LokvisRuntime,
+  inputPath: string,
+  params: Record<string, unknown>
+): Promise<{ outBlobs: Blob[]; pages: (number | null)[] }> {
+  const buffer = await readFile(inputPath);
+  const file = new File([buffer], basename(inputPath), { type: PDF_MIME });
+  const inputAssetId = await runtime.importAsset({ kind: 'file', file });
+
+  try {
+    const workflow = buildSplitWorkflow('pdf.split', params, 'pdf', 'pdf');
+    const result = await runtime.run(workflow, [inputAssetId]);
+    if (result.status !== 'completed' || result.outputs.length === 0) {
+      throw new Error(
+        `Workflow pdf.split failed: status=${result.status}` +
+          (result.error ? ` error=${result.error}` : '')
+      );
+    }
+
+    const outBlobs: Blob[] = [];
+    const pages: (number | null)[] = [];
+    for (const outAssetId of result.outputs) {
+      const outBlob = await runtime.exportAsset(outAssetId);
+      outBlobs.push(outBlob);
+      const info = await runtime.readAssetPdfInfo(outAssetId);
+      pages.push(info?.pages ?? null);
+      await runtime.removeAsset(outAssetId).catch((e) => {
+        console.warn('[mcp-server] cleanup output asset failed:', e);
+      });
+    }
+
+    return { outBlobs, pages };
+  } finally {
+    await runtime.removeAsset(inputAssetId).catch((e) => {
+      console.warn('[mcp-server] cleanup input asset failed:', e);
+    });
+  }
+}
+
+/**
+ * lokvis_pdf_split:拆分 PDF 为多个文件。
+ *
+ * 参数:
+ * - input_path: 输入 PDF 路径(必填)
+ * - pages_per_file: 每个文件的页数(可选,与 ranges 二选一)
+ * - ranges: 页码范围数组(可选,如 [[1,3],[4,6]])
+ * - output_dir: 输出目录(可选,默认输入文件所在目录)
+ */
+export async function pdfSplit(
+  params: {
+    input_path: string;
+    pages_per_file?: number;
+    ranges?: Array<[number, number]>;
+    output_dir?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
+  const inputPath = resolve(params.input_path);
+  const outputDir = params.output_dir
+    ? resolve(params.output_dir)
+    : dirname(inputPath);
+
+  if (!params.pages_per_file && !params.ranges) {
+    return {
+      content: [
+        { type: 'text', text: 'Error: either pages_per_file or ranges must be specified' },
+      ],
+      isError: true,
+    };
+  }
+
+  try {
+    const originalSize = await getFileSize(inputPath);
+    await mkdir(outputDir, { recursive: true });
+
+    const transformParams: Record<string, unknown> = {};
+    if (params.pages_per_file) transformParams.pages_per_file = params.pages_per_file;
+    if (params.ranges) transformParams.ranges = params.ranges;
+
+    const { outBlobs, pages } = await runPdfSplitTransform(
+      runtime,
+      inputPath,
+      transformParams
+    );
+
+    const baseName = basename(inputPath, '.pdf');
+    const outputPaths: string[] = [];
+    for (let i = 0; i < outBlobs.length; i++) {
+      const outPath = join(outputDir, `${baseName}_part${i + 1}.pdf`);
+      await blobToFile(outBlobs[i]!, outPath);
+      outputPaths.push(outPath);
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: [
+            `PDF split successfully into ${outBlobs.length} files.`,
+            `  Input: ${inputPath} (${formatSize(originalSize)})`,
+            `  Output directory: ${outputDir}`,
+            ...outputPaths.map((p, i) => `    - ${p} (${pages[i] ?? '?'} pages)`),
+          ].join('\n'),
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [
+        { type: 'text', text: `Failed to split PDF: ${err}` },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
+ * lokvis_pdf_rotate:旋转 PDF 页面。
+ *
+ * 参数:
+ * - input_path: 输入 PDF 路径(必填)
+ * - angle: 旋转角度 90/180/270(必填)
+ * - pages: 要旋转的页索引数组(可选,默认全部页面)
+ * - output_path: 输出路径(可选)
+ */
+export async function pdfRotate(
+  params: {
+    input_path: string;
+    angle: '90' | '180' | '270';
+    pages?: number[];
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
+  const inputPath = resolve(params.input_path);
+  const outputPath = params.output_path
+    ? resolve(params.output_path)
+    : makeOutputPath(inputPath, 'rotated', 'pdf');
+
+  try {
+    const originalSize = await getFileSize(inputPath);
+
+    const transformParams: Record<string, unknown> = {
+      angle: Number(params.angle),
+    };
+    if (params.pages) transformParams.pages = params.pages;
+
+    const { outBlob, pages } = await runPdfTransform(
+      runtime,
+      [inputPath],
+      'pdf.rotate',
+      transformParams,
+      { merge: false }
+    );
+    await blobToFile(outBlob, outputPath);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: [
+            `PDF rotated successfully.`,
+            `  Input: ${inputPath} (${formatSize(originalSize)})`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
+            `  Angle: ${params.angle}°`,
+            `  Pages: ${pages ?? 'unknown'}`,
+          ].join('\n'),
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [
+        { type: 'text', text: `Failed to rotate PDF: ${err}` },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
+ * lokvis_pdf_watermark:为 PDF 添加文字水印。
+ *
+ * 参数:
+ * - input_path: 输入 PDF 路径(必填)
+ * - text: 水印文字(必填)
+ * - opacity: 透明度 0-1(可选,默认 0.3)
+ * - font_size: 字体大小(可选,默认 36)
+ * - color: 颜色(可选,默认 '#888888')
+ * - output_path: 输出路径(可选)
+ */
+export async function pdfWatermark(
+  params: {
+    input_path: string;
+    text: string;
+    opacity?: number;
+    font_size?: number;
+    color?: string;
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
+  const inputPath = resolve(params.input_path);
+  const outputPath = params.output_path
+    ? resolve(params.output_path)
+    : makeOutputPath(inputPath, 'watermarked', 'pdf');
+
+  try {
+    const originalSize = await getFileSize(inputPath);
+
+    const transformParams: Record<string, unknown> = {
+      text: params.text,
+    };
+    if (params.opacity !== undefined) transformParams.opacity = params.opacity;
+    if (params.font_size !== undefined) transformParams.font_size = params.font_size;
+    if (params.color !== undefined) transformParams.color = params.color;
+
+    const { outBlob, pages } = await runPdfTransform(
+      runtime,
+      [inputPath],
+      'pdf.watermark',
+      transformParams,
+      { merge: false }
+    );
+    await blobToFile(outBlob, outputPath);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: [
+            `PDF watermarked successfully.`,
+            `  Input: ${inputPath} (${formatSize(originalSize)})`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
+            `  Text: "${params.text}"`,
+            `  Pages: ${pages ?? 'unknown'}`,
+          ].join('\n'),
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [
+        { type: 'text', text: `Failed to watermark PDF: ${err}` },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
  * 注册 PDF tools 到 MCP server adapter。
  *
  * Tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/\./g, '_')}`
  * - pdf.merge → lokvis_pdf_merge
  * - pdf.compress → lokvis_pdf_compress
+ * - pdf.split → lokvis_pdf_split
+ * - pdf.rotate → lokvis_pdf_rotate
+ * - pdf.watermark → lokvis_pdf_watermark
  *
  * @param runtime Lokvis Runtime(已安装 pdfToolsPluginNode,注册 pdf capabilities)
  */
@@ -320,6 +583,123 @@ export function getPdfToolRegistrations(runtime: LokvisRuntime): Array<{
         const r = validateParams(pdfCompressSchema, p);
         if (!r.success) return r.error;
         return pdfCompress(r.data, runtime);
+      },
+    },
+    {
+      name: 'lokvis_pdf_split',
+      description:
+        'Split a PDF into multiple files. ' +
+        'Specify pages_per_file for equal splits or ranges for custom page ranges.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          input_path: {
+            type: 'string',
+            description: 'Path to the input PDF file',
+          },
+          pages_per_file: {
+            type: 'number',
+            description: 'Number of pages per output file (mutually exclusive with ranges)',
+          },
+          ranges: {
+            type: 'array',
+            items: {
+              type: 'array',
+              items: { type: 'number' },
+              minItems: 2,
+              maxItems: 2,
+            },
+            description: 'Page ranges as [start, end] tuples (1-indexed, inclusive)',
+          },
+          output_dir: {
+            type: 'string',
+            description: 'Output directory (optional, defaults to input file directory)',
+          },
+        },
+        required: ['input_path'],
+      },
+      handler: async (p) => {
+        const r = validateParams(pdfSplitSchema, p);
+        if (!r.success) return r.error;
+        return pdfSplit(r.data, runtime);
+      },
+    },
+    {
+      name: 'lokvis_pdf_rotate',
+      description:
+        'Rotate pages in a PDF by 90, 180, or 270 degrees. ' +
+        'Optionally specify which pages to rotate.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          input_path: {
+            type: 'string',
+            description: 'Path to the input PDF file',
+          },
+          angle: {
+            type: 'string',
+            enum: ['90', '180', '270'],
+            description: 'Rotation angle in degrees',
+          },
+          pages: {
+            type: 'array',
+            items: { type: 'number' },
+            description: 'Page indices to rotate (0-indexed; optional, defaults to all pages)',
+          },
+          output_path: {
+            type: 'string',
+            description: 'Path for the output file (optional, defaults to input_rotated.pdf)',
+          },
+        },
+        required: ['input_path', 'angle'],
+      },
+      handler: async (p) => {
+        const r = validateParams(pdfRotateSchema, p);
+        if (!r.success) return r.error;
+        return pdfRotate(r.data, runtime);
+      },
+    },
+    {
+      name: 'lokvis_pdf_watermark',
+      description:
+        'Add a text watermark to all pages of a PDF. ' +
+        'Customize opacity, font size, and color.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          input_path: {
+            type: 'string',
+            description: 'Path to the input PDF file',
+          },
+          text: {
+            type: 'string',
+            description: 'Watermark text to add',
+          },
+          opacity: {
+            type: 'number',
+            minimum: 0,
+            maximum: 1,
+            description: 'Watermark opacity 0-1 (default: 0.3)',
+          },
+          font_size: {
+            type: 'number',
+            description: 'Font size for the watermark text (default: 36)',
+          },
+          color: {
+            type: 'string',
+            description: 'Watermark color as hex string (default: #888888)',
+          },
+          output_path: {
+            type: 'string',
+            description: 'Path for the output file (optional, defaults to input_watermarked.pdf)',
+          },
+        },
+        required: ['input_path', 'text'],
+      },
+      handler: async (p) => {
+        const r = validateParams(pdfWatermarkSchema, p);
+        if (!r.success) return r.error;
+        return pdfWatermark(r.data, runtime);
       },
     },
   ];

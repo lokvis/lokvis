@@ -343,9 +343,9 @@ describe('Image tools', () => {
   });
 
   describe('getImageToolRegistrations', () => {
-    it('应返回 5 个 tool 注册信息', () => {
+    it('应返回 10 个 tool 注册信息', () => {
       const tools = getImageToolRegistrations(runtime);
-      expect(tools).toHaveLength(5);
+      expect(tools).toHaveLength(10);
     });
 
     it('tool 命名应遵循 lokvis_image_<verb> 约定', () => {
@@ -356,6 +356,11 @@ describe('Image tools', () => {
       expect(names).toContain('lokvis_image_convert');
       expect(names).toContain('lokvis_image_crop');
       expect(names).toContain('lokvis_image_watermark');
+      expect(names).toContain('lokvis_image_rotate');
+      expect(names).toContain('lokvis_image_flip');
+      expect(names).toContain('lokvis_image_background');
+      expect(names).toContain('lokvis_image_filter');
+      expect(names).toContain('lokvis_image_favicon');
     });
 
     it('每个 tool 应有 description 和 inputSchema', () => {

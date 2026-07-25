@@ -38,14 +38,9 @@ function detectLang(): Language {
  * @param explicitLocale 显式 locale 覆盖(优先级最高,来自 Layer 2 组件 locale prop)
  */
 export function useLang(explicitLocale?: Language): Language {
-  // 1. 显式 prop 优先
-  if (explicitLocale) return explicitLocale;
-
-  // 2. Provider 注入次之
+  // 所有 hooks 无条件调用(Rules of Hooks),优先级仅在返回值中体现
   const ctx = useQuickI18nContext();
-  if (ctx?.locale) return ctx.locale;
 
-  // 3/4. 自动检测(<html lang> → URL 解析)
   const [lang, setLang] = useState<Language>(() => {
     if (typeof window === 'undefined') return defaultLang;
     return detectLang();
@@ -57,5 +52,8 @@ export function useLang(explicitLocale?: Language): Language {
     return () => window.removeEventListener('popstate', update);
   }, []);
 
+  // 优先级: 显式 prop > Provider > 自动检测(html lang → URL)
+  if (explicitLocale) return explicitLocale;
+  if (ctx?.locale) return ctx.locale;
   return lang;
 }

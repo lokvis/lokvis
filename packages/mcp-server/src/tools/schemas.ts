@@ -91,6 +91,43 @@ export const watermarkSchema = z.object({
   output_path: z.string().optional(),
 });
 
+/** lokvis_image_rotate */
+export const rotateSchema = z.object({
+  input_path: z.string(),
+  angle: z.number(),
+  background: z.string().optional(),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_image_flip */
+export const flipSchema = z.object({
+  input_path: z.string(),
+  axis: z.enum(['horizontal', 'vertical', 'both']),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_image_background */
+export const backgroundSchema = z.object({
+  input_path: z.string(),
+  color: z.string(),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_image_filter */
+export const filterSchema = z.object({
+  input_path: z.string(),
+  preset: z.enum(['grayscale', 'invert', 'sepia', 'blur']),
+  radius: z.number().optional(),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_image_favicon */
+export const faviconSchema = z.object({
+  input_path: z.string(),
+  sizes: z.array(z.number()).optional(),
+  output_path: z.string().optional(),
+});
+
 // ──────────────────────────────────────────────────────────────────────────
 // PDF tool schemas
 // ──────────────────────────────────────────────────────────────────────────
@@ -105,6 +142,118 @@ export const pdfMergeSchema = z.object({
 export const pdfCompressSchema = z.object({
   input_path: z.string(),
   level: z.number().optional(),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_pdf_split */
+export const pdfSplitSchema = z.object({
+  input_path: z.string(),
+  pages_per_file: z.number().optional(),
+  ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
+  output_dir: z.string().optional(),
+});
+
+/** lokvis_pdf_rotate */
+export const pdfRotateSchema = z.object({
+  input_path: z.string(),
+  angle: z.enum(['90', '180', '270']),
+  pages: z.array(z.number()).optional(),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_pdf_watermark */
+export const pdfWatermarkSchema = z.object({
+  input_path: z.string(),
+  text: z.string(),
+  opacity: z.number().optional(),
+  font_size: z.number().optional(),
+  color: z.string().optional(),
+  output_path: z.string().optional(),
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// Video tool schemas
+// ──────────────────────────────────────────────────────────────────────────
+
+/** lokvis_video_compress */
+export const videoCompressSchema = z.object({
+  input_path: z.string(),
+  quality: z.number().optional(),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_video_transcode */
+export const videoTranscodeSchema = z.object({
+  input_path: z.string(),
+  format: z.enum(['mp4', 'webm', 'gif']),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_video_trim */
+export const videoTrimSchema = z.object({
+  input_path: z.string(),
+  start: z.number(),
+  end: z.number(),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_video_merge */
+export const videoMergeSchema = z.object({
+  input_paths: z.array(z.string()),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_video_to_gif */
+export const videoToGifSchema = z.object({
+  input_path: z.string(),
+  fps: z.number().optional(),
+  width: z.number().optional(),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_video_screenshot */
+export const videoScreenshotSchema = z.object({
+  input_path: z.string(),
+  time: z.number().optional(),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_video_extract_audio */
+export const videoExtractAudioSchema = z.object({
+  input_path: z.string(),
+  format: z.enum(['mp3', 'wav', 'aac']).optional(),
+  output_path: z.string().optional(),
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// Audio tool schemas
+// ──────────────────────────────────────────────────────────────────────────
+
+/** lokvis_audio_compress */
+export const audioCompressSchema = z.object({
+  input_path: z.string(),
+  bitrate: z.number().optional(),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_audio_transcode */
+export const audioTranscodeSchema = z.object({
+  input_path: z.string(),
+  format: z.enum(['mp3', 'wav', 'aac', 'ogg', 'flac']),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_audio_trim */
+export const audioTrimSchema = z.object({
+  input_path: z.string(),
+  start: z.number(),
+  end: z.number(),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_audio_merge */
+export const audioMergeSchema = z.object({
+  input_paths: z.array(z.string()),
   output_path: z.string().optional(),
 });
 
