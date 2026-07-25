@@ -1,5 +1,19 @@
 # @lokvis/engine-core
 
+## 0.5.1
+
+### Patch Changes
+
+- 0.5.1: video ffmpeg.wasm 浏览器引擎实装 + 补全缺失实现
+
+  - engine-video/web: 基于 @ffmpeg/ffmpeg 的浏览器端 7 操作(compress/transcode/trim/merge/extract-audio/to-gif/screenshot)
+  - plugin-video/web: 浏览器 plugin 变体(7 capability 全部真实)
+  - embed-video: 默认切换到 videoToolsPluginWeb(ffmpeg.wasm 懒加载)
+  - mcp-server: 装载 video/audio/ai node plugins + AI tool handlers
+  - runtime: OPFS import 实装 + PDF 页数元数据提取
+  - cloud-bridge: billing 降级 credits=planQuota
+  - ui-react: DownloadPanel 批量下载改用 JSZip
+
 ## 0.5.0
 
 ## 0.4.2
