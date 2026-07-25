@@ -8,9 +8,10 @@
  *   2. 原语组装:Layer 1 primitives
  *   3. 纯 hooks:useVideoCompress() 完全自建 UI
  *
- * 当前浏览器引擎为 stub,调用后 error 状态体现"能力不可用"。
- * 引擎实装后(wasm / remote backend)hooks 零改动生效。
- * 三方可通过 plugins 选项注入自定义处理插件(如 remote-processing plugin)。
+ * 浏览器引擎基于 ffmpeg.wasm(单线程版,无需 COOP/COEP):
+ * - 首次操作时懒加载 ~32MB wasm(不影响首屏)
+ * - 可通过 configureFfmpegWasm() 配置自托管 URL 或多线程模式
+ * - 三方可通过 plugins 选项注入自定义处理插件(如 remote-processing plugin)
  *
  * 子路径导出:
  *   - '@lokvis/embed-video'            全量(Layer 0+1+2 + utilities)
@@ -105,3 +106,6 @@ export { ErrorBoundary } from './ErrorBoundary';
 
 // ─── Utilities ───────────────────────────────────────────
 export { getVideoFileInfo, downloadBlob, formatBytes, formatDuration, type VideoFileInfo } from './internal/download';
+
+// ─── Engine Config ───────────────────────────────────────
+export { configureFfmpegWasm, type FfmpegWasmConfig } from '@lokvis/engine-video/web';

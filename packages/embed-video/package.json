@@ -45,6 +45,9 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.0",
+    "@ffmpeg/util": "^0.12.0",
+    "@lokvis/engine-video": "workspace:*",
     "@lokvis/plugin-video": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/sdk": "workspace:*",

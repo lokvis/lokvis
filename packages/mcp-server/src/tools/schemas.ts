@@ -258,6 +258,25 @@ export const audioMergeSchema = z.object({
 });
 
 // ──────────────────────────────────────────────────────────────────────────
+// AI tool schemas
+// ──────────────────────────────────────────────────────────────────────────
+
+/** lokvis_ai_generate_workflow */
+export const aiGenerateWorkflowSchema = z.object({
+  prompt: z.string(),
+});
+
+/** lokvis_ai_optimize_workflow */
+export const aiOptimizeWorkflowSchema = z.object({
+  workflow: z.string(),
+});
+
+/** lokvis_ai_diagnose_error */
+export const aiDiagnoseErrorSchema = z.object({
+  error: z.string(),
+});
+
+// ──────────────────────────────────────────────────────────────────────────
 // 校验辅助
 // ──────────────────────────────────────────────────────────────────────────
 

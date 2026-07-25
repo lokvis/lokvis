@@ -1,14 +1,14 @@
 /**
  * useLokvisRuntime — 共享 hook,初始化 @lokvis/sdk runtime 并注入 Video 插件。
  *
- * 默认插件为 videoToolsPlugin()(浏览器版,当前全 stub)。
- * 当引擎层实装后(wasm / remote backend),hooks 无需修改即可生效。
+ * 默认插件为 videoToolsPluginWeb()(浏览器版,基于 ffmpeg.wasm,7 个真实操作)。
+ * ffmpeg.wasm 懒加载:首次操作时按需拉取 ~32MB wasm,不影响首屏。
  * 三方也可通过 plugins 选项注入自定义处理插件(如 remote-processing plugin)。
  */
 import { useEffect, useRef, useState } from 'react';
 import { createLokvis } from '@lokvis/sdk';
 import type { LokvisAuthSession, LokvisRuntime, PluginLoadEntry } from '@lokvis/sdk';
-import { videoToolsPlugin } from '@lokvis/plugin-video';
+import { videoToolsPluginWeb } from '@lokvis/plugin-video/web';
 
 export interface UseLokvisRuntimeResult {
   runtime: LokvisRuntime | null;
@@ -35,7 +35,7 @@ export function useLokvisRuntime(
     let cancelled = false;
     (async () => {
       try {
-        const resolvedPlugins = pluginsRef.current ?? [videoToolsPlugin()];
+        const resolvedPlugins = pluginsRef.current ?? [videoToolsPluginWeb()];
         rt = await createLokvis({ plugins: resolvedPlugins, auth: authRef.current });
         if (cancelled) {
           void rt.cancel('all');

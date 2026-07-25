@@ -105,7 +105,7 @@ interface RichMetadata {
  * 提取策略:
  * - image: createImageBitmap → width/height
  * - video/audio: HTMLMediaElement + loadedmetadata → duration
- * - pdf: 暂不提取(需 pdf.js,Phase 2 补全)
+ * - pdf: 轻量级结构解析(/Type /Pages /Count N)→ pages
  * - 其余: 返回空
  *
  * 所有提取均 try/catch:失败时返回空对象,不阻断 import。
@@ -127,6 +127,8 @@ async function extractRichMetadata(
       case 'video':
       case 'audio':
         return await extractMediaDuration(blob, type);
+      case 'pdf':
+        return await extractPdfPageCount(blob);
       default:
         return {};
     }
@@ -192,11 +194,37 @@ async function extractMediaDuration(
 const MEDIA_DURATION_TIMEOUT_MS = 5000;
 
 /**
+ * 从 PDF Blob 提取页数(轻量级结构解析,不依赖 pdf-lib)。
+ *
+ * 策略:读取 PDF 文本内容,匹配 /Type /Pages 字典中的 /Count N。
+ * PDF 规范 §7.7.3.3:Pages 字典的 /Count 为所有后代页节点总数。
+ * 对于绝大多数 PDF(单页树根),此值即总页数。
+ *
+ * 降级:解析失败返回 {}(不阻断 import)。
+ */
+async function extractPdfPageCount(blob: Blob): Promise<RichMetadata> {
+  // 只读取前 64KB(Pages 字典通常在文件头部附近;超大 PDF 降级为不提取)
+  const slice = blob.slice(0, 65536);
+  const text = await slice.text();
+  // 匹配 /Type /Pages ... /Count N(允许中间有其他键)
+  const match = text.match(/\/Type\s*\/Pages[^>]*\/Count\s+(\d+)/);
+  if (match && match[1]) {
+    return { pages: parseInt(match[1], 10) };
+  }
+  // 回退:尝试匹配 /Count N 在 /Type /Pages 之前的情况(键序不固定)
+  const matchReverse = text.match(/\/Count\s+(\d+)[^>]*\/Type\s*\/Pages/);
+  if (matchReverse && matchReverse[1]) {
+    return { pages: parseInt(matchReverse[1], 10) };
+  }
+  return {};
+}
+
+/**
  * 从 AssetSource 准备导入数据(共享逻辑,供 Memory/OPFS/IDB store 复用):
  * 提取 blob + MIME、生成 id、推断 type、构造 metadata(含富元数据)。
  * 各 store 只需负责"写入 blob + 存元数据"。
  *
- * W6.4:异步提取 dimensions(image)/ duration(video/audio)/ pages(pdf,暂 stub)。
+ * W6.4:异步提取 dimensions(image)/ duration(video/audio)/ pages(pdf)。
  * 富元数据提取失败时静默降级为 undefined,不阻断 import。
  */
 export async function prepareImport(source: AssetSource): Promise<PreparedImport> {

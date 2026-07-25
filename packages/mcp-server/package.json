@@ -37,8 +37,11 @@
   "dependencies": {
     "@lokvis/capability": "workspace:*",
     "@lokvis/cloud-bridge": "workspace:*",
+    "@lokvis/plugin-ai": "workspace:*",
+    "@lokvis/plugin-audio": "workspace:*",
     "@lokvis/plugin-image": "workspace:*",
     "@lokvis/plugin-pdf": "workspace:*",
+    "@lokvis/plugin-video": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/schema": "workspace:*",
     "@lokvis/sdk": "workspace:*",

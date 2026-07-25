@@ -1,7 +1,7 @@
 {
   "name": "@lokvis/engine-video",
   "version": "0.5.0",
-  "description": "Lokvis Video Engine - ffmpeg-static (Node) / stub (browser)",
+  "description": "Lokvis Video Engine - ffmpeg.wasm (browser) / ffmpeg-static (Node)",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -12,6 +12,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./web": {
+      "types": "./src/web/index.ts",
+      "import": "./src/web/index.ts"
     },
     "./node": {
       "types": "./src/node/index.ts",
@@ -43,9 +47,17 @@
     "typescript": "^5.6.0"
   },
   "peerDependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.0",
+    "@ffmpeg/util": "^0.12.0",
     "ffmpeg-static": "^5.2.0"
   },
   "peerDependenciesMeta": {
+    "@ffmpeg/ffmpeg": {
+      "optional": true
+    },
+    "@ffmpeg/util": {
+      "optional": true
+    },
     "ffmpeg-static": {
       "optional": true
     }
@@ -60,6 +72,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./web": {
+        "types": "./dist/web/index.d.ts",
+        "import": "./dist/web/index.js"
       },
       "./node": {
         "types": "./dist/node/index.d.ts",

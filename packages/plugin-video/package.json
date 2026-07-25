@@ -13,6 +13,10 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     },
+    "./web": {
+      "types": "./src/web-plugin.ts",
+      "import": "./src/web-plugin.ts"
+    },
     "./node": {
       "types": "./src/node-plugin.ts",
       "import": "./src/node-plugin.ts"
@@ -47,9 +51,17 @@
     "vitest": "^2.1.0"
   },
   "peerDependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.0",
+    "@ffmpeg/util": "^0.12.0",
     "ffmpeg-static": "^5.2.0"
   },
   "peerDependenciesMeta": {
+    "@ffmpeg/ffmpeg": {
+      "optional": true
+    },
+    "@ffmpeg/util": {
+      "optional": true
+    },
     "ffmpeg-static": {
       "optional": true
     }
@@ -64,6 +76,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./web": {
+        "types": "./dist/web-plugin.d.ts",
+        "import": "./dist/web-plugin.js"
       },
       "./node": {
         "types": "./dist/node-plugin.d.ts",

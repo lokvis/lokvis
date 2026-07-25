@@ -57,7 +57,7 @@ export class AssetManager {
    *
    * - file/blob 源直接透传给 assetStore.import
    * - url 源在 runtime 层 fetch → blob(含 30s 超时保护),再走 blob 导入
-   * - opfs 源暂不支持(OPFS 路径访问需要 filesystem access permission,未来单独实现)
+   * - opfs 源通过 File System Access API 读取 OPFS 文件 → file 导入(仅浏览器)
    */
   async importAsset(source: AssetSource): Promise<AssetId> {
     // 修复 review 报告：原实现直接透传 source 给 assetStore.import，
@@ -88,10 +88,27 @@ export class AssetManager {
         clearTimeout(timeoutId);
       }
     } else if (source.kind === 'opfs') {
-      throw new Error(
-        "AssetSource kind 'opfs' is not yet supported by importAsset; " +
-          'use the OPFS-aware AssetStore directly or convert to blob first'
-      );
+      // OPFS(Origin Private File System)导入:通过 File System Access API
+      // 读取浏览器 origin 私有文件系统中的文件,转为 blob 源走标准导入。
+      if (typeof navigator === 'undefined' || !navigator.storage?.getDirectory) {
+        throw new Error(
+          "AssetSource kind 'opfs' requires a browser environment with File System Access API support"
+        );
+      }
+      const root = await navigator.storage.getDirectory();
+      const segments = source.path.split('/').filter(Boolean);
+      let dirHandle: FileSystemDirectoryHandle = root;
+      // 逐级导航到目标文件所在目录
+      for (let i = 0; i < segments.length - 1; i++) {
+        dirHandle = await dirHandle.getDirectoryHandle(segments[i]!);
+      }
+      const fileName = segments[segments.length - 1];
+      if (!fileName) {
+        throw new Error(`Invalid OPFS path: '${source.path}' does not point to a file`);
+      }
+      const fileHandle = await dirHandle.getFileHandle(fileName);
+      const file = await fileHandle.getFile();
+      effectiveSource = { kind: 'file', file };
     }
 
     const asset = await this.deps.assetStore.import(effectiveSource);

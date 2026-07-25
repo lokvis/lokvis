@@ -189,21 +189,22 @@ export class CloudBilling {
       return this.cachedEntitlements;
     }
 
-    // 无 API Key 时使用 plan 静态映射（credits 未知，不限制）
+    // 无 API Key 时使用 plan 静态映射（credits 降级为 plan 每日配额,
+    // 与 dailyCallCount 限流对齐;enterprise 配额本身为 Infinity 不受影响）
     if (!this.apiKey) {
+      const planQuota = this.planQuotas[user.plan] ?? 0;
       console.info(
-        `${LOG_PREFIX} getEntitlements fallback: user=${user.id} plan=${user.plan} reason=no_api_key (credits=Infinity)`
+        `${LOG_PREFIX} getEntitlements fallback: user=${user.id} plan=${user.plan} reason=no_api_key (credits=${planQuota})`
       );
       const fallback: EntitlementsResponse = {
         plan: user.plan,
         quotas: {
-          aiCallsPerDay: this.planQuotas[user.plan] ?? 0,
+          aiCallsPerDay: planQuota,
           workflows: 0,
           storageMb: 0,
           maxApiKeys: 0,
         },
-        // 降级:余额未知，设为 Infinity 避免误拒（宁可漏扣也不可误拒）
-        credits: { ai: Number.POSITIVE_INFINITY },
+        credits: { ai: planQuota },
       };
       return fallback;
     }
@@ -223,19 +224,20 @@ export class CloudBilling {
       }
 
       if (!res.ok) {
-        // 降级到 plan 静态映射（credits 未知，不限制）
+        // 降级到 plan 静态映射（credits 降级为每日配额,与限流对齐）
+        const planQuota = this.planQuotas[user.plan] ?? 0;
         console.warn(
-          `${LOG_PREFIX} getEntitlements fallback: user=${user.id} status=${res.status} reason=http_error (credits=Infinity)`
+          `${LOG_PREFIX} getEntitlements fallback: user=${user.id} status=${res.status} reason=http_error (credits=${planQuota})`
         );
         const fallback: EntitlementsResponse = {
           plan: user.plan,
           quotas: {
-            aiCallsPerDay: this.planQuotas[user.plan] ?? 0,
+            aiCallsPerDay: planQuota,
             workflows: 0,
             storageMb: 0,
             maxApiKeys: 0,
           },
-          credits: { ai: Number.POSITIVE_INFINITY },
+          credits: { ai: planQuota },
         };
         return fallback;
       }
@@ -248,19 +250,20 @@ export class CloudBilling {
       );
       return data;
     } catch (err) {
-      // 降级到 plan 静态映射（credits 未知，不限制）
+      // 降级到 plan 静态映射（credits 降级为每日配额,与限流对齐）
+      const planQuota = this.planQuotas[user.plan] ?? 0;
       console.warn(
-        `${LOG_PREFIX} getEntitlements fallback: user=${user.id} err=${err instanceof Error ? err.message : String(err)} reason=network (credits=Infinity)`
+        `${LOG_PREFIX} getEntitlements fallback: user=${user.id} err=${err instanceof Error ? err.message : String(err)} reason=network (credits=${planQuota})`
       );
       const fallback: EntitlementsResponse = {
         plan: user.plan,
         quotas: {
-          aiCallsPerDay: this.planQuotas[user.plan] ?? 0,
+          aiCallsPerDay: planQuota,
           workflows: 0,
           storageMb: 0,
           maxApiKeys: 0,
         },
-        credits: { ai: Number.POSITIVE_INFINITY },
+        credits: { ai: planQuota },
       };
       return fallback;
     }

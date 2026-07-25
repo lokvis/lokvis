@@ -42,6 +42,7 @@
     "@lokvis/ui-core": "workspace:*",
     "@lokvis/capability": "workspace:*",
     "@lokvis/workflow": "workspace:*",
+    "jszip": "^3.10.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

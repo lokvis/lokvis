@@ -10,9 +10,6 @@
  * - lokvis_video_screenshot: 截取帧图片(video.screenshot,1→1)
  * - lokvis_video_extract_audio: 提取音轨(video.extract-audio,1→1)
  *
- * 注意:video engine 尚未实装(stub),tools 注册后 runtime.run 会返回
- * "capability not found" 错误。tool handler 结构正确,待 engine 实装后即可工作。
- *
  * 输入:文件路径(绝对路径或相对 workdir)
  * 输出:处理后的文件路径 + 元数据(大小变化)
  */
@@ -482,9 +479,6 @@ export async function videoExtractAudio(
  * 注册 Video tools 到 MCP server adapter。
  *
  * Tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/[-.]/g, '_')}`
- *
- * 注意:video engine 尚未实装(stub),tools 注册后 runtime.run 会返回
- * "capability not found" 错误。待 engine 实装后即可正常工作。
  *
  * @param runtime Lokvis Runtime
  */

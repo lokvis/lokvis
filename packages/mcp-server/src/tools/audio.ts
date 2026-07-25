@@ -7,9 +7,6 @@
  * - lokvis_audio_trim: 裁剪片段(audio.trim,1→1)
  * - lokvis_audio_merge: 合并多个音频(audio.merge,N→1)
  *
- * 注意:audio engine 尚未实装(stub),tools 注册后 runtime.run 会返回
- * "capability not found" 错误。tool handler 结构正确,待 engine 实装后即可工作。
- *
  * 输入:文件路径(绝对路径或相对 workdir)
  * 输出:处理后的文件路径 + 元数据(大小变化)
  */
@@ -313,9 +310,6 @@ export async function audioMerge(
  * 注册 Audio tools 到 MCP server adapter。
  *
  * Tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/[-.]/g, '_')}`
- *
- * 注意:audio engine 尚未实装(stub),tools 注册后 runtime.run 会返回
- * "capability not found" 错误。待 engine 实装后即可正常工作。
  *
  * @param runtime Lokvis Runtime
  */

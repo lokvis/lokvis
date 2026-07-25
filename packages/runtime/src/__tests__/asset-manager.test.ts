@@ -61,11 +61,11 @@ describe('AssetManager.importAsset', () => {
     expect(asset.metadata.size).toBe(20);
   });
 
-  it('opfs 源抛 "not yet supported" 错误', async () => {
+  it('opfs 源在非浏览器环境抛 requires browser 错误', async () => {
     const { manager } = makeFixture();
     await expect(
       manager.importAsset({ kind: 'opfs', path: '/a.png' })
-    ).rejects.toThrow(/not yet supported/);
+    ).rejects.toThrow(/requires a browser environment/);
   });
 
   it('url 源:fetch 成功转 blob 导入', async () => {
