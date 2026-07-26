@@ -1,5 +1,15 @@
 # @lokvis/plugin-pdf
 
+## 0.5.4
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.5.4
+  - @lokvis/capability@0.5.4
+  - @lokvis/engine-pdf@0.5.4
+  - @lokvis/plugin-sdk@0.5.4
+
 ## 0.5.3
 
 ### Patch Changes

@@ -1,5 +1,17 @@
 # @lokvis/embed-pdf
 
+## 0.5.4
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.5.4
+  - @lokvis/workflow@0.5.4
+  - @lokvis/runtime@0.5.4
+  - @lokvis/sdk@0.5.4
+  - @lokvis/engine-pdf@0.5.4
+  - @lokvis/plugin-pdf@0.5.4
+
 ## 0.5.3
 
 ### Patch Changes

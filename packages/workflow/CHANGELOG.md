@@ -1,5 +1,12 @@
 # @lokvis/workflow
 
+## 0.5.4
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.5.4
+
 ## 0.5.3
 
 ### Patch Changes

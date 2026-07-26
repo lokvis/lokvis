@@ -1,5 +1,17 @@
 # @lokvis/embed-video
 
+## 0.5.4
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.5.4
+  - @lokvis/workflow@0.5.4
+  - @lokvis/runtime@0.5.4
+  - @lokvis/sdk@0.5.4
+  - @lokvis/engine-video@0.5.4
+  - @lokvis/plugin-video@0.5.4
+
 ## 0.5.3
 
 ### Patch Changes

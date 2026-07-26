@@ -1,5 +1,13 @@
 # @lokvis/example-plugin-grayscale
 
+## 0.1.7
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.5.4
+  - @lokvis/plugin-sdk@0.5.4
+
 ## 0.1.6
 
 ### Patch Changes
