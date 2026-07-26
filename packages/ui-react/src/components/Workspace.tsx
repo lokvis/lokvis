@@ -58,6 +58,7 @@ import { GlobalDropzone } from './GlobalDropzone.js';
 import { ThemeToggle } from './ThemeToggle.js';
 import { ErrorBoundary } from './ErrorBoundary.js';
 import { useShareLink } from '../hooks/useShareLink.js';
+import { useFocusedAutoSelect } from '../hooks/useFocusedAutoSelect.js';
 import { useWorkspaceStore } from '../store/index.js';
 
 export interface WorkspaceProps extends UseLokvisOptions {
@@ -206,6 +207,10 @@ export function Workspace({
  }, [status, initialAssets, initialCapability, initialParams]);
 
  const isFocused = mode === 'focused';
+
+ // focused 模式无 AssetPanel:新导入资产的自动选中与缩略图由本 hook 接管
+ // (full 模式下 hook 内部不执行任何逻辑)
+ useFocusedAutoSelect(isFocused);
 
  if (status === 'initializing') {
  return (

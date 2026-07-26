@@ -12,7 +12,7 @@ import type { StateCreator } from 'zustand';
 import type { WorkspaceStore, WorkspaceState, WorkspaceActions } from './types.js';
 
 export interface AssetsSlice
-  extends Pick<WorkspaceState, 'assets' | 'selectedAssetId' | 'thumbnails'>,
+  extends Pick<WorkspaceState, 'assets' | 'selectedAssetId' | 'thumbnails' | 'lastImportedIds'>,
     Pick<
       WorkspaceActions,
       | 'refreshAssets'
@@ -36,6 +36,7 @@ export const createAssetsSlice: StateCreator<
     assets: [],
     selectedAssetId: null,
     thumbnails: {},
+    lastImportedIds: [],
 
     async refreshAssets() {
       const { runtime } = get();
@@ -46,14 +47,19 @@ export const createAssetsSlice: StateCreator<
 
     async importFiles(files) {
       const { runtime } = get();
-      if (!runtime) return;
+      if (!runtime) return [];
       set({ statusMessage: `Importing ${files.length} file(s)...` });
+      const importedIds: string[] = [];
       for (const file of files) {
-        await runtime.importAsset({ kind: 'file', file });
+        importedIds.push(await runtime.importAsset({ kind: 'file', file }));
       }
       await get().refreshAssets();
       await get().refreshStorageUsage();
-      set({ statusMessage: `Imported ${files.length} file(s)` });
+      // refreshAssets 完成后才写入,保证 lastImportedIds 中的资产已在
+      // store.assets 中(useFocusedAutoSelect 的 selectAsset/ensureThumbnails
+      // 依赖这一点)。同时返回 ID 列表供调用方(如外部 shell)直接使用。
+      set({ statusMessage: `Imported ${files.length} file(s)`, lastImportedIds: importedIds });
+      return importedIds;
     },
 
     selectAsset(id) {

@@ -23,6 +23,15 @@ export interface WorkspaceState {
   selectedAssetId: string | null;
   /** 资产缩略图（AssetId → ObjectURL） */
   thumbnails: Record<string, string>;
+  /**
+   * 最近一次 importFiles 成功导入的 Asset ID 列表(导入顺序)。
+   *
+   * 仅在 refreshAssets 完成后写入,保证 ID 对应的资产已在 store.assets 中。
+   * 供 focused 模式自动选中新导入资产(useFocusedAutoSelect)使用——
+   * 不能用"assets 差分检测新资产"替代:工作流输出也会进入 assets,
+   * 差分法会把输出误判为新导入资产并抢占选中状态。
+   */
+  lastImportedIds: string[];
 
   /** 所有已注册能力 */
   capabilities: Capability[];
@@ -80,8 +89,13 @@ export interface WorkspaceActions {
   refreshAssets(): Promise<void>;
   /** 刷新能力列表 */
   refreshCapabilities(): Promise<void>;
-  /** 导入文件 */
-  importFiles(files: File[]): Promise<void>;
+  /**
+   * 导入文件,返回导入成功的 Asset ID 列表(导入顺序)。
+   *
+   * 全部导入完成并 refreshAssets 后,同时把 ID 列表写入
+   * `lastImportedIds`,供 focused 模式自动选中(useFocusedAutoSelect)。
+   */
+  importFiles(files: File[]): Promise<string[]>;
   /** 选择资产 */
   selectAsset(id: string | null): void;
   /**
