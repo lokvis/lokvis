@@ -14,7 +14,7 @@
  *   - tk-portrait:   TikTok 9:16   1080×1920
  *   - half:          原图 50%(按 inputInfo 计算)
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { useImageTool } from '../internal/useImageTool';
 import { buildSingleStepImageWorkflow } from '../internal/workflow-builder';
 import type { ImageInfo } from '../internal/download';
@@ -141,6 +141,33 @@ function buildResizeParams(
   };
 }
 
+/** resize 模式状态:preset 与 customSize 互斥,由 reducer 原子管理 */
+interface ResizeModeState {
+  preset: ResizePreset;
+  customSize: ResizeCustomSize | null;
+}
+
+type ResizeModeAction =
+  | { type: 'setPreset'; preset: ResizePreset }
+  | { type: 'setCustomSize'; customSize: ResizeCustomSize | null };
+
+/**
+ * 模式 reducer(单 setter 纪律):
+ *   - setPreset 原子地清空 customSize(切回预设模式)
+ *   - setCustomSize 原子地覆写 customSize(null 切回预设模式,保留 preset)
+ *
+ * 两个字段在同一次提交中更新,避免 setPreset/setCustomSize 各自捕获对方旧闭包、
+ * 连续调用时 workflow 参数与最终状态不一致的竞态。
+ */
+function resizeModeReducer(state: ResizeModeState, action: ResizeModeAction): ResizeModeState {
+  switch (action.type) {
+    case 'setPreset':
+      return { preset: action.preset, customSize: null };
+    case 'setCustomSize':
+      return { preset: state.preset, customSize: action.customSize };
+  }
+}
+
 /**
  * 图片一键缩放 hook(纯逻辑,无 UI)。
  */
@@ -155,15 +182,19 @@ export function useImageResize(
     customSize: initialCustomSize,
   } = options ?? {};
   const tool = useImageTool(plugins);
-  const [preset, setPresetState] = useState<ResizePreset>(initialPreset);
-  const [customSize, setCustomSizeState] = useState<ResizeCustomSize | null>(
-    initialCustomSize ?? null
-  );
 
-  const lastRunInputId = useRef<string | null>(null);
+  // preset 与 customSize 由单一 reducer 原子管理,消除各自 setter 捕获对方旧闭包的竞态
+  const [mode, dispatch] = useReducer(resizeModeReducer, {
+    preset: initialPreset,
+    customSize: initialCustomSize ?? null,
+  });
+
   const lastNotifiedBlob = useRef<Blob | null>(null);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  // 记录上一次的 inputId 与已执行的 (inputId|mode) 组合,用于去重与 autoRun 门控
+  const prevInputIdRef = useRef<string | null>(null);
+  const lastRunKeyRef = useRef<string | null>(null);
 
   /** 实际执行缩放(根据 preset + custom 构造 workflow) */
   const runResize = useCallback(
@@ -195,44 +226,45 @@ export function useImageResize(
         outputUrl: tool.outputUrl,
         inputSize: tool.inputInfo.size,
         outputSize: tool.outputInfo.size,
-        preset,
+        preset: mode.preset,
       });
     }
-  }, [tool.outputBlob, tool.outputUrl, tool.inputInfo, tool.outputInfo, preset]);
+  }, [tool.outputBlob, tool.outputUrl, tool.inputInfo, tool.outputInfo, mode.preset]);
 
-  // autoRun:inputId 变化时触发一次缩放
+  // 统一触发:每个新的 (inputId, mode) 组合只执行一次 workflow。
+  //   - 新输入到达由 autoRun 门控;mode 变化(setPreset/setCustomSize)总是重跑
+  //   - busy 时丢弃(与既有行为一致)
+  // 读取的是 reducer 提交后的原子状态:连续调用 setPreset/setCustomSize 被 React
+  // 批处理为一次提交,仅触发一次 workflow,且参数与最终状态一致(消除竞态)。
   useEffect(() => {
-    if (tool.inputId && tool.ready && autoRun && lastRunInputId.current !== tool.inputId) {
-      lastRunInputId.current = tool.inputId;
-      void runResize(preset, customSize);
-    }
-    if (!tool.inputId) {
-      lastRunInputId.current = null;
-    }
-  }, [tool.inputId, tool.ready, autoRun, preset, customSize, runResize]);
+    const inputId = tool.inputId;
+    const inputChanged = inputId !== prevInputIdRef.current;
+    prevInputIdRef.current = inputId;
 
-  // 切换预设:更新 state,并在已有输入时立即重跑
+    if (!inputId || !tool.ready) {
+      lastRunKeyRef.current = null;
+      return;
+    }
+
+    const key = `${inputId}|${mode.preset}|${JSON.stringify(mode.customSize)}`;
+    if (key === lastRunKeyRef.current) return;
+    lastRunKeyRef.current = key;
+
+    if (inputChanged && !autoRun) return;
+    if (tool.busy) return;
+    void runResize(mode.preset, mode.customSize);
+  }, [tool.inputId, tool.ready, tool.busy, autoRun, mode.preset, mode.customSize, runResize]);
+
+  /** 切换预设(原子清空 customSize,切回预设模式) */
   const setPreset = useCallback(
-    (next: ResizePreset) => {
-      setPresetState(next);
-      if (tool.inputId && !tool.busy) {
-        lastRunInputId.current = tool.inputId;
-        void runResize(next, customSize);
-      }
-    },
-    [tool.inputId, tool.busy, customSize, runResize]
+    (next: ResizePreset) => dispatch({ type: 'setPreset', preset: next }),
+    []
   );
 
-  // 设置/清除自定义尺寸:更新 state,并在已有输入时立即重跑
+  /** 设置/清除自定义尺寸(null 切回预设模式) */
   const setCustomSize = useCallback(
-    (size: ResizeCustomSize | null) => {
-      setCustomSizeState(size);
-      if (tool.inputId && !tool.busy) {
-        lastRunInputId.current = tool.inputId;
-        void runResize(preset, size);
-      }
-    },
-    [tool.inputId, tool.busy, preset, runResize]
+    (size: ResizeCustomSize | null) => dispatch({ type: 'setCustomSize', customSize: size }),
+    []
   );
 
   const handleFiles = useCallback(
@@ -256,14 +288,14 @@ export function useImageResize(
     outputBlob: tool.outputBlob,
     busy: tool.busy,
     error: tool.error,
-    preset,
+    preset: mode.preset,
     outputDimension,
-    customSize,
+    customSize: mode.customSize,
     handleFiles,
     setPreset,
     setCustomSize,
     reset: tool.reset,
     clearError: tool.clearError,
-    run: () => runResize(preset, customSize),
+    run: () => runResize(mode.preset, mode.customSize),
   };
 }

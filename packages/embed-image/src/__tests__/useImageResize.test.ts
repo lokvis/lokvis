@@ -359,7 +359,7 @@ describe('useImageResize', () => {
       expect(last.nodes[0].params.height).toBe(720);
     });
 
-    it('custom 模式下 setPreset 不改变参数(custom 优先)', async () => {
+    it('custom 模式下 setPreset 切换为预设模式(原子清空 customSize)', async () => {
       const { result, rerender } = renderHook(() =>
         useImageResize({ customSize: { width: 640, height: 480 } })
       );
@@ -368,13 +368,42 @@ describe('useImageResize', () => {
       await act(async () => {
         await Promise.resolve();
       });
+      // 首次运行用 custom 640×480
+      expect(runWorkflowMock.mock.calls[0]![0].nodes[0].params.width).toBe(640);
       await act(async () => {
-        result.current.setPreset('tk-portrait');
+        result.current.setPreset('yt-landscape');
       });
-      expect(result.current.preset).toBe('tk-portrait');
+      // setPreset 原子清空 customSize,切回预设模式
+      expect(result.current.preset).toBe('yt-landscape');
+      expect(result.current.customSize).toBeNull();
       const last = runWorkflowMock.mock.calls[runWorkflowMock.mock.calls.length - 1]![0];
-      expect(last.nodes[0].params.width).toBe(640);
-      expect(last.nodes[0].params.height).toBe(480);
+      expect(last.nodes[0].params.width).toBe(1280);
+      expect(last.nodes[0].params.height).toBe(720);
+    });
+
+    it('连续调用 setPreset + setCustomSize 仅触发一次 workflow(原子提交,参数与最终状态一致)', async () => {
+      const { result, rerender } = renderHook(() => useImageResize());
+      setMockState({ inputId: 'input-1', ready: true });
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const callsBefore = runWorkflowMock.mock.calls.length; // autoRun 那一次
+      // 同一 tick 内连续调用两个 setter(旧实现会各自捕获对方旧闭包触发两次)
+      act(() => {
+        result.current.setPreset('tk-portrait');
+        result.current.setCustomSize({ width: 300, height: 300 });
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      // 仅新增一次 workflow,且参数为最终状态(custom 300×300)
+      expect(runWorkflowMock.mock.calls.length).toBe(callsBefore + 1);
+      const last = runWorkflowMock.mock.calls[runWorkflowMock.mock.calls.length - 1]![0];
+      expect(last.nodes[0].params.width).toBe(300);
+      expect(last.nodes[0].params.height).toBe(300);
+      expect(result.current.preset).toBe('tk-portrait');
+      expect(result.current.customSize).toEqual({ width: 300, height: 300 });
     });
 
     it('非法 customSize(两边都缺)回落 preset 模式', async () => {
