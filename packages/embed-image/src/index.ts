@@ -68,6 +68,8 @@ export {
   IMAGE_RESIZE_PRESETS,
   type ResizePreset,
   type ResizePresetConfig,
+  type ResizeCustomSize,
+  type UseImageResizeOptions,
   type UseImageResizeResult,
 } from './hooks/useImageResize';
 

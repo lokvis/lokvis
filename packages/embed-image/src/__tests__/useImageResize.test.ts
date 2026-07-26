@@ -259,6 +259,153 @@ describe('useImageResize', () => {
     });
   });
 
+  describe('customSize', () => {
+    it('默认 customSize 为 null(预设模式)', () => {
+      const { result } = renderHook(() => useImageResize());
+      expect(result.current.customSize).toBeNull();
+    });
+
+    it('初始 customSize 状态正确', () => {
+      const { result } = renderHook(() =>
+        useImageResize({ customSize: { width: 100 } })
+      );
+      expect(result.current.customSize).toEqual({ width: 100 });
+    });
+
+    it('双尺寸:上传后 autoRun 传入自定义 width/height', async () => {
+      const { rerender } = renderHook(() =>
+        useImageResize({ customSize: { width: 1920, height: 1080 } })
+      );
+      setMockState({ inputId: 'input-1', ready: true });
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const params = runWorkflowMock.mock.calls[0]![0].nodes[0].params;
+      expect(params.width).toBe(1920);
+      expect(params.height).toBe(1080);
+      expect(params.maintainAspectRatio).toBe(true);
+    });
+
+    it('只填 width:仅传 width,maintainAspectRatio 默认 true(高按比例)', async () => {
+      const { rerender } = renderHook(() =>
+        useImageResize({ customSize: { width: 800 } })
+      );
+      setMockState({ inputId: 'input-1', ready: true });
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const params = runWorkflowMock.mock.calls[0]![0].nodes[0].params;
+      expect(params.width).toBe(800);
+      expect(params.height).toBeUndefined();
+      expect(params.maintainAspectRatio).toBe(true);
+    });
+
+    it('maintainAspectRatio=false:强制拉伸(传 false)', async () => {
+      const { rerender } = renderHook(() =>
+        useImageResize({
+          customSize: { width: 800, height: 600, maintainAspectRatio: false },
+        })
+      );
+      setMockState({ inputId: 'input-1', ready: true });
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const params = runWorkflowMock.mock.calls[0]![0].nodes[0].params;
+      expect(params.width).toBe(800);
+      expect(params.height).toBe(600);
+      expect(params.maintainAspectRatio).toBe(false);
+    });
+
+    it('setCustomSize 设置新尺寸立即重跑', async () => {
+      const { result, rerender } = renderHook(() => useImageResize());
+      setMockState({ inputId: 'input-1', ready: true });
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        result.current.setCustomSize({ width: 300, height: 200 });
+      });
+      expect(result.current.customSize).toEqual({ width: 300, height: 200 });
+      const last = runWorkflowMock.mock.calls[runWorkflowMock.mock.calls.length - 1]![0];
+      expect(last.nodes[0].params.width).toBe(300);
+      expect(last.nodes[0].params.height).toBe(200);
+    });
+
+    it('setCustomSize(null) 切回 preset 并重跑', async () => {
+      const { result, rerender } = renderHook(() =>
+        useImageResize({
+          initialPreset: 'yt-landscape',
+          customSize: { width: 500, height: 500 },
+        })
+      );
+      setMockState({ inputId: 'input-1', ready: true });
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      // 首次运行用 custom 500×500
+      expect(runWorkflowMock.mock.calls[0]![0].nodes[0].params.width).toBe(500);
+      // 切回预设模式
+      await act(async () => {
+        result.current.setCustomSize(null);
+      });
+      expect(result.current.customSize).toBeNull();
+      const last = runWorkflowMock.mock.calls[runWorkflowMock.mock.calls.length - 1]![0];
+      expect(last.nodes[0].params.width).toBe(1280);
+      expect(last.nodes[0].params.height).toBe(720);
+    });
+
+    it('custom 模式下 setPreset 不改变参数(custom 优先)', async () => {
+      const { result, rerender } = renderHook(() =>
+        useImageResize({ customSize: { width: 640, height: 480 } })
+      );
+      setMockState({ inputId: 'input-1', ready: true });
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        result.current.setPreset('tk-portrait');
+      });
+      expect(result.current.preset).toBe('tk-portrait');
+      const last = runWorkflowMock.mock.calls[runWorkflowMock.mock.calls.length - 1]![0];
+      expect(last.nodes[0].params.width).toBe(640);
+      expect(last.nodes[0].params.height).toBe(480);
+    });
+
+    it('非法 customSize(两边都缺)回落 preset 模式', async () => {
+      const { rerender } = renderHook(() =>
+        useImageResize({ initialPreset: 'ig-square', customSize: {} })
+      );
+      setMockState({ inputId: 'input-1', ready: true });
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const params = runWorkflowMock.mock.calls[0]![0].nodes[0].params;
+      expect(params.width).toBe(1080);
+      expect(params.height).toBe(1080);
+    });
+
+    it('customSize 含 0/NaN 的边视为无效,回落 preset', async () => {
+      const { rerender } = renderHook(() =>
+        useImageResize({ initialPreset: 'ig-square', customSize: { width: 0, height: NaN } })
+      );
+      setMockState({ inputId: 'input-1', ready: true });
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const params = runWorkflowMock.mock.calls[0]![0].nodes[0].params;
+      expect(params.width).toBe(1080);
+      expect(params.height).toBe(1080);
+    });
+  });
+
   describe('onComplete', () => {
     it('outputBlob 出现时触发一次 onComplete', async () => {
       const onComplete = vi.fn();
