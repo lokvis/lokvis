@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/capability",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Lokvis Capability - Standard capability definitions, namespacing and discovery utilities",
   "license": "MIT",
   "type": "module",

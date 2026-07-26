@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/embed-image",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Lokvis Embed Image - Three-layer image quick-action components (hooks / primitives / default UI)",
   "license": "MIT",
   "type": "module",

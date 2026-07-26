@@ -1,5 +1,12 @@
 # @lokvis/runtime
 
+## 0.5.3
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.5.3
+
 ## 0.5.2
 
 ### Patch Changes

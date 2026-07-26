@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/example-mcp-e2e-verification",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "End-to-end verification script: starts the Lokvis MCP server, connects via SDK Client, exercises every image tool — the verifiable M2.4 demo.",
   "license": "MIT",
