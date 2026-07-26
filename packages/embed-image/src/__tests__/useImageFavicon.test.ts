@@ -54,6 +54,7 @@ function setMockState(overrides: Partial<UseImageToolResult> = {}) {
     runWorkflowRaw: runWorkflowRawMock,
     reset: resetMock,
     clearError: clearErrorMock,
+    commitOutput: vi.fn(),
     ...overrides,
   };
 }

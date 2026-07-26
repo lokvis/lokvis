@@ -27,6 +27,7 @@ export {
   useImageCompress,
   IMAGE_COMPRESS_PRESETS,
   type CompressPreset,
+  type UseImageCompressOptions,
   type UseImageCompressResult,
   type UseEmbedActionOptions,
   type EmbedActionResult,

@@ -42,6 +42,11 @@ export interface UseImageToolResult {
    * 多步 pipeline 场景需读取 result.stepOutputs 取各步中间产物。
    */
   runWorkflowRaw: (workflow: Workflow) => Promise<WorkflowResult | null>;
+  /**
+   * 将已产出的 blob 直接写入 output 状态(outputBlob/outputInfo)。
+   * 用于迭代压缩(target-size)收敛后复用中间产物,避免重复编码一次。
+   */
+  commitOutput: (blob: Blob) => Promise<void>;
   /** 重置全部状态并 revoke 旧 URL */
   reset: () => void;
   /** 手动清错误 */
@@ -125,6 +130,11 @@ export function useImageTool(plugins?: PluginLoadEntry[]): UseImageToolResult {
     [runtime, runWorkflowRaw]
   );
 
+  const commitOutput = useCallback(async (blob: Blob): Promise<void> => {
+    setOutputBlob(blob);
+    setOutputInfo(await getImageInfo(blob));
+  }, []);
+
   const reset = useCallback(() => {
     revokeInputUrl();
     setInputId(null);
@@ -169,6 +179,7 @@ export function useImageTool(plugins?: PluginLoadEntry[]): UseImageToolResult {
     handleFiles,
     runWorkflow,
     runWorkflowRaw,
+    commitOutput,
     reset,
     clearError,
   };
