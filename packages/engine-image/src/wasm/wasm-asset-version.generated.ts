@@ -7,4 +7,4 @@
  * 用于构造版本锁定的 AVIF wasm CDN URL(见 docs/reports/20260724-engine-wasm-avif-encoder.md D4),
  * 确保 wasm 二进制版本与打包进消费方的 glue 代码版本一致,防止 ABI 漂移。
  */
-export const ENGINE_IMAGE_VERSION = '0.5.3';
+export const ENGINE_IMAGE_VERSION = '0.5.4';
