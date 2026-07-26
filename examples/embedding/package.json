@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/example-embedding",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "Example: embed the Lokvis Workspace into an existing React app",
   "license": "MIT",

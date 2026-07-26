@@ -1,5 +1,15 @@
 # @lokvis/cli
 
+## 0.5.2
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.5.2
+  - @lokvis/capability@0.5.2
+  - @lokvis/sdk@0.5.2
+  - @lokvis/plugin-image@0.5.2
+
 ## 0.5.1
 
 ### Patch Changes

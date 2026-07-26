@@ -1,5 +1,15 @@
 # @lokvis/example-custom-workspace
 
+## 0.1.6
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.5.2
+  - @lokvis/runtime@0.5.2
+  - @lokvis/sdk@0.5.2
+  - @lokvis/plugin-image@0.5.2
+
 ## 0.1.5
 
 ### Patch Changes

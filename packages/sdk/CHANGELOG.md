@@ -1,5 +1,14 @@
 # @lokvis/sdk
 
+## 0.5.2
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.5.2
+  - @lokvis/runtime@0.5.2
+  - @lokvis/plugin-sdk@0.5.2
+
 ## 0.5.1
 
 ### Patch Changes
