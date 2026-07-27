@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/engine-audio",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Lokvis Audio Engine - ffmpeg-static (Node) / stub (browser)",
   "license": "MIT",
   "type": "module",

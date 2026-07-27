@@ -1,5 +1,12 @@
 # @lokvis/capability
 
+## 0.5.5
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.5.5
+
 ## 0.5.4
 
 ### Patch Changes

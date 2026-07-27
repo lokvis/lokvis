@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/embed-pdf",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Lokvis Embed PDF - Three-layer PDF tool components (hooks / primitives / default UI) for third-party integration",
   "license": "MIT",
   "type": "module",

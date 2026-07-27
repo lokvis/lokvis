@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/plugin-image",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Lokvis Image Tools Plugin - resize / compress / convert / crop / rotate / flip / watermark / background",
   "license": "MIT",
   "type": "module",

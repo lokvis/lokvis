@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/runtime",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Lokvis Runtime - Browser-local workflow execution engine",
   "license": "MIT",
   "type": "module",

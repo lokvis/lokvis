@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/plugin-ai",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Lokvis AI Tools Plugin - ocr / caption / background-remove / generate-workflow / optimize-workflow / diagnose-error",
   "license": "MIT",
   "type": "module",
