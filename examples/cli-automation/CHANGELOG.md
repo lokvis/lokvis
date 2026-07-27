@@ -1,5 +1,13 @@
 # @lokvis/example-cli-automation
 
+## 0.2.9
+
+### Patch Changes
+
+- Updated dependencies [[`c57bb00`](https://github.com/lokvis/lokvis/commit/c57bb0092c6f2d7a443971e77febb0bb1fe71155), [`c57bb00`](https://github.com/lokvis/lokvis/commit/c57bb0092c6f2d7a443971e77febb0bb1fe71155), [`c57bb00`](https://github.com/lokvis/lokvis/commit/c57bb0092c6f2d7a443971e77febb0bb1fe71155)]:
+  - @lokvis/schema@0.6.0
+  - @lokvis/cli@0.6.0
+
 ## 0.2.8
 
 ### Patch Changes

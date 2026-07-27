@@ -1,5 +1,22 @@
 # @lokvis/mcp-server
 
+## 0.6.0
+
+### Patch Changes
+
+- Updated dependencies [[`c57bb00`](https://github.com/lokvis/lokvis/commit/c57bb0092c6f2d7a443971e77febb0bb1fe71155), [`c57bb00`](https://github.com/lokvis/lokvis/commit/c57bb0092c6f2d7a443971e77febb0bb1fe71155), [`c57bb00`](https://github.com/lokvis/lokvis/commit/c57bb0092c6f2d7a443971e77febb0bb1fe71155)]:
+  - @lokvis/schema@0.6.0
+  - @lokvis/runtime@0.6.0
+  - @lokvis/capability@0.6.0
+  - @lokvis/plugin-ai@0.6.0
+  - @lokvis/plugin-audio@0.6.0
+  - @lokvis/plugin-image@0.6.0
+  - @lokvis/plugin-pdf@0.6.0
+  - @lokvis/plugin-video@0.6.0
+  - @lokvis/sdk@0.6.0
+  - @lokvis/workflow@0.6.0
+  - @lokvis/cloud-bridge@0.6.0
+
 ## 0.5.5
 
 ### Patch Changes

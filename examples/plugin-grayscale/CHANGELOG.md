@@ -1,5 +1,13 @@
 # @lokvis/example-plugin-grayscale
 
+## 0.1.9
+
+### Patch Changes
+
+- Updated dependencies [[`c57bb00`](https://github.com/lokvis/lokvis/commit/c57bb0092c6f2d7a443971e77febb0bb1fe71155), [`c57bb00`](https://github.com/lokvis/lokvis/commit/c57bb0092c6f2d7a443971e77febb0bb1fe71155), [`c57bb00`](https://github.com/lokvis/lokvis/commit/c57bb0092c6f2d7a443971e77febb0bb1fe71155)]:
+  - @lokvis/schema@0.6.0
+  - @lokvis/plugin-sdk@0.6.0
+
 ## 0.1.8
 
 ### Patch Changes

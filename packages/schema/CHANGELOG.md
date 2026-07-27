@@ -1,5 +1,35 @@
 # @lokvis/schema
 
+## 0.6.0
+
+### Minor Changes
+
+- [`c57bb00`](https://github.com/lokvis/lokvis/commit/c57bb0092c6f2d7a443971e77febb0bb1fe71155) Thanks [@xiongyy](https://github.com/xiongyy)! - 能力机制补强：
+
+  - ui-react store 订阅 `plugin:loaded` 事件，初始化后 loadPlugin() 加载的
+    插件其 capability 自动进入 Inspector / CommandPalette / WorkflowEditor，
+    无需手动调用 refreshCapabilities()
+  - schema：`Capability` 新增可选 presentation 元数据（`label` / `icon` / `group`），
+    纯 UI 展示提示，不影响执行、校验与 MCP manifest
+  - ui-react：Inspector / CommandPalette / WorkflowEditor 能力列表消费
+    presentation 元数据（label 回退 name、group 回退 domain 前缀、icon 原样渲染），
+    搜索支持 label 匹配
+
+- [`c57bb00`](https://github.com/lokvis/lokvis/commit/c57bb0092c6f2d7a443971e77febb0bb1fe71155) Thanks [@xiongyy](https://github.com/xiongyy)! - Panel 扩展点兑现（registerPanel）：
+
+  - schema：`PanelDefinition` 类型 + `panel:registered` 事件
+  - runtime：`ctx.registerPanel()` 注册 Panel 并发射 `panel:registered` 事件
+  - ui-react：panels-slice 同步 Panel 列表；`PluginPanels` 组件按 location 渲染、
+    `show({ selectedAssets })` 谓词求值；`registerPanelRenderer` 注册表解析
+    component 标识为 React 组件（支持覆盖语义与反注册）
+  - Workspace slots：Canvas / Inspector / emptyState 支持 render prop，面板可隐藏
+
+- [`c57bb00`](https://github.com/lokvis/lokvis/commit/c57bb0092c6f2d7a443971e77febb0bb1fe71155) Thanks [@xiongyy](https://github.com/xiongyy)! - ParamForm widget 注册表：
+
+  - schema：`CapabilityParam.widget` hint（'slider' / 'textarea' / 'json' 或自定义标识）
+  - ui-react：`registerParamWidget()` 开放注册表，ParamForm 按 widget hint
+    选择控件，未注册标识回退默认控件
+
 ## 0.5.5
 
 ## 0.5.4
