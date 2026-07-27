@@ -17,6 +17,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useImageTool } from '../internal/useImageTool';
+import { useInputBlobImport } from '../internal/useInputBlobImport';
 import { buildSingleStepImageWorkflow } from '../internal/workflow-builder';
 import type { ImageInfo } from '../internal/download';
 import {
@@ -119,9 +120,12 @@ export function useImageWatermark(
     initialText = DEFAULT_WATERMARK_TEXT,
     autoRun = true,
     onComplete,
+    inputBlob,
     plugins,
   } = options ?? {};
   const tool = useImageTool(plugins);
+  // inputBlob 注入:走与手动上传相同的路径(见 useInputBlobImport)
+  useInputBlobImport(tool, inputBlob);
   const [preset, setPresetState] = useState<WatermarkPreset>(initialPreset);
   const [text, setTextState] = useState<string>(initialText);
 

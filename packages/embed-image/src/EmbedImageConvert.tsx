@@ -14,7 +14,12 @@ import { useLang } from './i18n/useLang';
 import { useTranslations } from './i18n/utils';
 import type { Language } from './i18n/config';
 import type { EmbedTranslations } from './i18n/EmbedI18nProvider';
-import { BusyOverlay, FileInfoBar } from './internal/shared-ui';
+import {
+  BusyOverlay as DefaultBusyOverlay,
+  FileInfoBar as DefaultFileInfoBar,
+  type BusyOverlayProps,
+  type FileInfoBarProps,
+} from './internal/shared-ui';
 import { themeToCssVars, useEmbedMode, type EmbedTheme, type EmbedMode } from './theme';
 import { ImageConvert, useImageConvertContext } from './primitives/ImageConvert';
 import { IMAGE_CONVERT_PRESETS, type ConvertPreset, type UseEmbedActionOptions } from './hooks/useImageConvert';
@@ -27,12 +32,18 @@ export interface UploadBoxProps {
   children?: ReactNode;
   /** drop zone 的 aria-label(F4 a11y:键盘用户 + 屏幕阅读器) */
   ariaLabel?: string;
+  /** 非拖拽态提示文案(已 i18n;默认 UI 注入 t('quickConvert.dropHint')) */
+  label?: string;
+  /** 拖拽态提示文案(已 i18n;默认 UI 注入 t('common.dropHere')) */
+  dragLabel?: string;
 }
 
 export interface PreviewBoxProps {
   type: 'input' | 'output';
   className?: string;
   style?: CSSProperties;
+  /** 无图时的占位文案(已 i18n;默认 UI 注入 t('common.noImage')) */
+  placeholderLabel?: string;
 }
 
 export interface PresetSwitcherProps {
@@ -70,11 +81,15 @@ export interface ImageConvertComponents {
   FormatBadge: ComponentType<FormatBadgeProps>;
   ErrorDisplay: ComponentType<ErrorDisplayProps>;
   ResetButton: ComponentType<ResetButtonProps>;
+  /** 处理中视觉反馈 overlay(默认 DefaultBusyOverlay) */
+  BusyOverlay: ComponentType<BusyOverlayProps>;
+  /** 文件信息栏(默认 DefaultFileInfoBar) */
+  FileInfoBar: ComponentType<FileInfoBarProps>;
 }
 
 // ─── 默认子组件 ────────────────────────────────────────────
 
-function DefaultUploadBox({ className = '', style, ariaLabel }: UploadBoxProps) {
+function DefaultUploadBox({ className = '', style, ariaLabel, label, dragLabel }: UploadBoxProps) {
   return (
     <ImageConvert.Upload
       aria-label={ariaLabel}
@@ -92,14 +107,14 @@ function DefaultUploadBox({ className = '', style, ariaLabel }: UploadBoxProps) 
             color: isDragging ? 'var(--lokvis-primary, #6366f1)' : 'var(--lokvis-text-muted, #71717a)',
           }}
         >
-          {isDragging ? '↓ Drop image' : 'Click or drop image'}
+          {isDragging ? (dragLabel ?? '↓ Drop image') : (label ?? 'Click or drop image')}
         </span>
       )}
     </ImageConvert.Upload>
   );
 }
 
-function DefaultPreviewBox({ type, className = '', style }: PreviewBoxProps) {
+function DefaultPreviewBox({ type, className = '', style, placeholderLabel }: PreviewBoxProps) {
   return (
     <ImageConvert.Preview
       type={type}
@@ -112,7 +127,7 @@ function DefaultPreviewBox({ type, className = '', style }: PreviewBoxProps) {
         minHeight: '160px',
         ...style,
       }}
-      placeholder={<span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>No image</span>}
+      placeholder={<span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>{placeholderLabel ?? 'No image'}</span>}
     />
   );
 }
@@ -121,21 +136,29 @@ function presetLabel(preset: ConvertPreset): string {
   return IMAGE_CONVERT_PRESETS[preset].label;
 }
 
-/** output 预览区 + busy overlay(F2:处理中视觉反馈) */
-function ConvertOutputPreview({ processingLabel, children }: { processingLabel: string; children: ReactNode }) {
+/** output 预览区 + busy overlay(F2:处理中视觉反馈;Overlay 走 components slot) */
+function ConvertOutputPreview({
+  processingLabel,
+  Overlay,
+  children,
+}: {
+  processingLabel: string;
+  Overlay: ComponentType<BusyOverlayProps>;
+  children: ReactNode;
+}) {
   const { busy } = useImageConvertContext();
   return (
-    <BusyOverlay busy={busy} label={processingLabel}>
+    <Overlay busy={busy} label={processingLabel}>
       {children}
-    </BusyOverlay>
+    </Overlay>
   );
 }
 
-/** 文件信息栏(F3:format badge · WxH · formatBytes) */
-function ConvertFileInfoBar({ type }: { type: 'input' | 'output' }) {
+/** 文件信息栏(F3:format badge · WxH · formatBytes;InfoBar 走 components slot) */
+function ConvertFileInfoBar({ type, InfoBar }: { type: 'input' | 'output'; InfoBar: ComponentType<FileInfoBarProps> }) {
   const { inputInfo, outputInfo } = useImageConvertContext();
   const info = type === 'input' ? inputInfo : outputInfo;
-  return <FileInfoBar info={info} />;
+  return <InfoBar info={info} />;
 }
 
 /**
@@ -300,6 +323,8 @@ function EmbedImageConvertDefault({
     FormatBadge = DefaultFormatBadge,
     ErrorDisplay = DefaultErrorDisplay,
     ResetButton = DefaultResetButton,
+    BusyOverlay = DefaultBusyOverlay,
+    FileInfoBar = DefaultFileInfoBar,
   } = components ?? {};
 
   return (
@@ -324,7 +349,11 @@ function EmbedImageConvertDefault({
               {t('quickConvert.subtitle')}
             </p>
           </div>
-          <UploadBox ariaLabel={t('quickConvert.dropHint')} />
+          <UploadBox
+            ariaLabel={t('quickConvert.dropHint')}
+            label={t('quickConvert.dropHint')}
+            dragLabel={t('common.dropHere')}
+          />
           {showPresetSwitcher && <PresetSwitcher />}
           <ConvertSlowHint label={t('quickConvert.slowEncoder')} />
         </header>
@@ -332,15 +361,15 @@ function EmbedImageConvertDefault({
         <div className={`grid grid-cols-1 gap-2 ${showBeforeAfter ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
           {showBeforeAfter && (
             <div className="flex flex-col gap-1">
-              <PreviewBox type="input" />
-              <ConvertFileInfoBar type="input" />
+              <PreviewBox type="input" placeholderLabel={t('common.noImage')} />
+              <ConvertFileInfoBar type="input" InfoBar={FileInfoBar} />
             </div>
           )}
           <div className="flex flex-col gap-1">
-            <ConvertOutputPreview processingLabel={t('quickConvert.processing')}>
-              <PreviewBox type="output" />
+            <ConvertOutputPreview processingLabel={t('quickConvert.processing')} Overlay={BusyOverlay}>
+              <PreviewBox type="output" placeholderLabel={t('common.noImage')} />
             </ConvertOutputPreview>
-            <ConvertFileInfoBar type="output" />
+            <ConvertFileInfoBar type="output" InfoBar={FileInfoBar} />
           </div>
         </div>
 

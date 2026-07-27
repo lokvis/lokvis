@@ -19,6 +19,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import type { UseImageToolResult } from '../internal/useImageTool';
+import { downloadBlob } from '../internal/download';
 import { ImageCompress } from '../primitives/ImageCompress';
 
 // ─── mock useImageTool ─────────────────────────────────────
@@ -30,6 +31,15 @@ const stateRef: { current: UseImageToolResult } = {
 vi.mock('../internal/useImageTool', () => ({
   useImageTool: () => stateRef.current,
 }));
+
+// downloadBlob spy 化:保留 formatBytes 等真实实现,仅替换下载动作
+// (jsdom 无 URL.createObjectURL,且测试只关心文件名)
+vi.mock('../internal/download', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../internal/download')>();
+  return { ...actual, downloadBlob: vi.fn() };
+});
+
+const downloadBlobMock = vi.mocked(downloadBlob);
 
 const runWorkflowMock = vi.fn();
 const runWorkflowRawMock = vi.fn();
@@ -66,6 +76,7 @@ function resetMocks() {
   handleFilesMock.mockReset();
   resetMock.mockReset();
   clearErrorMock.mockReset();
+  downloadBlobMock.mockReset();
 }
 
 // ─── 测试 ───────────────────────────────────────────────────
@@ -294,6 +305,74 @@ describe('ImageCompress 原语', () => {
         </ImageCompress.Root>
       );
       expect(screen.getByText('下载')).toBeInTheDocument();
+    });
+
+    it('默认扩展名按 outputBlob.type 推断(image/png → .png)', () => {
+      const blob = new Blob(['x'], { type: 'image/png' });
+      setMockState({ outputBlob: blob });
+      render(
+        <ImageCompress.Root>
+          <ImageCompress.DownloadButton>下载</ImageCompress.DownloadButton>
+        </ImageCompress.Root>
+      );
+      fireEvent.click(screen.getByText('下载'));
+      expect(downloadBlobMock).toHaveBeenCalledWith(blob, 'compressed.png');
+    });
+
+    it('默认扩展名推断覆盖常见格式(jpeg/avif/ico)', () => {
+      const cases: Array<[string, string]> = [
+        ['image/jpeg', 'compressed.jpg'],
+        ['image/avif', 'compressed.avif'],
+        ['image/x-icon', 'compressed.ico'],
+      ];
+      for (const [mime, expected] of cases) {
+        const blob = new Blob(['x'], { type: mime });
+        setMockState({ outputBlob: blob });
+        const { unmount } = render(
+          <ImageCompress.Root>
+            <ImageCompress.DownloadButton>下载</ImageCompress.DownloadButton>
+          </ImageCompress.Root>
+        );
+        fireEvent.click(screen.getByText('下载'));
+        expect(downloadBlobMock).toHaveBeenLastCalledWith(blob, expected);
+        unmount();
+      }
+    });
+
+    it('未知 MIME 类型回退 .img', () => {
+      const blob = new Blob(['x'], { type: 'image/bmp' });
+      setMockState({ outputBlob: blob });
+      render(
+        <ImageCompress.Root>
+          <ImageCompress.DownloadButton>下载</ImageCompress.DownloadButton>
+        </ImageCompress.Root>
+      );
+      fireEvent.click(screen.getByText('下载'));
+      expect(downloadBlobMock).toHaveBeenCalledWith(blob, 'compressed.img');
+    });
+
+    it('显式 extension prop 优先于类型推断', () => {
+      const blob = new Blob(['x'], { type: 'image/png' });
+      setMockState({ outputBlob: blob });
+      render(
+        <ImageCompress.Root>
+          <ImageCompress.DownloadButton extension="webp">下载</ImageCompress.DownloadButton>
+        </ImageCompress.Root>
+      );
+      fireEvent.click(screen.getByText('下载'));
+      expect(downloadBlobMock).toHaveBeenCalledWith(blob, 'compressed.webp');
+    });
+
+    it('fileName prop 与推断扩展名组合', () => {
+      const blob = new Blob(['x'], { type: 'image/webp' });
+      setMockState({ outputBlob: blob });
+      render(
+        <ImageCompress.Root>
+          <ImageCompress.DownloadButton fileName="photo">下载</ImageCompress.DownloadButton>
+        </ImageCompress.Root>
+      );
+      fireEvent.click(screen.getByText('下载'));
+      expect(downloadBlobMock).toHaveBeenCalledWith(blob, 'photo.webp');
     });
   });
 

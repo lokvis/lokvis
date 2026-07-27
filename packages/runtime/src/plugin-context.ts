@@ -5,8 +5,8 @@
  * 受限 Runtime API(getAsset/importAsset/getAssetBlob/createAsset/
  * listCapabilities + eventBus + 注册器 + log),看不到 React/Redux/Cloud。
  *
- * registerMetadataReader 转发给 runtime._registerMetadataReader(依赖反转:
- * Plugin 提供实现,Runtime 持有引用)。
+ * registerMetadataReader / registerPanel 转发给 runtime._registerMetadataReader /
+ * _registerPanel(依赖反转:Plugin 提供定义,Runtime 持有引用,UI 层消费)。
  *
  * 错误契约:getAsset 在资产不存在时抛 AssetNotFoundError,
  * SDK 的 fromLokvisError 经 instanceof 转换。
@@ -29,6 +29,11 @@ export interface PluginContextRuntimeDeps {
   assetStore: AssetStore;
   capabilityRegistry: CapabilityRegistry;
   registerMetadataReader(name: string, reader: MetadataReader): void;
+  /**
+   * Panel 注册回调(依赖反转)。由 runtime._registerPanel 实现:
+   * 持有 PanelDefinition 并发射 panel:registered 事件,UI 层消费。
+   */
+  registerPanel(panel: PanelDefinition): void;
   /**
    * 权限沙箱(W18.6)。由 runtime 构造并注入(基于 plugin.config.permissions),
    * 用于在 PluginContext 上暴露 ctx.sandbox,并在 installPlugin() 期间应用
@@ -73,8 +78,7 @@ export function createPluginContext(
       deps.registerMetadataReader(name, reader as MetadataReader);
     },
     registerPanel: (panel: PanelDefinition) => {
-      // Panel 注册由 UI 层处理,这里仅记录日志
-      void panel;
+      deps.registerPanel(panel);
     },
     sandbox: deps.sandbox,
     log: (level, message) => {

@@ -124,13 +124,13 @@ describe('EmbedImagePipeline 默认 UI', () => {
 
   it('showBeforeAfter=false 时只渲染 1 个 preview(无图片)', () => {
     render(<EmbedImagePipeline showBeforeAfter={false} />);
-    const placeholders = screen.getAllByText('No image');
+    const placeholders = screen.getAllByText('common.noImage');
     expect(placeholders).toHaveLength(1);
   });
 
   it('showBeforeAfter=true 时渲染 2 个 preview', () => {
     render(<EmbedImagePipeline showBeforeAfter={true} />);
-    const placeholders = screen.getAllByText('No image');
+    const placeholders = screen.getAllByText('common.noImage');
     expect(placeholders).toHaveLength(2);
   });
 
@@ -257,7 +257,7 @@ describe('EmbedImagePipeline 默认 UI', () => {
   it('F3: inputInfo=null 时不渲染文件信息', () => {
     setMockState({ inputInfo: null });
     render(<EmbedImagePipeline />);
-    // 无 format badge(注意:placeholder "No image" 可能存在,但不应有 format)
+    // 无 format badge(注意:placeholder 'common.noImage' 可能存在,但不应有 format)
     expect(screen.queryByText('PNG')).toBeNull();
   });
 

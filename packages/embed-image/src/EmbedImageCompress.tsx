@@ -20,7 +20,12 @@ import { useTranslations } from './i18n/utils';
 import type { Language } from './i18n/config';
 import type { EmbedTranslations } from './i18n/EmbedI18nProvider';
 import { formatBytes } from './internal/download';
-import { BusyOverlay, FileInfoBar } from './internal/shared-ui';
+import {
+  BusyOverlay as DefaultBusyOverlay,
+  FileInfoBar as DefaultFileInfoBar,
+  type BusyOverlayProps,
+  type FileInfoBarProps,
+} from './internal/shared-ui';
 import { themeToCssVars, useEmbedMode, type EmbedTheme, type EmbedMode } from './theme';
 import { ImageCompress, useImageCompressContext } from './primitives/ImageCompress';
 import type { CompressPreset, UseEmbedActionOptions } from './hooks/useImageCompress';
@@ -33,17 +38,25 @@ export interface UploadBoxProps {
   children?: ReactNode;
   /** drop zone 的 aria-label(F4 a11y:键盘用户 + 屏幕阅读器) */
   ariaLabel?: string;
+  /** 非拖拽态提示文案(已 i18n;默认 UI 注入 t('quickCompress.dropHint')) */
+  label?: string;
+  /** 拖拽态提示文案(已 i18n;默认 UI 注入 t('common.dropHere')) */
+  dragLabel?: string;
 }
 
 export interface PreviewBoxProps {
   type: 'input' | 'output';
   className?: string;
   style?: CSSProperties;
+  /** 无图时的占位文案(已 i18n;默认 UI 注入 t('common.noImage')) */
+  placeholderLabel?: string;
 }
 
 export interface PresetSwitcherProps {
   className?: string;
   style?: CSSProperties;
+  /** 预设显示文案覆盖(已 i18n;缺省回退英文 config label) */
+  presetLabels?: Partial<Record<CompressPreset, string>>;
 }
 
 export interface DownloadButtonProps {
@@ -55,6 +68,10 @@ export interface DownloadButtonProps {
 export interface RatioBadgeProps {
   className?: string;
   style?: CSSProperties;
+  /** 压缩率非负时的前缀(已 i18n;默认 'Saved') */
+  savedLabel?: string;
+  /** 压缩率为负时的前缀(已 i18n;默认 'Increased') */
+  increasedLabel?: string;
 }
 
 export interface ErrorDisplayProps {
@@ -77,11 +94,15 @@ export interface ImageCompressComponents {
   RatioBadge: ComponentType<RatioBadgeProps>;
   ErrorDisplay: ComponentType<ErrorDisplayProps>;
   ResetButton: ComponentType<ResetButtonProps>;
+  /** 处理中视觉反馈 overlay(默认 DefaultBusyOverlay) */
+  BusyOverlay: ComponentType<BusyOverlayProps>;
+  /** 文件信息栏(默认 DefaultFileInfoBar) */
+  FileInfoBar: ComponentType<FileInfoBarProps>;
 }
 
 // ─── 默认子组件(用 Layer 1 原语 + Tailwind 样式) ────────
 
-function DefaultUploadBox({ className = '', style, ariaLabel }: UploadBoxProps) {
+function DefaultUploadBox({ className = '', style, ariaLabel, label, dragLabel }: UploadBoxProps) {
   return (
     <ImageCompress.Upload
       aria-label={ariaLabel}
@@ -99,14 +120,14 @@ function DefaultUploadBox({ className = '', style, ariaLabel }: UploadBoxProps) 
             color: isDragging ? 'var(--lokvis-primary, #6366f1)' : 'var(--lokvis-text-muted, #71717a)',
           }}
         >
-          {isDragging ? '↓ Drop image' : 'Click or drop image'}
+          {isDragging ? (dragLabel ?? '↓ Drop image') : (label ?? 'Click or drop image')}
         </span>
       )}
     </ImageCompress.Upload>
   );
 }
 
-function DefaultPreviewBox({ type, className = '', style }: PreviewBoxProps) {
+function DefaultPreviewBox({ type, className = '', style, placeholderLabel }: PreviewBoxProps) {
   return (
     <ImageCompress.Preview
       type={type}
@@ -119,29 +140,37 @@ function DefaultPreviewBox({ type, className = '', style }: PreviewBoxProps) {
         minHeight: '160px',
         ...style,
       }}
-      placeholder={<span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>No image</span>}
+      placeholder={<span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>{placeholderLabel ?? 'No image'}</span>}
     />
   );
 }
 
-/** output 预览区 + busy overlay(F2:处理中视觉反馈) */
-function CompressOutputPreview({ processingLabel, children }: { processingLabel: string; children: ReactNode }) {
+/** output 预览区 + busy overlay(F2:处理中视觉反馈;Overlay 走 components slot) */
+function CompressOutputPreview({
+  processingLabel,
+  Overlay,
+  children,
+}: {
+  processingLabel: string;
+  Overlay: ComponentType<BusyOverlayProps>;
+  children: ReactNode;
+}) {
   const { busy } = useImageCompressContext();
   return (
-    <BusyOverlay busy={busy} label={processingLabel}>
+    <Overlay busy={busy} label={processingLabel}>
       {children}
-    </BusyOverlay>
+    </Overlay>
   );
 }
 
-/** 文件信息栏(F3:format badge · WxH · formatBytes) */
-function CompressFileInfoBar({ type }: { type: 'input' | 'output' }) {
+/** 文件信息栏(F3:format badge · WxH · formatBytes;InfoBar 走 components slot) */
+function CompressFileInfoBar({ type, InfoBar }: { type: 'input' | 'output'; InfoBar: ComponentType<FileInfoBarProps> }) {
   const { inputInfo, outputInfo } = useImageCompressContext();
   const info = type === 'input' ? inputInfo : outputInfo;
-  return <FileInfoBar info={info} />;
+  return <InfoBar info={info} />;
 }
 
-function DefaultPresetSwitcher({ className = '', style }: PresetSwitcherProps) {
+function DefaultPresetSwitcher({ className = '', style, presetLabels }: PresetSwitcherProps) {
   const { busy } = useImageCompressContext();
   return (
     <ImageCompress.PresetSwitcher
@@ -164,7 +193,7 @@ function DefaultPresetSwitcher({ className = '', style }: PresetSwitcherProps) {
             opacity: busy ? 0.5 : 1,
           }}
         >
-          {presetLabel(preset)}
+          {presetLabels?.[preset] ?? presetLabel(preset)}
         </button>
       )}
     />
@@ -200,14 +229,14 @@ function DefaultDownloadButton({ className = '', style, children }: DownloadButt
   );
 }
 
-function DefaultRatioBadge({ className = '', style }: RatioBadgeProps) {
+function DefaultRatioBadge({ className = '', style, savedLabel = 'Saved', increasedLabel = 'Increased' }: RatioBadgeProps) {
   return (
     <ImageCompress.RatioBadge
       className={`text-xs font-medium ${className}`}
       style={style}
       format={(ratio, inputSize, outputSize) => {
-        const sign = ratio >= 0 ? 'Saved ' : 'Increased ';
-        return `${sign}${Math.abs(ratio).toFixed(1)}% (${formatBytes(inputSize)} → ${formatBytes(outputSize)})`;
+        const sign = ratio >= 0 ? savedLabel : increasedLabel;
+        return `${sign} ${Math.abs(ratio).toFixed(1)}% (${formatBytes(inputSize)} → ${formatBytes(outputSize)})`;
       }}
     />
   );
@@ -300,6 +329,8 @@ function EmbedImageCompressDefault({
     RatioBadge = DefaultRatioBadge,
     ErrorDisplay = DefaultErrorDisplay,
     ResetButton = DefaultResetButton,
+    BusyOverlay = DefaultBusyOverlay,
+    FileInfoBar = DefaultFileInfoBar,
   } = components ?? {};
 
   return (
@@ -325,29 +356,46 @@ function EmbedImageCompressDefault({
               {t('quickCompress.subtitle')}
             </p>
           </div>
-          <UploadBox ariaLabel={t('quickCompress.dropHint')} />
-          {showPresetSwitcher && <PresetSwitcher />}
+          <UploadBox
+            ariaLabel={t('quickCompress.dropHint')}
+            label={t('quickCompress.dropHint')}
+            dragLabel={t('common.dropHere')}
+          />
+          {showPresetSwitcher && (
+            <PresetSwitcher
+              presetLabels={{
+                balanced: t('quickCompress.presetBalanced'),
+                highQuality: t('quickCompress.presetHighQuality'),
+                small: t('quickCompress.presetSmall'),
+              }}
+            />
+          )}
         </header>
 
         {/* 主体:before/after 对比 */}
         <div className={`grid grid-cols-1 gap-2 ${showBeforeAfter ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
           {showBeforeAfter && (
             <div className="flex flex-col gap-1">
-              <PreviewBox type="input" />
-              <CompressFileInfoBar type="input" />
+              <PreviewBox type="input" placeholderLabel={t('common.noImage')} />
+              <CompressFileInfoBar type="input" InfoBar={FileInfoBar} />
             </div>
           )}
           <div className="flex flex-col gap-1">
-            <CompressOutputPreview processingLabel={t('quickCompress.processing')}>
-              <PreviewBox type="output" />
+            <CompressOutputPreview processingLabel={t('quickCompress.processing')} Overlay={BusyOverlay}>
+              <PreviewBox type="output" placeholderLabel={t('common.noImage')} />
             </CompressOutputPreview>
-            <CompressFileInfoBar type="output" />
+            <CompressFileInfoBar type="output" InfoBar={FileInfoBar} />
           </div>
         </div>
 
         {/* footer:压缩率 + 下载 + 重置 + 错误 */}
         <footer className="flex flex-col gap-2">
-          {showRatio && <RatioBadge />}
+          {showRatio && (
+            <RatioBadge
+              savedLabel={t('common.ratioSaved')}
+              increasedLabel={t('common.ratioIncreased')}
+            />
+          )}
           <div className="flex items-center justify-end gap-2">
             {showDownloadButton && <DownloadButton>{t('quickCompress.download')}</DownloadButton>}
             {showResetButton && <ResetButton>{t('quickCompress.retry')}</ResetButton>}

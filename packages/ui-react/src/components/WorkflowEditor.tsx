@@ -21,7 +21,7 @@ import * as React from 'react';
 import { ConfirmDialog, Icon, Input } from '@lokvis/ui-core';
 import type { Capability } from '@lokvis/schema';
 import { useWorkspaceStore, MAX_WORKFLOW_STEPS } from '../store/index.js';
-import { filterCapabilities } from '../utils.js';
+import { filterCapabilities, capabilityLabel } from '../utils.js';
 import { StatusDot } from './StatusDot.js';
 
 export interface WorkflowEditorProps {
@@ -364,8 +364,9 @@ function InsertConnector({
  className="block w-full rounded px-2 py-1 text-left transition-colors hover:bg-[var(--lokvis-primary)]/10"
  >
  <span className="flex items-center justify-between gap-1.5">
- <span className="block font-mono text-[10px] font-medium text-[var(--lokvis-fg-muted)]">
- {cap.name}
+ <span className={`block truncate text-[10px] font-medium text-[var(--lokvis-fg-muted)] ${cap.label ? '' : 'font-mono'}`}>
+ {cap.icon ? <span aria-hidden="true">{cap.icon} </span> : null}
+ {capabilityLabel(cap)}
  </span>
  {isStubOnly && (
  <span className="shrink-0 rounded px-1 py-0.5 text-[8px] font-medium uppercase bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]">

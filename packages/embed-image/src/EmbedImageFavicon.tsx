@@ -14,10 +14,15 @@ import { useLang } from './i18n/useLang';
 import { useTranslations } from './i18n/utils';
 import type { Language } from './i18n/config';
 import type { EmbedTranslations } from './i18n/EmbedI18nProvider';
-import { BusyOverlay, FileInfoBar } from './internal/shared-ui';
+import {
+  BusyOverlay as DefaultBusyOverlay,
+  FileInfoBar as DefaultFileInfoBar,
+  type BusyOverlayProps,
+  type FileInfoBarProps,
+} from './internal/shared-ui';
 import { themeToCssVars, useEmbedMode, type EmbedTheme, type EmbedMode } from './theme';
 import { ImageFavicon, useImageFaviconContext } from './primitives/ImageFavicon';
-import { type FaviconPreset, type UseEmbedActionOptions } from './hooks/useImageFavicon';
+import { IMAGE_FAVICON_PRESETS, type FaviconPreset, type UseEmbedActionOptions } from './hooks/useImageFavicon';
 
 // ─── 子组件契约 ────────────────────────────────────────────
 
@@ -27,17 +32,25 @@ export interface UploadBoxProps {
   children?: ReactNode;
   /** drop zone 的 aria-label(F4 a11y:键盘用户 + 屏幕阅读器) */
   ariaLabel?: string;
+  /** 非拖拽态提示文案(已 i18n;默认 UI 注入 t('quickFavicon.dropHint')) */
+  label?: string;
+  /** 拖拽态提示文案(已 i18n;默认 UI 注入 t('common.dropHere')) */
+  dragLabel?: string;
 }
 
 export interface PreviewBoxProps {
   type: 'input' | 'output';
   className?: string;
   style?: CSSProperties;
+  /** 无图时的占位文案(已 i18n;默认 UI 注入 t('common.noImage')) */
+  placeholderLabel?: string;
 }
 
 export interface PresetSwitcherProps {
   className?: string;
   style?: CSSProperties;
+  /** 预设显示文案覆盖(已 i18n;缺省回退英文 config label) */
+  presetLabels?: Partial<Record<FaviconPreset, string>>;
 }
 
 export interface DownloadButtonProps {
@@ -70,11 +83,15 @@ export interface ImageFaviconComponents {
   SizeBadge: ComponentType<SizeBadgeProps>;
   ErrorDisplay: ComponentType<ErrorDisplayProps>;
   ResetButton: ComponentType<ResetButtonProps>;
+  /** 处理中视觉反馈 overlay(默认 DefaultBusyOverlay) */
+  BusyOverlay: ComponentType<BusyOverlayProps>;
+  /** 文件信息栏(默认 DefaultFileInfoBar) */
+  FileInfoBar: ComponentType<FileInfoBarProps>;
 }
 
 // ─── 默认子组件 ────────────────────────────────────────────
 
-function DefaultUploadBox({ className = '', style, ariaLabel }: UploadBoxProps) {
+function DefaultUploadBox({ className = '', style, ariaLabel, label, dragLabel }: UploadBoxProps) {
   return (
     <ImageFavicon.Upload
       aria-label={ariaLabel}
@@ -92,14 +109,14 @@ function DefaultUploadBox({ className = '', style, ariaLabel }: UploadBoxProps) 
             color: isDragging ? 'var(--lokvis-primary, #6366f1)' : 'var(--lokvis-text-muted, #71717a)',
           }}
         >
-          {isDragging ? '↓ Drop image' : 'Click or drop image'}
+          {isDragging ? (dragLabel ?? '↓ Drop image') : (label ?? 'Click or drop image')}
         </span>
       )}
     </ImageFavicon.Upload>
   );
 }
 
-function DefaultPreviewBox({ type, className = '', style }: PreviewBoxProps) {
+function DefaultPreviewBox({ type, className = '', style, placeholderLabel }: PreviewBoxProps) {
   return (
     <ImageFavicon.Preview
       type={type}
@@ -112,43 +129,38 @@ function DefaultPreviewBox({ type, className = '', style }: PreviewBoxProps) {
         minHeight: '160px',
         ...style,
       }}
-      placeholder={<span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>No image</span>}
+      placeholder={<span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>{placeholderLabel ?? 'No image'}</span>}
     />
   );
 }
 
-function presetLabel(preset: FaviconPreset, t: (key: string) => string): string {
-  switch (preset) {
-    case 'standard':
-      return t('quickFavicon.presetStandard');
-    case 'modern':
-      return t('quickFavicon.presetModern');
-    case 'full':
-      return t('quickFavicon.presetFull');
-  }
-}
-
-/** output 预览区 + busy overlay(F2:处理中视觉反馈) */
-function FaviconOutputPreview({ processingLabel, children }: { processingLabel: string; children: ReactNode }) {
+/** output 预览区 + busy overlay(F2:处理中视觉反馈;Overlay 走 components slot) */
+function FaviconOutputPreview({
+  processingLabel,
+  Overlay,
+  children,
+}: {
+  processingLabel: string;
+  Overlay: ComponentType<BusyOverlayProps>;
+  children: ReactNode;
+}) {
   const { busy } = useImageFaviconContext();
   return (
-    <BusyOverlay busy={busy} label={processingLabel}>
+    <Overlay busy={busy} label={processingLabel}>
       {children}
-    </BusyOverlay>
+    </Overlay>
   );
 }
 
-/** 文件信息栏(F3:format badge · WxH · formatBytes) */
-function FaviconFileInfoBar({ type }: { type: 'input' | 'output' }) {
+/** 文件信息栏(F3:format badge · WxH · formatBytes;InfoBar 走 components slot) */
+function FaviconFileInfoBar({ type, InfoBar }: { type: 'input' | 'output'; InfoBar: ComponentType<FileInfoBarProps> }) {
   const { inputInfo, outputInfo } = useImageFaviconContext();
   const info = type === 'input' ? inputInfo : outputInfo;
-  return <FileInfoBar info={info} />;
+  return <InfoBar info={info} />;
 }
 
-function DefaultPresetSwitcher({ className = '', style }: PresetSwitcherProps) {
+function DefaultPresetSwitcher({ className = '', style, presetLabels }: PresetSwitcherProps) {
   const { busy } = useImageFaviconContext();
-  const lang = useLang();
-  const t = useTranslations(lang);
   return (
     <ImageFavicon.PresetSwitcher
       className={`flex gap-1 ${className}`}
@@ -170,7 +182,7 @@ function DefaultPresetSwitcher({ className = '', style }: PresetSwitcherProps) {
             opacity: busy ? 0.5 : 1,
           }}
         >
-          {presetLabel(preset, t)}
+          {presetLabels?.[preset] ?? IMAGE_FAVICON_PRESETS[preset].label}
         </button>
       )}
     />
@@ -284,6 +296,8 @@ function EmbedImageFaviconDefault({
     SizeBadge = DefaultSizeBadge,
     ErrorDisplay = DefaultErrorDisplay,
     ResetButton = DefaultResetButton,
+    BusyOverlay = DefaultBusyOverlay,
+    FileInfoBar = DefaultFileInfoBar,
   } = components ?? {};
 
   return (
@@ -308,22 +322,34 @@ function EmbedImageFaviconDefault({
               {t('quickFavicon.subtitle')}
             </p>
           </div>
-          <UploadBox ariaLabel={t('quickFavicon.dropHint')} />
-          {showPresetSwitcher && <PresetSwitcher />}
+          <UploadBox
+            ariaLabel={t('quickFavicon.dropHint')}
+            label={t('quickFavicon.dropHint')}
+            dragLabel={t('common.dropHere')}
+          />
+          {showPresetSwitcher && (
+            <PresetSwitcher
+              presetLabels={{
+                standard: t('quickFavicon.presetStandard'),
+                modern: t('quickFavicon.presetModern'),
+                full: t('quickFavicon.presetFull'),
+              }}
+            />
+          )}
         </header>
 
         <div className={`grid grid-cols-1 gap-2 ${showBeforeAfter ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
           {showBeforeAfter && (
             <div className="flex flex-col gap-1">
-              <PreviewBox type="input" />
-              <FaviconFileInfoBar type="input" />
+              <PreviewBox type="input" placeholderLabel={t('common.noImage')} />
+              <FaviconFileInfoBar type="input" InfoBar={FileInfoBar} />
             </div>
           )}
           <div className="flex flex-col gap-1">
-            <FaviconOutputPreview processingLabel={t('quickFavicon.processing')}>
-              <PreviewBox type="output" />
+            <FaviconOutputPreview processingLabel={t('quickFavicon.processing')} Overlay={BusyOverlay}>
+              <PreviewBox type="output" placeholderLabel={t('common.noImage')} />
             </FaviconOutputPreview>
-            <FaviconFileInfoBar type="output" />
+            <FaviconFileInfoBar type="output" InfoBar={FileInfoBar} />
           </div>
         </div>
 

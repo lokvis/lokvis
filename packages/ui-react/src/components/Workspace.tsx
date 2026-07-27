@@ -57,6 +57,7 @@ import { CommandPalette, useCommandPalette } from './CommandPalette.js';
 import { GlobalDropzone } from './GlobalDropzone.js';
 import { ThemeToggle } from './ThemeToggle.js';
 import { ErrorBoundary } from './ErrorBoundary.js';
+import { PluginPanels } from './PluginPanels.js';
 import { useShareLink } from '../hooks/useShareLink.js';
 import { useFocusedAutoSelect } from '../hooks/useFocusedAutoSelect.js';
 import { useWorkspaceStore } from '../store/index.js';
@@ -107,6 +108,28 @@ export interface WorkspaceProps extends UseLokvisOptions {
   */
  mode?: 'full' | 'focused';
 
+ /** 是否显示左侧资产面板(默认 true;focused 模式下始终隐藏) */
+ showAssetPanel?: boolean;
+ /** 是否显示右侧 Inspector 面板(默认 true;关闭后整列不渲染) */
+ showInspector?: boolean;
+ /**
+  * 替换中央画布(整体替换内置 Canvas)。
+  * 传入时内置 Canvas(含预览 / 对比 / 拖拽导入)不渲染;
+  * 三方需要完全自定义预览区时使用。渲染在 flex-1 容器内。
+  */
+ canvasSlot?: React.ReactNode;
+ /**
+  * 替换右侧 Inspector 内容(整体替换内置 Inspector)。
+  * 传入时内置 Inspector(节点参数表单)不渲染,插件 Panel
+  * (inspector 位置)仍会在其下方渲染。渲染在 flex-1 容器内。
+  */
+ inspectorSlot?: React.ReactNode;
+ /**
+  * 自定义画布空状态(无选中资产时),替换内置导入引导。
+  * 透传给内置 Canvas 的 emptyState;canvasSlot 设置时本项无效。
+  */
+ canvasEmptyState?: React.ReactNode;
+
  className?: string;
 }
 
@@ -130,6 +153,11 @@ export function Workspace({
  initialCapability,
  initialParams,
  mode = 'full',
+ showAssetPanel = true,
+ showInspector = true,
+ canvasSlot,
+ inspectorSlot,
+ canvasEmptyState,
  className = '',
  ...lokvisOptions
 }: WorkspaceProps) {
@@ -259,9 +287,12 @@ export function Workspace({
  </button>
  )}
  {enableThemeToggle && <ThemeToggle />}
+ {/* 插件 Panel(toolbar 位置) */}
+ <PluginPanels location="toolbar" />
  {/* W9.8 移动端面板切换按钮 */}
  {isMobile && (
  <>
+ {!isFocused && showAssetPanel && (
  <button
  type="button"
  onClick={() => setMobilePanel(mobilePanel === 'asset' ? null : 'asset')}
@@ -271,6 +302,8 @@ export function Workspace({
  >
  <Icon size={14}><rect x="3" y="3" width="7" height="18" rx="1" /><path d="M14 3h7v18h-7z" opacity="0.3" /></Icon>
  </button>
+ )}
+ {showInspector && (
  <button
  type="button"
  onClick={() => setMobilePanel(mobilePanel === 'inspector' ? null : 'inspector')}
@@ -280,6 +313,7 @@ export function Workspace({
  >
  <Icon size={14}><path d="M3 3h7v18H3z" opacity="0.3" /><rect x="14" y="3" width="7" height="18" rx="1" /></Icon>
  </button>
+ )}
  </>
  )}
  </>
@@ -307,7 +341,7 @@ export function Workspace({
  {/* Middle: Panel area */}
  <div className="flex flex-1 overflow-hidden relative">
  {/* W9.8 桌面:三栏并列;移动:Canvas 单独,其他为 overlay drawer */}
- {!isFocused && (
+ {!isFocused && showAssetPanel && (
  <div
  className={`${
  isMobile
@@ -315,14 +349,21 @@ export function Workspace({
  mobilePanel === 'asset' ? 'translate-x-0' : '-translate-x-full'
  }`
  : 'relative'
- }`}
+ } flex flex-col`}
  >
- <AssetPanel className="h-full" />
+ <AssetPanel className="min-h-0 flex-1" />
+ {/* 插件 Panel(sidebar 位置) */}
+ <PluginPanels location="sidebar" />
  </div>
  )}
 
- <Canvas enableCompare={enableCompare} />
+ {canvasSlot ? (
+ <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{canvasSlot}</div>
+ ) : (
+ <Canvas enableCompare={enableCompare} emptyState={canvasEmptyState} />
+ )}
 
+ {showInspector && (
  <div
  className={`${
  isMobile
@@ -330,10 +371,17 @@ export function Workspace({
  mobilePanel === 'inspector' ? 'translate-x-0' : 'translate-x-full'
  }`
  : 'relative'
- }`}
+ } flex flex-col`}
  >
- <Inspector className="h-full" />
+ {inspectorSlot ? (
+ <div className="min-h-0 flex-1">{inspectorSlot}</div>
+ ) : (
+ <Inspector className="min-h-0 flex-1" />
+ )}
+ {/* 插件 Panel(inspector 位置) */}
+ <PluginPanels location="inspector" />
  </div>
+ )}
 
  {/* W9.8 移动端遮罩:点击关闭抽屉 */}
  {isMobile && mobilePanel !== null && !isFocused && (
@@ -360,6 +408,9 @@ export function Workspace({
 
  {/* Bottom: StatusBar */}
  {showStatusBar && <StatusBar />}
+
+ {/* 插件 Panel(modal 位置:渲染器自行管理弹层展示) */}
+ <PluginPanels location="modal" />
 
  {/* W11.5 分享链接替换确认(替代 window.confirm) */}
  <ConfirmDialog

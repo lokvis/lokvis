@@ -7,6 +7,7 @@
 import type { Asset, AssetId, AssetMetadata } from './asset.js';
 import type { Workflow, WorkflowResult } from './workflow.js';
 import type { HistoryEntry } from './asset.js';
+import type { PanelDefinition } from './plugin.js';
 
 /** 批量项状态(对应 BatchProcessor 内部状态机) */
 export type BatchItemStatus =
@@ -65,6 +66,7 @@ export type LokvisEvent =
     }
   | { type: 'capability:registered'; capability: string; engine: string }
   | { type: 'plugin:loaded'; name: string; version: string }
+  | { type: 'panel:registered'; panel: PanelDefinition }
   // ─── 批量作业事件(W6.3)─────────────────────────────────
   | { type: 'batch:started'; jobId: string; total: number }
   | {

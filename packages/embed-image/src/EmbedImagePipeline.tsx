@@ -19,7 +19,12 @@ import { useLang } from './i18n/useLang';
 import { useTranslations } from './i18n/utils';
 import type { Language } from './i18n/config';
 import type { EmbedTranslations } from './i18n/EmbedI18nProvider';
-import { BusyOverlay, FileInfoBar } from './internal/shared-ui';
+import {
+  BusyOverlay as DefaultBusyOverlay,
+  FileInfoBar as DefaultFileInfoBar,
+  type BusyOverlayProps,
+  type FileInfoBarProps,
+} from './internal/shared-ui';
 import { themeToCssVars, useEmbedMode, type EmbedTheme, type EmbedMode } from './theme';
 import { ImagePipeline, useImagePipelineContext } from './primitives/ImagePipeline';
 import {
@@ -36,22 +41,32 @@ export interface UploadBoxProps {
   children?: ReactNode;
   /** drop zone 的 aria-label(F4 a11y:键盘用户 + 屏幕阅读器) */
   ariaLabel?: string;
+  /** 非拖拽态提示文案(已 i18n;默认 UI 注入 t('quickPipeline.dropHint')) */
+  label?: string;
+  /** 拖拽态提示文案(已 i18n;默认 UI 注入 t('common.dropHere')) */
+  dragLabel?: string;
 }
 
 export interface PreviewBoxProps {
   type: 'input' | 'output';
   className?: string;
   style?: CSSProperties;
+  /** 无图时的占位文案(已 i18n;默认 UI 注入 t('common.noImage')) */
+  placeholderLabel?: string;
 }
 
 export interface PresetSwitcherProps {
   className?: string;
   style?: CSSProperties;
+  /** 预设显示文案覆盖(已 i18n;缺省回退英文 config label) */
+  presetLabels?: Partial<Record<PipelinePreset, string>>;
 }
 
 export interface StepListBoxProps {
   className?: string;
   style?: CSSProperties;
+  /** 无步骤时的空状态文案(已 i18n;默认 UI 注入 t('quickPipeline.emptySteps')) */
+  emptyLabel?: string;
 }
 
 export interface DownloadButtonProps {
@@ -79,11 +94,15 @@ export interface ImagePipelineComponents {
   DownloadButton: ComponentType<DownloadButtonProps>;
   ErrorDisplay: ComponentType<ErrorDisplayProps>;
   ResetButton: ComponentType<ResetButtonProps>;
+  /** 处理中视觉反馈 overlay(默认 DefaultBusyOverlay) */
+  BusyOverlay: ComponentType<BusyOverlayProps>;
+  /** 文件信息栏(默认 DefaultFileInfoBar) */
+  FileInfoBar: ComponentType<FileInfoBarProps>;
 }
 
 // ─── 默认子组件 ────────────────────────────────────────────
 
-function DefaultUploadBox({ className = '', style, ariaLabel }: UploadBoxProps) {
+function DefaultUploadBox({ className = '', style, ariaLabel, label, dragLabel }: UploadBoxProps) {
   return (
     <ImagePipeline.Upload
       aria-label={ariaLabel}
@@ -101,14 +120,14 @@ function DefaultUploadBox({ className = '', style, ariaLabel }: UploadBoxProps) 
             color: isDragging ? 'var(--lokvis-primary, #6366f1)' : 'var(--lokvis-text-muted, #71717a)',
           }}
         >
-          {isDragging ? '↓ Drop image' : 'Click or drop image'}
+          {isDragging ? (dragLabel ?? '↓ Drop image') : (label ?? 'Click or drop image')}
         </span>
       )}
     </ImagePipeline.Upload>
   );
 }
 
-function DefaultPreviewBox({ type, className = '', style }: PreviewBoxProps) {
+function DefaultPreviewBox({ type, className = '', style, placeholderLabel }: PreviewBoxProps) {
   return (
     <ImagePipeline.Preview
       type={type}
@@ -121,7 +140,7 @@ function DefaultPreviewBox({ type, className = '', style }: PreviewBoxProps) {
         minHeight: '160px',
         ...style,
       }}
-      placeholder={<span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>No image</span>}
+      placeholder={<span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>{placeholderLabel ?? 'No image'}</span>}
     />
   );
 }
@@ -130,24 +149,32 @@ function presetLabel(preset: PipelinePreset): string {
   return IMAGE_PIPELINE_PRESETS[preset].label;
 }
 
-/** output 预览区 + busy overlay(F2:处理中视觉反馈) */
-function PipelineOutputPreview({ processingLabel, children }: { processingLabel: string; children: ReactNode }) {
+/** output 预览区 + busy overlay(F2:处理中视觉反馈;Overlay 走 components slot) */
+function PipelineOutputPreview({
+  processingLabel,
+  Overlay,
+  children,
+}: {
+  processingLabel: string;
+  Overlay: ComponentType<BusyOverlayProps>;
+  children: ReactNode;
+}) {
   const { busy } = useImagePipelineContext();
   return (
-    <BusyOverlay busy={busy} label={processingLabel}>
+    <Overlay busy={busy} label={processingLabel}>
       {children}
-    </BusyOverlay>
+    </Overlay>
   );
 }
 
-/** 文件信息栏(F3:format badge · WxH · formatBytes) */
-function PipelineFileInfoBar({ type }: { type: 'input' | 'output' }) {
+/** 文件信息栏(F3:format badge · WxH · formatBytes;InfoBar 走 components slot) */
+function PipelineFileInfoBar({ type, InfoBar }: { type: 'input' | 'output'; InfoBar: ComponentType<FileInfoBarProps> }) {
   const { inputInfo, outputInfo } = useImagePipelineContext();
   const info = type === 'input' ? inputInfo : outputInfo;
-  return <FileInfoBar info={info} />;
+  return <InfoBar info={info} />;
 }
 
-function DefaultPresetSwitcher({ className = '', style }: PresetSwitcherProps) {
+function DefaultPresetSwitcher({ className = '', style, presetLabels }: PresetSwitcherProps) {
   const { busy } = useImagePipelineContext();
   return (
     <ImagePipeline.PresetSwitcher
@@ -170,14 +197,14 @@ function DefaultPresetSwitcher({ className = '', style }: PresetSwitcherProps) {
             opacity: busy ? 0.5 : 1,
           }}
         >
-          {presetLabel(preset)}
+          {presetLabels?.[preset] ?? presetLabel(preset)}
         </button>
       )}
     />
   );
 }
 
-function DefaultStepListBox({ className = '', style }: StepListBoxProps) {
+function DefaultStepListBox({ className = '', style, emptyLabel }: StepListBoxProps) {
   return (
     <ImagePipeline.StepList
       className={`flex flex-col gap-1 rounded-lg p-2 ${className}`}
@@ -189,7 +216,7 @@ function DefaultStepListBox({ className = '', style }: StepListBoxProps) {
       }}
       empty={
         <span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>
-          Pipeline steps will appear here after upload
+          {emptyLabel ?? 'Pipeline steps will appear here after upload'}
         </span>
       }
     />
@@ -296,6 +323,8 @@ function EmbedImagePipelineDefault({
     DownloadButton = DefaultDownloadButton,
     ErrorDisplay = DefaultErrorDisplay,
     ResetButton = DefaultResetButton,
+    BusyOverlay = DefaultBusyOverlay,
+    FileInfoBar = DefaultFileInfoBar,
   } = components ?? {};
 
   return (
@@ -320,8 +349,21 @@ function EmbedImagePipelineDefault({
               {t('quickPipeline.subtitle')}
             </p>
           </div>
-          <UploadBox ariaLabel={t('quickPipeline.dropHint')} />
-          {showPresetSwitcher && <PresetSwitcher />}
+          <UploadBox
+            ariaLabel={t('quickPipeline.dropHint')}
+            label={t('quickPipeline.dropHint')}
+            dragLabel={t('common.dropHere')}
+          />
+          {showPresetSwitcher && (
+            <PresetSwitcher
+              presetLabels={{
+                ecommerce: t('quickPipeline.presetEcommerce'),
+                social: t('quickPipeline.presetSocial'),
+                thumbnail: t('quickPipeline.presetThumbnail'),
+                blog: t('quickPipeline.presetBlog'),
+              }}
+            />
+          )}
         </header>
 
         {showStepList && (
@@ -329,22 +371,22 @@ function EmbedImagePipelineDefault({
             <span className="text-xs" style={{ color: 'var(--lokvis-text-muted, #71717a)' }}>
               {t('quickPipeline.steps')}
             </span>
-            <StepListBox />
+            <StepListBox emptyLabel={t('quickPipeline.emptySteps')} />
           </div>
         )}
 
         <div className={`grid grid-cols-1 gap-2 ${showBeforeAfter ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
           {showBeforeAfter && (
             <div className="flex flex-col gap-1">
-              <PreviewBox type="input" />
-              <PipelineFileInfoBar type="input" />
+              <PreviewBox type="input" placeholderLabel={t('common.noImage')} />
+              <PipelineFileInfoBar type="input" InfoBar={FileInfoBar} />
             </div>
           )}
           <div className="flex flex-col gap-1">
-            <PipelineOutputPreview processingLabel={t('quickPipeline.processing')}>
-              <PreviewBox type="output" />
+            <PipelineOutputPreview processingLabel={t('quickPipeline.processing')} Overlay={BusyOverlay}>
+              <PreviewBox type="output" placeholderLabel={t('common.noImage')} />
             </PipelineOutputPreview>
-            <PipelineFileInfoBar type="output" />
+            <PipelineFileInfoBar type="output" InfoBar={FileInfoBar} />
           </div>
         </div>
 

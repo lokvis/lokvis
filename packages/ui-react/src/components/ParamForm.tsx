@@ -7,6 +7,7 @@
 
 import type { Capability, CapabilityParam } from '@lokvis/schema';
 import { Input } from '@lokvis/ui-core';
+import { resolveParamWidget } from './param-widgets.js';
 
 export interface ParamFormProps {
  capability: Capability;
@@ -55,6 +56,24 @@ function ParamField({
  value: unknown;
  onChange: (value: unknown) => void;
 }) {
+ // widget 提示解析:自定义注册表优先(可覆盖内置),其次内置
+ // slider/textarea/json;未命中回落到下方 type 默认控件。
+ const Widget = resolveParamWidget(param);
+ if (Widget) {
+ return (
+ <div>
+ <label className="mb-1 block text-[11px] font-medium text-[var(--lokvis-fg-muted)]">
+ {param.name}
+ {param.required && <span className="ml-0.5 text-[var(--lokvis-danger)]">*</span>}
+ {param.description && (
+ <span className="ml-1 font-normal text-[var(--lokvis-fg-subtle)]">{param.description}</span>
+ )}
+ </label>
+ <Widget param={param} value={value} onChange={onChange} />
+ </div>
+ );
+ }
+
  if (param.type === 'boolean') {
  return (
  <label className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-[var(--lokvis-surface)]">

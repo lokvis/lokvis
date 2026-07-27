@@ -101,3 +101,7 @@ export {
   type UseImagePipelineOptions,
   type UseImagePipelineResult,
 } from './useImagePipeline';
+
+// ─── 共享类型 ────────────────────────────────────────────
+// hook 返回值中的 inputInfo/outputInfo 类型。
+export type { ImageInfo } from '../internal/download';

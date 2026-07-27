@@ -20,9 +20,14 @@ export interface CanvasProps {
  * 默认 true;关闭后即使有 outputs 也只显示单图预览。
  */
  enableCompare?: boolean;
+ /**
+  * 自定义空状态(无选中资产时渲染),替换内置的引导 UI。
+  * 不传时使用默认空状态(导入引导 + Import Files 按钮)。
+  */
+ emptyState?: React.ReactNode;
 }
 
-export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
+export function Canvas({ className = '', enableCompare = true, emptyState }: CanvasProps) {
  const selectedAssetId = useWorkspaceStore((s) => s.selectedAssetId);
  const assets = useWorkspaceStore((s) => s.assets);
  const thumbnails = useWorkspaceStore((s) => s.thumbnails);
@@ -169,6 +174,7 @@ export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
  </div>
  )
  ) : (
+ emptyState ?? (
  <div className="relative flex flex-col items-center gap-5 px-6 text-center">
  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-1)] ring-1 ring-[var(--lokvis-border)]/80">
  <Icon size={36} className="text-[var(--lokvis-fg-subtle)]" strokeWidth={1.5}>
@@ -198,6 +204,7 @@ export function Canvas({ className = '', enableCompare = true }: CanvasProps) {
  </label>
  )}
  </div>
+ )
  )}
  </div>
  </main>

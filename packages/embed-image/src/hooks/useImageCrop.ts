@@ -18,6 +18,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useImageTool } from '../internal/useImageTool';
+import { useInputBlobImport } from '../internal/useInputBlobImport';
 import { buildSingleStepImageWorkflow } from '../internal/workflow-builder';
 import type { ImageInfo } from '../internal/download';
 import {
@@ -136,8 +137,10 @@ export function computeCropRect(
 export function useImageCrop(
   options?: UseEmbedActionOptions<CropPreset>
 ): UseImageCropResult {
-  const { initialPreset = 'square', autoRun = true, onComplete, plugins } = options ?? {};
+  const { initialPreset = 'square', autoRun = true, onComplete, inputBlob, plugins } = options ?? {};
   const tool = useImageTool(plugins);
+  // inputBlob 注入:走与手动上传相同的路径(见 useInputBlobImport)
+  useInputBlobImport(tool, inputBlob);
   const [preset, setPresetState] = useState<CropPreset>(initialPreset);
 
   const lastRunInputId = useRef<string | null>(null);

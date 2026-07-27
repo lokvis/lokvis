@@ -288,4 +288,20 @@ describe('useImageCompress', () => {
     renderHook(() => useImageCompress({ plugins: [] }));
     expect(useImageToolCallArgs).toEqual([[]]);
   });
+
+  // ─── inputBlob 注入选项 ─────────────────────────────────
+
+  it('inputBlob:注入 Blob 走 handleFiles(与手动上传同路径)', () => {
+    const blob = new Blob(['img'], { type: 'image/png' });
+    renderHook(() => useImageCompress({ inputBlob: blob }));
+    expect(handleFilesMock).toHaveBeenCalledTimes(1);
+    const file = handleFilesMock.mock.calls[0]![0]![0];
+    expect(file).toBeInstanceOf(File);
+    expect(file.type).toBe('image/png');
+  });
+
+  it('inputBlob:null 时不导入', () => {
+    renderHook(() => useImageCompress({ inputBlob: null }));
+    expect(handleFilesMock).not.toHaveBeenCalled();
+  });
 });

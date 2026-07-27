@@ -4,7 +4,7 @@
  * 把原 store.ts 顶部的 WorkspaceState / WorkspaceActions 抽出,
  * 供各 slice 引用,避免循环依赖。
  */
-import type { Asset, Capability, HistoryEntry } from '@lokvis/schema';
+import type { Asset, Capability, HistoryEntry, PanelDefinition } from '@lokvis/schema';
 import type { LokvisRuntime } from '@lokvis/runtime';
 import type { CapabilityMap, NodeStatus, WorkspaceNode } from '../types.js';
 
@@ -43,6 +43,13 @@ export interface WorkspaceState {
    * 避免用户选择后在工作流执行阶段才收到 stub error。
    */
   stubCapabilities: Set<string>;
+
+  /**
+   * 插件通过 ctx.registerPanel() 注册的 UI Panel 定义列表。
+   * init 时与 panel:registered 事件后由 refreshPanels() 从
+   * runtime.listPanels() 同步;PluginPanels 组件按 location 消费。
+   */
+  panels: PanelDefinition[];
 
   /** 工作流节点序列（线性链） */
   nodes: WorkspaceNode[];
@@ -89,6 +96,12 @@ export interface WorkspaceActions {
   refreshAssets(): Promise<void>;
   /** 刷新能力列表 */
   refreshCapabilities(): Promise<void>;
+  /**
+   * 刷新插件 Panel 列表(从 runtime.listPanels() 同步)。
+   * init 完成后调用一次,并在 panel:registered 事件后重新调用,
+   * 保证插件在安装过程中注册的 Panel 对 UI 立即可见。
+   */
+  refreshPanels(): void;
   /**
    * 导入文件,返回导入成功的 Asset ID 列表(导入顺序)。
    *

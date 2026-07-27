@@ -7,7 +7,7 @@
 
 import type {
   Asset, AssetId, AssetSource, Capability, ExifData,
-  HistoryEntry, ImageMetadata, McpManifest, MetadataReader, PdfInfo,
+  HistoryEntry, ImageMetadata, McpManifest, MetadataReader, PanelDefinition, PdfInfo,
 } from '@lokvis/schema';
 import type { Workflow, WorkflowResult } from '@lokvis/schema';
 import type { EventBus } from '@lokvis/schema';
@@ -51,6 +51,12 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   private workflowCoordinator: WorkflowCoordinator; // W1.4:status 状态机 + run/cancel/pause/resume/disposeWorkflow
   private historyStore: HistoryStore | undefined; // W7.2 历史持久化;undefined 时退化为仅内存历史
   private metadataReaders = new Map<string, MetadataReader>(); // W7.3/7.4 MetadataReader 依赖反转
+  /**
+   * 插件注册的 UI Panel 定义(按 id 去重,后注册覆盖先注册)。
+   * runtime 只持有数据定义,不持有 React 组件(依赖反转:
+   * UI 层通过 listPanels() + panel:registered 事件消费)。
+   */
+  private panels = new Map<string, PanelDefinition>();
   // W21.6: dispose 守卫,防止重复 dispose + 阻止后续 run/cancel 调用
   private disposed = false;
   // W21.6: 标记 assetStore 是否由 Runtime 拥有(工厂创建而非注入)。
@@ -60,6 +66,16 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   /** 注册元数据读取器(由 PluginContext.registerMetadataReader 转发,内部 API) */
   _registerMetadataReader(name: string, reader: MetadataReader): void {
     this.metadataReaders.set(name, reader);
+  }
+
+  /**
+   * 注册 UI Panel 定义(由 PluginContext.registerPanel 转发,内部 API)。
+   * 同 id 重复注册覆盖前者(与 registerMetadataReader 语义一致,支持热更新),
+   * 并同步发射 panel:registered 事件,UI 层订阅后刷新面板列表。
+   */
+  _registerPanel(panel: PanelDefinition): void {
+    this.panels.set(panel.id, panel);
+    this.eventBus.emit({ type: 'panel:registered', panel });
   }
 
   constructor(config: RuntimeConfig & InternalRuntimeInit = {}) {
@@ -158,7 +174,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
    * 4. historyManager.disposeAll() —— 清空所有历史栈(reset 触发 onEvict
    *    → assetStore.remove 回收 outputs 资产);TD-2.1 改为 await 等待
    *    persistHistory 删除 IDB 记录落地
-   * 5. 清理 metadataReaders
+   * 5. 清理 metadataReaders 与 panels(释放插件注册的引用)
    * 6. 若 ownsAssetStore(工厂创建而非注入):调用 assetStore.dispose?.()
    *    关闭 Dexie 连接 / 清空内存 Map。注入路径由消费方自行管理。
    *
@@ -180,6 +196,8 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
     await this.historyManager.disposeAll();
     // 4. 清理 metadataReaders(释放插件注册的 reader 引用)
     this.metadataReaders.clear();
+    // 4.5 清理 panels(释放插件注册的 Panel 定义引用)
+    this.panels.clear();
     // 5. 若 Runtime 拥有 assetStore(工厂创建),释放底层资源
     //    (注入路径由消费方自行管理生命周期,避免越权清理)
     if (this.ownsAssetStore) {
@@ -212,6 +230,9 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
   async hasCapability(name: string): Promise<boolean> { return this.capabilityRegistry.has(name); }
   async isStubOnly(name: string): Promise<boolean> { return this.capabilityRegistry.isStubOnly(name); }
 
+  // ─── Panel 查询(UI 扩展点) ───────────────────────────
+  listPanels(): PanelDefinition[] { return [...this.panels.values()]; }
+
   // ─── MCP 暴露(委托 mcp-manifest-builder) ──────────────
   toMcpManifest(options: ToMcpManifestOptions = {}): McpManifest {
     return buildMcpManifest(this.capabilityRegistry.list(), options, RUNTIME_VERSION);
@@ -239,6 +260,7 @@ export class LokvisRuntimeImpl implements LokvisRuntime {
       eventBus: this.eventBus, assetStore: this.assetStore,
       capabilityRegistry: this.capabilityRegistry,
       registerMetadataReader: (name, reader) => this._registerMetadataReader(name, reader),
+      registerPanel: (panel) => this._registerPanel(panel),
       sandbox,
     });
     const restore = sandbox.applyNetworkGuard();

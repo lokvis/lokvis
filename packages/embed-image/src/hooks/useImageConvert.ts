@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { wasmEncodersEnabled } from '@lokvis/plugin-image';
 import { useImageTool } from '../internal/useImageTool';
+import { useInputBlobImport } from '../internal/useInputBlobImport';
 import { buildSingleStepImageWorkflow } from '../internal/workflow-builder';
 import type { ImageInfo } from '../internal/download';
 import { detectEncodeSupport } from '../internal/format-support';
@@ -96,8 +97,10 @@ export interface UseImageConvertResult {
 export function useImageConvert(
   options?: UseEmbedActionOptions<ConvertPreset>
 ): UseImageConvertResult {
-  const { initialPreset = 'webp', autoRun = true, onComplete, plugins } = options ?? {};
+  const { initialPreset = 'webp', autoRun = true, onComplete, inputBlob, plugins } = options ?? {};
   const tool = useImageTool(plugins);
+  // inputBlob 注入:走与手动上传相同的路径(见 useInputBlobImport)
+  useInputBlobImport(tool, inputBlob);
   const [preset, setPresetState] = useState<ConvertPreset>(initialPreset);
 
   // 浏览器原生编码支持(AVIF 等可能缺失,canvas 会静默回退 PNG)。

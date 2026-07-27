@@ -23,6 +23,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PluginLoadEntry } from '@lokvis/sdk';
 import { useImageTool, type UseImageToolResult } from '../internal/useImageTool';
+import { useInputBlobImport } from '../internal/useInputBlobImport';
 import {
   buildSingleStepImageWorkflow,
   buildResizeCompressWorkflow,
@@ -50,7 +51,13 @@ export interface UseEmbedActionOptions<Preset extends string = string> {
   autoRun?: boolean;
   /** 完成回调(可串联到下一个 hook / 外部状态) */
   onComplete?: (result: EmbedActionResult) => void;
-  /** 注入输入(用于 pipeline 模式:上一个 hook 的输出作为本 hook 输入) */
+  /**
+   * 注入输入 Blob(pipeline 串联 / 外部来源:相机、canvas、fetch 等)。
+   *
+   * 非 null 时走与手动上传相同的路径(importAsset → inputUrl →
+   * inputInfo),并触发 autoRun。按 Blob 实例引用去重:同一实例不
+   * 重复导入;null 被忽略(不清空已有输入,清空用 reset())。
+   */
   inputBlob?: Blob | null;
   /**
    * 预加载插件列表(W23)。透传给底层 useLokvisRuntime。
@@ -257,10 +264,13 @@ export function useImageCompress(
     initialPreset = 'balanced',
     autoRun = true,
     onComplete,
+    inputBlob,
     plugins,
     targetSizeKB: initialTargetSizeKB,
   } = options ?? {};
   const tool = useImageTool(plugins);
+  // inputBlob 注入:走与手动上传相同的路径(见 useInputBlobImport)
+  useInputBlobImport(tool, inputBlob);
   const [preset, setPresetState] = useState<CompressPreset>(initialPreset);
   const [targetSizeKB, setTargetSizeKBState] = useState<number | null>(
     initialTargetSizeKB ?? null

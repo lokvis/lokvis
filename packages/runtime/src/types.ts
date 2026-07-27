@@ -15,6 +15,7 @@ import type {
   HistoryEntry,
   ImageMetadata,
   McpManifest,
+  PanelDefinition,
   PdfInfo,
   PluginConfig,
   PluginInstaller,
@@ -368,4 +369,18 @@ export interface LokvisRuntime {
    * @throws plugin.install 抛出的任何错误(runtime 不吞错,由 SDK 包成 PluginLoadError)
    */
   installPlugin(plugin: PluginInstallEntry): Promise<void>;
+
+  // ─── Panel 查询(UI 扩展点) ───────────────────────────
+  /**
+   * 列出插件通过 `ctx.registerPanel()` 注册的全部 UI Panel。
+   *
+   * Panel 注册时同步发射 `panel:registered` 事件;UI 层(ui-react)
+   * 订阅该事件并调用本方法刷新面板列表,按 PanelDefinition.location
+   * 挂载到 Workspace 对应区域。component 字段为渲染器标识,由 UI 层
+   * 的 panel renderer 注册表解析(依赖反转:runtime 只持有定义,
+   * 不持有 React 组件)。
+   *
+   * 同步方法:panel 列表是纯内存状态,无 I/O。
+   */
+  listPanels(): PanelDefinition[];
 }

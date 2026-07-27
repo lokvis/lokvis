@@ -177,7 +177,15 @@ export interface PluginContext {
    * @param reader 读取函数
    */
   registerMetadataReader<T>(name: string, reader: MetadataReader<T>): void;
-  /** 注册 UI Panel */
+  /**
+   * 注册 UI Panel(UI 扩展点)。
+   *
+   * Runtime 持有 PanelDefinition 并发射 `panel:registered` 事件;
+   * UI 层(ui-react)订阅事件并通过 `runtime.listPanels()` 消费,
+   * 按 location 挂载到 Workspace 对应区域。component 字段是渲染器
+   * 标识,由 UI 层的 panel renderer 注册表解析(runtime 不持有
+   * React 组件,依赖反转)。同 id 重复注册覆盖前者(热更新语义)。
+   */
   registerPanel(panel: PanelDefinition): void;
   /**
    * 权限沙箱(W18.6)。

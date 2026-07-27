@@ -17,6 +17,8 @@
  * - `<CompareSlider />` - before/after comparison slider (W9.4)
  * - `<DownloadPanel />` - Workflow outputs download panel (W9.5)
  * - `<ThemeToggle />` - Dark mode toggle button (W9.7)
+ * - `<PluginPanels />` - Plugin panel render slot (UI extension point)
+ * - `registerPanelRenderer()` - Map PanelDefinition.component to a React component
  * - `useLokvis()` - React hook for initializing Runtime + plugins
  * - `useTheme()` - Dark mode hook with localStorage + system preference (W9.7)
  * - `useMediaQuery()` / `useBreakpoints()` - Responsive hooks (W9.8)
@@ -50,6 +52,18 @@ export { WorkflowTemplates, type WorkflowTemplatesProps } from './components/Wor
 export { Toolbar } from './components/Toolbar.js';
 export { StatusBar } from './components/StatusBar.js';
 export { ParamForm, type ParamFormProps } from './components/ParamForm.js';
+export {
+  registerParamWidget,
+  getParamWidget,
+  clearParamWidgets,
+  resolveParamWidget,
+  BUILT_IN_PARAM_WIDGETS,
+  SliderWidget,
+  TextareaWidget,
+  JsonWidget,
+  type ParamWidget,
+  type ParamWidgetProps,
+} from './components/param-widgets.js';
 export { HistoryPanel, type HistoryPanelProps } from './components/HistoryPanel.js';
 export { CommandPalette, useCommandPalette, type CommandPaletteProps, type UseCommandPaletteOptions } from './components/CommandPalette.js';
 export { GlobalDropzone, type GlobalDropzoneProps } from './components/GlobalDropzone.js';
@@ -57,6 +71,14 @@ export { CompareSlider, type CompareSliderProps } from './components/CompareSlid
 export { DownloadPanel, type DownloadPanelProps } from './components/DownloadPanel.js';
 export { ThemeToggle, type ThemeToggleProps } from './components/ThemeToggle.js';
 export { ToolRunner, type ToolRunnerProps } from './components/ToolRunner.js';
+export { PluginPanels, type PluginPanelsProps } from './components/PluginPanels.js';
+export {
+  registerPanelRenderer,
+  getPanelRenderer,
+  clearPanelRenderers,
+  type PanelRenderer,
+  type PanelRendererProps,
+} from './panels/registry.js';
 
 export {
   WORKFLOW_TEMPLATES,

@@ -57,6 +57,42 @@ export const createRuntimeSlice: StateCreator<
     });
   });
 
+  /**
+   * Panel 注册事件订阅(UI 扩展点)。
+   *
+   * Plugin 通过 ctx.registerPanel() 注册 Panel 时 runtime 发射
+   * panel:registered;本订阅把最新 Panel 列表同步到 store,
+   * PluginPanels 组件无需各自订阅。与 historySub 同为闭包内实例,
+   * 多 store 互不干扰(TD-6.2 模式)。
+   */
+  const panelSub = reuseSubscription(() => {
+    const { runtime } = get();
+    if (!runtime) return () => {};
+    return runtime.eventBus.on('panel:registered', (e: LokvisEvent) => {
+      if (e.type !== 'panel:registered') return;
+      get().refreshPanels();
+    });
+  });
+
+  /**
+   * Plugin 加载事件订阅(capability 自动刷新)。
+   *
+   * 初始化完成后经 runtime.loadPlugin() 加载的插件,其 capability
+   * 不会自动进入 store;本订阅监听 plugin:loaded 事件并刷新能力列表,
+   * 使新插件的 capability 立即出现在 Inspector / CommandPalette /
+   * WorkflowEditor,无需三方手动调用 refreshCapabilities()。
+   * 与 historySub / panelSub 同为闭包内实例,多 store 互不干扰(TD-6.2 模式)。
+   */
+  const pluginSub = reuseSubscription(() => {
+    const { runtime } = get();
+    if (!runtime) return () => {};
+    return runtime.eventBus.on('plugin:loaded', () => {
+      get().refreshCapabilities().catch(() => {
+        // 刷新失败不阻断插件加载事件本身;下次 init / 手动 refresh 可自愈
+      });
+    });
+  });
+
   return {
     runtime: null,
     initializing: false,
@@ -76,8 +112,13 @@ export const createRuntimeSlice: StateCreator<
         // 覆盖 store,无需额外过滤。
         // TD-6.2: reuseSubscription 在重入 init 时自动清理上一次订阅
         historySub.subscribe();
+        // Panel 注册事件桥接:UI 扩展点,见 panelSub 注释
+        panelSub.subscribe();
+        // Plugin 加载事件桥接:自动刷新 capability,见 pluginSub 注释
+        pluginSub.subscribe();
         await get().refreshAssets();
         await get().refreshCapabilities();
+        get().refreshPanels();
         await get().refreshStorageUsage();
         set({ initializing: false, statusMessage: 'Ready' });
       } catch (err) {

@@ -16,7 +16,12 @@ import { useLang } from './i18n/useLang';
 import { useTranslations } from './i18n/utils';
 import type { Language } from './i18n/config';
 import type { EmbedTranslations } from './i18n/EmbedI18nProvider';
-import { BusyOverlay, FileInfoBar } from './internal/shared-ui';
+import {
+  BusyOverlay as DefaultBusyOverlay,
+  FileInfoBar as DefaultFileInfoBar,
+  type BusyOverlayProps,
+  type FileInfoBarProps,
+} from './internal/shared-ui';
 import { themeToCssVars, useEmbedMode, type EmbedTheme, type EmbedMode } from './theme';
 import { ImageCrop, useImageCropContext } from './primitives/ImageCrop';
 import {
@@ -33,22 +38,32 @@ export interface UploadBoxProps {
   children?: ReactNode;
   /** drop zone 的 aria-label(F4 a11y:键盘用户 + 屏幕阅读器) */
   ariaLabel?: string;
+  /** 非拖拽态提示文案(已 i18n;默认 UI 注入 t('quickCrop.dropHint')) */
+  label?: string;
+  /** 拖拽态提示文案(已 i18n;默认 UI 注入 t('common.dropHere')) */
+  dragLabel?: string;
 }
 
 export interface PreviewBoxProps {
   type: 'input' | 'output';
   className?: string;
   style?: CSSProperties;
+  /** 无图时的占位文案(已 i18n;默认 UI 注入 t('common.noImage')) */
+  placeholderLabel?: string;
 }
 
 export interface PresetSwitcherProps {
   className?: string;
   style?: CSSProperties;
+  /** 预设显示文案覆盖(已 i18n;缺省回退英文 config label) */
+  presetLabels?: Partial<Record<CropPreset, string>>;
 }
 
 export interface CropAreaBoxProps {
   className?: string;
   style?: CSSProperties;
+  /** 无图时的占位文案(已 i18n;默认 UI 注入 t('common.noImage')) */
+  placeholderLabel?: string;
 }
 
 export interface DownloadButtonProps {
@@ -76,11 +91,15 @@ export interface ImageCropComponents {
   DownloadButton: ComponentType<DownloadButtonProps>;
   ErrorDisplay: ComponentType<ErrorDisplayProps>;
   ResetButton: ComponentType<ResetButtonProps>;
+  /** 处理中视觉反馈 overlay(默认 DefaultBusyOverlay) */
+  BusyOverlay: ComponentType<BusyOverlayProps>;
+  /** 文件信息栏(默认 DefaultFileInfoBar) */
+  FileInfoBar: ComponentType<FileInfoBarProps>;
 }
 
 // ─── 默认子组件 ────────────────────────────────────────────
 
-function DefaultUploadBox({ className = '', style, ariaLabel }: UploadBoxProps) {
+function DefaultUploadBox({ className = '', style, ariaLabel, label, dragLabel }: UploadBoxProps) {
   return (
     <ImageCrop.Upload
       aria-label={ariaLabel}
@@ -98,14 +117,14 @@ function DefaultUploadBox({ className = '', style, ariaLabel }: UploadBoxProps) 
             color: isDragging ? 'var(--lokvis-primary, #6366f1)' : 'var(--lokvis-text-muted, #71717a)',
           }}
         >
-          {isDragging ? '↓ Drop image' : 'Click or drop image'}
+          {isDragging ? (dragLabel ?? '↓ Drop image') : (label ?? 'Click or drop image')}
         </span>
       )}
     </ImageCrop.Upload>
   );
 }
 
-function DefaultPreviewBox({ type, className = '', style }: PreviewBoxProps) {
+function DefaultPreviewBox({ type, className = '', style, placeholderLabel }: PreviewBoxProps) {
   return (
     <ImageCrop.Preview
       type={type}
@@ -118,7 +137,7 @@ function DefaultPreviewBox({ type, className = '', style }: PreviewBoxProps) {
         minHeight: '160px',
         ...style,
       }}
-      placeholder={<span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>No image</span>}
+      placeholder={<span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>{placeholderLabel ?? 'No image'}</span>}
     />
   );
 }
@@ -127,24 +146,32 @@ function presetLabel(preset: CropPreset): string {
   return IMAGE_CROP_PRESETS[preset].label;
 }
 
-/** output 预览区 + busy overlay(F2:处理中视觉反馈) */
-function CropOutputPreview({ processingLabel, children }: { processingLabel: string; children: ReactNode }) {
+/** output 预览区 + busy overlay(F2:处理中视觉反馈;Overlay 走 components slot) */
+function CropOutputPreview({
+  processingLabel,
+  Overlay,
+  children,
+}: {
+  processingLabel: string;
+  Overlay: ComponentType<BusyOverlayProps>;
+  children: ReactNode;
+}) {
   const { busy } = useImageCropContext();
   return (
-    <BusyOverlay busy={busy} label={processingLabel}>
+    <Overlay busy={busy} label={processingLabel}>
       {children}
-    </BusyOverlay>
+    </Overlay>
   );
 }
 
-/** 文件信息栏(F3:format badge · WxH · formatBytes) */
-function CropFileInfoBar({ type }: { type: 'input' | 'output' }) {
+/** 文件信息栏(F3:format badge · WxH · formatBytes;InfoBar 走 components slot) */
+function CropFileInfoBar({ type, InfoBar }: { type: 'input' | 'output'; InfoBar: ComponentType<FileInfoBarProps> }) {
   const { inputInfo, outputInfo } = useImageCropContext();
   const info = type === 'input' ? inputInfo : outputInfo;
-  return <FileInfoBar info={info} />;
+  return <InfoBar info={info} />;
 }
 
-function DefaultPresetSwitcher({ className = '', style }: PresetSwitcherProps) {
+function DefaultPresetSwitcher({ className = '', style, presetLabels }: PresetSwitcherProps) {
   const { busy } = useImageCropContext();
   return (
     <ImageCrop.PresetSwitcher
@@ -167,14 +194,14 @@ function DefaultPresetSwitcher({ className = '', style }: PresetSwitcherProps) {
             opacity: busy ? 0.5 : 1,
           }}
         >
-          {presetLabel(preset)}
+          {presetLabels?.[preset] ?? presetLabel(preset)}
         </button>
       )}
     />
   );
 }
 
-function DefaultCropAreaBox({ className = '', style }: CropAreaBoxProps) {
+function DefaultCropAreaBox({ className = '', style, placeholderLabel }: CropAreaBoxProps) {
   return (
     <ImageCrop.CropArea
       className={`relative flex flex-1 items-center justify-center overflow-hidden rounded-lg p-2 ${className}`}
@@ -186,7 +213,7 @@ function DefaultCropAreaBox({ className = '', style }: CropAreaBoxProps) {
         color: 'var(--lokvis-primary, #6366f1)',
         ...style,
       }}
-      placeholder={<span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>No image</span>}
+      placeholder={<span style={{ color: 'var(--lokvis-text-muted, #71717a)', fontSize: '0.75rem' }}>{placeholderLabel ?? 'No image'}</span>}
     />
   );
 }
@@ -291,6 +318,8 @@ function EmbedImageCropDefault({
     DownloadButton = DefaultDownloadButton,
     ErrorDisplay = DefaultErrorDisplay,
     ResetButton = DefaultResetButton,
+    BusyOverlay = DefaultBusyOverlay,
+    FileInfoBar = DefaultFileInfoBar,
   } = components ?? {};
 
   return (
@@ -315,8 +344,21 @@ function EmbedImageCropDefault({
               {t('quickCrop.subtitle')}
             </p>
           </div>
-          <UploadBox ariaLabel={t('quickCrop.dropHint')} />
-          {showPresetSwitcher && <PresetSwitcher />}
+          <UploadBox
+            ariaLabel={t('quickCrop.dropHint')}
+            label={t('quickCrop.dropHint')}
+            dragLabel={t('common.dropHere')}
+          />
+          {showPresetSwitcher && (
+            <PresetSwitcher
+              presetLabels={{
+                square: t('quickCrop.presetSquare'),
+                '4:3': t('quickCrop.preset43'),
+                '16:9': t('quickCrop.preset169'),
+                free: t('quickCrop.presetFree'),
+              }}
+            />
+          )}
         </header>
 
         {showCropArea && (
@@ -324,22 +366,22 @@ function EmbedImageCropDefault({
             <span className="text-xs" style={{ color: 'var(--lokvis-text-muted, #71717a)' }}>
               {t('quickCrop.cropArea')}
             </span>
-            <CropAreaBox />
+            <CropAreaBox placeholderLabel={t('common.noImage')} />
           </div>
         )}
 
         <div className={`grid grid-cols-1 gap-2 ${showBeforeAfter ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
           {showBeforeAfter && (
             <div className="flex flex-col gap-1">
-              <PreviewBox type="input" />
-              <CropFileInfoBar type="input" />
+              <PreviewBox type="input" placeholderLabel={t('common.noImage')} />
+              <CropFileInfoBar type="input" InfoBar={FileInfoBar} />
             </div>
           )}
           <div className="flex flex-col gap-1">
-            <CropOutputPreview processingLabel={t('quickCrop.processing')}>
-              <PreviewBox type="output" />
+            <CropOutputPreview processingLabel={t('quickCrop.processing')} Overlay={BusyOverlay}>
+              <PreviewBox type="output" placeholderLabel={t('common.noImage')} />
             </CropOutputPreview>
-            <CropFileInfoBar type="output" />
+            <CropFileInfoBar type="output" InfoBar={FileInfoBar} />
           </div>
         </div>
 

@@ -122,13 +122,13 @@ describe('EmbedImageFavicon 默认 UI', () => {
 
   it('showBeforeAfter=false 时只渲染 1 个 preview(无图片)', () => {
     render(<EmbedImageFavicon showBeforeAfter={false} />);
-    const placeholders = screen.getAllByText('No image');
+    const placeholders = screen.getAllByText('common.noImage');
     expect(placeholders).toHaveLength(1);
   });
 
   it('showBeforeAfter=true 时渲染 2 个 preview', () => {
     render(<EmbedImageFavicon showBeforeAfter={true} />);
-    const placeholders = screen.getAllByText('No image');
+    const placeholders = screen.getAllByText('common.noImage');
     expect(placeholders).toHaveLength(2);
   });
 

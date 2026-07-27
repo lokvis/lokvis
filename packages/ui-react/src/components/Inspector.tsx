@@ -8,7 +8,7 @@
 import * as React from 'react';
 import { Icon, Input } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
-import { filterCapabilities } from '../utils.js';
+import { filterCapabilities, capabilityLabel, capabilityGroup } from '../utils.js';
 import { ParamForm } from './ParamForm.js';
 import { ExifPanel } from './ExifPanel.js';
 
@@ -31,13 +31,13 @@ export function Inspector({ className = '' }: InspectorProps) {
 
  const filtered = filterCapabilities(capabilities, filter);
 
- // 按域分组
+ // 按展示分组(presentation group 优先,回退 name domain 前缀)
  const grouped = React.useMemo(() => {
  const map = new Map<string, typeof filtered>();
  for (const cap of filtered) {
- const domain = cap.name.split('.')[0] ?? 'other';
- if (!map.has(domain)) map.set(domain, []);
- map.get(domain)!.push(cap);
+ const group = capabilityGroup(cap);
+ if (!map.has(group)) map.set(group, []);
+ map.get(group)!.push(cap);
  }
  return map;
  }, [filtered]);
@@ -114,10 +114,10 @@ export function Inspector({ className = '' }: InspectorProps) {
  <p className="px-2 py-4 text-[11px] text-[var(--lokvis-fg-subtle)]">No matching capabilities</p>
  ) : (
  <div className="space-y-3">
- {Array.from(grouped.entries()).map(([domain, caps]) => (
- <div key={domain}>
+ {Array.from(grouped.entries()).map(([group, caps]) => (
+ <div key={group}>
  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
- {domain}
+ {group}
  </div>
  <ul className="space-y-0.5">
  {caps.map((cap) => {
@@ -137,7 +137,10 @@ export function Inspector({ className = '' }: InspectorProps) {
  }`}
  >
  <div className="flex items-center justify-between gap-2">
- <span className={`truncate font-mono text-[11px] font-medium ${isStubOnly ? 'text-[var(--lokvis-fg-muted)]' : ''}`}>{cap.name}</span>
+ <span className={`truncate text-[11px] font-medium ${cap.label ? '' : 'font-mono '} ${isStubOnly ? 'text-[var(--lokvis-fg-muted)]' : ''}`}>
+ {cap.icon ? <span aria-hidden="true">{cap.icon} </span> : null}
+ {capabilityLabel(cap)}
+ </span>
  {isStubOnly ? (
  <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-medium uppercase bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]">
  Soon

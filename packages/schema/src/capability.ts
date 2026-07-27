@@ -34,6 +34,15 @@ export interface CapabilityParam {
   values?: string[];
   /** type === 'array' 时的元素类型 */
   items?: CapabilityParamType;
+  /**
+   * UI widget 提示(可选)。UI 层(ParamForm)据此选择渲染控件:
+   * - 内置:'slider'(number 滑杆)/ 'textarea'(多行文本)/
+   *   'json'(array/object 的 JSON 编辑)
+   * - 自定义:经 registerParamWidget() 注册的任意标识
+   * 未设置时按 type 使用默认控件。仅影响 UI 渲染,不影响
+   * 参数校验与 MCP manifest 生成。
+   */
+  widget?: string;
 }
 
 /** 性能预估等级 */
@@ -75,6 +84,28 @@ export interface Capability {
    * 显式指定时用于更友好的命名(如 `lokvis_compress_image`)。
    */
   mcpToolName?: string;
+
+  // ─── Presentation 元数据(可选,纯 UI 展示提示) ────────────
+  // 仅影响 UI 能力列表的渲染(Inspector / CommandPalette / WorkflowEditor),
+  // 不影响执行、参数校验与 MCP manifest 生成。
+
+  /**
+   * 展示标签(可选)。
+   * UI 能力列表优先渲染此值,缺省时回退到 `name`。
+   * 三方自定义 capability 可借此提供人类可读名称(如 '智能抠图'),
+   * 而不必依赖点分命名(如 `image.cutout`)。
+   */
+  label?: string;
+  /**
+   * 展示图标(可选,emoji 或短字符 glyph,UI 原样渲染,不依赖图标库)。
+   */
+  icon?: string;
+  /**
+   * 展示分组(可选)。
+   * UI 能力列表分组优先使用此值,缺省时回退到 `name` 的 domain 前缀
+   * (如 `image.resize` → `image`)。
+   */
+  group?: string;
 }
 
 /** 能力实现（由 Plugin 注册到 Runtime） */

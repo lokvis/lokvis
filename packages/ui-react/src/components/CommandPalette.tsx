@@ -82,7 +82,8 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  if (cmd.kind === 'capability') {
  return (
  cmd.cap.name.toLowerCase().includes(q) ||
- cmd.cap.description.toLowerCase().includes(q)
+ cmd.cap.description.toLowerCase().includes(q) ||
+ (cmd.cap.label?.toLowerCase().includes(q) ?? false)
  );
  }
  return cmd.label.toLowerCase().includes(q) || cmd.description.toLowerCase().includes(q);
@@ -179,7 +180,7 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  filtered.map((cmd, i) => {
  const isActive = i === activeIndex;
  const isCap = cmd.kind === 'capability';
- const primary = isCap ? cmd.cap.name : cmd.label;
+ const primary = isCap ? (cmd.cap.label ?? cmd.cap.name) : cmd.label;
  const secondary = isCap ? cmd.cap.description : cmd.description;
  const disabled = !isCap && cmd.disabled;
  return (
@@ -208,6 +209,9 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  : 'bg-[var(--lokvis-primary)]/15 text-[var(--lokvis-primary)]'
  }`}
  >
+ {isCap && cmd.cap.icon ? (
+ <span aria-hidden="true" className="text-xs">{cmd.cap.icon}</span>
+ ) : (
  <Icon size={12} strokeWidth={2}>
  {isCap ? (
  <path d="M12 4.5v15m7.5-7.5h-15" />
@@ -215,6 +219,7 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
  )}
  </Icon>
+ )}
  </span>
  <div className="min-w-0 flex-1">
  <div className="flex items-center justify-between gap-2">

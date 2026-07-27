@@ -16,6 +16,7 @@
  */
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { useImageTool } from '../internal/useImageTool';
+import { useInputBlobImport } from '../internal/useInputBlobImport';
 import { buildSingleStepImageWorkflow } from '../internal/workflow-builder';
 import type { ImageInfo } from '../internal/download';
 import {
@@ -178,10 +179,13 @@ export function useImageResize(
     initialPreset = 'ig-square',
     autoRun = true,
     onComplete,
+    inputBlob,
     plugins,
     customSize: initialCustomSize,
   } = options ?? {};
   const tool = useImageTool(plugins);
+  // inputBlob 注入:走与手动上传相同的路径(见 useInputBlobImport)
+  useInputBlobImport(tool, inputBlob);
 
   // preset 与 customSize 由单一 reducer 原子管理,消除各自 setter 捕获对方旧闭包的竞态
   const [mode, dispatch] = useReducer(resizeModeReducer, {

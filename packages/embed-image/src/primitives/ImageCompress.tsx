@@ -33,7 +33,7 @@ import {
   type UseImageCompressResult,
   type UseEmbedActionOptions,
 } from '../hooks/useImageCompress';
-import { fileMatchesAccept, DefaultPresetButton } from './shared';
+import { fileMatchesAccept, DefaultPresetButton, guessExtension } from './shared';
 
 // ─── Context ────────────────────────────────────────────────
 
@@ -294,7 +294,7 @@ export interface ImageCompressDownloadButtonProps {
   style?: CSSProperties;
   /** 下载文件名(不含扩展名,默认 'compressed') */
   fileName?: string;
-  /** 下载文件扩展名(默认 'webp') */
+  /** 下载文件扩展名(默认按 outputBlob.type 推断,见 guessExtension) */
   extension?: string;
   children?: ReactNode;
   /** 无输出时的渲染 */
@@ -306,7 +306,7 @@ export function ImageCompressDownloadButton({
   className,
   style,
   fileName = 'compressed',
-  extension = 'webp',
+  extension,
   children = 'Download',
   empty = null,
 }: ImageCompressDownloadButtonProps) {
@@ -314,12 +314,13 @@ export function ImageCompressDownloadButton({
   if (!state.outputBlob) {
     return empty !== null ? <span className={className} style={style}>{empty}</span> : null;
   }
+  const ext = extension ?? guessExtension(state.outputBlob);
   return (
     <button
       type="button"
       className={className}
       style={style}
-      onClick={() => downloadBlob(state.outputBlob!, `${fileName}.${extension}`)}
+      onClick={() => downloadBlob(state.outputBlob!, `${fileName}.${ext}`)}
     >
       {children}
     </button>
