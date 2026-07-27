@@ -4,13 +4,14 @@
  * 三方接入路径:
  *   import { useImageCompress } from '@lokvis/embed-image/hooks';
  *
- * 包含 6 个 hook(覆盖 6 个工具):
+ * 包含 6 个单图 hook(覆盖 6 个工具)+ 1 个批量 hook:
  *   - useImageCompress:一键压缩
  *   - useImageResize:一键缩放
  *   - useImageConvert:一键格式转换
  *   - useImageWatermark:一键加水印
  *   - useImageCrop:一键裁剪
  *   - useImagePipeline:多步 pipeline
+ *   - useImageBatch:多文件批量处理(顺序调度)
  *
  * 注:UseEmbedActionOptions / EmbedActionResult 是共享类型,
  * 只从 ./useImageCompress 导出一次(其他 hook 内部 re-export 自 useImageCompress)。
@@ -37,6 +38,15 @@ export {
   type UseImageResizeOptions,
   type UseImageResizeResult,
 } from './useImageResize';
+
+// ─── Batch ───────────────────────────────────────────────
+export {
+  useImageBatch,
+  type BatchItem,
+  type BatchSummary,
+  type UseImageBatchOptions,
+  type UseImageBatchResult,
+} from './useImageBatch';
 
 // ─── Quick Convert ───────────────────────────────────────
 export {

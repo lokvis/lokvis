@@ -299,6 +299,15 @@ export type {
   ResetButtonProps as PipelineResetButtonProps,
 } from './EmbedImagePipeline';
 
+// ─── Batch(纯 Layer 0,无内置 UI) ───────────────────────
+export {
+  useImageBatch,
+  type BatchItem,
+  type BatchSummary,
+  type UseImageBatchOptions,
+  type UseImageBatchResult,
+} from './hooks/useImageBatch';
+
 // ─── Theme ────────────────────────────────────────────────
 export { themeToCssVars, useEmbedMode, type EmbedTheme, type EmbedMode } from './theme';
 
