@@ -20,6 +20,13 @@
  */
 
 import * as React from 'react';
+import {
+ WorkspaceI18nContext,
+ type WorkspaceTranslations,
+} from '../i18n/WorkspaceI18nProvider.js';
+import { t } from '../i18n/utils.js';
+import { detectLang } from '../i18n/useWorkspaceLang.js';
+import { type Language } from '../i18n/config.js';
 
 export interface ErrorBoundaryProps {
  children: React.ReactNode;
@@ -34,6 +41,9 @@ interface State {
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, State> {
+ static contextType = WorkspaceI18nContext;
+ declare context: React.ContextType<typeof WorkspaceI18nContext>;
+
  state: State = { error: null };
 
  static getDerivedStateFromError(error: Error): State {
@@ -57,13 +67,31 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, State> {
  if (this.props.fallback) {
  return this.props.fallback(this.state.error, this.reset);
  }
- return <DefaultFallback error={this.state.error} onReset={this.reset} />;
+ const locale = this.context?.locale ?? detectLang();
+ return (
+ <DefaultFallback
+ error={this.state.error}
+ onReset={this.reset}
+ locale={locale}
+ translations={this.context?.translations}
+ />
+ );
  }
  return this.props.children;
  }
 }
 
-function DefaultFallback({ error, onReset }: { error: Error; onReset: () => void }) {
+function DefaultFallback({
+ error,
+ onReset,
+ locale,
+ translations,
+}: {
+ error: Error;
+ onReset: () => void;
+ locale: Language;
+ translations?: WorkspaceTranslations;
+}) {
  return (
  <div className="flex h-full w-full items-center justify-center p-6" role="alert">
  <div className="max-w-md rounded-xl border border-[var(--lokvis-danger)]/30 bg-[var(--lokvis-surface)] p-6 text-center shadow-[var(--lokvis-elevation-2)]">
@@ -84,16 +112,16 @@ function DefaultFallback({ error, onReset }: { error: Error; onReset: () => void
  <line x1="12" y1="16" x2="12.01" y2="16" />
  </svg>
  </div>
- <p className="font-semibold text-[var(--lokvis-fg)]">Something went wrong</p>
+ <p className="font-semibold text-[var(--lokvis-fg)]">{t(locale, 'errorBoundary.title', translations)}</p>
  <p className="mt-1.5 break-words text-sm text-[var(--lokvis-fg-muted)]">
- {error.message || 'An unexpected error occurred while rendering this panel.'}
+ {error.message || t(locale, 'errorBoundary.description', translations)}
  </p>
  <button
  type="button"
  onClick={onReset}
  className="mt-4 inline-flex items-center justify-center rounded-lg bg-[var(--lokvis-primary)] px-4 py-2 text-sm font-medium text-[var(--lokvis-primary-fg)] transition-colors hover:bg-[var(--lokvis-primary-hover)]"
  >
- Try again
+ {t(locale, 'errorBoundary.retry', translations)}
  </button>
  </div>
  </div>

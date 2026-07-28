@@ -9,6 +9,8 @@
 import * as React from 'react';
 import { Button } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { formatMessage, useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface ToolbarProps {
  title?: string;
@@ -24,6 +26,8 @@ export function Toolbar({ title = 'Lokvis Workspace', rightExtra }: ToolbarProps
  const run = useWorkspaceStore((s) => s.run);
  const clearWorkflow = useWorkspaceStore((s) => s.clearWorkflow);
  const setError = useWorkspaceStore((s) => s.setError);
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
 
  const canRun = !running && nodes.length > 0 && !!selectedAssetId;
 
@@ -55,7 +59,7 @@ export function Toolbar({ title = 'Lokvis Workspace', rightExtra }: ToolbarProps
  {/* Center: Status */}
  <div className="flex flex-1 items-center justify-center px-4 min-w-0">
  <span className={`truncate text-xs ${error ? 'text-[var(--lokvis-danger)]' : 'text-[var(--lokvis-fg-subtle)]'}`}>
- {statusMessage}
+ {formatMessage(t, statusMessage)}
  </span>
  </div>
 
@@ -69,7 +73,7 @@ export function Toolbar({ title = 'Lokvis Workspace', rightExtra }: ToolbarProps
  onClick={clearWorkflow}
  disabled={running}
  >
- Clear
+ {t('toolbar.clear')}
  </Button>
  )}
  <Button
@@ -79,7 +83,7 @@ export function Toolbar({ title = 'Lokvis Workspace', rightExtra }: ToolbarProps
  loading={running}
  disabled={!canRun}
  >
- Run
+ {t('toolbar.run')}
  </Button>
  </div>
  </header>

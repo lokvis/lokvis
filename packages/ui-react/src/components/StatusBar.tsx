@@ -13,6 +13,8 @@ import * as React from 'react';
 import { useWorkspaceStore } from '../store/index.js';
 import { useWorkflowProgress } from '../hooks/useWorkflowProgress.js';
 import { formatBytes } from '../utils.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { formatMessage, pluralKey, useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface StatusBarProps {
  className?: string;
@@ -47,6 +49,8 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  const storageUsage = useWorkspaceStore((s) => s.storageUsage);
  const setError = useWorkspaceStore((s) => s.setError);
  const online = useOnlineStatus();
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
 
  // W9.6 当前选中工具名
  const selectedNode = nodes.find((n) => n.id === selectedNodeId);
@@ -81,7 +85,7 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  aria-hidden="true"
  />
  <span className={`truncate text-[10px] ${error ? 'text-[var(--lokvis-danger)]' : 'text-[var(--lokvis-fg-muted)]'}`}>
- {statusMessage}
+ {formatMessage(t, statusMessage)}
  </span>
  </span>
 
@@ -111,7 +115,7 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  onClick={() => setError(null)}
  className="shrink-0 text-[10px] text-[var(--lokvis-danger)] underline decoration-[var(--lokvis-danger)]/40 hover:text-[var(--lokvis-danger)]"
  >
- dismiss
+ {t('statusBar.dismiss')}
  </button>
  )}
  </div>
@@ -121,11 +125,11 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  {/* W9.6 在线状态 */}
  <span
  className={`flex items-center gap-1 ${online ? 'text-[var(--lokvis-success)]' : 'text-[var(--lokvis-warning)]'}`}
- title={online ? 'Online' : 'Offline — running locally, no upload needed'}
- aria-label={online ? 'Online' : 'Offline — files still processed locally'}
+ title={online ? t('statusBar.online') : t('statusBar.offlineTitle')}
+ aria-label={online ? t('statusBar.online') : t('statusBar.offlineAria')}
  >
  <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-[var(--lokvis-success)]' : 'bg-[var(--lokvis-warning)]'}`} aria-hidden="true" />
- {online ? 'Online' : 'Offline'}
+ {online ? t('statusBar.online') : t('statusBar.offline')}
  </span>
  <span className="text-[var(--lokvis-fg-subtle)]" aria-hidden="true">|</span>
 
@@ -142,17 +146,17 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  }`}
  title={
  storageCritical
- ? `Storage almost full (${Math.round(ratio * 100)}%) — clean up to free space`
+ ? t('statusBar.storageCriticalTitle', { percent: Math.round(ratio * 100) })
  : storageWarning
- ? `Storage nearing limit (${Math.round(ratio * 100)}%)`
- : `Storage: ${formatBytes(storageUsage.usage)} of ${formatBytes(storageUsage.quota)}`
+ ? t('statusBar.storageWarningTitle', { percent: Math.round(ratio * 100) })
+ : t('statusBar.storageTitle', { used: formatBytes(storageUsage.usage), quota: formatBytes(storageUsage.quota) })
  }
  aria-label={
  storageCritical
- ? `Storage critical: ${formatBytes(storageUsage.usage)} of ${formatBytes(storageUsage.quota)} used, ${Math.round(ratio * 100)} percent. Clean up to free space.`
+ ? t('statusBar.storageCriticalAria', { used: formatBytes(storageUsage.usage), quota: formatBytes(storageUsage.quota), percent: Math.round(ratio * 100) })
  : storageWarning
- ? `Storage warning: ${formatBytes(storageUsage.usage)} of ${formatBytes(storageUsage.quota)} used, ${Math.round(ratio * 100)} percent.`
- : `Storage: ${formatBytes(storageUsage.usage)} of ${formatBytes(storageUsage.quota)} used.`
+ ? t('statusBar.storageWarningAria', { used: formatBytes(storageUsage.usage), quota: formatBytes(storageUsage.quota), percent: Math.round(ratio * 100) })
+ : t('statusBar.storageAria', { used: formatBytes(storageUsage.usage), quota: formatBytes(storageUsage.quota) })
  }
  aria-live={storageCritical ? 'assertive' : 'polite'}
  >
@@ -164,11 +168,11 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  <span className="text-[var(--lokvis-fg-subtle)]" aria-hidden="true">|</span>
  </>
  )}
- <span>{assets.length} asset{assets.length !== 1 ? 's' : ''}</span>
+ <span>{t(pluralKey(lang, 'statusBar.assetCount', assets.length), { count: assets.length })}</span>
  <span className="text-[var(--lokvis-fg-subtle)]" aria-hidden="true">|</span>
- <span>{capabilities.length} cap{capabilities.length !== 1 ? 's' : ''}</span>
+ <span>{t(pluralKey(lang, 'statusBar.capCount', capabilities.length), { count: capabilities.length })}</span>
  <span className="text-[var(--lokvis-fg-subtle)]" aria-hidden="true">|</span>
- <span>{nodes.length} step{nodes.length !== 1 ? 's' : ''}</span>
+ <span>{t(pluralKey(lang, 'statusBar.stepCount', nodes.length), { count: nodes.length })}</span>
  </div>
  </footer>
  );

@@ -15,6 +15,8 @@
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 import { useWorkflowProgress } from '../hooks/useWorkflowProgress.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { formatMessage, useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface ProgressBarProps {
  className?: string;
@@ -24,6 +26,8 @@ export function ProgressBar({ className = '' }: ProgressBarProps) {
  const running = useWorkspaceStore((s) => s.running);
  const statusMessage = useWorkspaceStore((s) => s.statusMessage);
  const cancelRun = useWorkspaceStore((s) => s.cancelRun);
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
 
  // 进度计算抽取到共享 hook(与 StatusBar 共用,避免重复逻辑)
  const { total, done, failedCount, pct, hasFailure } = useWorkflowProgress();
@@ -37,7 +41,7 @@ export function ProgressBar({ className = '' }: ProgressBarProps) {
  className={`flex items-center gap-2 border-b border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-3 py-1.5 ${className}`}
  role="status"
  aria-live="polite"
- aria-label={`工作流进度:${done} / ${total}`}
+ aria-label={t('progressBar.progressAria', { done, total })}
  >
  {/* 进度条 */}
  <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--lokvis-border)]">
@@ -57,14 +61,14 @@ export function ProgressBar({ className = '' }: ProgressBarProps) {
  <span className="shrink-0 text-[10px] font-medium tabular-nums text-[var(--lokvis-fg-muted)]">
  {done}/{total}
  {failedCount > 0 && (
- <span className="ml-1 text-[var(--lokvis-danger)]">({failedCount} failed)</span>
+ <span className="ml-1 text-[var(--lokvis-danger)]">{t('progressBar.failedCount', { count: failedCount })}</span>
  )}
  </span>
 
  {/* 状态消息(running 时显示) */}
  {running && statusMessage && (
  <span className="hidden shrink-0 truncate text-[10px] text-[var(--lokvis-fg-subtle)] sm:inline">
- {statusMessage}
+ {formatMessage(t, statusMessage)}
  </span>
  )}
 
@@ -73,12 +77,12 @@ export function ProgressBar({ className = '' }: ProgressBarProps) {
  <button
  type="button"
  onClick={() => void cancelRun()}
- aria-label="取消运行"
- title="取消运行"
+ aria-label={t('progressBar.cancelAria')}
+ title={t('progressBar.cancelAria')}
  className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--lokvis-danger)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--lokvis-danger)] transition-colors hover:bg-[var(--lokvis-danger)]/15"
  >
  <Icon size={10} strokeWidth={3}><path d="M6 6l12 12M6 18L18 6" /></Icon>
- Cancel
+ {t('progressBar.cancel')}
  </button>
  )}
 
@@ -96,7 +100,7 @@ export function ProgressBar({ className = '' }: ProgressBarProps) {
  <path d="M20 6L9 17l-5-5" />
  )}
  </Icon>
- {hasFailure ? 'Failed' : 'Done'}
+ {hasFailure ? t('progressBar.failed') : t('progressBar.done')}
  </span>
  )}
  </div>

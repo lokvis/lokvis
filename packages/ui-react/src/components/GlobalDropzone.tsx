@@ -31,6 +31,8 @@
 import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface GlobalDropzoneProps {
  /** 接受的 MIME 类型(逗号分隔),默认接受图片/视频/音频/PDF */
@@ -72,6 +74,9 @@ export function GlobalDropzone({
  const importFiles = useWorkspaceStore((s) => s.importFiles);
  const setStatus = useWorkspaceStore((s) => s.setStatus);
  const setError = useWorkspaceStore((s) => s.setError);
+
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
 
  // dragCounter:用计数器而非布尔,避免子元素 dragenter/dragleave 触发抖动
  const [dragCounter, setDragCounter] = React.useState(0);
@@ -143,7 +148,7 @@ export function GlobalDropzone({
  if (accepted.length > 0) {
  void importFiles(accepted);
  } else {
- setStatus(`Rejected ${rejected.length} file(s) — unsupported type`);
+ setStatus('status.rejectedFiles', { count: rejected.length });
  setError(null);
  }
  };
@@ -192,13 +197,13 @@ export function GlobalDropzone({
  </Icon>
  </div>
  <p className="mt-3 text-sm font-semibold text-[var(--lokvis-danger)]">
- Unsupported file type
+ {t('dropzone.unsupported')}
  </p>
  <p className="mt-1.5 text-xs text-[var(--lokvis-danger)]/80">
  {rejectedFiles.join(', ')}
  </p>
  <p className="mt-2 text-[10px] text-[var(--lokvis-fg-muted)]">
- Accepted: {accept || 'all files'}
+ {t('dropzone.accepted', { accept: accept || t('dropzone.allFiles') })}
  </p>
  </>
  ) : (
@@ -209,13 +214,13 @@ export function GlobalDropzone({
  </Icon>
  </div>
  <p className="mt-3 text-sm font-semibold text-[var(--lokvis-primary)]">
- Drop files to import
+ {t('dropzone.dropToImport')}
  </p>
  <p className="mt-1 text-xs text-[var(--lokvis-fg-muted)]">
- Files are processed locally in your browser
+ {t('dropzone.localHint')}
  </p>
  <p className="mt-2 text-[10px] text-[var(--lokvis-fg-subtle)]">
- Accepted: {accept || 'all files'}
+ {t('dropzone.accepted', { accept: accept || t('dropzone.allFiles') })}
  </p>
  </>
  )}

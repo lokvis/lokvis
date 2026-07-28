@@ -28,6 +28,9 @@ import * as React from 'react';
 import type { Capability } from '@lokvis/schema';
 import { Button, Card } from '@lokvis/ui-core';
 import { ParamForm } from './ParamForm.js';
+import type { Language } from '../i18n/config.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { useWorkspaceTranslations } from '../i18n/utils.js';
 
 type EngineFn = (
  toolName: string,
@@ -47,6 +50,11 @@ export interface ToolRunnerProps {
   outputBlob: Blob | null;
   params: Record<string, unknown>;
  }) => void;
+ /**
+  * 显式 UI 语言(本组件可独立于 Workspace 挂载,无 Provider 时用此
+  * prop 指定语言;不传则回落到 html lang / URL 自动检测)。
+  */
+ locale?: Language;
  className?: string;
 }
 
@@ -60,8 +68,11 @@ export function ToolRunner({
  capability,
  engine,
  onOpenInWorkspace,
+ locale,
  className = '',
 }: ToolRunnerProps) {
+ const lang = useWorkspaceLang(locale);
+ const t = useWorkspaceTranslations(lang);
  const [inputBlob, setInputBlob] = React.useState<Blob | null>(null);
  const [inputUrl, setInputUrl] = React.useState<string | null>(null);
  const [outputBlob, setOutputBlob] = React.useState<Blob | null>(null);
@@ -183,10 +194,10 @@ export function ToolRunner({
       </div>
       <div>
        <p className="text-sm font-medium text-[var(--lokvis-fg)]">
-        Drop file here or click to upload
+        {t('toolRunner.dropHint')}
        </p>
        <p className="mt-1 text-xs text-[var(--lokvis-fg-subtle)]">
-        Accepted: {accept || 'any file'}
+        {t('toolRunner.accepted', { accept: accept || t('toolRunner.anyFile') })}
        </p>
       </div>
      </div>
@@ -201,7 +212,7 @@ export function ToolRunner({
       <Card>
        <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-[var(--lokvis-fg)]">
-         Parameters
+         {t('toolRunner.parameters')}
         </h3>
         <span className="rounded bg-[var(--lokvis-surface-muted)] px-2 py-0.5 font-mono text-xs text-[var(--lokvis-primary)]">
          {capability.name}
@@ -223,7 +234,7 @@ export function ToolRunner({
         loading={processing}
         disabled={!inputBlob}
        >
-        {processing ? 'Processing...' : 'Process'}
+        {processing ? t('toolRunner.processing') : t('toolRunner.process')}
        </Button>
        <Button
         variant="secondary"
@@ -239,7 +250,7 @@ export function ToolRunner({
          }
         }}
        >
-        Change file
+        {t('toolRunner.changeFile')}
        </Button>
        {onOpenInWorkspace && (
         <Button
@@ -247,7 +258,7 @@ export function ToolRunner({
          size="md"
          onClick={() => onOpenInWorkspace({ inputBlob, outputBlob, params })}
         >
-         Open in Workspace →
+         {t('toolRunner.openInWorkspace')}
         </Button>
        )}
       </div>
@@ -256,7 +267,7 @@ export function ToolRunner({
       {processing && (
        <div className="space-y-2">
         <div className="flex items-center justify-between text-xs text-[var(--lokvis-fg-muted)]">
-         <span>Processing...</span>
+         <span>{t('toolRunner.processing')}</span>
          <span className="tabular-nums">{Math.round(progress)}%</span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-[var(--lokvis-border)]">
@@ -270,7 +281,7 @@ export function ToolRunner({
          onClick={handleCancel}
          className="text-xs text-[var(--lokvis-danger)] hover:underline"
         >
-         Cancel
+         {t('toolRunner.cancel')}
         </button>
        </div>
       )}
@@ -287,7 +298,7 @@ export function ToolRunner({
        <Card>
         <div className="flex items-center justify-between">
          <div>
-          <p className="text-sm font-medium text-[var(--lokvis-fg)]">Ready to download</p>
+          <p className="text-sm font-medium text-[var(--lokvis-fg)]">{t('toolRunner.ready')}</p>
           <p className="mt-1 text-xs text-[var(--lokvis-fg-muted)]">
            {(outputBlob.size / 1024).toFixed(1)} KB · {outputBlob.type.split('/')[1] ?? 'file'}
           </p>
@@ -302,7 +313,7 @@ export function ToolRunner({
            <polyline points="7 10 12 15 17 10" />
            <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-          Download
+          {t('toolRunner.download')}
          </a>
         </div>
        </Card>
@@ -315,11 +326,11 @@ export function ToolRunner({
       {inputUrl && (
        <Card>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
-         Input
+         {t('toolRunner.input')}
         </h4>
         <img
          src={inputUrl}
-         alt="Input preview"
+         alt={t('toolRunner.inputAlt')}
          className="max-h-80 w-full rounded-lg object-contain"
         />
         <p className="mt-2 text-xs text-[var(--lokvis-fg-muted)]">
@@ -332,11 +343,11 @@ export function ToolRunner({
       {outputUrl && (
        <Card>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
-         Output
+         {t('toolRunner.output')}
         </h4>
         <img
          src={outputUrl}
-         alt="Output preview"
+         alt={t('toolRunner.outputAlt')}
          className="max-h-80 w-full rounded-lg object-contain"
         />
         <p className="mt-2 text-xs text-[var(--lokvis-fg-muted)]">

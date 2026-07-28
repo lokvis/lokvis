@@ -14,6 +14,8 @@
 import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
 import { useTheme, type ThemeMode } from '../hooks/useTheme.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface ThemeToggleProps {
  className?: string;
@@ -22,6 +24,8 @@ export interface ThemeToggleProps {
 }
 
 export function ThemeToggle({ className = '', showLabel = false }: ThemeToggleProps) {
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
  const { theme, resolvedTheme, toggleTheme, setTheme } = useTheme();
  const [menuOpen, setMenuOpen] = React.useState(false);
  const btnRef = React.useRef<HTMLButtonElement>(null);
@@ -60,7 +64,7 @@ export function ThemeToggle({ className = '', showLabel = false }: ThemeTogglePr
  </Icon>
  );
 
- const label = theme === null ? 'System' : theme === 'dark' ? 'Dark' : 'Light';
+ const label = theme === null ? t('themeToggle.system') : theme === 'dark' ? t('themeToggle.dark') : t('themeToggle.light');
 
  return (
  <div className={`relative ${className}`}>
@@ -74,8 +78,8 @@ export function ThemeToggle({ className = '', showLabel = false }: ThemeTogglePr
  e.preventDefault();
  setMenuOpen((v) => !v);
  }}
- aria-label={`Theme: ${label}. Click to toggle, right-click for options.`}
- title={`Theme: ${label} (right-click for options)`}
+ aria-label={t('themeToggle.ariaLabel', { label })}
+ title={t('themeToggle.title', { label })}
  className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--lokvis-fg-muted)] transition-colors hover:bg-[var(--lokvis-surface-muted)] hover:text-[var(--lokvis-fg-muted)]"
  >
  {icon}
@@ -89,7 +93,7 @@ export function ThemeToggle({ className = '', showLabel = false }: ThemeTogglePr
  >
  {(['light', 'dark', null] as Array<ThemeMode | null>).map((mode) => {
  const isActive = theme === mode;
- const text = mode === null ? 'System' : mode === 'dark' ? 'Dark' : 'Light';
+ const text = mode === null ? t('themeToggle.system') : mode === 'dark' ? t('themeToggle.dark') : t('themeToggle.light');
  return (
  <button
  key={mode ?? 'system'}

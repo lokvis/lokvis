@@ -61,10 +61,28 @@ import { PluginPanels } from './PluginPanels.js';
 import { useShareLink } from '../hooks/useShareLink.js';
 import { useFocusedAutoSelect } from '../hooks/useFocusedAutoSelect.js';
 import { useWorkspaceStore } from '../store/index.js';
+import type { Language } from '../i18n/config.js';
+import {
+ WorkspaceI18nProvider,
+ useWorkspaceI18nContext,
+ type WorkspaceTranslations,
+} from '../i18n/WorkspaceI18nProvider.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface WorkspaceProps extends UseLokvisOptions {
  /** 顶部标题 */
  title?: string;
+ /**
+  * 显式 UI 语言（优先级最高）。
+  * 不传时依次回退:外层 WorkspaceI18nProvider → document.documentElement.lang → URL 路径前缀。
+  */
+ locale?: Language;
+ /**
+  * 翻译覆盖表（key → language → 文案）,部分覆盖包内 6 语言字典。
+  * 不传时继承外层 WorkspaceI18nProvider 的 translations。
+  */
+ translations?: WorkspaceTranslations;
  /** 是否显示状态栏（默认 true） */
  showStatusBar?: boolean;
  /** 是否显示历史面板（默认 true,W7.1） */
@@ -138,6 +156,8 @@ type MobilePanel = 'asset' | 'inspector' | null;
 
 export function Workspace({
  title,
+ locale,
+ translations,
  showStatusBar = true,
  showHistoryPanel = true,
  enableGlobalDropzone = true,
@@ -161,6 +181,10 @@ export function Workspace({
  className = '',
  ...lokvisOptions
 }: WorkspaceProps) {
+ const outerCtx = useWorkspaceI18nContext();
+ const lang = useWorkspaceLang(locale);
+ const mergedTranslations = translations ?? outerCtx?.translations;
+ const t = useWorkspaceTranslations(lang, mergedTranslations);
  const { status, error } = useLokvis(lokvisOptions);
  const { isMobile } = useBreakpoints();
  const [paletteOpen, setPaletteOpen] = useCommandPalette({ enabled: enableCommandPalette });
@@ -249,8 +273,8 @@ export function Workspace({
  <div className="h-8 w-8 animate-spin rounded-full border-2 border-transparent border-t-[var(--lokvis-primary)]" />
  </div>
  <div className="text-center">
- <p className="text-sm font-medium text-[var(--lokvis-fg-muted)]">Initializing Runtime</p>
- <p className="mt-1 text-xs text-[var(--lokvis-fg-subtle)]">Loading plugins and capabilities...</p>
+ <p className="text-sm font-medium text-[var(--lokvis-fg-muted)]">{t('workspace.initializing')}</p>
+ <p className="mt-1 text-xs text-[var(--lokvis-fg-subtle)]">{t('workspace.loadingPlugins')}</p>
  </div>
  </div>
  </div>
@@ -264,7 +288,7 @@ export function Workspace({
  <div className="mb-3 flex h-10 w-10 mx-auto items-center justify-center rounded-full bg-[var(--lokvis-danger)]/15">
  <Icon size={20} className="text-[var(--lokvis-danger)]"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></Icon>
  </div>
- <p className="font-semibold text-[var(--lokvis-danger)]">Failed to initialize</p>
+ <p className="font-semibold text-[var(--lokvis-danger)]">{t('workspace.initFailed')}</p>
  <p className="mt-1.5 text-sm text-[var(--lokvis-danger)]/80">{error}</p>
  </div>
  </div>
@@ -278,8 +302,8 @@ export function Workspace({
  <button
  type="button"
  onClick={() => setPaletteOpen(true)}
- aria-label="Open command palette"
- title="Command palette (⌘K)"
+ aria-label={t('workspace.openPaletteAria')}
+ title={t('workspace.paletteTitle')}
  className="flex h-7 items-center gap-1 rounded-md border border-[var(--lokvis-border)] px-1.5 text-[10px] text-[var(--lokvis-fg-muted)] transition-colors hover:bg-[var(--lokvis-surface-muted)] hover:text-[var(--lokvis-fg-muted)]"
  >
  <Icon size={11}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>
@@ -296,7 +320,7 @@ export function Workspace({
  <button
  type="button"
  onClick={() => setMobilePanel(mobilePanel === 'asset' ? null : 'asset')}
- aria-label="Toggle asset panel"
+ aria-label={t('workspace.toggleAssets')}
  aria-pressed={mobilePanel === 'asset'}
  className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)] hover:text-[var(--lokvis-fg-muted)]"
  >
@@ -307,7 +331,7 @@ export function Workspace({
  <button
  type="button"
  onClick={() => setMobilePanel(mobilePanel === 'inspector' ? null : 'inspector')}
- aria-label="Toggle inspector panel"
+ aria-label={t('workspace.toggleInspector')}
  aria-pressed={mobilePanel === 'inspector'}
  className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)] hover:text-[var(--lokvis-fg-muted)]"
  >
@@ -320,8 +344,11 @@ export function Workspace({
  );
 
  return (
+ // i18n Provider 包在最外层:子组件的 useWorkspaceLang() / ErrorBoundary 的
+ // contextType 均能读到解析后的 locale 与翻译覆盖。
  // D6: ErrorBoundary 捕获子组件渲染异常,避免整个 workspace 白屏。
  // useLokvis 异常不在本组件树内(早于本 return),由消费方在外层包裹处理。
+ <WorkspaceI18nProvider locale={lang} translations={mergedTranslations}>
  <ErrorBoundary>
  <div className={`flex h-full flex-col bg-[var(--lokvis-surface)] ${className}`}>
  {/* Top: Toolbar */}
@@ -387,7 +414,7 @@ export function Workspace({
  {isMobile && mobilePanel !== null && !isFocused && (
  <button
  type="button"
- aria-label="Close panel"
+ aria-label={t('workspace.closePanel')}
  onClick={() => setMobilePanel(null)}
  className="absolute inset-0 z-10 bg-[var(--lokvis-overlay)]"
  />
@@ -415,9 +442,9 @@ export function Workspace({
  {/* W11.5 分享链接替换确认(替代 window.confirm) */}
  <ConfirmDialog
  open={shareConfirmOpen}
- title="加载分享工作流"
- message={`检测到分享工作流链接,但当前已有 ${shareConfirmNodes} 个节点。是否替换为分享的工作流?`}
- confirmText="替换"
+ title={t('workspace.shareTitle')}
+ message={t('workspace.shareMessage', { count: shareConfirmNodes })}
+ confirmText={t('workspace.shareConfirm')}
  variant="danger"
  onConfirm={() => {
  setShareConfirmOpen(false);
@@ -427,5 +454,6 @@ export function Workspace({
  />
  </div>
  </ErrorBoundary>
+ </WorkspaceI18nProvider>
  );
 }

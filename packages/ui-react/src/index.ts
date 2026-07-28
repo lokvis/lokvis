@@ -38,6 +38,27 @@ export { useDebouncedRun, type UseDebouncedRunOptions, type UseDebouncedRunResul
 export { useShareLink, type UseShareLinkResult, encodeWorkflowForShare, decodeWorkflowFromShare } from './hooks/useShareLink.js';
 export { useWorkspaceStore, type WorkspaceState, type WorkspaceActions } from './store/index.js';
 
+// i18n（Provider 注入 + useWorkspaceLang 优先级链 + 6 语言字典）
+export {
+  WorkspaceI18nProvider,
+  useWorkspaceI18nContext,
+  WorkspaceI18nContext,
+  type WorkspaceI18nProviderProps,
+  type WorkspaceI18nContextValue,
+  type WorkspaceTranslations,
+} from './i18n/WorkspaceI18nProvider.js';
+export { useWorkspaceLang } from './i18n/useWorkspaceLang.js';
+export {
+  t,
+  useWorkspaceTranslations,
+  formatMessage,
+  getLangFromUrl,
+  type TranslateFn,
+  type TranslateParams,
+  type I18nMessage,
+} from './i18n/utils.js';
+export { languages, defaultLang, langList, type Language } from './i18n/config.js';
+
 export { Workspace, type WorkspaceProps } from './components/Workspace.js';
 export { ErrorBoundary, type ErrorBoundaryProps } from './components/ErrorBoundary.js';
 export { AssetPanel } from './components/AssetPanel.js';

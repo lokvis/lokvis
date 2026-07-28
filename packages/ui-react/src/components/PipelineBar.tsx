@@ -9,12 +9,16 @@ import * as React from 'react';
 import { FOCUS_RING, Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 import { StatusDot } from './StatusDot.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { pluralKey, useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface PipelineBarProps {
  className?: string;
 }
 
 export function PipelineBar({ className = '' }: PipelineBarProps) {
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
  const nodes = useWorkspaceStore((s) => s.nodes);
  const selectedNodeId = useWorkspaceStore((s) => s.selectedNodeId);
  const selectNode = useWorkspaceStore((s) => s.selectNode);
@@ -23,19 +27,19 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  return (
  <div className={`flex h-10 shrink-0 items-center gap-2 border-t border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-3 ${className}`}>
  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)] shrink-0">
- Pipeline
+ {t('pipelineBar.title')}
  </span>
 
  {nodes.length === 0 ? (
  <span className="text-[11px] text-[var(--lokvis-fg-subtle)]">
- Empty &mdash; add capabilities from the right panel
+ {t('pipelineBar.empty')}
  </span>
  ) : (
  <div className="flex flex-1 items-center gap-1 overflow-x-auto min-w-0">
  {/* Source indicator */}
  <div className="flex items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[10px] font-medium text-[var(--lokvis-fg-muted)] shrink-0">
  <Icon size={12}><path d="M12 4.5v15m7.5-7.5h-15" /></Icon>
- Source
+ {t('pipelineBar.source')}
  </div>
 
  {/* Arrow */}
@@ -60,7 +64,7 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  removeNode(node.id);
  }
  }}
- aria-label={`节点 ${node.capability},位置 ${i + 1},Delete 删除`}
+ aria-label={t('pipelineBar.nodeAria', { capability: node.capability, position: i + 1 })}
  aria-pressed={selected}
  className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${FOCUS_RING} ${
  selected
@@ -81,7 +85,7 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  type="button"
  onClick={() => removeNode(node.id)}
  className="rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lokvis-danger)] hover:bg-[var(--lokvis-danger)]/15 hover:text-[var(--lokvis-danger)]"
- aria-label="Remove step"
+ aria-label={t('pipelineBar.removeStep')}
  >
  <Icon size={10} strokeWidth={3}><path d="M6 18L18 6M6 6l12 12" /></Icon>
  </button>
@@ -103,7 +107,7 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  </Icon>
  <div className="flex items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[10px] font-medium text-[var(--lokvis-fg-muted)] shrink-0">
  <Icon size={12}><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></Icon>
- Output
+ {t('pipelineBar.output')}
  </div>
  </div>
  )}
@@ -111,7 +115,7 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  {/* Step count */}
  {nodes.length > 0 && (
  <span className="shrink-0 text-[10px] tabular-nums text-[var(--lokvis-fg-subtle)]">
- {nodes.length} step{nodes.length !== 1 ? 's' : ''}
+ {t(pluralKey(lang, 'pipelineBar.stepCount', nodes.length), { count: nodes.length })}
  </span>
  )}
  </div>

@@ -19,6 +19,8 @@
 import type { HistoryEntry } from '@lokvis/schema';
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface HistoryPanelProps {
  className?: string;
@@ -34,6 +36,9 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  const redo = useWorkspaceStore((s) => s.redo);
  const jumpTo = useWorkspaceStore((s) => s.jumpToHistory);
 
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
+
  const canUndo = cursor >= 0;
  const canRedo = cursor < entries.length - 1;
  const horizontal = variant === 'horizontal';
@@ -43,7 +48,7 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  type="button"
  onClick={() => void undo()}
  disabled={!canUndo}
- aria-label="Undo"
+ aria-label={t('historyPanel.undo')}
  className="rounded p-1 text-[var(--lokvis-fg-muted)] transition-colors hover:bg-[var(--lokvis-surface-muted)] hover:text-[var(--lokvis-fg-muted)] disabled:cursor-not-allowed disabled:opacity-30"
  >
  <Icon size={13}>
@@ -57,7 +62,7 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  type="button"
  onClick={() => void redo()}
  disabled={!canRedo}
- aria-label="Redo"
+ aria-label={t('historyPanel.redo')}
  className="rounded p-1 text-[var(--lokvis-fg-muted)] transition-colors hover:bg-[var(--lokvis-surface-muted)] hover:text-[var(--lokvis-fg-muted)] disabled:cursor-not-allowed disabled:opacity-30"
  >
  <Icon size={13}>
@@ -74,7 +79,7 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  }`}
  >
  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
- History
+ {t('historyPanel.title')}
  </span>
  <div className="flex items-center gap-0.5">
  {undoBtn}
@@ -92,10 +97,10 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  ? 'h-12 flex-row items-center border-t border-[var(--lokvis-border)]'
  : 'w-48 flex-col border-r border-[var(--lokvis-border)]'
  } ${className}`}
- aria-label="History panel"
+ aria-label={t('historyPanel.panelAria')}
  >
  {headerEl}
- <p className="px-3 text-[10px] text-[var(--lokvis-fg-subtle)]">No history yet</p>
+ <p className="px-3 text-[10px] text-[var(--lokvis-fg-subtle)]">{t('historyPanel.empty')}</p>
  </aside>
  );
  }
@@ -105,7 +110,7 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  return (
  <aside
  className={`flex h-12 shrink-0 items-stretch border-t border-[var(--lokvis-border)] ${className}`}
- aria-label="History panel"
+ aria-label={t('historyPanel.panelAria')}
  >
  {headerEl}
  <ol className="flex flex-1 items-center gap-1 overflow-x-auto px-2">
@@ -121,7 +126,7 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  }`}
  >
  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--lokvis-fg-subtle)]" aria-hidden="true" />
- <span className="truncate">Initial</span>
+ <span className="truncate">{t('historyPanel.initial')}</span>
  </button>
  </li>
  {entries.map((entry, i) => {
@@ -165,7 +170,7 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  return (
  <aside
  className={`flex w-48 shrink-0 flex-col border-r border-[var(--lokvis-border)] ${className}`}
- aria-label="History panel"
+ aria-label={t('historyPanel.panelAria')}
  >
  {headerEl}
  <div className="flex-1 overflow-y-auto px-2 py-2">
@@ -182,7 +187,7 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  }`}
  >
  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--lokvis-fg-subtle)]" aria-hidden="true" />
- <span className="truncate">Initial</span>
+ <span className="truncate">{t('historyPanel.initial')}</span>
  </button>
  </li>
  {entries.map((entry, i) => {

@@ -7,6 +7,7 @@
 import type { Asset, Capability, HistoryEntry, PanelDefinition } from '@lokvis/schema';
 import type { LokvisRuntime } from '@lokvis/runtime';
 import type { CapabilityMap, NodeStatus, WorkspaceNode } from '../types.js';
+import type { I18nMessage, TranslateParams } from '../i18n/utils.js';
 
 /** 工作台完整状态 */
 export interface WorkspaceState {
@@ -58,10 +59,16 @@ export interface WorkspaceState {
 
   /** 是否正在执行工作流 */
   running: boolean;
-  /** 全局状态消息 */
-  statusMessage: string;
-  /** 错误信息 */
-  error: string | null;
+  /**
+   * 全局状态消息(i18n key + params,由渲染组件按当前 locale 翻译)。
+   * key 指向 src/i18n/ui.ts 字典(status.* 命名空间)。
+   */
+  statusMessage: I18nMessage;
+  /**
+   * 错误信息。store 内构造的错误用 I18nMessage(可翻译);
+   * engine/runtime 抛出的原始错误文本保持 string 原样透传。
+   */
+  error: string | I18nMessage | null;
   /**
    * 错误事件序号(单调递增)。每次 setError(非 null) 都递增,使
    * ErrorBanner 能在相同错误消息重复出现时仍感知到"新错误事件"重新弹出。
@@ -162,10 +169,10 @@ export interface WorkspaceActions {
   loadWorkflowTemplate(
     templateNodes: Array<{ capability: string; params: Record<string, unknown> }>
   ): void;
-  /** 设置状态消息 */
-  setStatus(message: string): void;
-  /** 设置错误 */
-  setError(error: string | null): void;
+  /** 设置状态消息(i18n key + 可选插值参数) */
+  setStatus(key: string, params?: TranslateParams): void;
+  /** 设置错误(string 为原始错误文本,I18nMessage 为可翻译消息) */
+  setError(error: string | I18nMessage | null): void;
   /** 刷新存储配额使用情况(W6.7) */
   refreshStorageUsage(): Promise<void>;
   /** 刷新历史栈(W7.1) */

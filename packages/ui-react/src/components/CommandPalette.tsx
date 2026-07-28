@@ -17,6 +17,8 @@ import * as React from 'react';
 import { Dialog, Icon } from '@lokvis/ui-core';
 import type { Capability } from '@lokvis/schema';
 import { useWorkspaceStore } from '../store/index.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { pluralKey, useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface CommandPaletteProps {
  /** 是否打开(受控) */
@@ -34,6 +36,9 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  const clearWorkflow = useWorkspaceStore((s) => s.clearWorkflow);
  const running = useWorkspaceStore((s) => s.running);
 
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
+
  const [query, setQuery] = React.useState('');
  const [activeIndex, setActiveIndex] = React.useState(0);
  const inputRef = React.useRef<HTMLInputElement>(null);
@@ -50,30 +55,30 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  {
  kind: 'action',
  id: 'undo',
- label: 'Undo',
- description: '回退到上一步历史',
+ label: t('commandPalette.undo'),
+ description: t('commandPalette.undoDesc'),
  run: () => void undo(),
  disabled: false,
  },
  {
  kind: 'action',
  id: 'redo',
- label: 'Redo',
- description: '重做一步',
+ label: t('commandPalette.redo'),
+ description: t('commandPalette.redoDesc'),
  run: () => void redo(),
  disabled: false,
  },
  {
  kind: 'action',
  id: 'clear',
- label: 'Clear Workflow',
- description: '清空当前工作流节点',
+ label: t('commandPalette.clearWorkflow'),
+ description: t('commandPalette.clearWorkflowDesc'),
  run: () => clearWorkflow(),
  disabled: running,
  },
  ];
  return [...caps, ...actions];
- }, [capabilities, undo, redo, clearWorkflow, running]);
+ }, [capabilities, undo, redo, clearWorkflow, running, t]);
 
  const filtered = React.useMemo(() => {
  const q = query.trim().toLowerCase();
@@ -154,8 +159,8 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  value={query}
  onChange={(e) => setQuery(e.target.value)}
  onKeyDown={handleKeyDown}
- placeholder="Search commands or capabilities..."
- aria-label="Search commands"
+ placeholder={t('commandPalette.searchPlaceholder')}
+ aria-label={t('commandPalette.searchAria')}
  className="flex-1 bg-transparent text-sm text-[var(--lokvis-fg)] placeholder:text-[var(--lokvis-fg-subtle)] focus:outline-none"
  autoComplete="off"
  spellCheck={false}
@@ -170,11 +175,11 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  ref={listRef}
  className="max-h-80 overflow-y-auto py-1"
  role="listbox"
- aria-label="Available commands"
+ aria-label={t('commandPalette.commandsAria')}
  >
  {filtered.length === 0 ? (
  <li className="px-4 py-6 text-center text-xs text-[var(--lokvis-fg-subtle)]">
- No matching commands
+ {t('commandPalette.noMatch')}
  </li>
  ) : (
  filtered.map((cmd, i) => {
@@ -247,11 +252,13 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  <div className="flex items-center justify-between border-t border-[var(--lokvis-border)] px-4 py-2 text-[10px] text-[var(--lokvis-fg-subtle)]">
  <span className="flex items-center gap-1">
  <kbd className="rounded border border-[var(--lokvis-border)] px-1">↑↓</kbd>
- <span>navigate</span>
+ <span>{t('commandPalette.navigate')}</span>
  <kbd className="ml-2 rounded border border-[var(--lokvis-border)] px-1">↵</kbd>
- <span>select</span>
+ <span>{t('commandPalette.select')}</span>
  </span>
- <span>{filtered.length} command{filtered.length !== 1 ? 's' : ''}</span>
+ <span>
+ {t(pluralKey(lang, 'commandPalette.commandCount', filtered.length), { count: filtered.length })}
+ </span>
  </div>
  </div>
  </Dialog>

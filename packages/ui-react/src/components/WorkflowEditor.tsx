@@ -23,12 +23,16 @@ import type { Capability } from '@lokvis/schema';
 import { useWorkspaceStore, MAX_WORKFLOW_STEPS } from '../store/index.js';
 import { filterCapabilities, capabilityLabel } from '../utils.js';
 import { StatusDot } from './StatusDot.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface WorkflowEditorProps {
  className?: string;
 }
 
 export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
  const nodes = useWorkspaceStore((s) => s.nodes);
  const selectedNodeId = useWorkspaceStore((s) => s.selectedNodeId);
  const selectNode = useWorkspaceStore((s) => s.selectNode);
@@ -99,13 +103,13 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  <div
  className={`flex flex-col border-b border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] ${className}`}
  role="region"
- aria-label="工作流编辑器"
+ aria-label={t('workflowEditor.editorAria')}
  >
  {/* 顶部:标题 + 步数 + 清空 */}
  <div className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--lokvis-border)] px-3">
  <div className="flex items-center gap-2">
  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
- Workflow Editor
+ {t('workflowEditor.title')}
  </span>
  <span
  className={`rounded px-1.5 py-0.5 text-[10px] tabular-nums ${
@@ -122,9 +126,9 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  type="button"
  onClick={() => setClearOpen(true)}
  className="text-[10px] text-[var(--lokvis-fg-subtle)] transition-colors hover:text-[var(--lokvis-danger)]"
- aria-label="清空工作流"
+ aria-label={t('workflowEditor.clearAria')}
  >
- Clear
+ {t('workflowEditor.clear')}
  </button>
  )}
  </div>
@@ -134,7 +138,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  {nodes.length === 0 ? (
  <div className="flex flex-1 items-center justify-center py-2 text-center">
  <p className="text-[11px] text-[var(--lokvis-fg-subtle)]">
- 空工作流 &mdash; 从右侧 <span className="font-mono">Capabilities</span> 面板点击添加节点
+ {t('workflowEditor.empty')}
  </p>
  </div>
  ) : (
@@ -142,7 +146,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  {/* Source indicator */}
  <div className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[10px] font-medium text-[var(--lokvis-fg-muted)]">
  <Icon size={12}><path d="M12 4.5v15m7.5-7.5h-15" /></Icon>
- Source
+ {t('workflowEditor.source')}
  </div>
 
  {/* W11.1: 节点之间可插入的连接器(+ 按钮) */}
@@ -173,7 +177,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  onDragEnd={handleDragEnd}
  onClick={() => selectNode(node.id)}
  onKeyDown={(e) => handleKeyDown(e, node.id, i)}
- aria-label={`节点 ${node.capability},位置 ${i + 1},拖拽或方向键重排,Delete 删除`}
+ aria-label={t('workflowEditor.nodeAria', { capability: node.capability, position: i + 1 })}
  className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all ${
  isDragging
  ? 'opacity-40'
@@ -201,7 +205,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  <button
  type="button"
  onClick={() => removeNode(node.id)}
- aria-label="删除节点"
+ aria-label={t('workflowEditor.deleteNode')}
  tabIndex={-1}
  className="absolute -right-1 -top-1 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--lokvis-danger)]/15 hover:text-[var(--lokvis-danger)]"
  >
@@ -225,7 +229,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  {nodes.length > 0 && (
  <div className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[10px] font-medium text-[var(--lokvis-fg-muted)]">
  <Icon size={12}><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></Icon>
- Output
+ {t('workflowEditor.output')}
  </div>
  )}
  </>
@@ -236,16 +240,16 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  {nodes.length > 0 && (
  <div className="flex shrink-0 items-center gap-2 border-t border-[var(--lokvis-border)] px-3 py-1 text-[10px] text-[var(--lokvis-fg-subtle)]">
  <Icon size={10}><path d="M13 5.5a1 1 0 1 1 2 0 1-1 0 0 0-.5.86L16.5 9l1.5-.5a1 1 0 1 1 0 2l-1.5-.5-1 1.5a1 1 0 1 1-2 0l1-1.5-1-1.5a1 1 0 0 1 0-2z" /></Icon>
- <span>拖拽重排 · 方向键移动 · Delete 删除 · hover 箭头处插入节点</span>
+ <span>{t('workflowEditor.hint')}</span>
  </div>
  )}
 
  {/* 清空确认对话框(替代 window.confirm) */}
  <ConfirmDialog
  open={clearOpen}
- title="清空工作流"
- message="清空当前工作流?所有节点将被移除。"
- confirmText="清空"
+ title={t('workflowEditor.confirmClearTitle')}
+ message={t('workflowEditor.confirmClearMessage')}
+ confirmText={t('workflowEditor.confirmClearConfirm')}
  variant="danger"
  onConfirm={() => {
  clearWorkflow();
@@ -276,6 +280,8 @@ function InsertConnector({
  onInsert: (index: number, capability: string) => void;
  disabled?: boolean;
 }) {
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
  const [open, setOpen] = React.useState(false);
  const [filter, setFilter] = React.useState('');
  const ref = React.useRef<HTMLDivElement>(null);
@@ -321,8 +327,8 @@ function InsertConnector({
  <button
  type="button"
  onClick={() => setOpen(!open)}
- aria-label={`在位置 ${index + 1} 插入节点`}
- title="插入节点"
+ aria-label={t('workflowEditor.insertNodeAria', { position: index + 1 })}
+ title={t('workflowEditor.insertNode')}
  className="group flex h-5 w-5 items-center justify-center rounded text-[var(--lokvis-fg-subtle)] transition-colors hover:bg-[var(--lokvis-primary)]/15 hover:text-[var(--lokvis-primary)]"
  >
  <Icon size={12} className="group-hover:hidden">
@@ -342,7 +348,7 @@ function InsertConnector({
  type="text"
  size="sm"
  autoFocus
- placeholder="搜索 capability..."
+ placeholder={t('workflowEditor.searchPlaceholder')}
  value={filter}
  onChange={(e) => setFilter(e.target.value)}
  />
@@ -350,7 +356,7 @@ function InsertConnector({
  {/* 列表 */}
  <div className="max-h-48 overflow-y-auto p-1">
  {filtered.length === 0 ? (
- <p className="px-2 py-2 text-center text-[10px] text-[var(--lokvis-fg-subtle)]">无匹配 capability</p>
+ <p className="px-2 py-2 text-center text-[10px] text-[var(--lokvis-fg-subtle)]">{t('workflowEditor.noMatch')}</p>
  ) : (
  filtered.map((cap) => {
  // A7: stub-only 能力显示 "Coming Soon" 标记
@@ -360,7 +366,7 @@ function InsertConnector({
  key={cap.name}
  type="button"
  onClick={() => handleSelect(cap.name)}
- title={isStubOnly ? 'Coming soon — no engine installed yet' : undefined}
+ title={isStubOnly ? t('workflowEditor.comingSoon') : undefined}
  className="block w-full rounded px-2 py-1 text-left transition-colors hover:bg-[var(--lokvis-primary)]/10"
  >
  <span className="flex items-center justify-between gap-1.5">
@@ -370,7 +376,7 @@ function InsertConnector({
  </span>
  {isStubOnly && (
  <span className="shrink-0 rounded px-1 py-0.5 text-[8px] font-medium uppercase bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]">
- Soon
+ {t('workflowEditor.soon')}
  </span>
  )}
  </span>

@@ -9,20 +9,22 @@ import * as React from 'react';
 import type { AssetType } from '@lokvis/schema';
 import { FOCUS_RING, Icon, Input } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface AssetPanelProps {
  className?: string;
 }
 
-/** 类型筛选 chip 显示名 */
+/** 类型筛选 chip 显示名(i18n 字典 key,渲染处翻译) */
 const TYPE_LABEL: Record<AssetType, string> = {
- image: 'Image',
- video: 'Video',
- audio: 'Audio',
- pdf: 'PDF',
- text: 'Text',
- data: 'Data',
- unknown: 'Other',
+ image: 'assetPanel.typeImage',
+ video: 'assetPanel.typeVideo',
+ audio: 'assetPanel.typeAudio',
+ pdf: 'assetPanel.typePdf',
+ text: 'assetPanel.typeText',
+ data: 'assetPanel.typeData',
+ unknown: 'assetPanel.typeOther',
 };
 
 export function AssetPanel({ className = '' }: AssetPanelProps) {
@@ -33,6 +35,9 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  const selectAsset = useWorkspaceStore((s) => s.selectAsset);
  const removeAsset = useWorkspaceStore((s) => s.removeAsset);
  const ensureThumbnails = useWorkspaceStore((s) => s.ensureThumbnails);
+
+ const lang = useWorkspaceLang();
+ const tr = useWorkspaceTranslations(lang);
 
  const [dragging, setDragging] = React.useState(false);
  // W6.5 筛选:类型 + 关键词(纯 UI 状态,不入 store)
@@ -92,7 +97,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  {/* Header */}
  <div className="flex items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] shrink-0 border-b border-[var(--lokvis-border)]">
  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
- Assets
+ {tr('assetPanel.title')}
  </span>
  <span className="text-[11px] tabular-nums text-[var(--lokvis-fg-subtle)]">
  {filterType === 'all' && !searchQuery
@@ -119,7 +124,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  <path d="M12 4.5v15m7.5-7.5h-15" />
  </Icon>
  <span className="mt-1 block text-[10px] font-medium">
- {dragging ? 'Drop here' : 'Add files'}
+ {dragging ? tr('assetPanel.dropHere') : tr('assetPanel.addFiles')}
  </span>
  </label>
 
@@ -129,7 +134,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  {/* 类型 chips:m10 radiogroup 语义,屏幕阅读器识别为单选组 */}
  <div
  role="radiogroup"
- aria-label="Filter by type"
+ aria-label={tr('assetPanel.filterByType')}
  className="flex flex-wrap gap-1"
  >
  <button
@@ -143,7 +148,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  : 'bg-[var(--lokvis-surface-muted)] text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-border)]'
  }`}
  >
- All
+ {tr('assetPanel.all')}
  </button>
  {availableTypes.map((t) => (
  <button
@@ -158,7 +163,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  : 'bg-[var(--lokvis-surface-muted)] text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-border)]'
  }`}
  >
- {TYPE_LABEL[t]}
+ {tr(TYPE_LABEL[t])}
  </button>
  ))}
  </div>
@@ -167,8 +172,8 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  size="sm"
  value={searchQuery}
  onChange={(e) => setSearchQuery(e.target.value)}
- placeholder="Filter by type..."
- aria-label="Filter assets by format"
+ placeholder={tr('assetPanel.filterPlaceholder')}
+ aria-label={tr('assetPanel.filterAria')}
  className="bg-[var(--lokvis-surface-muted)] hover:bg-[var(--lokvis-border)]/50"
  leadingIcon={
  <Icon size={11}>
@@ -184,11 +189,11 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  <div className="flex-1 overflow-y-auto px-2 pb-2">
  {assets.length === 0 ? (
  <p className="px-1 py-4 text-center text-[10px] text-[var(--lokvis-fg-subtle)]">
- No assets imported
+ {tr('assetPanel.empty')}
  </p>
  ) : filteredAssets.length === 0 ? (
  <p className="px-1 py-4 text-center text-[10px] text-[var(--lokvis-fg-subtle)]">
- No assets match filter
+ {tr('assetPanel.noMatch')}
  </p>
  ) : (
  <ul className="space-y-1">
@@ -202,7 +207,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  tabIndex={0}
  role="button"
  aria-pressed={selected}
- aria-label={`Select asset ${asset.metadata.format}`}
+ aria-label={tr('assetPanel.selectAsset', { format: asset.metadata.format })}
  onClick={() => selectAsset(asset.id)}
  onKeyDown={(e) => {
  if (e.key === 'Enter' || e.key === ' ') {
@@ -238,7 +243,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  void removeAsset(asset.id);
  }}
  className="shrink-0 rounded p-0.5 text-[var(--lokvis-fg-subtle)] opacity-0 transition-all hover:bg-[var(--lokvis-danger)]/10 hover:text-[var(--lokvis-danger)] focus:opacity-100 group-hover:opacity-100"
- aria-label={`Remove asset ${asset.metadata.format}`}
+ aria-label={tr('assetPanel.removeAsset', { format: asset.metadata.format })}
  >
  <Icon size={12}><path d="M6 18L18 6M6 6l12 12" /></Icon>
  </button>

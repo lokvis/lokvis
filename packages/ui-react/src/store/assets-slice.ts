@@ -48,7 +48,7 @@ export const createAssetsSlice: StateCreator<
     async importFiles(files) {
       const { runtime } = get();
       if (!runtime) return [];
-      set({ statusMessage: `Importing ${files.length} file(s)...` });
+      set({ statusMessage: { key: 'status.importing', params: { count: files.length } } });
       const importedIds: string[] = [];
       for (const file of files) {
         importedIds.push(await runtime.importAsset({ kind: 'file', file }));
@@ -58,7 +58,10 @@ export const createAssetsSlice: StateCreator<
       // refreshAssets 完成后才写入,保证 lastImportedIds 中的资产已在
       // store.assets 中(useFocusedAutoSelect 的 selectAsset/ensureThumbnails
       // 依赖这一点)。同时返回 ID 列表供调用方(如外部 shell)直接使用。
-      set({ statusMessage: `Imported ${files.length} file(s)`, lastImportedIds: importedIds });
+      set({
+        statusMessage: { key: 'status.imported', params: { count: files.length } },
+        lastImportedIds: importedIds,
+      });
       return importedIds;
     },
 

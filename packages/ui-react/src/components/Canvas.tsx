@@ -12,6 +12,8 @@ import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 import { CompareSlider } from './CompareSlider.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface CanvasProps {
  className?: string;
@@ -34,6 +36,9 @@ export function Canvas({ className = '', enableCompare = true, emptyState }: Can
  const importFiles = useWorkspaceStore((s) => s.importFiles);
  const lastOutputIds = useWorkspaceStore((s) => s.lastOutputIds);
  const selectedOutputId = useWorkspaceStore((s) => s.selectedOutputId);
+
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
 
  const selected = assets.find((a) => a.id === selectedAssetId);
  const preview = selected ? thumbnails[selected.id] : undefined;
@@ -100,7 +105,7 @@ export function Canvas({ className = '', enableCompare = true, emptyState }: Can
  {canCompare && (
  <div
  role="group"
- aria-label="对比模式切换"
+ aria-label={t('canvas.compareModeAria')}
  className="absolute top-2 right-2 z-20 flex items-center gap-1 rounded-md bg-[var(--lokvis-surface)]/90 p-0.5 shadow-[var(--lokvis-elevation-1)] backdrop-blur-sm"
  >
  <button
@@ -113,7 +118,7 @@ export function Canvas({ className = '', enableCompare = true, emptyState }: Can
  : 'text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)]'
  }`}
  >
- Single
+ {t('canvas.single')}
  </button>
  <button
  type="button"
@@ -125,7 +130,7 @@ export function Canvas({ className = '', enableCompare = true, emptyState }: Can
  : 'text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)]'
  }`}
  >
- Compare
+ {t('canvas.compare')}
  </button>
  </div>
  )}
@@ -134,7 +139,7 @@ export function Canvas({ className = '', enableCompare = true, emptyState }: Can
  <div className="absolute inset-4 z-10 rounded-xl border-2 border-dashed border-[var(--lokvis-primary)] bg-[var(--lokvis-primary)]/10 flex items-center justify-center">
  <div className="text-center">
  <Icon size={32} className="mx-auto text-[var(--lokvis-primary)]" strokeWidth={1.5}><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></Icon>
- <p className="mt-2 text-sm font-medium text-[var(--lokvis-primary)]">Drop files to import</p>
+ <p className="mt-2 text-sm font-medium text-[var(--lokvis-primary)]">{t('canvas.dropToImport')}</p>
  </div>
  </div>
  )}
@@ -170,7 +175,7 @@ export function Canvas({ className = '', enableCompare = true, emptyState }: Can
  ) : (
  <div className="flex flex-col items-center gap-3">
  <div className="h-28 w-28 animate-pulse rounded-xl bg-[var(--lokvis-border)]" />
- <span className="text-xs text-[var(--lokvis-fg-subtle)]">Loading preview...</span>
+ <span className="text-xs text-[var(--lokvis-fg-subtle)]">{t('canvas.loadingPreview')}</span>
  </div>
  )
  ) : (
@@ -182,17 +187,17 @@ export function Canvas({ className = '', enableCompare = true, emptyState }: Can
  </Icon>
  </div>
  <div>
- <p className="text-sm font-medium text-[var(--lokvis-fg-muted)]">No asset selected</p>
+ <p className="text-sm font-medium text-[var(--lokvis-fg-muted)]">{t('canvas.noAsset')}</p>
  <p className="mt-1.5 text-xs text-[var(--lokvis-fg-subtle)]">
  {assets.length === 0
- ? 'Import files to get started, or drag them here'
- : 'Select an asset from the left panel'}
+ ? t('canvas.emptyHintImport')
+ : t('canvas.emptyHintSelect')}
  </p>
  </div>
  {assets.length === 0 && (
  <label className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[var(--lokvis-primary-hover)] px-4 py-2 text-xs font-medium text-[var(--lokvis-primary-fg)] shadow-[var(--lokvis-elevation-1)] cursor-pointer transition-colors hover:bg-[var(--lokvis-primary)]">
  <Icon size={14}><path d="M12 4.5v15m7.5-7.5h-15" /></Icon>
- Import Files
+ {t('canvas.importFiles')}
  <input
  type="file"
  multiple

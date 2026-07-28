@@ -8,6 +8,8 @@
 import type { Capability, CapabilityParam } from '@lokvis/schema';
 import { Input } from '@lokvis/ui-core';
 import { resolveParamWidget } from './param-widgets.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface ParamFormProps {
  capability: Capability;
@@ -16,6 +18,8 @@ export interface ParamFormProps {
 }
 
 export function ParamForm({ capability, values, onChange }: ParamFormProps) {
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
  const set = (name: string, value: unknown) => {
  onChange({ ...values, [name]: value });
  };
@@ -23,7 +27,7 @@ export function ParamForm({ capability, values, onChange }: ParamFormProps) {
  if (capability.params.length === 0) {
  return (
  <p className="py-3 text-center text-[11px] text-[var(--lokvis-fg-subtle)] italic">
- This capability has no configurable parameters.
+ {t('paramForm.noParams')}
  </p>
  );
  }
@@ -56,6 +60,8 @@ function ParamField({
  value: unknown;
  onChange: (value: unknown) => void;
 }) {
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
  // widget 提示解析:自定义注册表优先(可覆盖内置),其次内置
  // slider/textarea/json;未命中回落到下方 type 默认控件。
  const Widget = resolveParamWidget(param);
@@ -178,7 +184,7 @@ function ParamField({
  size="sm"
  value={(value as string) ?? (param.default as string) ?? ''}
  onChange={(e) => onChange(e.target.value)}
- placeholder={param.type === 'file' ? 'data URL or path' : ''}
+ placeholder={param.type === 'file' ? t('paramForm.filePlaceholder') : ''}
  />
  </div>
  );

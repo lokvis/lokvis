@@ -73,7 +73,7 @@ beforeEach(() => {
     selectedAssetId: null,
     thumbnails: {},
     lastImportedIds: [],
-    statusMessage: 'Idle',
+    statusMessage: { key: 'status.idle' },
   });
 });
 
@@ -98,7 +98,7 @@ describe('importFiles 导入 ID 契约', () => {
     const state = useWorkspaceStore.getState();
     expect(state.lastImportedIds).toEqual(['asset-1', 'asset-2']);
     expect(state.assets.map((a) => a.id)).toEqual(['asset-1', 'asset-2']);
-    expect(state.statusMessage).toBe('Imported 2 file(s)');
+    expect(state.statusMessage).toEqual({ key: 'status.imported', params: { count: 2 } });
   });
 
   it('runtime 未就绪时应返回空数组', async () => {

@@ -11,12 +11,16 @@ import { useWorkspaceStore } from '../store/index.js';
 import { filterCapabilities, capabilityLabel, capabilityGroup } from '../utils.js';
 import { ParamForm } from './ParamForm.js';
 import { ExifPanel } from './ExifPanel.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface InspectorProps {
  className?: string;
 }
 
 export function Inspector({ className = '' }: InspectorProps) {
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
  const capabilities = useWorkspaceStore((s) => s.capabilities);
  const nodes = useWorkspaceStore((s) => s.nodes);
  const selectedNodeId = useWorkspaceStore((s) => s.selectedNodeId);
@@ -63,7 +67,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  >
  <div className="flex items-center gap-2">
  <Icon size={12} className={`text-[var(--lokvis-fg-subtle)] transition-transform ${configureOpen ? 'rotate-90' : ''}`}><path d="m9 5 7 7-7 7" /></Icon>
- <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">Configure</span>
+ <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">{t('inspector.configure')}</span>
  </div>
  <span className="font-mono text-[10px] text-[var(--lokvis-primary)] bg-[var(--lokvis-primary)]/10 px-1.5 py-0.5 rounded">
  {selectedNode.capability}
@@ -85,7 +89,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  <div className="flex flex-1 flex-col overflow-hidden">
  <div className="flex items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] shrink-0 border-b border-[var(--lokvis-border)]">
  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
- Capabilities
+ {t('inspector.capabilities')}
  </span>
  <span className="text-[11px] tabular-nums text-[var(--lokvis-fg-subtle)]">{filtered.length}</span>
  </div>
@@ -94,7 +98,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  <div className="px-2 py-2 border-b border-[var(--lokvis-border)]">
  <Input
  size="sm"
- placeholder="Search capabilities..."
+ placeholder={t('inspector.searchPlaceholder')}
  value={filter}
  onChange={(e) => setFilter(e.target.value)}
  leadingIcon={
@@ -107,11 +111,11 @@ export function Inspector({ className = '' }: InspectorProps) {
  <div className="flex-1 overflow-y-auto p-2">
  {capabilities.length === 0 ? (
  <div className="px-2 py-8 text-center">
- <p className="text-[11px] text-[var(--lokvis-fg-subtle)]">No capabilities loaded</p>
- <p className="mt-1 text-[10px] text-[var(--lokvis-fg-muted)]">Load a plugin to get started</p>
+ <p className="text-[11px] text-[var(--lokvis-fg-subtle)]">{t('inspector.empty')}</p>
+ <p className="mt-1 text-[10px] text-[var(--lokvis-fg-muted)]">{t('inspector.emptyHint')}</p>
  </div>
  ) : filtered.length === 0 ? (
- <p className="px-2 py-4 text-[11px] text-[var(--lokvis-fg-subtle)]">No matching capabilities</p>
+ <p className="px-2 py-4 text-[11px] text-[var(--lokvis-fg-subtle)]">{t('inspector.noMatch')}</p>
  ) : (
  <div className="space-y-3">
  {Array.from(grouped.entries()).map(([group, caps]) => (
@@ -129,7 +133,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  <button
  type="button"
  onClick={() => addNode(cap.name)}
- title={isStubOnly ? 'Coming soon — no engine installed yet' : undefined}
+ title={isStubOnly ? t('inspector.comingSoon') : undefined}
  className={`group w-full rounded-md px-2 py-1.5 text-left transition-all ${
  isInPipeline
  ? 'bg-[var(--lokvis-primary)]/5 ring-1 ring-[var(--lokvis-primary)]/40'
@@ -143,7 +147,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  </span>
  {isStubOnly ? (
  <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-medium uppercase bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]">
- Soon
+ {t('inspector.soon')}
  </span>
  ) : (
  <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-medium uppercase ${

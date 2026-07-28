@@ -98,7 +98,7 @@ export const createRuntimeSlice: StateCreator<
     initializing: false,
     initError: null,
     running: false,
-    statusMessage: 'Idle',
+    statusMessage: { key: 'status.idle' },
     error: null,
     errorSeq: 0,
     storageUsage: null,
@@ -120,7 +120,7 @@ export const createRuntimeSlice: StateCreator<
         await get().refreshCapabilities();
         get().refreshPanels();
         await get().refreshStorageUsage();
-        set({ initializing: false, statusMessage: 'Ready' });
+        set({ initializing: false, statusMessage: { key: 'status.ready' } });
       } catch (err) {
         set({
           initializing: false,
@@ -129,8 +129,8 @@ export const createRuntimeSlice: StateCreator<
       }
     },
 
-    setStatus(message) {
-      set({ statusMessage: message });
+    setStatus(key, params) {
+      set({ statusMessage: { key, params } });
     },
 
     setError(error) {

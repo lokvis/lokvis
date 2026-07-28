@@ -18,6 +18,8 @@
 import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { formatMessage, useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface ErrorBannerProps {
  className?: string;
@@ -30,6 +32,8 @@ export function ErrorBanner({ className = '' }: ErrorBannerProps) {
  const run = useWorkspaceStore((s) => s.run);
  const nodes = useWorkspaceStore((s) => s.nodes);
  const running = useWorkspaceStore((s) => s.running);
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
 
  // 用户关闭后隐藏;新错误(errorSeq 变化)时重新显示。
  // 用 errorSeq 而非 error 字符串本身:store.run() 在 setError(null) 之后才设新 error,
@@ -65,10 +69,10 @@ export function ErrorBanner({ className = '' }: ErrorBannerProps) {
  </Icon>
  <div className="flex-1 min-w-0">
  <p className="text-[11px] font-medium text-[var(--lokvis-danger)]">
- 执行出错
+ {t('errorBanner.title')}
  </p>
  <p className="mt-0.5 break-words text-[10px] text-[var(--lokvis-danger)]/80">
- {error}
+ {formatMessage(t, error)}
  </p>
  </div>
  <div className="flex shrink-0 items-center gap-1">
@@ -78,13 +82,13 @@ export function ErrorBanner({ className = '' }: ErrorBannerProps) {
  onClick={handleRetry}
  className="rounded bg-[var(--lokvis-danger)]/15 px-2 py-0.5 text-[10px] font-medium text-[var(--lokvis-danger)] transition-colors hover:bg-[var(--lokvis-danger)]/30"
  >
- 重试
+ {t('errorBanner.retry')}
  </button>
  )}
  <button
  type="button"
  onClick={handleDismiss}
- aria-label="关闭错误信息"
+ aria-label={t('errorBanner.dismissAria')}
  className="rounded p-0.5 text-[var(--lokvis-danger)] transition-colors hover:bg-[var(--lokvis-danger)]/15 hover:text-[var(--lokvis-danger)]"
  >
  <Icon size={12} strokeWidth={3}><path d="M6 18L18 6M6 6l12 12" /></Icon>

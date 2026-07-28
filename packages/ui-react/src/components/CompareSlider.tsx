@@ -22,6 +22,8 @@
 import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface CompareSliderProps {
  className?: string;
@@ -33,6 +35,9 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  const selectedAssetId = useWorkspaceStore((s) => s.selectedAssetId);
  const selectedOutputId = useWorkspaceStore((s) => s.selectedOutputId);
  const lastOutputIds = useWorkspaceStore((s) => s.lastOutputIds);
+
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
 
  // before:用户选中的输入资产;after:用户选中的输出资产(默认第一个)
  const beforeId = selectedAssetId;
@@ -114,7 +119,7 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  <div
  ref={containerRef}
  role="group"
- aria-label="前后对比滑块"
+ aria-label={t('compareSlider.sliderAria')}
  className={`relative select-none overflow-hidden rounded-lg ring-1 ring-[var(--lokvis-border)]/50 ${className}`}
  onMouseDown={handleMouseDown}
  onTouchStart={handleTouchStart}
@@ -122,7 +127,7 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  {/* after 全图(底层)——决定容器尺寸 */}
  <img
  src={afterUrl}
- alt="After"
+ alt={t('compareSlider.after')}
  draggable={false}
  className="block max-h-full max-w-full object-contain pointer-events-none"
  />
@@ -135,7 +140,7 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  >
  <img
  src={beforeUrl}
- alt="Before"
+ alt={t('compareSlider.before')}
  draggable={false}
  className="block max-h-full max-w-full object-contain pointer-events-none"
  />
@@ -143,10 +148,10 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
 
  {/* before/after 标签 */}
  <span className="absolute top-2 left-2 rounded bg-[var(--lokvis-scrim)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--lokvis-primary-fg)]">
- Before
+ {t('compareSlider.before')}
  </span>
  <span className="absolute top-2 right-2 rounded bg-[var(--lokvis-scrim)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--lokvis-primary-fg)]">
- After
+ {t('compareSlider.after')}
  </span>
 
  {/* 分隔条 */}
@@ -157,7 +162,7 @@ export function CompareSlider({ className = '' }: CompareSliderProps) {
  aria-valuenow={Math.round(pos)}
  aria-valuemin={0}
  aria-valuemax={100}
- aria-label="Comparison slider position"
+ aria-label={t('compareSlider.positionAria')}
  tabIndex={0}
  onKeyDown={handleKeyDown}
  >

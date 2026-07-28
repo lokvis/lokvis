@@ -23,6 +23,8 @@ import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
 import { formatExifRows, type ExifData } from '@lokvis/schema';
 import { useWorkspaceStore } from '../store/index.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { pluralKey, useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface ExifPanelProps {
  className?: string;
@@ -35,6 +37,9 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
  const selectedAssetId = useWorkspaceStore((s) => s.selectedAssetId);
  const assets = useWorkspaceStore((s) => s.assets);
  const runtime = useWorkspaceStore((s) => s.runtime);
+
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
 
  const selectedAsset = React.useMemo(
  () => assets.find((a) => a.id === selectedAssetId) ?? null,
@@ -96,7 +101,7 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
  setError(null);
  } catch (err) {
  if (cancelled) return;
- const msg = err instanceof Error ? err.message : 'Failed to read EXIF';
+ const msg = err instanceof Error ? err.message : t('exifPanel.readFailed');
  setError(msg);
  setExif(null);
  } finally {
@@ -136,15 +141,15 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
  </span>
  </div>
  {loading ? (
- <span className="text-[10px] text-[var(--lokvis-fg-subtle)]">loading…</span>
+ <span className="text-[10px] text-[var(--lokvis-fg-subtle)]">{t('exifPanel.loading')}</span>
  ) : exif ? (
  <span className="font-mono text-[10px] text-[var(--lokvis-success)] bg-[var(--lokvis-success)]/10 px-1.5 py-0.5 rounded">
- {rows.length} fields
+ {t(pluralKey(lang, 'exifPanel.fields', rows.length), { count: rows.length })}
  </span>
  ) : error ? (
- <span className="text-[10px] text-[var(--lokvis-danger)]">error</span>
+ <span className="text-[10px] text-[var(--lokvis-danger)]">{t('exifPanel.error')}</span>
  ) : (
- <span className="text-[10px] text-[var(--lokvis-fg-subtle)]">none</span>
+ <span className="text-[10px] text-[var(--lokvis-fg-subtle)]">{t('exifPanel.none')}</span>
  )}
  </button>
 
@@ -152,7 +157,7 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
  <div className="px-3 pb-3 max-h-60 overflow-y-auto">
  {loading ? (
  <div className="py-4 text-center text-[11px] text-[var(--lokvis-fg-subtle)]">
- Reading EXIF…
+ {t('exifPanel.reading')}
  </div>
  ) : error ? (
  <div className="py-3 text-center">
@@ -160,9 +165,9 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
  </div>
  ) : rows.length === 0 ? (
  <div className="py-4 text-center">
- <p className="text-[11px] text-[var(--lokvis-fg-subtle)]">No EXIF data</p>
+ <p className="text-[11px] text-[var(--lokvis-fg-subtle)]">{t('exifPanel.noData')}</p>
  <p className="mt-1 text-[10px] text-[var(--lokvis-fg-muted)]">
- This image has no embedded metadata
+ {t('exifPanel.noDataHint')}
  </p>
  </div>
  ) : (

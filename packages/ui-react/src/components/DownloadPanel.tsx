@@ -17,6 +17,8 @@ import JSZip from 'jszip';
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 import { formatBytes } from '../utils.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface DownloadPanelProps {
  className?: string;
@@ -47,6 +49,9 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
  const runtime = useWorkspaceStore((s) => s.runtime);
  const clearOutputs = useWorkspaceStore((s) => s.clearOutputs);
  const setStatus = useWorkspaceStore((s) => s.setStatus);
+
+ const lang = useWorkspaceLang();
+ const t = useWorkspaceTranslations(lang);
 
  const [downloaded, setDownloaded] = React.useState<Set<string>>(new Set());
  const [batchDownloading, setBatchDownloading] = React.useState(false);
@@ -106,7 +111,7 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
  }
  setBatchDownloading(true);
  setError(null);
- setStatus('Packaging outputs...');
+ setStatus('status.packaging');
  try {
  const zip = new JSZip();
  for (const asset of outputAssets) {
@@ -129,7 +134,7 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
  // 标记全部已下载
  if (mountedRef.current) {
  setDownloaded(new Set(outputAssets.map((a) => a.id)));
- setStatus('Downloads complete');
+ setStatus('status.downloadsComplete');
  }
  } catch (err) {
  if (mountedRef.current) {
@@ -152,11 +157,11 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
  return (
  <div
  className={`flex flex-col border-t border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] ${className}`}
- aria-label="Outputs panel"
+ aria-label={t('downloadPanel.panelAria')}
  >
  <div className="flex items-center justify-between px-3 h-9 shrink-0 border-b border-[var(--lokvis-border)]">
  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
- Outputs
+ {t('downloadPanel.title')}
  </span>
  <span className="text-[11px] tabular-nums text-[var(--lokvis-fg-subtle)]">
  {downloadedCount}/{outputAssets.length} · {formatBytes(totalSize)}
@@ -198,7 +203,7 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
  <Icon size={10} strokeWidth={2}>
  <path d="M12 3v12m0 0l-4-4m4 4l4-4M3 17v2a2 2 0 002 2h14a2 2 0 002-2v-2" />
  </Icon>
- {isDownloaded ? 'Downloaded' : 'Download'}
+ {isDownloaded ? t('downloadPanel.downloaded') : t('downloadPanel.download')}
  </button>
  </div>
  </div>
@@ -212,14 +217,14 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
  disabled={batchDownloading || allDownloaded}
  className="rounded-md bg-[var(--lokvis-primary-hover)] px-2.5 py-1 text-[10px] font-medium text-[var(--lokvis-primary-fg)] hover:bg-[var(--lokvis-primary)] disabled:cursor-not-allowed disabled:opacity-50"
  >
- {batchDownloading ? 'Downloading...' : 'Download All'}
+ {batchDownloading ? t('downloadPanel.downloading') : t('downloadPanel.downloadAll')}
  </button>
  <button
  type="button"
  onClick={handleClear}
  className="rounded-md px-2 py-1 text-[10px] text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)] hover:text-[var(--lokvis-fg-muted)]"
  >
- Clear
+ {t('downloadPanel.clear')}
  </button>
  </div>
  </div>

@@ -15,6 +15,9 @@ import * as React from 'react';
 import { ConfirmDialog, Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from '../data/workflow-templates.js';
+import type { Language } from '../i18n/config.js';
+import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
+import { pluralKey, useWorkspaceTranslations } from '../i18n/utils.js';
 
 export interface WorkflowTemplatesProps {
  className?: string;
@@ -22,13 +25,21 @@ export interface WorkflowTemplatesProps {
  confirmIfNotEmpty?: boolean;
  /** 模板应用后的回调 */
  onApply?: (template: WorkflowTemplate) => void;
+ /**
+  * 显式 UI 语言(本组件可独立于 Workspace 挂载,无 Provider 时用此
+  * prop 指定语言;不传则回落到 html lang / URL 自动检测)。
+  */
+ locale?: Language;
 }
 
 export function WorkflowTemplates({
  className = '',
  confirmIfNotEmpty = true,
  onApply,
+ locale,
 }: WorkflowTemplatesProps) {
+ const lang = useWorkspaceLang(locale);
+ const t = useWorkspaceTranslations(lang);
  const loadWorkflowTemplate = useWorkspaceStore((s) => s.loadWorkflowTemplate);
  const nodes = useWorkspaceStore((s) => s.nodes);
  // 待确认应用的模板(非空工作流替换前需用户确认)
@@ -53,13 +64,13 @@ export function WorkflowTemplates({
  <div
  className={`flex flex-col ${className}`}
  role="region"
- aria-label="工作流模板"
+ aria-label={t('workflowTemplates.templatesAria')}
  >
  <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--lokvis-border)]">
  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
- Templates
+ {t('workflowTemplates.title')}
  </span>
- <span className="text-[10px] text-[var(--lokvis-fg-subtle)]">{WORKFLOW_TEMPLATES.length} 内置</span>
+ <span className="text-[10px] text-[var(--lokvis-fg-subtle)]">{t('workflowTemplates.builtIn', { count: WORKFLOW_TEMPLATES.length })}</span>
  </div>
  <div className="grid grid-cols-1 gap-1.5 p-2">
  {WORKFLOW_TEMPLATES.map((tpl) => (
@@ -76,7 +87,7 @@ export function WorkflowTemplates({
  {tpl.name}
  </span>
  <span className="shrink-0 rounded bg-[var(--lokvis-surface-muted)] px-1 py-0.5 text-[9px] font-medium uppercase text-[var(--lokvis-fg-muted)]">
- {tpl.nodes.length} 步
+ {t(pluralKey(lang, 'workflowTemplates.stepCount', tpl.nodes.length), { count: tpl.nodes.length })}
  </span>
  </div>
  <p className="mt-0.5 truncate text-[10px] text-[var(--lokvis-fg-muted)]">
@@ -105,13 +116,13 @@ export function WorkflowTemplates({
  {/* 替换确认对话框(替代 window.confirm) */}
  <ConfirmDialog
  open={pendingTpl !== null}
- title="应用模板"
+ title={t('workflowTemplates.applyTitle')}
  message={
  pendingTpl
- ? `应用模板「${pendingTpl.name}」将替换当前 ${nodes.length} 个节点,继续?`
+ ? t('workflowTemplates.applyMessage', { name: pendingTpl.name, count: nodes.length })
  : ''
  }
- confirmText="替换"
+ confirmText={t('workflowTemplates.replace')}
  variant="danger"
  onConfirm={() => {
  if (pendingTpl) applyTemplate(pendingTpl);

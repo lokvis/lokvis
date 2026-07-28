@@ -50,7 +50,7 @@ export const createWorkflowSlice: StateCreator<
   addNode(capability) {
     // W10.1/W10.3: 节点数上限(MAX_WORKFLOW_STEPS,单一源 @lokvis/schema)
     if (get().nodes.length >= MAX_WORKFLOW_STEPS) {
-      get().setError(`工作流最多 ${MAX_WORKFLOW_STEPS} 个节点(M1 MVP 限制),请先删除不需要的节点`);
+      get().setError({ key: 'error.maxSteps', params: { max: MAX_WORKFLOW_STEPS } });
       return;
     }
     const node: WorkspaceNode = {
@@ -110,7 +110,7 @@ export const createWorkflowSlice: StateCreator<
   insertNodeAt(index, capability) {
     // W11.1: 在指定位置插入节点(与节点数上限对齐)
     if (get().nodes.length >= MAX_WORKFLOW_STEPS) {
-      get().setError(`工作流最多 ${MAX_WORKFLOW_STEPS} 个节点(M1 MVP 限制),请先删除不需要的节点`);
+      get().setError({ key: 'error.maxSteps', params: { max: MAX_WORKFLOW_STEPS } });
       return;
     }
     if (!capability) return;
@@ -157,13 +157,13 @@ export const createWorkflowSlice: StateCreator<
     // cancel() 抛错:不伪造停止状态,仅记录错误让用户感知"取消失败,仍在运行"。
     const { runtime, currentRunId } = get();
     if (!runtime || !currentRunId) return;
-    set({ statusMessage: 'Cancelling...' });
+    set({ statusMessage: { key: 'status.cancelling' } });
     try {
       await runtime.cancel(currentRunId);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.warn('[lokvis] cancelRun failed:', message);
-      get().setError(`取消失败,工作流仍在运行:${message}`);
+      get().setError({ key: 'error.cancelFailed', params: { message } });
     }
     // 不在此设置 running / currentRunId / 节点状态;
     // 等 run() 的 await runtime.run() 返回后,由 run() 统一归位。
@@ -179,7 +179,7 @@ export const createWorkflowSlice: StateCreator<
       throw new Error('Workflow is already running');
     }
 
-    set({ running: true, error: null, statusMessage: 'Running...', currentRunId: null });
+    set({ running: true, error: null, statusMessage: { key: 'status.running' }, currentRunId: null });
 
     // 重置所有节点状态
     set((state) => ({
@@ -214,7 +214,7 @@ export const createWorkflowSlice: StateCreator<
       set({ currentRunId: workflow.id });
       const input = await runtime.getAsset(selectedAssetId);
 
-      set({ statusMessage: 'Running workflow...' });
+      set({ statusMessage: { key: 'status.runningWorkflow' } });
       const result = await runtime.run(workflow, [input]);
 
       // 兜底：取消订阅后，根据 result.status 把剩余 pending 节点归位
@@ -241,7 +241,10 @@ export const createWorkflowSlice: StateCreator<
         }
       }
       if (failedOutputIds.length > 0) {
-        get().setError(`${failedOutputIds.length} 个输出资产加载失败,可能存储损坏`);
+        get().setError({
+          key: 'error.outputsLoadFailed',
+          params: { count: failedOutputIds.length },
+        });
       }
 
       // W9.4/W9.5: 记录输出 Asset ID,供 before/after 对比与下载管理使用。
@@ -254,13 +257,20 @@ export const createWorkflowSlice: StateCreator<
         });
       }
 
+      // result.status: 'completed' | 'failed' | 'cancelled' → 对应 status.workflow* key
+      const statusKey =
+        result.status === 'completed'
+          ? 'status.workflowCompleted'
+          : result.status === 'failed'
+            ? 'status.workflowFailed'
+            : 'status.workflowCancelled';
       set({
         running: false,
-        statusMessage: `Workflow ${result.status} in ${result.duration}ms`,
+        statusMessage: { key: statusKey, params: { duration: result.duration } },
       });
 
       if (result.status === 'failed') {
-        get().setError(result.error ?? 'Workflow failed');
+        get().setError(result.error ?? { key: 'error.workflowFailed' });
       }
 
       await get().refreshAssets();
@@ -271,7 +281,7 @@ export const createWorkflowSlice: StateCreator<
       set({
         running: false,
         currentRunId: null,
-        statusMessage: 'Failed',
+        statusMessage: { key: 'status.failed' },
       });
       get().setError(message);
       // 异常退出时把仍在 pending/running 的节点标 failed
