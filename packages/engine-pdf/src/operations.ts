@@ -70,6 +70,27 @@ export interface PdfWatermarkParams {
   color?: string;
 }
 
+/** 页码位置(四选一) */
+export type PdfPageNumberPosition =
+  | 'bottom-center'
+  | 'bottom-right'
+  | 'top-center'
+  | 'top-right';
+
+/** PDF 页码参数 */
+export interface PdfAddPageNumbersParams {
+  /** 页码位置(默认 "bottom-center") */
+  position?: PdfPageNumberPosition;
+  /** 格式模板,支持 {n} / {total} 占位符(默认 "Page {n} of {total}") */
+  format?: string;
+  /** 起始页码(默认 1,须为 ≥1 的整数) */
+  startFrom?: number;
+  /** 字号(默认 10) */
+  fontSize?: number;
+  /** 颜色,十六进制(默认 "#666666") */
+  color?: string;
+}
+
 /** PDF OCR 参数(本阶段不实装,留作 stub 接口) */
 export interface PdfOcrParams {
   /** OCR 语言代码(默认 "eng") */
@@ -398,6 +419,83 @@ export async function addWatermark(
       color: rgb(r, g, b),
       opacity,
       rotate: degrees(45),
+    });
+  }
+
+  const outBytes = await pdfDoc.save();
+  return new Blob([uint8ToBlobPart(outBytes)], { type: 'application/pdf' });
+}
+
+const PAGE_NUMBER_POSITIONS: readonly PdfPageNumberPosition[] = [
+  'bottom-center',
+  'bottom-right',
+  'top-center',
+  'top-right',
+];
+
+/**
+ * 给 PDF 添加页码(Blob → Blob)。
+ *
+ * 逐页按 format 模板渲染页码文本({n} = 当前页码,{total} = 最末页码,
+ * 均含 startFrom 偏移),定位到四角/居中位置之一(页边距 36pt)。
+ *
+ * @param blob 输入 PDF Blob
+ * @param params 页码参数(position/format/startFrom/fontSize/color 均可选)
+ */
+export async function addPageNumbers(
+  blob: Blob,
+  params: Record<string, any> = {}
+): Promise<Blob> {
+  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+  const pp = params as PdfAddPageNumbersParams;
+
+  const position = pp.position ?? 'bottom-center';
+  if (!PAGE_NUMBER_POSITIONS.includes(position)) {
+    throw new Error(
+      `addPageNumbers: position must be one of ${PAGE_NUMBER_POSITIONS.join(' / ')}, got "${position}"`
+    );
+  }
+  const format = pp.format ?? 'Page {n} of {total}';
+  if (typeof format !== 'string' || format.length === 0) {
+    throw new Error('addPageNumbers: format must be a non-empty string');
+  }
+  const startFrom = pp.startFrom ?? 1;
+  if (!Number.isInteger(startFrom) || startFrom < 1) {
+    throw new Error(
+      `addPageNumbers: startFrom must be an integer >= 1, got ${startFrom}`
+    );
+  }
+  const fontSize = pp.fontSize ?? 10;
+  if (fontSize <= 0) {
+    throw new Error(`addPageNumbers: fontSize must be > 0, got ${fontSize}`);
+  }
+  const [r, g, b] = parseHexColor(pp.color ?? '#666666');
+
+  const bytes = await blobToArrayBuffer(blob);
+  const pdfDoc = await PDFDocument.load(bytes);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const pages = pdfDoc.getPages();
+
+  const margin = 36; // 0.5 inch
+  const total = startFrom + pages.length - 1;
+
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i]!;
+    const { width, height } = page.getSize();
+    const text = format
+      .replaceAll('{n}', String(startFrom + i))
+      .replaceAll('{total}', String(total));
+    const textWidth = font.widthOfTextAtSize(text, fontSize);
+    const x = position.endsWith('-center')
+      ? (width - textWidth) / 2
+      : width - textWidth - margin;
+    const y = position.startsWith('bottom-') ? margin : height - margin - fontSize;
+    page.drawText(text, {
+      x,
+      y,
+      size: fontSize,
+      font,
+      color: rgb(r, g, b),
     });
   }
 

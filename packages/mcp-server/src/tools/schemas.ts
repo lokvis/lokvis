@@ -148,7 +148,7 @@ export const pdfCompressSchema = z.object({
 /** lokvis_pdf_split */
 export const pdfSplitSchema = z.object({
   input_path: z.string(),
-  pages_per_file: z.number().optional(),
+  pages_per_file: z.number().int().min(1).optional(),
   ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
   output_dir: z.string().optional(),
 });
@@ -166,7 +166,18 @@ export const pdfWatermarkSchema = z.object({
   input_path: z.string(),
   text: z.string(),
   opacity: z.number().optional(),
-  font_size: z.number().optional(),
+  font_size: z.number().positive().optional(),
+  color: z.string().optional(),
+  output_path: z.string().optional(),
+});
+
+/** lokvis_pdf_add_page_numbers */
+export const pdfAddPageNumbersSchema = z.object({
+  input_path: z.string(),
+  position: z.enum(['bottom-center', 'bottom-right', 'top-center', 'top-right']).optional(),
+  format: z.string().optional(),
+  start_from: z.number().int().min(1).optional(),
+  font_size: z.number().positive().optional(),
   color: z.string().optional(),
   output_path: z.string().optional(),
 });

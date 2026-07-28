@@ -48,6 +48,7 @@ export type BuiltinCapabilityName =
   | 'pdf.compress'
   | 'pdf.rotate'
   | 'pdf.watermark'
+  | 'pdf.add-page-numbers'
   | 'pdf.ocr'
   | 'pdf.sign'
   | 'video.compress'
@@ -94,6 +95,7 @@ export const BUILTIN_CAPABILITY_NAMES: readonly BuiltinCapabilityName[] = [
   'pdf.compress',
   'pdf.rotate',
   'pdf.watermark',
+  'pdf.add-page-numbers',
   'pdf.ocr',
   'pdf.sign',
   'video.compress',

@@ -16,18 +16,21 @@ import type { PdfFileInfo } from '../internal/download';
 import type { PdfActionResult } from './usePdfCompress';
 
 /** 拆分预设 */
-export type PdfSplitPreset = 'every-page' | '2-pages' | '5-pages';
+export type PdfSplitPreset = 'every-page' | '2-pages' | '5-pages' | 'custom';
 
-/** 预设参数表 */
+/** 预设参数表(custom 为占位,实际值来自 pagesPerFile state) */
 export const PDF_SPLIT_PRESETS: Record<PdfSplitPreset, { pagesPerFile: number }> = {
   'every-page': { pagesPerFile: 1 },
   '2-pages': { pagesPerFile: 2 },
   '5-pages': { pagesPerFile: 5 },
+  custom: { pagesPerFile: 0 },
 };
 
 /** usePdfSplit 选项 */
 export interface UsePdfSplitOptions {
   initialPreset?: PdfSplitPreset;
+  /** 初始自定义页数(传入时初始预设为 custom) */
+  initialPagesPerFile?: number;
   autoRun?: boolean;
   onComplete?: (result: PdfActionResult) => void;
   plugins?: PluginLoadEntry[];
@@ -47,6 +50,10 @@ export interface UsePdfSplitResult {
   preset: PdfSplitPreset;
   /** 输出文件数 */
   outputCount: number;
+  /** 当前每份页数(custom 预设时生效) */
+  pagesPerFile: number;
+  /** 设置每份页数(自动切换到 custom 预设并重跑;<1 或非整数不触发 run) */
+  setPagesPerFile: (n: number) => void;
   handleFiles: (files: File[]) => Promise<void>;
   setPreset: (preset: PdfSplitPreset) => void;
   reset: () => void;
@@ -55,9 +62,24 @@ export interface UsePdfSplitResult {
 }
 
 export function usePdfSplit(options?: UsePdfSplitOptions): UsePdfSplitResult {
-  const { initialPreset = 'every-page', autoRun = true, onComplete, plugins } = options ?? {};
+  const {
+    initialPreset,
+    initialPagesPerFile,
+    autoRun = true,
+    onComplete,
+    plugins,
+  } = options ?? {};
+  // initialPagesPerFile 传入时初始预设为 custom
+  const resolvedInitialPreset: PdfSplitPreset =
+    initialPreset ?? (initialPagesPerFile != null ? 'custom' : 'every-page');
   const tool = usePdfTool({ plugins });
-  const [preset, setPresetState] = useState<PdfSplitPreset>(initialPreset);
+  const [preset, setPresetState] = useState<PdfSplitPreset>(resolvedInitialPreset);
+  const [pagesPerFile, setPagesPerFileState] = useState<number>(
+    initialPagesPerFile ??
+      (resolvedInitialPreset === 'custom'
+        ? 1
+        : PDF_SPLIT_PRESETS[resolvedInitialPreset].pagesPerFile)
+  );
 
   const lastRunInputKey = useRef<string | null>(null);
   const lastNotifiedKey = useRef<string | null>(null);
@@ -67,11 +89,15 @@ export function usePdfSplit(options?: UsePdfSplitOptions): UsePdfSplitResult {
   const inputKey = tool.inputIds.join(',');
 
   const runSplit = useCallback(
-    async (nextPreset: PdfSplitPreset): Promise<void> => {
-      const config = PDF_SPLIT_PRESETS[nextPreset];
+    async (nextPreset: PdfSplitPreset, nextPagesPerFile: number): Promise<void> => {
+      const effective =
+        nextPreset === 'custom'
+          ? nextPagesPerFile
+          : PDF_SPLIT_PRESETS[nextPreset].pagesPerFile;
+      if (!Number.isInteger(effective) || effective < 1) return;
       const wf = buildSingleStepPdfWorkflow(
         'pdf.split',
-        { pagesPerFile: config.pagesPerFile },
+        { pagesPerFile: effective },
         'PdfSplit',
         'Split PDF into multiple files'
       );
@@ -105,19 +131,34 @@ export function usePdfSplit(options?: UsePdfSplitOptions): UsePdfSplitResult {
   useEffect(() => {
     if (inputKey && tool.ready && autoRun && lastRunInputKey.current !== inputKey) {
       lastRunInputKey.current = inputKey;
-      void runSplit(preset);
+      void runSplit(preset, pagesPerFile);
     }
     if (!inputKey) {
       lastRunInputKey.current = null;
     }
-  }, [inputKey, tool.ready, autoRun, preset, runSplit]);
+  }, [inputKey, tool.ready, autoRun, preset, pagesPerFile, runSplit]);
 
   const setPreset = useCallback(
     (next: PdfSplitPreset) => {
       setPresetState(next);
+      if (next !== 'custom') {
+        setPagesPerFileState(PDF_SPLIT_PRESETS[next].pagesPerFile);
+      }
       if (inputKey && !tool.busy) {
         lastRunInputKey.current = inputKey;
-        void runSplit(next);
+        void runSplit(next, pagesPerFile);
+      }
+    },
+    [inputKey, tool.busy, pagesPerFile, runSplit]
+  );
+
+  const setPagesPerFile = useCallback(
+    (n: number) => {
+      setPagesPerFileState(n);
+      setPresetState('custom');
+      if (inputKey && !tool.busy && Number.isInteger(n) && n >= 1) {
+        lastRunInputKey.current = inputKey;
+        void runSplit('custom', n);
       }
     },
     [inputKey, tool.busy, runSplit]
@@ -142,10 +183,12 @@ export function usePdfSplit(options?: UsePdfSplitOptions): UsePdfSplitResult {
     error: tool.error,
     preset,
     outputCount: tool.outputBlobs.length,
+    pagesPerFile,
+    setPagesPerFile,
     handleFiles,
     setPreset,
     reset: tool.reset,
     clearError: tool.clearError,
-    run: () => runSplit(preset),
+    run: () => runSplit(preset, pagesPerFile),
   };
 }

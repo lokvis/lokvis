@@ -34,6 +34,7 @@ export const ui: Record<string, TranslationEntry> = {
   'pdfSplit.presetEveryPage': { en: 'Every page', zh: '每页一个', ja: '1 ページごと', es: 'Cada página', de: 'Jede Seite', fr: 'Chaque page' },
   'pdfSplit.preset2Pages': { en: '2 pages', zh: '每 2 页', ja: '2 ページごと', es: '2 páginas', de: '2 Seiten', fr: '2 pages' },
   'pdfSplit.preset5Pages': { en: '5 pages', zh: '每 5 页', ja: '5 ページごと', es: '5 páginas', de: '5 Seiten', fr: '5 pages' },
+  'pdfSplit.presetCustom': { en: 'Custom', zh: '自定义', ja: 'カスタム', es: 'Personalizado', de: 'Benutzerdefiniert', fr: 'Personnalisé' },
   'pdfSplit.dropHint': { en: 'Click or drop PDF', zh: '点击或拖入 PDF', ja: 'クリックまたは PDF をドロップ', es: 'Haz clic o suelta un PDF', de: 'Klicken oder PDF ablegen', fr: 'Cliquez ou déposez un PDF' },
   'pdfSplit.processing': { en: 'Splitting…', zh: '拆分中…', ja: '分割中…', es: 'Dividiendo…', de: 'Aufteilen…', fr: 'Division…' },
   'pdfSplit.download': { en: 'Download all', zh: '全部下载', ja: 'すべてダウンロード', es: 'Descargar todo', de: 'Alle herunterladen', fr: 'Tout télécharger' },

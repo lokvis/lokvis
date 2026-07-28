@@ -1,9 +1,13 @@
 /**
  * PDF tools:MCP tool handlers for PDF processing.
  *
- * 2 个 tool 经 runtime.run(workflow, inputs) 走完整 Capability 系统(TD-1.1 长期方案):
+ * 6 个 tool 经 runtime.run(workflow, inputs) 走完整 Capability 系统(TD-1.1 长期方案):
  * - lokvis_pdf_merge: 合并多个 PDF(pdf.merge,N→1)
  * - lokvis_pdf_compress: 压缩 PDF(pdf.compress,1→1)
+ * - lokvis_pdf_split: 拆分 PDF(pdf.split,1→N)
+ * - lokvis_pdf_rotate: 旋转页面(pdf.rotate,1→1)
+ * - lokvis_pdf_watermark: 加水印(pdf.watermark,1→1)
+ * - lokvis_pdf_add_page_numbers: 添加页码(pdf.add-page-numbers,1→1)
  *
  * 架构定位:mcp-server 通过 `runtime.run(workflow, inputs)` 走完整 capability
  * 系统(CapabilityRegistry.resolve → createMergeCapabilityImpl /
@@ -42,6 +46,7 @@ import {
   pdfSplitSchema,
   pdfRotateSchema,
   pdfWatermarkSchema,
+  pdfAddPageNumbersSchema,
   validateParams,
 } from './schemas.js';
 
@@ -335,7 +340,7 @@ export async function pdfSplit(
     await mkdir(outputDir, { recursive: true });
 
     const transformParams: Record<string, unknown> = {};
-    if (params.pages_per_file) transformParams.pages_per_file = params.pages_per_file;
+    if (params.pages_per_file) transformParams.pagesPerFile = params.pages_per_file;
     if (params.ranges) transformParams.ranges = params.ranges;
 
     const { outBlobs, pages } = await runPdfSplitTransform(
@@ -473,7 +478,7 @@ export async function pdfWatermark(
       text: params.text,
     };
     if (params.opacity !== undefined) transformParams.opacity = params.opacity;
-    if (params.font_size !== undefined) transformParams.font_size = params.font_size;
+    if (params.font_size !== undefined) transformParams.fontSize = params.font_size;
     if (params.color !== undefined) transformParams.color = params.color;
 
     const { outBlob, pages } = await runPdfTransform(
@@ -510,6 +515,80 @@ export async function pdfWatermark(
 }
 
 /**
+ * lokvis_pdf_add_page_numbers:为 PDF 添加页码。
+ *
+ * 参数:
+ * - input_path: 输入 PDF 路径(必填)
+ * - position: 页码位置(可选,默认 'bottom-center')
+ * - format: 格式模板,支持 {n} / {total} 占位符(可选,默认 'Page {n} of {total}')
+ * - start_from: 起始页码(可选,默认 1)
+ * - font_size: 字体大小(可选,默认 10)
+ * - color: 颜色(可选,默认 '#666666')
+ * - output_path: 输出路径(可选)
+ */
+export async function pdfAddPageNumbers(
+  params: {
+    input_path: string;
+    position?: 'bottom-center' | 'bottom-right' | 'top-center' | 'top-right';
+    format?: string;
+    start_from?: number;
+    font_size?: number;
+    color?: string;
+    output_path?: string;
+  },
+  runtime: LokvisRuntime
+): Promise<McpToolResult> {
+  const inputPath = resolve(params.input_path);
+  const outputPath = params.output_path
+    ? resolve(params.output_path)
+    : makeOutputPath(inputPath, 'numbered', 'pdf');
+
+  try {
+    const originalSize = await getFileSize(inputPath);
+
+    // engine-pdf addPageNumbers 参数为 camelCase
+    const transformParams: Record<string, unknown> = {};
+    if (params.position !== undefined) transformParams.position = params.position;
+    if (params.format !== undefined) transformParams.format = params.format;
+    if (params.start_from !== undefined) transformParams.startFrom = params.start_from;
+    if (params.font_size !== undefined) transformParams.fontSize = params.font_size;
+    if (params.color !== undefined) transformParams.color = params.color;
+
+    const { outBlob, pages } = await runPdfTransform(
+      runtime,
+      [inputPath],
+      'pdf.add-page-numbers',
+      transformParams,
+      { merge: false }
+    );
+    await blobToFile(outBlob, outputPath);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: [
+            `PDF page numbers added successfully.`,
+            `  Input: ${inputPath} (${formatSize(originalSize)})`,
+            `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
+            `  Position: ${params.position ?? 'bottom-center'}`,
+            `  Format: "${params.format ?? 'Page {n} of {total}'}"`,
+            `  Pages: ${pages ?? 'unknown'}`,
+          ].join('\n'),
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [
+        { type: 'text', text: `Failed to add page numbers to PDF: ${err}` },
+      ],
+      isError: true,
+    };
+  }
+}
+
+/**
  * 注册 PDF tools 到 MCP server adapter。
  *
  * Tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/\./g, '_')}`
@@ -518,6 +597,7 @@ export async function pdfWatermark(
  * - pdf.split → lokvis_pdf_split
  * - pdf.rotate → lokvis_pdf_rotate
  * - pdf.watermark → lokvis_pdf_watermark
+ * - pdf.add-page-numbers → lokvis_pdf_add_page_numbers
  *
  * @param runtime Lokvis Runtime(已安装 pdfToolsPluginNode,注册 pdf capabilities)
  */
@@ -700,6 +780,54 @@ export function getPdfToolRegistrations(runtime: LokvisRuntime): Array<{
         const r = validateParams(pdfWatermarkSchema, p);
         if (!r.success) return r.error;
         return pdfWatermark(r.data, runtime);
+      },
+    },
+    {
+      name: 'lokvis_pdf_add_page_numbers',
+      description:
+        'Add page numbers to all pages of a PDF. ' +
+        'Customize position, format template ({n}/{total}), start number, font size, and color.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          input_path: {
+            type: 'string',
+            description: 'Path to the input PDF file',
+          },
+          position: {
+            type: 'string',
+            enum: ['bottom-center', 'bottom-right', 'top-center', 'top-right'],
+            description: 'Page number position (default: bottom-center)',
+          },
+          format: {
+            type: 'string',
+            description:
+              'Format template with {n} (current page) and {total} placeholders (default: "Page {n} of {total}")',
+          },
+          start_from: {
+            type: 'number',
+            minimum: 1,
+            description: 'Starting page number (default: 1)',
+          },
+          font_size: {
+            type: 'number',
+            description: 'Font size for the page numbers (default: 10)',
+          },
+          color: {
+            type: 'string',
+            description: 'Page number color as hex string (default: #666666)',
+          },
+          output_path: {
+            type: 'string',
+            description: 'Path for the output file (optional, defaults to input_numbered.pdf)',
+          },
+        },
+        required: ['input_path'],
+      },
+      handler: async (p) => {
+        const r = validateParams(pdfAddPageNumbersSchema, p);
+        if (!r.success) return r.error;
+        return pdfAddPageNumbers(r.data, runtime);
       },
     },
   ];

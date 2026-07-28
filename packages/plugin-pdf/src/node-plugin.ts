@@ -4,15 +4,16 @@
  * 与浏览器版本 `pdfToolsPlugin()` 的区别:
  * - 浏览器版所有 capability 标记为 stub,运行时抛错(不加载 pdf-lib)
  * - Node 版直接绑定 `@lokvis/engine-pdf` 的独立 Blob↔Blob 操作
- *   (mergePdfs / splitPdf / compressPdf / rotatePdf / addWatermark,
- *    基于 pdf-lib),5 个真实能力 + 2 个 stub(ocr / sign)
+ *   (mergePdfs / splitPdf / compressPdf / rotatePdf / addWatermark /
+ *    addPageNumbers,基于 pdf-lib),6 个真实能力 + 2 个 stub(ocr / sign)
  *
- * 5 个真实操作:
+ * 6 个真实操作:
  * - pdf.merge(N→1):mergePdfs(Blob[] → Blob)
  * - pdf.split(1→N):splitPdf(Blob → Blob[])
  * - pdf.compress(1→1):compressPdf(Blob → Blob)
  * - pdf.rotate(1→1):rotatePdf(Blob → Blob)
  * - pdf.watermark(1→1):addWatermark(Blob → Blob)
+ * - pdf.add-page-numbers(1→1):addPageNumbers(Blob → Blob)
  *
  * 2 个 stub 操作(暂未实装):
  * - pdf.ocr(1→1):依赖 tesseract.js,留 Phase 3
@@ -45,6 +46,7 @@ import {
   compressPdf as opCompressPdf,
   rotatePdf as opRotatePdf,
   addWatermark as opAddWatermark,
+  addPageNumbers as opAddPageNumbers,
   getPdfInfo,
 } from '@lokvis/engine-pdf';
 import { PLUGIN_NAME, PLUGIN_VERSION } from './plugin.js';
@@ -84,7 +86,7 @@ type SplitPdfOperation = (
 function unsupportedMessage(capability: string): string {
   return (
     `Operation "${capability}" is not supported by the pdf-lib engine in Node environment. ` +
-    `Supported operations: merge, split, compress, rotate, watermark. ` +
+    `Supported operations: merge, split, compress, rotate, watermark, add-page-numbers. ` +
     `Future operations: ocr (Phase 3), sign (Phase 4).`
   );
 }
@@ -129,8 +131,8 @@ function deriveOcrPdfMetadata(outBlob: Blob): AssetMetadata {
 /**
  * 创建 PDF 工具插件(Node 环境,基于 pdf-lib 引擎)
  *
- * 5 真实(merge/split/compress/rotate/watermark)+ 2 stub(ocr/sign),
- * 共 7 个 capability 实现。
+ * 6 真实(merge/split/compress/rotate/watermark/add-page-numbers)+ 2 stub
+ * (ocr/sign),共 8 个 capability 实现。
  *
  * @example
  * ```ts
@@ -151,13 +153,13 @@ export async function pdfToolsPluginNode() {
       name: PLUGIN_NAME,
       version: PLUGIN_VERSION,
       description:
-        'Official PDF tools (Node, pdf-lib): merge / split / compress / rotate / watermark + stub(ocr/sign)',
+        'Official PDF tools (Node, pdf-lib): merge / split / compress / rotate / watermark / add-page-numbers + stub(ocr/sign)',
       capabilities: PDF_CAPABILITIES,
       engine: PLUGIN_ENGINE_NODE,
       permissions: ['asset:read', 'asset:write', 'network:none'],
     },
     (ctx) => {
-      // 7 个能力实现:5 真实 + 2 stub
+      // 8 个能力实现:6 真实 + 2 stub
       const impls = [
         // ─── 真实操作 ────────────────────────────────────
         // pdf.merge: N→1,用 createMergeCapabilityImpl + mergePdfs
@@ -216,6 +218,18 @@ export async function pdfToolsPluginNode() {
             engine: PLUGIN_ENGINE_NODE,
             outputType: 'pdf' as AssetType,
             operation: opAddWatermark as SinglePdfOperation,
+            isStub: false,
+            deriveMetadata: (_source, outBlob) => derivePdfMetadata(outBlob),
+          },
+          ctx
+        ),
+        // pdf.add-page-numbers: 1→1,用 createBlobCapabilityImpl + addPageNumbers
+        createBlobCapabilityImpl(
+          {
+            capability: 'pdf.add-page-numbers',
+            engine: PLUGIN_ENGINE_NODE,
+            outputType: 'pdf' as AssetType,
+            operation: opAddPageNumbers as SinglePdfOperation,
             isStub: false,
             deriveMetadata: (_source, outBlob) => derivePdfMetadata(outBlob),
           },

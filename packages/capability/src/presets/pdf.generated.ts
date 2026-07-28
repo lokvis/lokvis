@@ -20,7 +20,7 @@ export const PDF_SPLIT: Capability = {
   name: 'pdf.split',
   description: 'Split a PDF into multiple files by page count or ranges',
   inputTypes: ['pdf'],
-  outputTypes: ['data'],
+  outputTypes: ['pdf'],
   params: [
     { name: 'pagesPerFile', type: 'number', required: false, min: 1, description: '每个输出文件包含的页数' },
     {
@@ -87,6 +87,33 @@ export const PDF_WATERMARK: Capability = {
   batchable: true,
 };
 
+export const PDF_ADD_PAGE_NUMBERS: Capability = {
+  name: 'pdf.add-page-numbers',
+  description: 'Add page numbers to a PDF',
+  inputTypes: ['pdf'],
+  outputTypes: ['pdf'],
+  params: [
+    {
+      name: 'position',
+      type: 'enum',
+      default: 'bottom-center',
+      values: ['bottom-center', 'bottom-right', 'top-center', 'top-right'],
+      description: '页码位置',
+    },
+    {
+      name: 'format',
+      type: 'string',
+      default: 'Page {n} of {total}',
+      description: '格式模板，支持 {n} / {total} 占位符',
+    },
+    { name: 'startFrom', type: 'number', default: 1, min: 1, description: '起始页码' },
+    { name: 'fontSize', type: 'number', default: 10 },
+    { name: 'color', type: 'color', default: '#666666' },
+  ],
+  performance: 'fast',
+  batchable: true,
+};
+
 export const PDF_OCR: Capability = {
   name: 'pdf.ocr',
   description: 'Extract text from a PDF via OCR',
@@ -127,6 +154,7 @@ export const PDF_CAPABILITIES: Capability[] = [
   PDF_COMPRESS,
   PDF_ROTATE,
   PDF_WATERMARK,
+  PDF_ADD_PAGE_NUMBERS,
   PDF_OCR,
   PDF_SIGN,
 ];

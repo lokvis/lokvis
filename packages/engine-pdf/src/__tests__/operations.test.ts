@@ -298,6 +298,125 @@ describe('engine-pdf operations', () => {
     });
   });
 
+  describe('addPageNumbers', () => {
+    /** 解压输出 PDF 的所有 stream,检查页码文本是否被绘制(literal 或 hex 编码) */
+    async function pdfDrawsText(blob: Blob, text: string): Promise<boolean> {
+      const { inflateSync } = await import('node:zlib');
+      const buf = Buffer.from(await blob.arrayBuffer());
+      let streams = '';
+      let idx = 0;
+      while (true) {
+        const s = buf.indexOf('stream', idx);
+        if (s === -1) break;
+        // 跳过 'endstream' 中的 'stream' 子串
+        if (s >= 3 && buf.subarray(s - 3, s).toString('latin1') === 'end') {
+          idx = s + 6;
+          continue;
+        }
+        let dataStart = s + 6;
+        if (buf[dataStart] === 0x0d) dataStart++;
+        if (buf[dataStart] === 0x0a) dataStart++;
+        const e = buf.indexOf('endstream', dataStart);
+        if (e === -1) break;
+        const data = buf.subarray(dataStart, e);
+        try {
+          streams += inflateSync(data).toString('latin1');
+        } catch {
+          streams += data.toString('latin1');
+        }
+        idx = e + 9;
+      }
+      if (streams.includes(`(${text})`)) return true;
+      // StandardFont encodeText 输出 hex string(WinAnsi 下 ASCII 码即字符码)
+      const hex = [...text]
+        .map((c) => c.charCodeAt(0).toString(16).padStart(2, '0'))
+        .join('');
+      return streams.toLowerCase().includes(hex);
+    }
+
+    it('默认参数应逐页绘制页码且页数不变', async () => {
+      const { addPageNumbers } = await import('../operations.js');
+      const out = await addPageNumbers(twoPages, {});
+      expect(out.type).toBe('application/pdf');
+      expect(await countPages(out)).toBe(2);
+      expect(await isValidPdf(out)).toBe(true);
+      expect(await pdfDrawsText(out, 'Page 1 of 2')).toBe(true);
+      expect(await pdfDrawsText(out, 'Page 2 of 2')).toBe(true);
+    });
+
+    it('startFrom 偏移应同时作用于 {n} 与 {total}', async () => {
+      const { addPageNumbers } = await import('../operations.js');
+      const out = await addPageNumbers(twoPages, { startFrom: 5 });
+      expect(await pdfDrawsText(out, 'Page 5 of 6')).toBe(true);
+      expect(await pdfDrawsText(out, 'Page 6 of 6')).toBe(true);
+    });
+
+    it('自定义 format 应替换 {n} / {total} 占位符', async () => {
+      const { addPageNumbers } = await import('../operations.js');
+      const out = await addPageNumbers(fivePages, { format: '{n} / {total}' });
+      expect(await pdfDrawsText(out, '1 / 5')).toBe(true);
+      expect(await pdfDrawsText(out, '5 / 5')).toBe(true);
+    });
+
+    it('无占位符 format 应原样绘制', async () => {
+      const { addPageNumbers } = await import('../operations.js');
+      const out = await addPageNumbers(singlePage, { format: 'DRAFT' });
+      expect(await pdfDrawsText(out, 'DRAFT')).toBe(true);
+    });
+
+    it('重复占位符应全部替换', async () => {
+      const { addPageNumbers } = await import('../operations.js');
+      const out = await addPageNumbers(singlePage, { format: '{n} of {total} ({n})' });
+      expect(await pdfDrawsText(out, '1 of 1 (1)')).toBe(true);
+    });
+
+    it('四种 position 均应输出合法 PDF', async () => {
+      const { addPageNumbers } = await import('../operations.js');
+      for (const position of ['bottom-center', 'bottom-right', 'top-center', 'top-right']) {
+        const out = await addPageNumbers(singlePage, { position });
+        expect(await isValidPdf(out)).toBe(true);
+      }
+    });
+
+    it('非法 position 应抛错', async () => {
+      const { addPageNumbers } = await import('../operations.js');
+      await expect(
+        addPageNumbers(singlePage, { position: 'middle' })
+      ).rejects.toThrow(/position must be one of/);
+    });
+
+    it('空 format 应抛错', async () => {
+      const { addPageNumbers } = await import('../operations.js');
+      await expect(
+        addPageNumbers(singlePage, { format: '' })
+      ).rejects.toThrow(/format must be a non-empty string/);
+    });
+
+    it('startFrom < 1 或非整数应抛错', async () => {
+      const { addPageNumbers } = await import('../operations.js');
+      await expect(
+        addPageNumbers(singlePage, { startFrom: 0 })
+      ).rejects.toThrow(/startFrom must be an integer >= 1/);
+      await expect(
+        addPageNumbers(singlePage, { startFrom: 1.5 })
+      ).rejects.toThrow(/startFrom must be an integer >= 1/);
+    });
+
+    it('fontSize 非正应抛错', async () => {
+      const { addPageNumbers } = await import('../operations.js');
+      await expect(
+        addPageNumbers(singlePage, { fontSize: -1 })
+      ).rejects.toThrow(/fontSize must be > 0/);
+    });
+
+    it('color 格式错误应抛错', async () => {
+      const { addPageNumbers } = await import('../operations.js');
+      await expect(
+        addPageNumbers(singlePage, { color: 'gray' })
+      ).rejects.toThrow(/invalid color/);
+    });
+  });
+
   describe('ocrPdf (stub)', () => {
     it('应抛 stub 错误(不实装)', async () => {
       const { ocrPdf } = await import('../operations.js');

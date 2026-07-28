@@ -102,15 +102,16 @@ describe('pdfToolsPlugin 定义', () => {
     expect(typeof plugin.install).toBe('function');
   });
 
-  it('config.capabilities 应包含全部 7 个 PDF 能力声明', () => {
+  it('config.capabilities 应包含全部 8 个 PDF 能力声明', () => {
     const plugin = pdfToolsPlugin();
-    expect(plugin.config.capabilities).toHaveLength(7);
+    expect(plugin.config.capabilities).toHaveLength(8);
     const names = plugin.config.capabilities.map((c) => c.name);
     expect(names).toContain('pdf.merge');
     expect(names).toContain('pdf.split');
     expect(names).toContain('pdf.compress');
     expect(names).toContain('pdf.rotate');
     expect(names).toContain('pdf.watermark');
+    expect(names).toContain('pdf.add-page-numbers');
     expect(names).toContain('pdf.ocr');
     expect(names).toContain('pdf.sign');
   });
@@ -130,10 +131,10 @@ describe('pdfToolsPlugin install', () => {
     mock = createMockContext();
   });
 
-  it('install 应注册 7 个能力实现', async () => {
+  it('install 应注册 8 个能力实现', async () => {
     const plugin = pdfToolsPlugin();
     await plugin.install(mock.ctx);
-    expect(mock.registered).toHaveLength(7);
+    expect(mock.registered).toHaveLength(8);
   });
 
   it('install 应记录 info 日志', async () => {
@@ -141,7 +142,7 @@ describe('pdfToolsPlugin install', () => {
     await plugin.install(mock.ctx);
     expect(mock.logs).toHaveLength(1);
     expect(mock.logs[0]!.level).toBe('info');
-    expect(mock.logs[0]!.message).toMatch(/7 pdf capabilities/);
+    expect(mock.logs[0]!.message).toMatch(/8 pdf capabilities/);
   });
 
   it('注册的实现 capability 名应与声明一一对应', async () => {
@@ -155,8 +156,8 @@ describe('pdfToolsPlugin install', () => {
 });
 
 describe('buildPdfCapabilityImplementations', () => {
-  it('PDF_OPERATION_ENTRIES 应有 7 个条目', () => {
-    expect(PDF_OPERATION_ENTRIES).toHaveLength(7);
+  it('PDF_OPERATION_ENTRIES 应有 8 个条目', () => {
+    expect(PDF_OPERATION_ENTRIES).toHaveLength(8);
   });
 
   it('每个条目的 engine 应为 pdf-lib', () => {
@@ -167,10 +168,10 @@ describe('buildPdfCapabilityImplementations', () => {
     expect(PDF_OPERATION_ENTRIES.every((e) => typeof e.operation === 'function')).toBe(true);
   });
 
-  it('应生成 7 个实现', () => {
+  it('应生成 8 个实现', () => {
     const { ctx } = createMockContext();
     const impls = buildPdfCapabilityImplementations(ctx);
-    expect(impls).toHaveLength(7);
+    expect(impls).toHaveLength(8);
   });
 
   it('所有实现 status 应为 stub（engine-pdf 为 stub 占位）', () => {

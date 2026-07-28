@@ -3,12 +3,12 @@
  *
  * 验证 pdfToolsPluginNode() 的:
  * - 插件定义结构(engine='pdf-lib')
- * - installer 注册行为(7 个能力实现:5 真实 + 2 stub)
- * - 5 个真实操作(merge/split/compress/rotate/watermark)的 isStub 标记
+ * - installer 注册行为(8 个能力实现:6 真实 + 2 stub)
+ * - 6 个真实操作(merge/split/compress/rotate/watermark/add-page-numbers)的 isStub 标记
  * - 2 个 stub 操作(ocr/sign)的 isStub 标记
  * - stub 操作执行时抛出明确错误
  *
- * engine-pdf 的 5 个真实操作通过 vi.mock 替换为桩函数,
+ * engine-pdf 的 6 个真实操作通过 vi.mock 替换为桩函数,
  * 避免测试依赖真实 pdf-lib 二进制加载(已在 engine-pdf 包内端到端验证)。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -33,6 +33,9 @@ vi.mock('@lokvis/engine-pdf', () => ({
     new Blob([new Uint8Array([0])], { type: 'application/pdf' })
   ),
   addWatermark: vi.fn(async () =>
+    new Blob([new Uint8Array([0])], { type: 'application/pdf' })
+  ),
+  addPageNumbers: vi.fn(async () =>
     new Blob([new Uint8Array([0])], { type: 'application/pdf' })
   ),
   getPdfInfo: vi.fn(async () => ({ pages: 1 })),
@@ -122,15 +125,16 @@ describe('pdfToolsPluginNode 定义', () => {
     expect(typeof plugin.install).toBe('function');
   });
 
-  it('config.capabilities 应包含全部 7 个 PDF 能力声明', async () => {
+  it('config.capabilities 应包含全部 8 个 PDF 能力声明', async () => {
     const plugin = await pdfToolsPluginNode();
-    expect(plugin.config.capabilities).toHaveLength(7);
+    expect(plugin.config.capabilities).toHaveLength(8);
     const names = plugin.config.capabilities.map((c) => c.name);
     expect(names).toContain('pdf.merge');
     expect(names).toContain('pdf.split');
     expect(names).toContain('pdf.compress');
     expect(names).toContain('pdf.rotate');
     expect(names).toContain('pdf.watermark');
+    expect(names).toContain('pdf.add-page-numbers');
     expect(names).toContain('pdf.ocr');
     expect(names).toContain('pdf.sign');
   });
@@ -143,10 +147,10 @@ describe('pdfToolsPluginNode install', () => {
     mock = createMockContext();
   });
 
-  it('install 应注册 7 个能力实现', async () => {
+  it('install 应注册 8 个能力实现', async () => {
     const plugin = await pdfToolsPluginNode();
     await plugin.install(mock.ctx);
-    expect(mock.registered).toHaveLength(7);
+    expect(mock.registered).toHaveLength(8);
   });
 
   it('所有注册实现的 engine 应为 pdf-lib', async () => {
@@ -155,10 +159,10 @@ describe('pdfToolsPluginNode install', () => {
     expect(mock.registered.every((i) => i.engine === 'pdf-lib')).toBe(true);
   });
 
-  it('5 个真实操作(merge/split/compress/rotate/watermark)的 status 应非 stub', async () => {
+  it('6 个真实操作(merge/split/compress/rotate/watermark/add-page-numbers)的 status 应非 stub', async () => {
     const plugin = await pdfToolsPluginNode();
     await plugin.install(mock.ctx);
-    const realCaps = ['pdf.merge', 'pdf.split', 'pdf.compress', 'pdf.rotate', 'pdf.watermark'];
+    const realCaps = ['pdf.merge', 'pdf.split', 'pdf.compress', 'pdf.rotate', 'pdf.watermark', 'pdf.add-page-numbers'];
     for (const cap of realCaps) {
       const impl = mock.registered.find((i) => i.capability === cap)!;
       expect(impl.status).not.toBe('stub');
@@ -181,7 +185,7 @@ describe('pdfToolsPluginNode install', () => {
     expect(mock.logs).toHaveLength(1);
     expect(mock.logs[0]!.level).toBe('info');
     expect(mock.logs[0]!.message).toMatch(/pdf-lib engine/);
-    expect(mock.logs[0]!.message).toMatch(/5 real \+ 2 stub/);
+    expect(mock.logs[0]!.message).toMatch(/6 real \+ 2 stub/);
   });
 
   it('注册的实现 capability 名应与声明一一对应', async () => {
@@ -310,6 +314,22 @@ describe('pdfToolsPluginNode 真实操作行为', () => {
     const outputs = await watermarkImpl.execute(
       [makeInputAsset()],
       { text: 'CONFIDENTIAL' },
+      EXEC_CTX
+    );
+
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0]!.type).toBe('pdf');
+    expect(outputs[0]!.metadata.format).toBe('pdf');
+  });
+
+  it('add-page-numbers 操作 execute 应处理单输入并返回单输出 Asset', async () => {
+    const plugin = await pdfToolsPluginNode();
+    await plugin.install(mock.ctx);
+    const pageNumbersImpl = mock.registered.find((i) => i.capability === 'pdf.add-page-numbers')!;
+
+    const outputs = await pageNumbersImpl.execute(
+      [makeInputAsset()],
+      { position: 'bottom-center' },
       EXEC_CTX
     );
 

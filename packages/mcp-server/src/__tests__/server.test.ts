@@ -120,20 +120,21 @@ describe('createLokvisMcpServer', () => {
     expect(server.getRegisteredToolNames()).toHaveLength(10);
   });
 
-  it('domains=[pdf] 应注册 5 个 pdf tools', async () => {
+  it('domains=[pdf] 应注册 6 个 pdf tools', async () => {
     const { server } = await createLokvisMcpServer({ domains: ['pdf'] });
     const toolNames = server.getRegisteredToolNames();
-    expect(toolNames).toHaveLength(5);
+    expect(toolNames).toHaveLength(6);
     expect(toolNames).toContain('lokvis_pdf_merge');
     expect(toolNames).toContain('lokvis_pdf_compress');
     expect(toolNames).toContain('lokvis_pdf_split');
     expect(toolNames).toContain('lokvis_pdf_rotate');
     expect(toolNames).toContain('lokvis_pdf_watermark');
+    expect(toolNames).toContain('lokvis_pdf_add_page_numbers');
   });
 
-  it('domains=[image,pdf] 应注册 15 个 tools(10 image + 5 pdf)', async () => {
+  it('domains=[image,pdf] 应注册 16 个 tools(10 image + 6 pdf)', async () => {
     const { server } = await createLokvisMcpServer({ domains: ['image', 'pdf'] });
-    expect(server.getRegisteredToolNames()).toHaveLength(15);
+    expect(server.getRegisteredToolNames()).toHaveLength(16);
   });
 
   it('domains=[image] 应安装 imageToolsPluginNode', async () => {

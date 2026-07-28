@@ -97,6 +97,10 @@ const watermarkOp: SinglePdfOperation = async (_blob, _params) => {
   throw new Error(stubMessage('pdf.watermark'));
 };
 
+const addPageNumbersOp: SinglePdfOperation = async (_blob, _params) => {
+  throw new Error(stubMessage('pdf.add-page-numbers'));
+};
+
 const ocrOp: SinglePdfOperation = async (_blob, _params) => {
   throw new Error(stubMessage('pdf.ocr'));
 };
@@ -112,6 +116,7 @@ export const PDF_OPERATION_ENTRIES: PdfOperationEntry[] = [
   { capability: 'pdf.compress',  engine: 'pdf-lib', kind: 'single', outputType: 'pdf',  operation: compressOp },
   { capability: 'pdf.rotate',    engine: 'pdf-lib', kind: 'single', outputType: 'pdf',  operation: rotateOp },
   { capability: 'pdf.watermark', engine: 'pdf-lib', kind: 'single', outputType: 'pdf',  operation: watermarkOp },
+  { capability: 'pdf.add-page-numbers', engine: 'pdf-lib', kind: 'single', outputType: 'pdf', operation: addPageNumbersOp },
   { capability: 'pdf.ocr',       engine: 'pdf-lib', kind: 'single', outputType: 'text', operation: ocrOp },
   { capability: 'pdf.sign',      engine: 'pdf-lib', kind: 'single', outputType: 'pdf',  operation: signOp },
 ];

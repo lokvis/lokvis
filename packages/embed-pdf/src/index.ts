@@ -25,15 +25,19 @@ export {
   usePdfSplit,
   usePdfRotate,
   usePdfWatermark,
+  usePdfPageNumbers,
   PDF_COMPRESS_PRESETS,
   PDF_SPLIT_PRESETS,
   PDF_ROTATE_PRESETS,
   PDF_WATERMARK_PRESETS,
   DEFAULT_WATERMARK_TEXT,
+  PDF_PAGE_NUMBER_POSITIONS,
+  DEFAULT_PAGE_NUMBER_FORMAT,
   type PdfCompressPreset,
   type PdfSplitPreset,
   type PdfRotatePreset,
   type PdfWatermarkPreset,
+  type PdfPageNumberPosition,
   type UsePdfActionOptions,
   type PdfActionResult,
   type UsePdfCompressResult,
@@ -45,6 +49,8 @@ export {
   type UsePdfRotateResult,
   type UsePdfWatermarkOptions,
   type UsePdfWatermarkResult,
+  type UsePdfPageNumbersOptions,
+  type UsePdfPageNumbersResult,
 } from './hooks/index';
 
 // ─── Layer 1: Primitives ─────────────────────────────────

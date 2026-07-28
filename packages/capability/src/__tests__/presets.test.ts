@@ -89,12 +89,12 @@ describe('PDF 能力预设', () => {
     expect(PDF_MERGE.params).toEqual([]);
   });
 
-  it('PDF_SPLIT 应输出 data 类型', () => {
-    expect(PDF_SPLIT.outputTypes).toEqual(['data']);
+  it('PDF_SPLIT 应输出 pdf 类型', () => {
+    expect(PDF_SPLIT.outputTypes).toEqual(['pdf']);
   });
 
-  it('PDF_CAPABILITIES 应包含 7 个能力', () => {
-    expect(PDF_CAPABILITIES).toHaveLength(7);
+  it('PDF_CAPABILITIES 应包含 8 个能力', () => {
+    expect(PDF_CAPABILITIES).toHaveLength(8);
   });
 });
 

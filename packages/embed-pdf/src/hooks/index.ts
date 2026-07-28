@@ -4,12 +4,13 @@
  * 三方接入路径:
  *   import { usePdfCompress } from '@lokvis/embed-pdf/hooks';
  *
- * 包含 5 个 hook(覆盖 5 个工具):
+ * 包含 6 个 hook(覆盖 6 个工具):
  *   - usePdfCompress:一键压缩
  *   - usePdfMerge:多文件合并
  *   - usePdfSplit:按页拆分
  *   - usePdfRotate:旋转页面
  *   - usePdfWatermark:加水印
+ *   - usePdfPageNumbers:添加页码
  */
 
 // ─── PDF Compress ──────────────────────────────────────
@@ -56,3 +57,13 @@ export {
   type UsePdfWatermarkOptions,
   type UsePdfWatermarkResult,
 } from './usePdfWatermark';
+
+// ─── PDF Page Numbers ──────────────────────────────────
+export {
+  usePdfPageNumbers,
+  PDF_PAGE_NUMBER_POSITIONS,
+  DEFAULT_PAGE_NUMBER_FORMAT,
+  type PdfPageNumberPosition,
+  type UsePdfPageNumbersOptions,
+  type UsePdfPageNumbersResult,
+} from './usePdfPageNumbers';

@@ -24,6 +24,7 @@ import {
   pdfSplit,
   pdfRotate,
   pdfWatermark,
+  pdfAddPageNumbers,
   getPdfToolRegistrations,
 } from '../../tools/pdf.js';
 
@@ -207,6 +208,21 @@ describe('PDF tools', () => {
   });
 
   describe('pdfSplit', () => {
+    it('pages_per_file=2 应将 2 页 PDF 拆成 1 个文件(参数需透传为 pagesPerFile)', async () => {
+      const result = await pdfSplit({
+        input_path: testPdfPath1,
+        pages_per_file: 2,
+        output_dir: workdir,
+      }, runtime);
+      expect(result.isError).toBeFalsy();
+      const text = (result.content[0] as { text: string }).text;
+      expect(text).toContain('split successfully into 1 files');
+      const outDoc = await PDFDocument.load(
+        await readFile(join(workdir, 'test1_part1.pdf'))
+      );
+      expect(outDoc.getPageCount()).toBe(2);
+    });
+
     it('缺少 pages_per_file 和 ranges 应返回错误', async () => {
       const result = await pdfSplit({
         input_path: testPdfPath1,
@@ -240,6 +256,17 @@ describe('PDF tools', () => {
   });
 
   describe('pdfWatermark', () => {
+    it('font_size 应透传为 fontSize(非法值应触发 engine 校验错误)', async () => {
+      const result = await pdfWatermark({
+        input_path: testPdfPath1,
+        text: 'DRAFT',
+        font_size: -1,
+      }, runtime);
+      expect(result.isError).toBe(true);
+      const text = (result.content[0] as { text: string }).text;
+      expect(text).toContain('fontSize must be > 0');
+    });
+
     it('不存在的文件应返回错误(不抛异常)', async () => {
       const result = await pdfWatermark({
         input_path: '/nonexistent/file.pdf',
@@ -251,16 +278,47 @@ describe('PDF tools', () => {
     });
   });
 
+  describe('pdfAddPageNumbers', () => {
+    it('应为 PDF 添加页码并输出文件', async () => {
+      const outputPath = join(workdir, 'numbered.pdf');
+      const result = await pdfAddPageNumbers({
+        input_path: testPdfPath1,
+        position: 'bottom-center',
+        format: 'Page {n} of {total}',
+        output_path: outputPath,
+      }, runtime);
+
+      expect(result.isError).toBeUndefined();
+      const text = (result.content[0] as { text: string }).text;
+      expect(text).toContain('PDF page numbers added successfully');
+      const outStat = await stat(outputPath);
+      expect(outStat.size).toBeGreaterThan(0);
+      // 输出应仍是可解析的 PDF
+      const outDoc = await PDFDocument.load(await readFile(outputPath));
+      expect(outDoc.getPageCount()).toBeGreaterThan(0);
+    });
+
+    it('不存在的文件应返回错误(不抛异常)', async () => {
+      const result = await pdfAddPageNumbers({
+        input_path: '/nonexistent/file.pdf',
+      }, runtime);
+      expect(result.isError).toBe(true);
+      const text = (result.content[0] as { text: string }).text;
+      expect(text).toContain('Failed to add page numbers');
+    });
+  });
+
   describe('getPdfToolRegistrations', () => {
-    it('应返回 5 个 tool 注册', () => {
+    it('应返回 6 个 tool 注册', () => {
       const regs = getPdfToolRegistrations(runtime);
-      expect(regs).toHaveLength(5);
+      expect(regs).toHaveLength(6);
       const names = regs.map((r) => r.name);
       expect(names).toContain('lokvis_pdf_merge');
       expect(names).toContain('lokvis_pdf_compress');
       expect(names).toContain('lokvis_pdf_split');
       expect(names).toContain('lokvis_pdf_rotate');
       expect(names).toContain('lokvis_pdf_watermark');
+      expect(names).toContain('lokvis_pdf_add_page_numbers');
     });
 
     it('每个注册应有 name/description/inputSchema/handler', () => {

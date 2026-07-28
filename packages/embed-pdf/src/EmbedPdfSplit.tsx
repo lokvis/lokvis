@@ -34,6 +34,7 @@ const SPLIT_PRESET_KEY: Record<PdfSplitPreset, string> = {
   'every-page': 'pdfSplit.presetEveryPage',
   '2-pages': 'pdfSplit.preset2Pages',
   '5-pages': 'pdfSplit.preset5Pages',
+  custom: 'pdfSplit.presetCustom',
 };
 
 // ─── 默认 UI 实现 ─────────────────────────────────────────

@@ -4,9 +4,9 @@
  * PDF Engine 层 — 基于 pdf-lib 的 Blob↔Blob 纯函数操作。
  *
  * 设计说明:
- * - 本包暴露 7 个 PDF 操作:merge / split / compress / rotate / addWatermark /
- *   ocrPdf(stub) + 1 个元数据查询 getPdfInfo,供消费方(plugin-pdf/node、
- *   mcp-server tool handler)直接调用
+ * - 本包暴露 PDF 操作:merge / split / compress / rotate / addWatermark /
+ *   addPageNumbers / ocrPdf(stub) + 1 个元数据查询 getPdfInfo,供消费方
+ *   (plugin-pdf/node、mcp-server tool handler)直接调用
  * - 不再提供 PdfEngineAdapter 接口与 pdfLibEngine / pdfjsEngine stub 占位
  *   (浏览器端 plugin-pdf 改为全 stub,见 packages/plugin-pdf/src/operations.ts)
  * - AGENTS.md:Engine 层只暴露 Blob↔Blob 纯函数,不感知 Asset/Workflow
@@ -30,6 +30,7 @@ export {
   compressPdf,
   rotatePdf,
   addWatermark,
+  addPageNumbers,
   ocrPdf,
   getPdfInfo,
   type PdfMergeParams,
@@ -37,6 +38,8 @@ export {
   type PdfCompressParams,
   type PdfRotateParams,
   type PdfWatermarkParams,
+  type PdfAddPageNumbersParams,
+  type PdfPageNumberPosition,
   type PdfOcrParams,
   type PdfInfo,
 } from './operations.js';
