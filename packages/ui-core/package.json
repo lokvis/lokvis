@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/ui-core",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Lokvis UI Core - Shared React components and design system",
   "license": "MIT",
   "type": "module",

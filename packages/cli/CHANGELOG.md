@@ -1,5 +1,15 @@
 # @lokvis/cli
 
+## 0.7.0
+
+### Patch Changes
+
+- Updated dependencies [[`d594ba8`](https://github.com/lokvis/lokvis/commit/d594ba8f0567b87e3bd03a73908f35a251b612fe)]:
+  - @lokvis/capability@0.7.0
+  - @lokvis/plugin-image@0.7.0
+  - @lokvis/schema@0.7.0
+  - @lokvis/sdk@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes

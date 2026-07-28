@@ -1,5 +1,34 @@
 # @lokvis/embed-pdf
 
+## 0.7.0
+
+### Minor Changes
+
+- [`d594ba8`](https://github.com/lokvis/lokvis/commit/d594ba8f0567b87e3bd03a73908f35a251b612fe) Thanks [@xiongyy](https://github.com/xiongyy)! - 新增 PDF 添加页码能力 `pdf.add-page-numbers`(全链路):
+
+  - capability:manifest 新增 add-page-numbers action(position/format/startFrom/fontSize/color)+ codegen 生成 `PDF_ADD_PAGE_NUMBERS`
+  - engine-pdf:新增 `addPageNumbers` operation(pdf-lib,Helvetica,`{n}`/`{total}` 占位符,4 个位置)
+  - plugin-pdf:注册 `pdf.add-page-numbers`(web/node 真实实现,默认入口 stub,共 8 个 capability:6 真实 + 2 stub)
+  - embed-pdf:新增 `usePdfPageNumbers` hook(`PDF_PAGE_NUMBER_POSITIONS` / `DEFAULT_PAGE_NUMBER_FORMAT`,position/format/startFrom 变更自动重跑)
+  - mcp-server:新增 `lokvis_pdf_add_page_numbers` tool(经 runtime.run 走完整 capability 系统)
+
+- [`d594ba8`](https://github.com/lokvis/lokvis/commit/d594ba8f0567b87e3bd03a73908f35a251b612fe) Thanks [@xiongyy](https://github.com/xiongyy)! - `usePdfSplit` 支持自定义每份页数:
+
+  - `PdfSplitPreset` 新增 `'custom'` 预设(`PDF_SPLIT_PRESETS.custom` 为占位,实际值来自 state)
+  - 新增 `pagesPerFile` / `setPagesPerFile(n)`:设值自动切到 custom 预设并重跑;n<1 或非整数不触发 run
+  - options 新增 `initialPagesPerFile?`(传入时初始预设为 custom)
+  - `ranges` 按范围拆分暂不进 hook(进阶场景引导 full workspace)
+
+### Patch Changes
+
+- Updated dependencies [[`d594ba8`](https://github.com/lokvis/lokvis/commit/d594ba8f0567b87e3bd03a73908f35a251b612fe)]:
+  - @lokvis/engine-pdf@0.7.0
+  - @lokvis/plugin-pdf@0.7.0
+  - @lokvis/schema@0.7.0
+  - @lokvis/workflow@0.7.0
+  - @lokvis/runtime@0.7.0
+  - @lokvis/sdk@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes

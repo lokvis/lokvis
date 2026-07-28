@@ -1,5 +1,12 @@
 # @lokvis/engine-audio
 
+## 0.7.0
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes

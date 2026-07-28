@@ -1,5 +1,13 @@
 # @lokvis/engine-image
 
+## 0.7.0
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.7.0
+  - @lokvis/engine-core@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes
