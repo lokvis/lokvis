@@ -272,6 +272,19 @@ export {
   type UseImagePipelineResult,
 } from './hooks/useImagePipeline';
 
+// ─── Image Workflow ───────────────────────────────────────
+
+// Layer 0:Hook
+export {
+  useImageWorkflow,
+  buildImageWorkflow,
+  type ImageWorkflowStepConfig,
+  type ImageWorkflowStepOutput,
+  type ImageWorkflowRunResult,
+  type UseImageWorkflowOptions,
+  type UseImageWorkflowResult,
+} from './hooks/useImageWorkflow';
+
 // Layer 1:Primitives
 export { ImagePipeline } from './primitives/ImagePipeline';
 export type {

@@ -102,6 +102,17 @@ export {
   type UseImagePipelineResult,
 } from './useImagePipeline';
 
+// ─── Image Workflow ──────────────────────────────────────
+export {
+  useImageWorkflow,
+  buildImageWorkflow,
+  type ImageWorkflowStepConfig,
+  type ImageWorkflowStepOutput,
+  type ImageWorkflowRunResult,
+  type UseImageWorkflowOptions,
+  type UseImageWorkflowResult,
+} from './useImageWorkflow';
+
 // ─── 共享类型 ────────────────────────────────────────────
 // hook 返回值中的 inputInfo/outputInfo 类型。
 export type { ImageInfo } from '../internal/download';
