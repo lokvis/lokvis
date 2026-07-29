@@ -1,5 +1,15 @@
 # @lokvis/plugin-image
 
+## 0.8.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.8.1
+  - @lokvis/capability@0.8.1
+  - @lokvis/engine-image@0.8.1
+  - @lokvis/plugin-sdk@0.8.1
+
 ## 0.8.0
 
 ### Patch Changes

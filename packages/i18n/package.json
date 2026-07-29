@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/i18n",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Lokvis i18n core - shared language config, URL/lang helpers, and dictionary translation primitives",
   "license": "MIT",
   "type": "module",

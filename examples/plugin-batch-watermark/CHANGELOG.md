@@ -1,5 +1,13 @@
 # @lokvis/example-plugin-batch-watermark
 
+## 0.1.13
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.8.1
+  - @lokvis/plugin-sdk@0.8.1
+
 ## 0.1.12
 
 ### Patch Changes

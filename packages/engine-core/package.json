@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/engine-core",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Lokvis Engine Core - shared engine registry factory for engine-* packages",
   "license": "MIT",
   "type": "module",

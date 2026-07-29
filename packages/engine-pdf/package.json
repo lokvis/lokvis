@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/engine-pdf",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Lokvis PDF Engine Adapter - pdf-lib",
   "license": "MIT",
   "type": "module",

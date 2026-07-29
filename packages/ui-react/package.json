@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/ui-react",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Lokvis Workspace UI - React components for Image/Video/PDF Workspace",
   "license": "MIT",
   "type": "module",

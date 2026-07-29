@@ -1,5 +1,14 @@
 # @lokvis/example-embedding
 
+## 0.1.14
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/sdk@0.8.1
+  - @lokvis/ui-react@0.8.1
+  - @lokvis/plugin-image@0.8.1
+
 ## 0.1.13
 
 ### Patch Changes

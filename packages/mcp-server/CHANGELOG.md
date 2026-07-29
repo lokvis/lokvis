@@ -1,5 +1,22 @@
 # @lokvis/mcp-server
 
+## 0.8.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.8.1
+  - @lokvis/capability@0.8.1
+  - @lokvis/workflow@0.8.1
+  - @lokvis/runtime@0.8.1
+  - @lokvis/sdk@0.8.1
+  - @lokvis/cloud-bridge@0.8.1
+  - @lokvis/plugin-image@0.8.1
+  - @lokvis/plugin-pdf@0.8.1
+  - @lokvis/plugin-video@0.8.1
+  - @lokvis/plugin-audio@0.8.1
+  - @lokvis/plugin-ai@0.8.1
+
 ## 0.8.0
 
 ### Patch Changes
