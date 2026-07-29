@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/plugin-dev",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Lokvis Developer Tools Plugin - capability introspection / asset inspection / workflow validation / performance profiling",
   "license": "MIT",
   "type": "module",

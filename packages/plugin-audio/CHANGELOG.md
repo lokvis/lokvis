@@ -1,5 +1,41 @@
 # @lokvis/plugin-audio
 
+## 0.8.0
+
+### Patch Changes
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 能力名收敛为单一事实源(架构评审 #7)。
+
+  - `@lokvis/schema` 现导出由 codegen 从 manifest 生成的 `BuiltinCapabilityName` 字面量联合类型与 `BUILTIN_CAPABILITY_NAMES` 常量数组(此前生成但从未接入公共导出)。
+  - 删除 `@lokvis/capability` names.ts 中长期与 manifest 漂移、且全仓无消费者的手写 `CAPABILITY_NAMES` 常量对象与 `CapabilityNameKey` 类型;保留 `CAPABILITY_DOMAINS` / `domainOf` / `actionOf` / `sameDomain`。
+  - plugin-image/pdf/video/audio 的操作绑定项 `capability` 字段类型由 `string` 收紧为 `BuiltinCapabilityName`,使插件裸字符串在编译期即与 manifest 单一来源校验(拼写/漂移会直接报错)。
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 修复 stub 检测契约漂移(架构评审 #8)。
+
+  engine-video / engine-audio / engine-pdf 各入口现导出带 `version` 的引擎描述符(`VIDEO_ENGINE` / `AUDIO_ENGINE` / `PDF_ENGINE`),遵循 AGENTS.md「version 含 'stub' 即占位实现」约定:默认(浏览器)入口 version 含 `-stub`,`node` / `web` 真实入口不含。
+
+  plugin-video / plugin-audio / plugin-pdf 恢复 `version.includes('stub')` 单点推导:
+
+  - 删除各 plugin 中硬编码的 `isStub = true` / `isStub: false`(此前与引擎实际能力脱钩),改为从对应引擎描述符推导。
+  - 引擎名(`BROWSER_ENGINE` / `PLUGIN_ENGINE_NODE` / `PLUGIN_ENGINE_WEB` / `PLUGIN_ENGINE_PDF`)统一取自描述符 `name` 字段,消除字面量重复。
+  - plugin-pdf 保留 `REAL_STUB_CAPABILITIES`(ocr/sign 按能力叠加),最终 `isStub = engine 级 stub || 能力级未实装`,与 engine-image 的 `canvasEngine.version` 推导模式对齐。
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 消除 plugin-pdf/video/audio node/web 实现重复
+
+  **@lokvis/plugin-pdf**
+  - 新增 `real-plugin.ts`:抽取 Node/Web 共享的真实实现骨架(8 capability 绑定 + PDF 页数 MetadataReader + info 日志),经 `buildRealPdfPlugin(options)` 一次性构造
+  - `node-plugin.ts` / `web-plugin.ts` 收敛为薄封装,仅注入环境相关文案(stub 错误短语 + 日志引擎描述),公开导出保持不变
+  - `operations.ts` 的 `derivePdfMetadata` 改为导出,供共享骨架复用
+
+  **@lokvis/plugin-video / @lokvis/plugin-audio**
+  - `deriveVideoMetadata` / `deriveAudioMetadata` 改由各自 `operations.ts` 导出,node/web plugin 删除本地副本改为 import(消除三处重复定义)
+
+- Updated dependencies [[`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858)]:
+  - @lokvis/schema@0.8.0
+  - @lokvis/capability@0.8.0
+  - @lokvis/engine-audio@0.8.0
+  - @lokvis/plugin-sdk@0.8.0
+
 ## 0.7.1
 
 ### Patch Changes

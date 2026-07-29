@@ -1,5 +1,28 @@
 # @lokvis/mcp-server
 
+## 0.8.0
+
+### Patch Changes
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 修复 lokvis_pdf_rotate 参数透传 bug
+
+  - `pdfRotate` 之前将 `pages` 透传为 `transformParams.pages`,但 engine-pdf/manifest 契约使用 `pageNumbers`,导致指定页码从未生效(始终旋转全部页)
+  - 改为透传为 `pageNumbers`(1-based,与 manifest + engine 语义一致)
+  - 补充 pdfRotate 端到端测试:默认旋转全部页、`pages: [1]` 仅旋转第 1 页
+
+- Updated dependencies [[`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858)]:
+  - @lokvis/schema@0.8.0
+  - @lokvis/capability@0.8.0
+  - @lokvis/plugin-image@0.8.0
+  - @lokvis/plugin-pdf@0.8.0
+  - @lokvis/plugin-video@0.8.0
+  - @lokvis/plugin-audio@0.8.0
+  - @lokvis/runtime@0.8.0
+  - @lokvis/sdk@0.8.0
+  - @lokvis/plugin-ai@0.8.0
+  - @lokvis/workflow@0.8.0
+  - @lokvis/cloud-bridge@0.8.0
+
 ## 0.7.1
 
 ### Patch Changes

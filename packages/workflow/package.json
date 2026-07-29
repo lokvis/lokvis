@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/workflow",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Lokvis Workflow - Linear workflow builder and construction utilities",
   "license": "MIT",
   "type": "module",

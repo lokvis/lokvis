@@ -1,5 +1,15 @@
 # @lokvis/example-custom-workspace
 
+## 0.1.13
+
+### Patch Changes
+
+- Updated dependencies [[`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858)]:
+  - @lokvis/schema@0.8.0
+  - @lokvis/plugin-image@0.8.0
+  - @lokvis/runtime@0.8.0
+  - @lokvis/sdk@0.8.0
+
 ## 0.1.12
 
 ### Patch Changes

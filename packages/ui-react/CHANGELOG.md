@@ -1,5 +1,61 @@
 # @lokvis/ui-react
 
+## 0.8.0
+
+### Patch Changes
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 外移 UI 层硬编码的本地化文案(架构评审 #10)。
+
+  工作流模板数据(`workflow-templates.ts`)不再内嵌中文名称/描述:`WorkflowTemplate` 改为携带 `nameKey` / `descriptionKey` i18n 键,由 `WorkflowTemplates` 组件经 `t()` 解析;新增 5 个模板 × 名称/描述共 10 条 6 语言词条;电商模板水印默认文案由中文 `店铺名` 改为中性 `@shop`。
+
+  `useWorkflows` / `useCustomPresets` 的保存/导入校验不再 `throw new Error('中文文案')`:改为抛出结构化 `LokvisStorageError`(携带稳定 `code` + i18n `messageKey` + 插值 `params` + 英文兜底 message),消费方 `catch` 后可 `t(err.messageKey, err.params)` 本地化展示;新增 9 条对应错误词条,并从包入口导出 `LokvisStorageError` / `LokvisStorageErrorCode`。
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 新增 @lokvis/i18n 最底层 i18n 核心包，收敛此前分散在 ui-react / embed-image / embed-video / embed-pdf / playground 的 5 份重复实现。
+
+  核心包统一导出语言配置（languages / defaultLang / langList / Language）、URL·路径处理（isLanguage / getLangFromUrl / localizePath / switchLangPath / LANG_PREFIX_RE）与字典翻译原语（interpolate / translate / pluralKey）。各消费包仅保留自身 `ui` 字典、Provider 与类型化 hook 封装（config.ts 改为 re-export，utils.ts 委托核心），字典 key 命名空间仍独立演进。
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 修复 GlobalDropzone 遮罩非法 Tailwind 类
+
+  - 拖拽遮罩此前使用 `bg-[var(--lokvis-primary)]/10/80`(双重不透明度修饰符,非法且对 `var()` 颜色无效),改用现成的 `--lokvis-primary-soft` 半透明主色 token(第三方可定制)
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 低优先级清理(架构评审 #12)。
+
+  - **#1 删除死代码**:移除 runtime 中已无引用的 `worker-host.ts` 及其测试(能力执行早已走 executor 路径)。
+  - **#2 engine-image 适配器风格统一**:删除 `adapter.ts`,入口改为导出 `IMAGE_ENGINE` 引擎描述符(`{ name, version, supportedCapabilities }`)+ 独立 `decodeImage` / `encodeImage` 原语,与 `PDF_ENGINE` / `VIDEO_ENGINE` 对齐;plugin-image 及文档同步改用新契约,stub 检测统一走 `IMAGE_ENGINE.version.includes('stub')`。
+  - **#4 去重 download / formatBytes**:此前 4 套行为各异的 `formatBytes` 统一为一套(runtime 新增 `formatBytes`,带 NaN/Infinity 守卫,四级单位 + 空格),浏览器下载逻辑 `downloadBlob` 收敛至 embed-kit;ui-react / embed-image / embed-pdf / embed-video / playground 改为复用,消除重复实现(部分用户可见输出统一为带空格格式)。
+  - **#8 exif 格式化归位**:`formatExifRows` / `formatShutterSpeed` 从 schema 迁至 ui-react(展示逻辑归 UI 层),schema 仅保留 `ExifData` / `RawExifData` / `ExifRow` 类型;对应单测随函数迁移,类型分层测试保留在 schema。
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 下沉 UI store 执行编排 + 收敛本地门控上限(架构评审 #9)。
+
+  `@lokvis/sdk` 新增引擎中性的 `runWithProgress(runtime, workflow, inputs, { onNodeStatus })`:订阅 `node:started/finished/failed` → `runtime.run` → 逐个加载输出资产 → 卸载订阅,返回 `{ result, outputs, failedOutputIds }`。不感知 zustand / i18n / 缩略图刷新等 UI 关切,节点状态经中性 `NodeStatusUpdate` 回调上抛。
+
+  - `ui-react` workflow-slice 的 `run()` 改为委托 `runWithProgress`,仅保留 zustand 状态与 i18n 文案映射;删除 store 内手写的多事件订阅与输出加载循环,同步移除已无用的 `subscribeAll`。
+  - 新增 `@lokvis/ui-react` `gating` 单一来源模块(`FREE_PLAN_LIMITS` / `PRO_PLAN_LIMITS` / `planLimits`),`useCustomPresets` 与 `useWorkflows` 的 `FREE_*_LIMIT` / `PRO_*_LIMIT` 均从此派生,消除分散常量漂移。
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - Workspace 卡片式现代化改版(保持 `--lokvis-*` 变量自定义能力)
+
+  **@lokvis/ui-core**
+
+  - Token:`--lokvis-bg` 改为 `#fafafa`(与 surface 拉开层次);新增 `--lokvis-primary-soft`(选中态底色)与 `--lokvis-font-sans`(系统字体栈),`@theme` 同步注册 `--color-lokvis-primary-soft` / `--font-lokvis-sans`
+  - 新增入场动效工具类 `.lokvis-animate-fade-in` / `.lokvis-animate-pop-in`(prefers-reduced-motion 自动禁用),Dialog 遮罩/面板应用
+  - Button primary 变体由黑白反色改为品牌色(`--lokvis-primary` + hover),统一 `duration-150 ease-out` 与 `active:scale-[0.98]` 按压反馈
+
+  **@lokvis/ui-react**
+
+  - Workspace 中部三栏改为卡片式布局:面板浮于 `--lokvis-bg` 之上,圆角 + 边框 + `elevation-1` 阴影,`gap-2 p-2` 间距;移动端抽屉加 surface 底色与 overlay 阴影
+  - Toolbar 去下边框改用 `elevation-1` 阴影;AssetPanel / Inspector 移除侧边框(卡片自带边框)
+  - 选中态统一为 `--lokvis-primary-soft`;hover 统一为 `surface-muted`(卡片化后 surface hover 不可见)
+  - 字号底线:`text-[9px]` / `text-[10px]` 全部提升到 `text-[11px]`
+
+- Updated dependencies [[`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858)]:
+  - @lokvis/schema@0.8.0
+  - @lokvis/capability@0.8.0
+  - @lokvis/runtime@0.8.0
+  - @lokvis/i18n@0.8.0
+  - @lokvis/sdk@0.8.0
+  - @lokvis/ui-core@0.8.0
+  - @lokvis/workflow@0.8.0
+
 ## 0.7.1
 
 ### Patch Changes

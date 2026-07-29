@@ -1,5 +1,26 @@
 # @lokvis/runtime
 
+## 0.8.0
+
+### Patch Changes
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 收敛 MetadataReader 名称到单一事实源,并移除 Runtime 层脆弱的 PDF 页数正则解析(架构评审 #6)。
+
+  - `@lokvis/schema` 新增 `METADATA_READER_NAMES` 常量与 `MetadataReaderName` 类型,作为跨层名称单一来源。
+  - `runtime` 的 asset-manager 不再硬编码 `'image.read-exif'` / `'image.read-metadata'` / `'pdf.read-info'`,改为引用 schema 常量。
+  - 各 plugin 导出的 `EXIF_READER_NAME` / `IMAGE_METADATA_READER_NAME` / `PDF_INFO_READER_NAME` / `VIDEO_INFO_READER_NAME` 改为 re-export schema 常量字段(导出名不变)。
+  - 移除 `asset-store` 导入时的 `extractPdfPageCount`(`/Type /Pages /Count N` 正则猜测)。PDF 页数属领域特定元数据,应经 `runtime.readAssetPdfInfo`(plugin-pdf 注册的 `pdf.read-info` MetadataReader)按需读取,而非在 Runtime 层用脆弱结构解析。
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 低优先级清理(架构评审 #12)。
+
+  - **#1 删除死代码**:移除 runtime 中已无引用的 `worker-host.ts` 及其测试(能力执行早已走 executor 路径)。
+  - **#2 engine-image 适配器风格统一**:删除 `adapter.ts`,入口改为导出 `IMAGE_ENGINE` 引擎描述符(`{ name, version, supportedCapabilities }`)+ 独立 `decodeImage` / `encodeImage` 原语,与 `PDF_ENGINE` / `VIDEO_ENGINE` 对齐;plugin-image 及文档同步改用新契约,stub 检测统一走 `IMAGE_ENGINE.version.includes('stub')`。
+  - **#4 去重 download / formatBytes**:此前 4 套行为各异的 `formatBytes` 统一为一套(runtime 新增 `formatBytes`,带 NaN/Infinity 守卫,四级单位 + 空格),浏览器下载逻辑 `downloadBlob` 收敛至 embed-kit;ui-react / embed-image / embed-pdf / embed-video / playground 改为复用,消除重复实现(部分用户可见输出统一为带空格格式)。
+  - **#8 exif 格式化归位**:`formatExifRows` / `formatShutterSpeed` 从 schema 迁至 ui-react(展示逻辑归 UI 层),schema 仅保留 `ExifData` / `RawExifData` / `ExifRow` 类型;对应单测随函数迁移,类型分层测试保留在 schema。
+
+- Updated dependencies [[`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858)]:
+  - @lokvis/schema@0.8.0
+
 ## 0.7.1
 
 ### Patch Changes

@@ -1,5 +1,45 @@
 # @lokvis/embed-pdf
 
+## 0.8.0
+
+### Patch Changes
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 抽取 embed-image/pdf/video 共享骨架为 @lokvis/embed-kit(参数化保 API)
+
+  新增内部共享包 `@lokvis/embed-kit`,以工厂参数化三个 embed 包的重复骨架;各包改为薄封装并保留原有全部公开导出名与 CSS 变量命名空间,三方定制 API 不变:
+
+  - `createCaptureException(label)` — sentry 占位实现(--> `[embed-*] captured exception:`)
+  - `makeThemeSystem(prefix)` — 主题系统(`themeToCssVars` / `useEmbed*Mode` / `THEME_KEY_TO_VAR`),命名空间 `--lokvis` / `--lokvis-pdf` / `--lokvis-video`
+  - `createUseLokvisRuntime(defaultPluginsFactory)` — runtime 初始化 hook
+  - `makeSingleStepWorkflowBuilder(config)` — 单步 Workflow 构造器(image 专属 `buildResizeCompressWorkflow` 保留在包内)
+  - `createEmbedErrorBoundary(deps)` — 参数化 ErrorBoundary,统一为唯一正确的重试计数实现(实例字段累积,修复 embed-image/video 中 retryCount 每次错误被 `getDerivedStateFromError` 重置导致 MAX_RETRY 永不触发的缺陷)
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 修复 embed-pdf 越层依赖 engine-pdf(五层架构单向依赖)
+
+  - 移除 `@lokvis/engine-pdf` 依赖,`internal/download.ts` 不再直接 import engine
+  - `getPdfFileInfo(blob, pageCount?)` 改为纯同步构造器:页数由调用方经 `runtime.readAssetPdfInfo(id)`(MetadataReader 依赖反转)传入,解析失败时为 null
+  - 破坏性:公开导出的 `getPdfFileInfo` 由 `async (blob) => Promise<PdfFileInfo>` 改为 `(blob, pageCount?) => PdfFileInfo`,不再自动解析页数
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 新增 @lokvis/i18n 最底层 i18n 核心包，收敛此前分散在 ui-react / embed-image / embed-video / embed-pdf / playground 的 5 份重复实现。
+
+  核心包统一导出语言配置（languages / defaultLang / langList / Language）、URL·路径处理（isLanguage / getLangFromUrl / localizePath / switchLangPath / LANG_PREFIX_RE）与字典翻译原语（interpolate / translate / pluralKey）。各消费包仅保留自身 `ui` 字典、Provider 与类型化 hook 封装（config.ts 改为 re-export，utils.ts 委托核心），字典 key 命名空间仍独立演进。
+
+- [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858) Thanks [@xiongyy](https://github.com/xiongyy)! - 低优先级清理(架构评审 #12)。
+
+  - **#1 删除死代码**:移除 runtime 中已无引用的 `worker-host.ts` 及其测试(能力执行早已走 executor 路径)。
+  - **#2 engine-image 适配器风格统一**:删除 `adapter.ts`,入口改为导出 `IMAGE_ENGINE` 引擎描述符(`{ name, version, supportedCapabilities }`)+ 独立 `decodeImage` / `encodeImage` 原语,与 `PDF_ENGINE` / `VIDEO_ENGINE` 对齐;plugin-image 及文档同步改用新契约,stub 检测统一走 `IMAGE_ENGINE.version.includes('stub')`。
+  - **#4 去重 download / formatBytes**:此前 4 套行为各异的 `formatBytes` 统一为一套(runtime 新增 `formatBytes`,带 NaN/Infinity 守卫,四级单位 + 空格),浏览器下载逻辑 `downloadBlob` 收敛至 embed-kit;ui-react / embed-image / embed-pdf / embed-video / playground 改为复用,消除重复实现(部分用户可见输出统一为带空格格式)。
+  - **#8 exif 格式化归位**:`formatExifRows` / `formatShutterSpeed` 从 schema 迁至 ui-react(展示逻辑归 UI 层),schema 仅保留 `ExifData` / `RawExifData` / `ExifRow` 类型;对应单测随函数迁移,类型分层测试保留在 schema。
+
+- Updated dependencies [[`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858), [`b34013d`](https://github.com/lokvis/lokvis/commit/b34013dde7f4d1801e19c2cb27009d3a2383b858)]:
+  - @lokvis/schema@0.8.0
+  - @lokvis/plugin-pdf@0.8.0
+  - @lokvis/runtime@0.8.0
+  - @lokvis/embed-kit@0.8.0
+  - @lokvis/i18n@0.8.0
+  - @lokvis/sdk@0.8.0
+  - @lokvis/workflow@0.8.0
+
 ## 0.7.1
 
 ### Patch Changes

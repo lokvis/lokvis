@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/embed-kit",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Lokvis Embed Kit - Parameterized shared primitives (theme / error boundary / runtime hook / workflow builder / sentry) for @lokvis/embed-* packages",
   "license": "MIT",
   "type": "module",
