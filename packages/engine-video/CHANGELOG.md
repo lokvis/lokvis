@@ -1,5 +1,12 @@
 # @lokvis/engine-video
 
+## 0.7.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.7.1
+
 ## 0.7.0
 
 ### Patch Changes

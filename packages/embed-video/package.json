@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/embed-video",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Lokvis Embed Video - Three-layer video tool components (hooks / primitives / default UI) for third-party integration",
   "license": "MIT",
   "type": "module",
