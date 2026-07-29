@@ -108,6 +108,8 @@ export {
   buildImageWorkflow,
   type ImageWorkflowStepConfig,
   type ImageWorkflowStepOutput,
+  type ImageWorkflowTargetConfig,
+  type ImageWorkflowTargetOutput,
   type ImageWorkflowRunResult,
   type UseImageWorkflowOptions,
   type UseImageWorkflowResult,

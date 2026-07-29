@@ -24,6 +24,7 @@ import {
   useImageWorkflow,
   buildImageWorkflow,
   type ImageWorkflowStepConfig,
+  type ImageWorkflowTargetConfig,
 } from '../hooks/useImageWorkflow';
 
 const getImageInfoMock = vi.mocked(getImageInfo);
@@ -713,6 +714,284 @@ describe('useImageWorkflow', () => {
         useImageWorkflow({ id: 'wf-a', steps: TWO_STEPS })
       );
       expect(result.current.initError).toBe('runtime init failed');
+    });
+  });
+
+  describe('多 target 模式', () => {
+    const TARGETS: ImageWorkflowTargetConfig[] = [
+      {
+        name: 'instagram',
+        overrides: { 'image.resize': { width: 1080, height: 1080 } },
+      },
+      {
+        name: 'twitter',
+        overrides: { 'image.resize': { width: 1200, height: 675 } },
+      },
+      {
+        name: 'pinterest',
+        overrides: { 'image.resize': { width: 800, height: 1200 } },
+      },
+    ];
+
+    /** 为每个 target 变体按序 mock 一次 runWorkflowRaw + 每节点一次 exportAsset */
+    function mockTargetRuns(
+      id: string,
+      steps: ImageWorkflowStepConfig[],
+      targets: ImageWorkflowTargetConfig[]
+    ): Blob[] {
+      const finalBlobs: Blob[] = [];
+      for (const t of targets) {
+        const wf = buildImageWorkflow(
+          `${id}--${t.name}`,
+          steps,
+          undefined,
+          undefined,
+          t.overrides
+        );
+        const stepOutputs: Record<string, string[]> = {};
+        for (const node of wf.nodes) {
+          stepOutputs[node.id] = [`${t.name}-${node.id}-out`];
+        }
+        runWorkflowRawMock.mockResolvedValueOnce({
+          workflowId: wf.id,
+          outputs: [wf.nodes[wf.nodes.length - 1]!.id + '-out'],
+          stepOutputs,
+          duration: 10,
+          status: 'completed',
+        });
+        const blob = new Blob([`out-${t.name}`], { type: 'image/webp' });
+        finalBlobs.push(blob);
+        for (let i = 0; i < wf.nodes.length; i++) {
+          exportAssetMock.mockResolvedValueOnce(blob);
+        }
+      }
+      return finalBlobs;
+    }
+
+    it('buildImageWorkflow overrides 只合并到匹配 capability 的步骤', () => {
+      const wf = buildImageWorkflow(
+        'wf-t--twitter',
+        TWO_STEPS,
+        undefined,
+        undefined,
+        { 'image.resize': { width: 1200, height: 675 } }
+      );
+      // resize 步骤被覆盖
+      expect(wf.nodes[0]!.params!.width).toBe(1200);
+      expect(wf.nodes[0]!.params!.height).toBe(675);
+      // compress 步骤参数不变
+      expect(wf.nodes[1]!.params!.quality).toBe(80);
+      expect(wf.nodes[1]!.params!.format).toBe('webp');
+    });
+
+    it('overrides 浅合并保留未覆盖的原 params 键', () => {
+      const steps: ImageWorkflowStepConfig[] = [
+        {
+          capability: 'image.resize',
+          params: { width: 100, height: 100, fit: 'cover' },
+        },
+      ];
+      const wf = buildImageWorkflow('wf-t--x', steps, undefined, undefined, {
+        'image.resize': { width: 500 },
+      });
+      expect(wf.nodes[0]!.params!.width).toBe(500);
+      expect(wf.nodes[0]!.params!.height).toBe(100);
+      expect(wf.nodes[0]!.params!.fit).toBe('cover');
+    });
+
+    it('N 个 target 顺序执行 N 次 runWorkflowRaw,targetOutputs 按序追加', async () => {
+      setMockState({
+        inputId: 'input-1',
+        ready: true,
+        inputInfo: { width: 4000, height: 3000, size: 5000, format: 'PNG' },
+      });
+      mockTargetRuns('wf-t', TWO_STEPS, TARGETS);
+      const { rerender, result } = renderHook(() =>
+        useImageWorkflow({ id: 'wf-t', steps: TWO_STEPS, targets: TARGETS })
+      );
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => {
+        expect(result.current.targetOutputs).toHaveLength(3);
+      });
+      expect(runWorkflowRawMock).toHaveBeenCalledTimes(3);
+      // 变体 workflow id 带 target 名后缀
+      expect(runWorkflowRawMock.mock.calls[0]![0].id).toBe('wf-t--instagram');
+      expect(runWorkflowRawMock.mock.calls[1]![0].id).toBe('wf-t--twitter');
+      expect(runWorkflowRawMock.mock.calls[2]![0].id).toBe('wf-t--pinterest');
+      expect(result.current.targetOutputs.map((t) => t.name)).toEqual([
+        'instagram',
+        'twitter',
+        'pinterest',
+      ]);
+    });
+
+    it('完成后 currentTarget=-1、busy=false、outputBlob=最后一个变体', async () => {
+      setMockState({
+        inputId: 'input-1',
+        ready: true,
+        inputInfo: { width: 4000, height: 3000, size: 5000, format: 'PNG' },
+      });
+      const finalBlobs = mockTargetRuns('wf-t', TWO_STEPS, TARGETS);
+      const { rerender, result } = renderHook(() =>
+        useImageWorkflow({ id: 'wf-t', steps: TWO_STEPS, targets: TARGETS })
+      );
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => {
+        expect(result.current.busy).toBe(false);
+        expect(result.current.targetOutputs).toHaveLength(3);
+      });
+      expect(result.current.currentTarget).toBe(-1);
+      expect(result.current.currentStep).toBe(-1);
+      expect(result.current.outputBlob).toBe(finalBlobs[2]);
+    });
+
+    it('onComplete 整批完成后触发一次,targets 齐全且 outputSize 为各变体之和', async () => {
+      const onComplete = vi.fn();
+      setMockState({
+        inputId: 'input-1',
+        ready: true,
+        inputInfo: { width: 4000, height: 3000, size: 5000, format: 'PNG' },
+      });
+      const finalBlobs = mockTargetRuns('wf-t', TWO_STEPS, TARGETS);
+      const { rerender } = renderHook(() =>
+        useImageWorkflow({
+          id: 'wf-t',
+          steps: TWO_STEPS,
+          targets: TARGETS,
+          onComplete,
+        })
+      );
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => {
+        expect(onComplete).toHaveBeenCalledTimes(1);
+      });
+      const arg = onComplete.mock.calls[0]![0];
+      expect(arg.workflowId).toBe('wf-t');
+      expect(arg.targets).toHaveLength(3);
+      expect(arg.targets[0].name).toBe('instagram');
+      expect(arg.outputBlob).toBe(finalBlobs[2]);
+      expect(arg.inputSize).toBe(5000);
+      // getImageInfo mock 的 size = blob.size,故 outputSize = 各变体 blob 大小之和
+      const expectedSize = finalBlobs.reduce((s, b) => s + b.size, 0);
+      expect(arg.outputSize).toBe(expectedSize);
+    });
+
+    it('单 target 模式 targetOutputs 恒为空数组、currentTarget=-1(回归)', async () => {
+      setMockState({
+        inputId: 'input-1',
+        ready: true,
+        inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
+      });
+      mockWorkflowRun('wf-a', TWO_STEPS);
+      const { rerender, result } = renderHook(() =>
+        useImageWorkflow({ id: 'wf-a', steps: TWO_STEPS })
+      );
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => {
+        expect(result.current.steps).toHaveLength(2);
+      });
+      expect(result.current.targetOutputs).toEqual([]);
+      expect(result.current.currentTarget).toBe(-1);
+    });
+
+    it('某变体失败时设置 error,已完成变体输出保留', async () => {
+      setMockState({
+        inputId: 'input-1',
+        ready: true,
+        inputInfo: { width: 4000, height: 3000, size: 5000, format: 'PNG' },
+      });
+      // 第一个变体成功
+      mockTargetRuns('wf-t', TWO_STEPS, [TARGETS[0]!]);
+      // 第二个变体失败
+      runWorkflowRawMock.mockResolvedValueOnce({
+        workflowId: 'wf-t--twitter',
+        outputs: [],
+        duration: 10,
+        status: 'failed',
+        error: 'variant exploded',
+      });
+      const { rerender, result } = renderHook(() =>
+        useImageWorkflow({ id: 'wf-t', steps: TWO_STEPS, targets: TARGETS })
+      );
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => {
+        expect(result.current.error).toContain('variant exploded');
+      });
+      expect(result.current.busy).toBe(false);
+      expect(result.current.currentTarget).toBe(-1);
+      expect(result.current.targetOutputs).toHaveLength(1);
+      expect(result.current.targetOutputs[0]!.name).toBe('instagram');
+      // 失败后不再执行后续变体
+      expect(runWorkflowRawMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('步骤超限时 targets 模式同样构造失败,不执行', async () => {
+      setMockState({
+        inputId: 'input-1',
+        ready: true,
+        inputInfo: { width: 800, height: 600, size: 1000, format: 'PNG' },
+      });
+      const sixSteps: ImageWorkflowStepConfig[] = Array.from(
+        { length: 6 },
+        () => ({ capability: 'image.compress' })
+      );
+      const { rerender, result } = renderHook(() =>
+        useImageWorkflow({ id: 'wf-over', steps: sixSteps, targets: TARGETS })
+      );
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(result.current.workflow).toBeNull();
+      expect(result.current.error).toContain('max steps');
+      expect(runWorkflowRawMock).not.toHaveBeenCalled();
+    });
+
+    it('targets 定义变化(rerender)自动重跑', async () => {
+      setMockState({
+        inputId: 'input-1',
+        ready: true,
+        inputInfo: { width: 4000, height: 3000, size: 5000, format: 'PNG' },
+      });
+      const twoTargets = TARGETS.slice(0, 2);
+      mockTargetRuns('wf-t', TWO_STEPS, twoTargets);
+      const { rerender, result } = renderHook(
+        ({ targets }: { targets: ImageWorkflowTargetConfig[] }) =>
+          useImageWorkflow({ id: 'wf-t', steps: TWO_STEPS, targets }),
+        { initialProps: { targets: twoTargets } }
+      );
+      rerender({ targets: twoTargets });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => {
+        expect(runWorkflowRawMock).toHaveBeenCalledTimes(2);
+      });
+      // targets 变化 → 自动重跑(3 个变体再跑 3 次)
+      mockTargetRuns('wf-t', TWO_STEPS, TARGETS);
+      rerender({ targets: TARGETS });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => {
+        expect(runWorkflowRawMock).toHaveBeenCalledTimes(5);
+      });
+      expect(result.current.targetOutputs).toHaveLength(3);
     });
   });
 });
