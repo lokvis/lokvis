@@ -28,10 +28,8 @@ const mockCreateCanvas = vi.fn((w: number, h: number) => ({
 }));
 
 vi.mock('../canvas-engine.js', () => ({
-  canvasEngine: {
-    decode: mockDecode,
-    encode: mockEncode,
-  },
+  decodeImage: mockDecode,
+  encodeImage: mockEncode,
   createCanvas: mockCreateCanvas,
   get2DContext: vi.fn(() => mockCtx),
   detectFormatSupport: vi.fn(async () => ({

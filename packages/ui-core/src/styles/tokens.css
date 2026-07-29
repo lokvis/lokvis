@@ -15,7 +15,7 @@
 
 :root {
   /* ── 表面与背景 ─────────────────────────────── */
-  --lokvis-bg: #ffffff;             /* 应用底色 */
+  --lokvis-bg: #fafafa;             /* 应用底色(zinc-50,与 surface 拉开层次) */
   --lokvis-surface: #ffffff;        /* 卡片 / 面板背景 */
   --lokvis-surface-muted: #f4f4f5;  /* 次级表面(hover / disabled bg) */
   --lokvis-surface-raised: #ffffff;  /* 浮层(亮色下与 surface 同色,靠阴影分层) */
@@ -33,6 +33,11 @@
   --lokvis-primary: #6366f1;        /* indigo-500 */
   --lokvis-primary-hover: #4f46e5;  /* indigo-600 */
   --lokvis-primary-fg: #ffffff;     /* 主色上的文字 */
+  --lokvis-primary-soft: rgb(99 102 241 / 0.08);  /* 选中态底色(primary 8%) */
+
+  /* ── 字体 ─────────────────────────────────── */
+  --lokvis-font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
 
   /* ── 语义色 ─────────────────────────────────── */
   --lokvis-success: #10b981;        /* emerald-500 */
@@ -101,6 +106,7 @@
   --lokvis-primary: #6366f1;
   --lokvis-primary-hover: #818cf8;
   --lokvis-primary-fg: #ffffff;
+  --lokvis-primary-soft: rgb(129 140 248 / 0.15);
 
   --lokvis-success: #34d399;
   --lokvis-warning: #fbbf24;
@@ -140,6 +146,7 @@
     --lokvis-primary: #6366f1;
     --lokvis-primary-hover: #818cf8;
     --lokvis-primary-fg: #ffffff;
+    --lokvis-primary-soft: rgb(129 140 248 / 0.15);
     --lokvis-success: #34d399;
     --lokvis-warning: #fbbf24;
     --lokvis-danger: #f87171;
@@ -182,6 +189,7 @@
   --color-lokvis-primary: var(--lokvis-primary);
   --color-lokvis-primary-hover: var(--lokvis-primary-hover);
   --color-lokvis-primary-fg: var(--lokvis-primary-fg);
+  --color-lokvis-primary-soft: var(--lokvis-primary-soft);
   --color-lokvis-success: var(--lokvis-success);
   --color-lokvis-warning: var(--lokvis-warning);
   --color-lokvis-danger: var(--lokvis-danger);
@@ -197,4 +205,38 @@
   --shadow-lokvis-2: var(--lokvis-elevation-2);
   --shadow-lokvis-3: var(--lokvis-elevation-3);
   --shadow-lokvis-overlay: var(--lokvis-elevation-overlay);
+
+  --font-lokvis-sans: var(--lokvis-font-sans);
+}
+
+/*
+ * 入场动效工具类(浮层用)。
+ * 类名带 lokvis- 前缀避免与消费方样式冲突;prefers-reduced-motion 时自动禁用。
+ */
+@keyframes lokvis-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes lokvis-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+}
+
+.lokvis-animate-fade-in {
+  animation: lokvis-fade-in 150ms ease-out;
+}
+
+.lokvis-animate-pop-in {
+  animation: lokvis-pop-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lokvis-animate-fade-in,
+  .lokvis-animate-pop-in {
+    animation: none;
+  }
 }

@@ -200,9 +200,9 @@ export function imageToolsPlugin() {
 ```typescript
 // packages/plugin-image/src/operations.ts (abridged)
 import { createBlobCapabilityImpl } from '@lokvis/plugin-sdk';
-import { canvasEngine, resize as opResize, /* ... */ } from '@lokvis/engine-image';
+import { IMAGE_ENGINE, resize as opResize, /* ... */ } from '@lokvis/engine-image';
 
-const isStub = canvasEngine.version.includes('stub');   // AGENTS.md 约定
+const isStub = IMAGE_ENGINE.version.includes('stub');   // AGENTS.md 约定
 
 export function buildImageCapabilityImplementations(ctx) {
   return [
@@ -344,7 +344,7 @@ import type { Asset, CapabilityImplementation, PluginContext } from '@lokvis/sch
 
 // 1. mock 引擎，使测试不需要 Canvas / createImageBitmap
 vi.mock('@lokvis/engine-image', () => ({
-  canvasEngine: { version: '0.1.0' },                    // 不是 'stub'
+  IMAGE_ENGINE: { name: 'canvas', version: '0.1.0', supportedCapabilities: [] }, // 不是 'stub'
   resize: vi.fn(async (blob: Blob) => blob),             // 透传 stub
   compress: vi.fn(async (blob: Blob) => blob),
   // ... 还有 7 个操作

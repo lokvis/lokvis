@@ -1,5 +1,9 @@
 /**
- * Video 文件信息与下载工具(@lokvis/embed-video 内部)。
+ * Video 文件信息工具(@lokvis/embed-video 内部)。
+ *
+ * 仅承载视频专属元信息(VideoFileInfo / getVideoFileInfo / formatDuration)。
+ * 通用下载 / 字节格式化分别属 @lokvis/embed-kit(downloadBlob)与
+ * @lokvis/runtime(formatBytes),消费方直接从对应包导入,不在此中转。
  */
 
 /** Video 文件元信息 */
@@ -41,27 +45,6 @@ export async function getVideoFileInfo(blob: Blob): Promise<VideoFileInfo> {
     format: blob.type || 'video/mp4',
     duration,
   };
-}
-
-/** 触发浏览器下载 */
-export function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-/** 格式化文件大小 */
-export function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / 1024 ** i;
-  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
 }
 
 /** 格式化时长(秒 → mm:ss) */

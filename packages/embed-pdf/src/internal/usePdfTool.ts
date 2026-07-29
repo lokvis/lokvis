@@ -84,7 +84,8 @@ export function usePdfTool(options?: UsePdfToolOptions): UsePdfToolResult {
           const id = await runtime.importAsset({ kind: 'file', file });
           ids.push(id);
           urls.push(URL.createObjectURL(file));
-          infos.push(await getPdfFileInfo(file));
+          const info = await runtime.readAssetPdfInfo(id);
+          infos.push(getPdfFileInfo(file, info?.pages ?? null));
         }
         revokeInputUrls();
         setInputIds(ids);
@@ -131,7 +132,8 @@ export function usePdfTool(options?: UsePdfToolOptions): UsePdfToolResult {
       for (const outputId of result.outputs) {
         const blob = await runtime!.exportAsset(outputId);
         blobs.push(blob);
-        infos.push(await getPdfFileInfo(blob));
+        const info = await runtime!.readAssetPdfInfo(outputId);
+        infos.push(getPdfFileInfo(blob, info?.pages ?? null));
       }
       setOutputBlobs(blobs);
       setOutputInfos(infos);

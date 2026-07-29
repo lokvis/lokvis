@@ -1,5 +1,5 @@
 /**
- * EXIF 元数据类型与格式化(W7.3/7.4)
+ * EXIF 元数据类型(W7.3/7.4)
  *
  * 类型分两层:
  * - `ExifData`:面向 UI / Runtime 的公共类型,只含结构化字段,**无 raw**
@@ -8,6 +8,9 @@
  * 拆分原因(长期方案):UI 缓存 ExifData 时无需手动剔除 raw 字段,
  * 避免每个消费者都要做 `{...data, raw: undefined}` 的 patch 操作。
  * Plugin 在返回前把 RawExifData 收窄为 ExifData(丢弃 raw)。
+ *
+ * 注:EXIF 行格式化函数(formatExifRows)属 UI 展示逻辑,归位于 @lokvis/ui-react,
+ * 不放 schema 层(schema 只承载类型与业务约束常量)。
  */
 
 /**
@@ -47,44 +50,4 @@ export interface RawExifData extends ExifData {
 export interface ExifRow {
   label: string;
   value: string;
-}
-
-/**
- * 把 ExifData 格式化为 UI 展示用的行列表。
- * 纯函数,放 schema 层供 UI 直接调用,避免 UI 跨层依赖 plugin / engine。
- */
-export function formatExifRows(exif: ExifData): ExifRow[] {
-  const rows: ExifRow[] = [];
-  const push = (label: string, value: string | undefined): void => {
-    if (value !== undefined && value !== '') rows.push({ label, value });
-  };
-  push('Camera', exif.make && exif.model ? `${exif.make} ${exif.model}` : exif.make ?? exif.model);
-  push('Lens', exif.lensModel);
-  push('Date', exif.dateTimeOriginal);
-  push('ISO', exif.iso !== undefined ? `ISO ${exif.iso}` : undefined);
-  push('Aperture', exif.fNumber !== undefined ? `f/${exif.fNumber}` : undefined);
-  push('Shutter', exif.exposureTime !== undefined ? formatShutterSpeed(exif.exposureTime) : undefined);
-  push('Focal Length', exif.focalLength !== undefined ? `${exif.focalLength}mm` : undefined);
-  push('Exposure Comp.', exif.exposureCompensation !== undefined ? `${exif.exposureCompensation} EV` : undefined);
-  push('White Balance', exif.whiteBalance);
-  push('Software', exif.software);
-  if (exif.gpsLatitude !== undefined && exif.gpsLongitude !== undefined) {
-    push('GPS', `${exif.gpsLatitude.toFixed(6)}, ${exif.gpsLongitude.toFixed(6)}`);
-    if (exif.gpsAltitude !== undefined) {
-      push('GPS Altitude', `${exif.gpsAltitude.toFixed(1)} m`);
-    }
-  }
-  push('Orientation', exif.orientation !== undefined ? `${exif.orientation}` : undefined);
-  return rows;
-}
-
-/**
- * 格式化快门速度:
- * - >= 1s 直接显示秒数(如 "2s")
- * - < 1s 转为分数(如 1/250s)
- */
-function formatShutterSpeed(seconds: number): string {
-  if (seconds >= 1) return `${seconds}s`;
-  const denominator = Math.round(1 / seconds);
-  return `1/${denominator}s`;
 }

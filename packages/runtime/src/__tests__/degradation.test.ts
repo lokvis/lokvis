@@ -5,14 +5,12 @@
  * - pickDegradation 决策矩阵:4 级降级(L1/L2/L3/L4)的全部分支
  * - L4 拒绝条件:输入超预算且不可溢出 / 解码后缩放仍超 critical
  * - applyDegradationToResizeParams:L3 注入 maxEdge,其余原样返回
- * - formatBytes:B/KB/MB/GB 边界
  * - DegradationRejectedError:guide 用户引导数组
  */
 import { describe, it, expect } from 'vitest';
 import {
   pickDegradation,
   applyDegradationToResizeParams,
-  formatBytes,
   DegradationRejectedError,
   DEGRADED_MAX_EDGE,
   DEGRADED_QUALITY,
@@ -300,40 +298,6 @@ describe('applyDegradationToResizeParams', () => {
     const params = { width: 9999 };
     applyDegradationToResizeParams(params, decision);
     expect(params).toEqual({ width: 9999 }); // 未被 mutate
-  });
-});
-
-// ─── formatBytes ────────────────────────────────────────────────
-
-describe('formatBytes', () => {
-  it('字节级(< 1KB)', () => {
-    expect(formatBytes(0)).toBe('0B');
-    expect(formatBytes(512)).toBe('512B');
-    expect(formatBytes(1023)).toBe('1023B');
-  });
-
-  it('KB 级', () => {
-    expect(formatBytes(1024)).toBe('1.0KB');
-    expect(formatBytes(1536)).toBe('1.5KB');
-    expect(formatBytes(1024 * 1024 - 1)).toBe('1024.0KB');
-  });
-
-  it('MB 级', () => {
-    expect(formatBytes(1024 * 1024)).toBe('1.0MB');
-    expect(formatBytes(10 * 1024 * 1024)).toBe('10.0MB');
-    expect(formatBytes(512 * 1024 * 1024)).toBe('512.0MB');
-  });
-
-  it('GB 级', () => {
-    expect(formatBytes(1024 * 1024 * 1024)).toBe('1.00GB');
-    expect(formatBytes(2.5 * 1024 * 1024 * 1024)).toBe('2.50GB');
-  });
-
-  it('非有限或负数应回退到 0B', () => {
-    expect(formatBytes(-1)).toBe('0B');
-    expect(formatBytes(NaN)).toBe('0B');
-    expect(formatBytes(Infinity)).toBe('0B');
-    expect(formatBytes(-Infinity)).toBe('0B');
   });
 });
 

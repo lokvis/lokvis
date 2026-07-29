@@ -9,7 +9,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantClasses: Record<string, string> = {
  primary:
- 'bg-[var(--lokvis-fg)] text-[var(--lokvis-bg)] hover:bg-[var(--lokvis-surface-muted)] shadow-[var(--lokvis-elevation-1)]',
+ 'bg-[var(--lokvis-primary)] text-[var(--lokvis-primary-fg)] hover:bg-[var(--lokvis-primary-hover)] shadow-[var(--lokvis-elevation-1)]',
  secondary:
  'bg-[var(--lokvis-surface-muted)] text-[var(--lokvis-fg)] hover:bg-[var(--lokvis-border)]',
  ghost:
@@ -34,7 +34,7 @@ export function Button({
 }: ButtonProps) {
  return (
  <button
- className={`inline-flex items-center justify-center rounded-lg font-medium transition-all duration-150 ${FOCUS_RING} ${DISABLED_STYLE} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+ className={`inline-flex items-center justify-center rounded-lg font-medium transition-all duration-150 ease-out active:scale-[0.98] ${FOCUS_RING} ${DISABLED_STYLE} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
  disabled={disabled || loading}
  {...props}
  >

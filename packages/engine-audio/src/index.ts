@@ -28,7 +28,21 @@ export {
   normalizeAudio,
 } from './operations.js';
 
+import type { AudioEngineDescriptor } from './types.js';
+
+/**
+ * 默认(浏览器)音频引擎描述符 — 占位实现。
+ *
+ * version 含 'stub',plugin-audio 默认入口据此推导 isStub=true。
+ * 真实实现见子路径 `@lokvis/engine-audio/node`(ffmpeg-static)。
+ */
+export const AUDIO_ENGINE: AudioEngineDescriptor = {
+  name: 'ffmpeg-wasm',
+  version: '0.7.1-stub',
+};
+
 export type {
+  AudioEngineDescriptor,
   AudioOutputFormat,
   AudioTrimParams,
   AudioMergeParams,

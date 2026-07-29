@@ -6,7 +6,7 @@
  */
 import { useCallback, useState } from 'react';
 import { useImageTool } from '@/components/toolkit/useImageTool';
-import { formatBytes } from '@/components/toolkit/download';
+import { formatBytes } from '@lokvis/runtime';
 import { buildSingleStepImageWorkflow } from '@/components/toolkit/workflow-builder';
 import { ToolResultPanel } from '@/components/toolkit/ToolResultPanel';
 import { ErrorBoundary } from '@/components/ErrorBoundary';

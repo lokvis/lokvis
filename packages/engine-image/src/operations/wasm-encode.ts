@@ -8,12 +8,12 @@
  * 1. 原生编码器可用（png/jpeg 恒真，webp/avif 运行时探测）→ canvas 原生路径
  * 2. 原生不可用且 format === 'avif' 且 wasm 兜底启用 → libavif WASM 编码
  *    （编码器私有 worker，off-main-thread）
- * 3. 无兜底 → 保持既有 throw 语义（canvasEngine.encode 对静默回退 PNG 抛错）
+ * 3. 无兜底 → 保持既有 throw 语义（encodeImage 对静默回退 PNG 抛错）
  *
  * 原生支持探测结果模块级缓存（浏览器内运行时不变，探测一次）。
  */
 import type { ImageOutputFormat } from '../types.js';
-import { canvasEngine, detectFormatSupport, get2DContext } from '../canvas-engine.js';
+import { encodeImage, detectFormatSupport, get2DContext } from '../canvas-engine.js';
 import { wasmEncodersEnabled } from '../wasm-config.js';
 import { encodeAvifWasm } from '../wasm/avif-encoder.js';
 
@@ -50,7 +50,7 @@ export async function encodeSmart(
   signal?: AbortSignal
 ): Promise<Blob> {
   if (await isNativeEncodeSupported(format)) {
-    return canvasEngine.encode(canvas, format, quality);
+    return encodeImage(canvas, format, quality);
   }
   if (format === 'avif' && wasmEncodersEnabled() && typeof Worker !== 'undefined') {
     const ctx = get2DContext(canvas);
@@ -58,5 +58,5 @@ export async function encodeSmart(
     return encodeAvifWasm(imageData, quality, signal);
   }
   // 无兜底：保持既有 throw 语义（上层用 detectFormatSupport 门控）
-  return canvasEngine.encode(canvas, format, quality);
+  return encodeImage(canvas, format, quality);
 }

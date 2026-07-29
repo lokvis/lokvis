@@ -256,7 +256,11 @@ export function Workspace({
     }
    }
   })();
- }, [status, initialAssets, initialCapability, initialParams]);
+  // initialAssets / initialCapability / initialParams 是一次性初始化输入(语义同
+  // defaultValue):仅在 runtime 首次 ready 时消费一次,后续 prop 变化刻意忽略。
+  // 因此依赖数组只保留 status,避免每次渲染新字面量触发的误导性重跑。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [status]);
 
  const isFocused = mode === 'focused';
 
@@ -304,7 +308,7 @@ export function Workspace({
  onClick={() => setPaletteOpen(true)}
  aria-label={t('workspace.openPaletteAria')}
  title={t('workspace.paletteTitle')}
- className="flex h-7 items-center gap-1 rounded-md border border-[var(--lokvis-border)] px-1.5 text-[10px] text-[var(--lokvis-fg-muted)] transition-colors hover:bg-[var(--lokvis-surface-muted)] hover:text-[var(--lokvis-fg-muted)]"
+ className="flex h-7 items-center gap-1 rounded-md border border-[var(--lokvis-border)] px-1.5 text-[11px] text-[var(--lokvis-fg-muted)] transition-colors hover:bg-[var(--lokvis-surface-muted)] hover:text-[var(--lokvis-fg-muted)]"
  >
  <Icon size={11}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>
  <kbd className="font-sans">⌘K</kbd>
@@ -350,7 +354,7 @@ export function Workspace({
  // useLokvis 异常不在本组件树内(早于本 return),由消费方在外层包裹处理。
  <WorkspaceI18nProvider locale={lang} translations={mergedTranslations}>
  <ErrorBoundary>
- <div className={`flex h-full flex-col bg-[var(--lokvis-surface)] ${className}`}>
+ <div className={`flex h-full flex-col bg-[var(--lokvis-bg)] [font-family:var(--lokvis-font-sans)] ${className}`}>
  {/* Top: Toolbar */}
  <Toolbar title={title} rightExtra={toolbarRight} />
 
@@ -365,17 +369,17 @@ export function Workspace({
  <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
  )}
 
- {/* Middle: Panel area */}
- <div className="flex flex-1 overflow-hidden relative">
+ {/* Middle: Panel area(卡片式:面板间 gap + 内边距,卡片浮于 bg 之上) */}
+ <div className="relative flex flex-1 gap-2 overflow-hidden p-2">
  {/* W9.8 桌面:三栏并列;移动:Canvas 单独,其他为 overlay drawer */}
  {!isFocused && showAssetPanel && (
  <div
  className={`${
  isMobile
- ? `absolute inset-y-0 left-0 z-20 w-64 max-w-[80vw] transition-transform duration-200 ${
+ ? `absolute inset-y-0 left-0 z-20 w-64 max-w-[80vw] bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-overlay)] transition-transform duration-200 ${
  mobilePanel === 'asset' ? 'translate-x-0' : '-translate-x-full'
  }`
- : 'relative'
+ : 'relative overflow-hidden rounded-[var(--lokvis-radius-lg)] border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-1)]'
  } flex flex-col`}
  >
  <AssetPanel className="min-h-0 flex-1" />
@@ -385,19 +389,23 @@ export function Workspace({
  )}
 
  {canvasSlot ? (
- <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{canvasSlot}</div>
+ <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--lokvis-radius-lg)] border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-1)]">{canvasSlot}</div>
  ) : (
- <Canvas enableCompare={enableCompare} emptyState={canvasEmptyState} />
+ <Canvas
+ enableCompare={enableCompare}
+ emptyState={canvasEmptyState}
+ className="overflow-hidden rounded-[var(--lokvis-radius-lg)] border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-1)]"
+ />
  )}
 
  {showInspector && (
  <div
  className={`${
  isMobile
- ? `absolute inset-y-0 right-0 z-20 w-72 max-w-[80vw] transition-transform duration-200 ${
+ ? `absolute inset-y-0 right-0 z-20 w-72 max-w-[80vw] bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-overlay)] transition-transform duration-200 ${
  mobilePanel === 'inspector' ? 'translate-x-0' : 'translate-x-full'
  }`
- : 'relative'
+ : 'relative overflow-hidden rounded-[var(--lokvis-radius-lg)] border border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] shadow-[var(--lokvis-elevation-1)]'
  } flex flex-col`}
  >
  {inspectorSlot ? (

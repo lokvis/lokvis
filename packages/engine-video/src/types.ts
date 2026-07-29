@@ -14,6 +14,20 @@
 // VideoInfo 跨层共享类型从 @lokvis/schema 复用(与 ImageMetadata / PdfInfo 模式对齐)
 export type { VideoInfo } from '@lokvis/schema';
 
+/**
+ * 视频引擎描述符(供 plugin-video 单点推导 stub 状态)。
+ *
+ * AGENTS.md Stub Engine 约定:version 含 'stub' 时视为占位实现,
+ * plugin 层据此设置 isStub。每个入口(默认 stub / node / web)各导出
+ * 一个 VIDEO_ENGINE 常量,消除 plugin 层硬编码 isStub 的契约漂移。
+ */
+export interface VideoEngineDescriptor {
+  /** 引擎名(如 'ffmpeg-static' / 'ffmpeg-wasm') */
+  name: string;
+  /** 版本号,含 'stub' 时视为占位实现 */
+  version: string;
+}
+
 /** 支持的视频输出容器格式 */
 export type VideoOutputFormat = 'mp4' | 'webm' | 'gif';
 

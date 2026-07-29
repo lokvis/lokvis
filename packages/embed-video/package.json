@@ -47,6 +47,8 @@
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.0",
     "@ffmpeg/util": "^0.12.0",
+    "@lokvis/embed-kit": "workspace:*",
+    "@lokvis/i18n": "workspace:*",
     "@lokvis/engine-video": "workspace:*",
     "@lokvis/plugin-video": "workspace:*",
     "@lokvis/runtime": "workspace:*",

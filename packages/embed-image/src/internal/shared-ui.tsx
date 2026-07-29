@@ -8,7 +8,8 @@
  * 迁移到本文件。
  */
 import type { CSSProperties, ReactNode } from 'react';
-import { formatBytes, type ImageInfo } from './download';
+import { formatBytes } from '@lokvis/runtime';
+import type { ImageInfo } from './download';
 
 export interface BusyOverlayProps {
   /** 是否处于处理中状态 */

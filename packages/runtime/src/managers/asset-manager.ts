@@ -30,6 +30,7 @@ import type {
   MetadataReaderContext,
   PdfInfo,
 } from '@lokvis/schema';
+import { METADATA_READER_NAMES } from '@lokvis/schema';
 import type { QuotaAwareAssetStore } from './quota-manager.js';
 import { AssetNotFoundError } from '../errors.js';
 
@@ -176,7 +177,7 @@ export class AssetManager {
   async readAssetExif(id: AssetId): Promise<ExifData | null> {
     const asset = await this.getAsset(id);
     if (asset.type !== 'image') return null;
-    const reader = this.deps.metadataReaders.get('image.read-exif');
+    const reader = this.deps.metadataReaders.get(METADATA_READER_NAMES.imageExif);
     if (!reader) return null; // Plugin 未安装,优雅降级
 
     // TD-3.4 长期方案:构造 MetadataReaderContext,为 reader 提供可观测信号。
@@ -207,7 +208,7 @@ export class AssetManager {
   async readAssetImageMetadata(id: AssetId): Promise<ImageMetadata | null> {
     const asset = await this.getAsset(id);
     if (asset.type !== 'image') return null;
-    const reader = this.deps.metadataReaders.get('image.read-metadata');
+    const reader = this.deps.metadataReaders.get(METADATA_READER_NAMES.imageMetadata);
     if (!reader) return null; // Plugin 未安装,优雅降级
 
     const readerCtx: MetadataReaderContext = {
@@ -234,7 +235,7 @@ export class AssetManager {
   async readAssetPdfInfo(id: AssetId): Promise<PdfInfo | null> {
     const asset = await this.getAsset(id);
     if (asset.type !== 'pdf') return null;
-    const reader = this.deps.metadataReaders.get('pdf.read-info');
+    const reader = this.deps.metadataReaders.get(METADATA_READER_NAMES.pdfInfo);
     if (!reader) return null; // Plugin 未安装,优雅降级
 
     const readerCtx: MetadataReaderContext = {

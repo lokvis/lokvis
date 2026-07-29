@@ -10,10 +10,10 @@
  * 内嵌完整 PNG 文件(非旧版 BMP DIB),所有条目 bitCount=32(RGBA)。
  *
  * 对外仍是纯 Blob → Blob(遵循 Engine 层约束),最终容器打包不经
- * canvasEngine.encode(其 MIME_BY_FORMAT 不含 ico),而是手写字节。
+ * encodeImage(其 MIME_BY_FORMAT 不含 ico),而是手写字节。
  */
 import type { EncodeIcoParams } from '../types.js';
-import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
+import { decodeImage, encodeImage, createCanvas, get2DContext } from '../canvas-engine.js';
 import { throwIfAborted } from './utils.js';
 
 /** ICO 默认尺寸集(经典标签页 + 高分屏 + 最大兼容) */
@@ -95,7 +95,7 @@ export async function encodeIco(
   const { sizes: rawSizes } = params as EncodeIcoParams;
   const sizes = normalizeSizes(rawSizes);
 
-  const { bitmap, width: srcW, height: srcH } = await canvasEngine.decode(blob);
+  const { bitmap, width: srcW, height: srcH } = await decodeImage(blob);
   try {
     // cover 居中裁切:取短边为正方形源区域
     const srcSize = Math.min(srcW, srcH);
@@ -110,7 +110,7 @@ export async function encodeIco(
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(bitmap, sx, sy, srcSize, srcSize, 0, 0, size, size);
-      const pngBlob = await canvasEngine.encode(canvas, 'png');
+      const pngBlob = await encodeImage(canvas, 'png');
       pngBuffers.push(await pngBlob.arrayBuffer());
     }
 

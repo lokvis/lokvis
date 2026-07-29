@@ -12,7 +12,7 @@
 import * as React from 'react';
 import { useWorkspaceStore } from '../store/index.js';
 import { useWorkflowProgress } from '../hooks/useWorkflowProgress.js';
-import { formatBytes } from '../utils.js';
+import { formatBytes } from '@lokvis/runtime';
 import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
 import { formatMessage, pluralKey, useWorkspaceTranslations } from '../i18n/utils.js';
 
@@ -84,7 +84,7 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  }`}
  aria-hidden="true"
  />
- <span className={`truncate text-[10px] ${error ? 'text-[var(--lokvis-danger)]' : 'text-[var(--lokvis-fg-muted)]'}`}>
+ <span className={`truncate text-[11px] ${error ? 'text-[var(--lokvis-danger)]' : 'text-[var(--lokvis-fg-muted)]'}`}>
  {formatMessage(t, statusMessage)}
  </span>
  </span>
@@ -93,7 +93,7 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  {selectedNode && (
  <>
  <span className="text-[var(--lokvis-fg-subtle)]" aria-hidden="true">·</span>
- <span className="shrink-0 font-mono text-[10px] text-[var(--lokvis-primary)] truncate max-w-[120px]">
+ <span className="shrink-0 font-mono text-[11px] text-[var(--lokvis-primary)] truncate max-w-[120px]">
  {selectedNode.capability}
  </span>
  </>
@@ -103,7 +103,7 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  {running && totalNodes > 0 && (
  <>
  <span className="text-[var(--lokvis-fg-subtle)]" aria-hidden="true">·</span>
- <span className="shrink-0 tabular-nums text-[10px] text-[var(--lokvis-warning)]">
+ <span className="shrink-0 tabular-nums text-[11px] text-[var(--lokvis-warning)]">
  {doneNodes}/{totalNodes} ({progressPct}%)
  </span>
  </>
@@ -113,7 +113,7 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  <button
  type="button"
  onClick={() => setError(null)}
- className="shrink-0 text-[10px] text-[var(--lokvis-danger)] underline decoration-[var(--lokvis-danger)]/40 hover:text-[var(--lokvis-danger)]"
+ className="shrink-0 text-[11px] text-[var(--lokvis-danger)] underline decoration-[var(--lokvis-danger)]/40 hover:text-[var(--lokvis-danger)]"
  >
  {t('statusBar.dismiss')}
  </button>
@@ -121,7 +121,7 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  </div>
 
  {/* Right: Stats */}
- <div className="flex items-center gap-3 shrink-0 text-[10px] text-[var(--lokvis-fg-subtle)] tabular-nums">
+ <div className="flex items-center gap-3 shrink-0 text-[11px] text-[var(--lokvis-fg-subtle)] tabular-nums">
  {/* W9.6 在线状态 */}
  <span
  className={`flex items-center gap-1 ${online ? 'text-[var(--lokvis-success)]' : 'text-[var(--lokvis-warning)]'}`}
@@ -161,7 +161,7 @@ export function StatusBar({ className = '' }: StatusBarProps) {
  aria-live={storageCritical ? 'assertive' : 'polite'}
  >
  {(storageCritical || storageWarning) && (
- <span className="text-[9px]" aria-hidden="true">⚠</span>
+ <span className="text-[11px]" aria-hidden="true">⚠</span>
  )}
  {formatBytes(storageUsage.usage)} / {formatBytes(storageUsage.quota)}
  </span>

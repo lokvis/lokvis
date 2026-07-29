@@ -8,6 +8,8 @@
 // 核心类型
 export * from './asset.js';
 export * from './capability.js';
+// 由 codegen 从 manifest 生成的精确能力名字面量类型 + 常量数组(单一来源)
+export * from './capability-names.generated.js';
 export * from './workflow.js';
 export * from './event.js';
 export * from './plugin.js';

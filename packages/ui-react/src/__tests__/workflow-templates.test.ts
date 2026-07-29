@@ -7,17 +7,18 @@ import {
   findTemplate,
   type WorkflowTemplate,
 } from '../data/workflow-templates.js';
+import { ui } from '../i18n/ui.js';
 
 describe('W11.4 工作流模板数据', () => {
   it('应提供 5 个内置模板', () => {
     expect(WORKFLOW_TEMPLATES).toHaveLength(5);
   });
 
-  it('每个模板应有完整字段(id/name/description/icon/category/nodes)', () => {
+  it('每个模板应有完整字段(id/nameKey/descriptionKey/icon/category/nodes)', () => {
     for (const tpl of WORKFLOW_TEMPLATES) {
       expect(tpl.id).toBeTruthy();
-      expect(tpl.name).toBeTruthy();
-      expect(tpl.description).toBeTruthy();
+      expect(tpl.nameKey).toMatch(/^workflowTemplates\.tpl\./);
+      expect(tpl.descriptionKey).toMatch(/^workflowTemplates\.tpl\./);
       expect(tpl.icon).toBeTruthy();
       expect(tpl.category).toBeTruthy();
       expect(Array.isArray(tpl.nodes)).toBe(true);
@@ -92,5 +93,12 @@ describe('W11.4 工作流模板数据', () => {
   it('模板类型 WorkflowTemplate 应可静态使用', () => {
     const tpl: WorkflowTemplate = WORKFLOW_TEMPLATES[0]!;
     expect(tpl.id).toBeTruthy();
+  });
+
+  it('每个模板的 nameKey/descriptionKey 均存在于 i18n 字典(#10 外移防漂移)', () => {
+    for (const tpl of WORKFLOW_TEMPLATES) {
+      expect(ui[tpl.nameKey], `${tpl.nameKey} 缺失`).toBeDefined();
+      expect(ui[tpl.descriptionKey], `${tpl.descriptionKey} 缺失`).toBeDefined();
+    }
   });
 });

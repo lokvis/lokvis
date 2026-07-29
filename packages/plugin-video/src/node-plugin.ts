@@ -32,10 +32,9 @@ import {
 } from '@lokvis/plugin-sdk';
 import { VIDEO_CAPABILITIES } from '@lokvis/capability';
 import type {
-  AssetMetadata,
-  AssetType,
   VideoInfo,
 } from '@lokvis/schema';
+import { METADATA_READER_NAMES } from '@lokvis/schema';
 import {
   compressVideo as opCompressVideo,
   transcodeVideo as opTranscodeVideo,
@@ -45,14 +44,19 @@ import {
   toGif as opToGif,
   screenshotVideo as opScreenshotVideo,
   getVideoInfo,
+  VIDEO_ENGINE,
 } from '@lokvis/engine-video/node';
 import { PLUGIN_NAME, PLUGIN_VERSION } from './plugin.js';
+import { deriveVideoMetadata } from './operations.js';
 
-/** Node 引擎名(底层为 ffmpeg-static,与浏览器版 'ffmpeg-wasm' 区分) */
-export const PLUGIN_ENGINE_NODE = 'ffmpeg-static' as const;
+/** Node 引擎名(单一来源:engine-video/node 的 VIDEO_ENGINE 描述符) */
+export const PLUGIN_ENGINE_NODE = VIDEO_ENGINE.name;
 
-/** 元数据读取器名称(视频分辨率/时长/帧率查询,走 MetadataReader 机制) */
-export const VIDEO_INFO_READER_NAME = 'video.read-info';
+/** Node 端 stub 状态单点推导(AGENTS.md 约定:version 含 'stub') */
+const isStub = VIDEO_ENGINE.version.includes('stub');
+
+/** 元数据读取器名称(单一来源:@lokvis/schema METADATA_READER_NAMES) */
+export const VIDEO_INFO_READER_NAME = METADATA_READER_NAMES.videoInfo;
 
 /** single 形态的 Blob→Blob 操作签名 */
 type SingleVideoOperation = (
@@ -65,29 +69,6 @@ type MergeVideoOperation = (
   blobs: Blob[],
   params: Record<string, unknown>
 ) => Promise<Blob>;
-
-/** 从输出 Blob 派生 video/audio/image 类型 Asset 元数据 */
-function deriveVideoMetadata(outputType: AssetType): (outBlob: Blob) => AssetMetadata {
-  return (outBlob: Blob) => {
-    let fallback: { mimeType: string; format: string };
-    switch (outputType) {
-      case 'video':
-        fallback = { mimeType: 'video/mp4', format: 'mp4' };
-        break;
-      case 'audio':
-        fallback = { mimeType: 'audio/mpeg', format: 'mp3' };
-        break;
-      case 'image':
-        fallback = { mimeType: 'image/png', format: 'png' };
-        break;
-      default:
-        fallback = { mimeType: 'application/octet-stream', format: 'bin' };
-    }
-    const mimeType = outBlob.type || fallback.mimeType;
-    const format = mimeType.split('/')[1] ?? fallback.format;
-    return { mimeType, size: outBlob.size, format };
-  };
-}
 
 /**
  * 创建视频工具插件(Node 环境,基于 ffmpeg-static 引擎)
@@ -128,9 +109,9 @@ export async function videoToolsPluginNode() {
           {
             capability: 'video.compress',
             engine: PLUGIN_ENGINE_NODE,
-            outputType: 'video' as AssetType,
+            outputType: 'video',
             operation: opCompressVideo as SingleVideoOperation,
-            isStub: false,
+            isStub,
             deriveMetadata: (_source, outBlob) => deriveVideoMetadata('video')(outBlob),
           },
           ctx
@@ -140,9 +121,9 @@ export async function videoToolsPluginNode() {
           {
             capability: 'video.transcode',
             engine: PLUGIN_ENGINE_NODE,
-            outputType: 'video' as AssetType,
+            outputType: 'video',
             operation: opTranscodeVideo as SingleVideoOperation,
-            isStub: false,
+            isStub,
             deriveMetadata: (_source, outBlob) => deriveVideoMetadata('video')(outBlob),
           },
           ctx
@@ -152,9 +133,9 @@ export async function videoToolsPluginNode() {
           {
             capability: 'video.trim',
             engine: PLUGIN_ENGINE_NODE,
-            outputType: 'video' as AssetType,
+            outputType: 'video',
             operation: opTrimVideo as SingleVideoOperation,
-            isStub: false,
+            isStub,
             deriveMetadata: (_source, outBlob) => deriveVideoMetadata('video')(outBlob),
           },
           ctx
@@ -164,9 +145,9 @@ export async function videoToolsPluginNode() {
           {
             capability: 'video.extract-audio',
             engine: PLUGIN_ENGINE_NODE,
-            outputType: 'audio' as AssetType,
+            outputType: 'audio',
             operation: opExtractAudio as SingleVideoOperation,
-            isStub: false,
+            isStub,
             deriveMetadata: (_source, outBlob) => deriveVideoMetadata('audio')(outBlob),
           },
           ctx
@@ -176,9 +157,9 @@ export async function videoToolsPluginNode() {
           {
             capability: 'video.to-gif',
             engine: PLUGIN_ENGINE_NODE,
-            outputType: 'image' as AssetType,
+            outputType: 'image',
             operation: opToGif as SingleVideoOperation,
-            isStub: false,
+            isStub,
             deriveMetadata: (_source, outBlob) => deriveVideoMetadata('image')(outBlob),
           },
           ctx
@@ -188,9 +169,9 @@ export async function videoToolsPluginNode() {
           {
             capability: 'video.screenshot',
             engine: PLUGIN_ENGINE_NODE,
-            outputType: 'image' as AssetType,
+            outputType: 'image',
             operation: opScreenshotVideo as SingleVideoOperation,
-            isStub: false,
+            isStub,
             deriveMetadata: (_source, outBlob) => deriveVideoMetadata('image')(outBlob),
           },
           ctx
@@ -202,9 +183,9 @@ export async function videoToolsPluginNode() {
           {
             capability: 'video.merge',
             engine: PLUGIN_ENGINE_NODE,
-            outputType: 'video' as AssetType,
+            outputType: 'video',
             operation: opMergeVideos as MergeVideoOperation,
-            isStub: false,
+            isStub,
             deriveMetadata: deriveVideoMetadata('video'),
           },
           ctx

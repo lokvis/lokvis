@@ -23,6 +23,7 @@
  */
 
 import type { MemoryPressure } from './memory-guard.js';
+import { formatBytes } from './format.js';
 
 /** 降级阶梯等级 */
 export type DegradationLevel = 'L1-full' | 'L2-tiled' | 'L3-degraded' | 'L4-reject';
@@ -201,15 +202,6 @@ function buildGuide(inputBytes: number, budget: number): string[] {
   guide.push('Close other browser tabs to free memory, then retry.');
   guide.push('For very large images, use the desktop app or process in smaller batches.');
   return guide;
-}
-
-/** 字节数 → 人类可读(MB/GB) */
-export function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return '0B';
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)}GB`;
 }
 
 /**

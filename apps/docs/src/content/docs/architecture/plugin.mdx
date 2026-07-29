@@ -200,9 +200,9 @@ export function imageToolsPlugin() {
 ```typescript
 // packages/plugin-image/src/operations.ts (abridged)
 import { createBlobCapabilityImpl } from '@lokvis/plugin-sdk';
-import { canvasEngine, resize as opResize, /* ... */ } from '@lokvis/engine-image';
+import { IMAGE_ENGINE, resize as opResize, /* ... */ } from '@lokvis/engine-image';
 
-const isStub = canvasEngine.version.includes('stub');   // AGENTS.md convention
+const isStub = IMAGE_ENGINE.version.includes('stub');   // AGENTS.md convention
 
 export function buildImageCapabilityImplementations(ctx) {
   return [
@@ -347,7 +347,7 @@ import type { Asset, CapabilityImplementation, PluginContext } from '@lokvis/sch
 
 // 1. Mock the engine so tests don't need Canvas / createImageBitmap
 vi.mock('@lokvis/engine-image', () => ({
-  canvasEngine: { version: '0.1.0' },                    // not 'stub'
+  IMAGE_ENGINE: { name: 'canvas', version: '0.1.0', supportedCapabilities: [] }, // not 'stub'
   resize: vi.fn(async (blob: Blob) => blob),             // passthrough stub
   compress: vi.fn(async (blob: Blob) => blob),
   // ... 7 more operations

@@ -1,41 +1,23 @@
 /**
  * 单步 image 工作流构造器(@lokvis/embed-image 内部副本)。
  *
- * 与 apps/playground/src/components/toolkit/workflow-builder.ts 保持一致;
- * 包内独立维护避免与 playground 相互耦合。
+ * buildSingleStepImageWorkflow 复用 @lokvis/embed-kit 的参数化工厂
+ * (category='image'、inputs/outputs type='image')。
+ * buildResizeCompressWorkflow 为 image 专属两步工作流,保留在本包。
  */
 import type { Workflow } from '@lokvis/sdk';
+import { makeSingleStepWorkflowBuilder } from '@lokvis/embed-kit';
 
 /**
  * 构造单步 image Workflow(transform 节点,1 image → 1 image)。
  */
-export function buildSingleStepImageWorkflow(
-  capability: string,
-  params: Record<string, unknown>,
-  name: string,
-  description?: string
-): Workflow {
-  return {
-    id: `${name.toLowerCase()}-${Date.now()}`,
-    version: '1.0',
-    name,
-    description: description ?? name,
-    author: { id: 'embed-image', name: 'Embed Image' },
-    category: 'image',
-    tags: [],
-    nodes: [
-      {
-        id: 'n1',
-        type: 'transform',
-        capability,
-        params,
-      },
-    ],
-    edges: [],
-    inputs: { type: 'image', multiple: false },
-    outputs: { type: 'image' },
-  };
-}
+export const buildSingleStepImageWorkflow = makeSingleStepWorkflowBuilder({
+  category: 'image',
+  inputType: 'image',
+  outputType: 'image',
+  authorId: 'embed-image',
+  authorName: 'Embed Image',
+});
 
 /**
  * 构造两步 image Workflow(resize → compress,1 image → 1 image)。
@@ -50,7 +32,7 @@ export function buildResizeCompressWorkflow(
   format: string
 ): Workflow {
   return {
-    id: `resize-compress-${Date.now()}`,
+    id: `resize-compress-${crypto.randomUUID()}`,
     version: '1.0',
     name: 'ImageResizeCompress',
     description: 'Resize to exact dimensions then compress (target-size fallback)',

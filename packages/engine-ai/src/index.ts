@@ -33,8 +33,6 @@
  * 保留在主入口供 plugin-ai 消费(非 Blob 操作的合理例外)。
  */
 
-import type { AssetType } from '@lokvis/schema';
-
 // ─── 类型定义 ─────────────────────────────────────────────────────
 
 /** AI 引擎名 */
@@ -238,5 +236,3 @@ export const cloudProxyEngine = {
     'ai.diagnose-error',
   ],
 };
-
-export type { AssetType };

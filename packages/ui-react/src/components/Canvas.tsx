@@ -112,7 +112,7 @@ export function Canvas({ className = '', enableCompare = true, emptyState }: Can
  type="button"
  onClick={() => setCompareMode(false)}
  aria-pressed={!compareMode}
- className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${
+ className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
  !compareMode
  ? 'bg-[var(--lokvis-primary)]/15 text-[var(--lokvis-primary)]'
  : 'text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)]'
@@ -124,7 +124,7 @@ export function Canvas({ className = '', enableCompare = true, emptyState }: Can
  type="button"
  onClick={() => setCompareMode(true)}
  aria-pressed={compareMode}
- className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${
+ className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
  compareMode
  ? 'bg-[var(--lokvis-primary)]/15 text-[var(--lokvis-primary)]'
  : 'text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)]'

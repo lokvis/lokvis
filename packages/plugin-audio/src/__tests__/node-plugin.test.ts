@@ -31,6 +31,7 @@ vi.mock('@lokvis/engine-audio/node', () => ({
   normalizeAudio: vi.fn(async () =>
     new Blob([new Uint8Array([0])], { type: 'audio/mpeg' })
   ),
+  AUDIO_ENGINE: { name: 'ffmpeg-static', version: '0.7.1' },
 }));
 
 const { audioToolsPluginNode, PLUGIN_ENGINE_NODE } =

@@ -147,7 +147,7 @@ export function Dialog({
 
  return createPortal(
  <div
- className="fixed inset-0 z-50 flex items-center justify-center p-4"
+ className="fixed inset-0 z-50 flex items-center justify-center p-4 lokvis-animate-fade-in"
  style={overlayStyle}
  onClick={closeOnOverlay ? onClose : undefined}
  >
@@ -157,7 +157,7 @@ export function Dialog({
  aria-modal="true"
  aria-label={typeof title === 'string' ? title : undefined}
  tabIndex={-1}
- className={`w-full ${sizeClass[size]} rounded-xl border border-[var(--lokvis-border)] bg-[var(--lokvis-surface-raised)] shadow-[var(--lokvis-elevation-3)] outline-none`}
+ className={`w-full ${sizeClass[size]} rounded-xl border border-[var(--lokvis-border)] bg-[var(--lokvis-surface-raised)] shadow-[var(--lokvis-elevation-3)] outline-none lokvis-animate-pop-in`}
  onClick={(e) => e.stopPropagation()}
  >
  {title && (

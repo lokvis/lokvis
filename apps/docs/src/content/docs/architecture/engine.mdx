@@ -1,6 +1,6 @@
 ---
 title: Engine
-description: Deep dive into @lokvis/engine-image — the pluggable image engine adapter. Canvas engine implementation, ImageEngineAdapter contract, operation function signature, Streaming types, Worker integration, PNG pHYs DPI metadata, and Stub engine mode.
+description: Deep dive into @lokvis/engine-image — the Canvas-backed image engine. Standalone decode/encode functions, the ImageEngineDescriptor, operation function signature, Streaming types, Worker integration, PNG pHYs DPI metadata, and Stub engine mode.
 draft: false
 head: []
 ---
@@ -10,7 +10,7 @@ import MermaidScript from '../../../components/MermaidScript.astro';
 
 <MermaidScript />
 
-`@lokvis/engine-image` is the bottom of the Lokvis five-layer stack. It exposes pure Blob↔Blob operations and an `ImageEngineAdapter` contract. The package knows nothing about `Asset`, `Workflow`, `Capability`, or `Runtime` — those are the concerns of the layers above. This document maps the modules, the contract, the Canvas implementation, the Worker integration, and the metadata edge cases.
+`@lokvis/engine-image` is the bottom of the Lokvis five-layer stack. It exposes pure Blob↔Blob operations plus standalone `decodeImage` / `encodeImage` primitives and an `IMAGE_ENGINE` descriptor. The package knows nothing about `Asset`, `Workflow`, `Capability`, or `Runtime` — those are the concerns of the layers above. This document maps the modules, the primitives, the Canvas implementation, the Worker integration, and the metadata edge cases.
 
 > **Canvas engine version:** `CANVAS_ENGINE_VERSION = '0.1.0'` · **Worker protocol:** `IMAGE_WORKER_PROTOCOL_VERSION = '0.1.0'` (matches `WORKER_PROTOCOL_VERSION` in `@lokvis/runtime`).
 
@@ -18,9 +18,8 @@ import MermaidScript from '../../../components/MermaidScript.astro';
 
 | File | Export | Role |
 | --- | --- | --- |
-| `types.ts` | `ImageEngineAdapter`, `ImageEngineName`, `ImageOutputFormat`, `FitStrategy`, `ResizeParams`…, `ImageTile`, `ImageChunk`, `StreamingImageOperation`, `StreamingImageEngineAdapter` | Engine contract + Streaming types |
-| `canvas-engine.ts` | `canvasEngine`, `CANVAS_ENGINE_VERSION`, `decodeResized`, `createCanvas`, `get2DContext`, `detectFormatSupport`, `reencode` | Canvas-backed reference adapter |
-| `adapter.ts` | `registerImageEngine`, `getEngine`, `listEngines`, `selectBestEngine` | Engine registry + selection |
+| `types.ts` | `ImageEngineDescriptor`, `ImageEngineName`, `ImageOutputFormat`, `FitStrategy`, `ResizeParams`…, `ImageTile`, `ImageChunk`, `StreamingImageOperation`, `StreamingImageEngineAdapter` | Engine descriptor + Streaming types |
+| `canvas-engine.ts` | `IMAGE_ENGINE`, `decodeImage`, `encodeImage`, `CANVAS_ENGINE_VERSION`, `decodeResized`, `createCanvas`, `get2DContext`, `detectFormatSupport`, `reencode` | Canvas-backed primitives + descriptor |
 | `worker-adapter.ts` | `startImageWorker`, `dispatchImageMethod`, `createImageWorkerHandler`, `listImageWorkerMethods`, `IMAGE_WORKER_PROTOCOL_VERSION` | Worker-side protocol handler |
 | `operations/index.ts` | re-exports | Operation aggregator |
 | `operations/transform.ts` | `resize`, `crop`, `rotate`, `flip` | Geometric operations |
@@ -33,32 +32,32 @@ import MermaidScript from '../../../components/MermaidScript.astro';
 | `operations/utils.ts` | `throwIfAborted`, `inferFormat`, `computeTargetSize` | Shared helpers |
 | `index.ts` | re-exports everything | Package entry |
 
-## `ImageEngineAdapter` contract
+## `IMAGE_ENGINE` descriptor + primitives
 
-`types.ts` defines the engine contract. Every engine (Canvas today; Squoosh WASM, WebCodecs, ImageMagick later) implements the same minimal surface:
+`types.ts` defines the engine descriptor — a plain metadata object, not a class or registry. `canvas-engine.ts` exports the concrete instance plus two standalone primitive functions:
 
 ```typescript
-interface ImageEngineAdapter {
+interface ImageEngineDescriptor {
   name: ImageEngineName;        // 'canvas' | 'squoosh' | 'webcodecs' | 'imagemagick'
   version: string;              // '0.1.0'; stub engines include 'stub'
   supportedCapabilities: string[];  // e.g. ['image.resize', 'image.compress', ...]
-  isSupported(): Promise<boolean>;
-  initialize?(): Promise<void>;
-  dispose?(): Promise<void>;
-
-  // ─── Primitives ─────────────────────────────────────────
-  decode(blob: Blob): Promise<DecodedImage>;
-  encode(
-    canvas: HTMLCanvasElement | OffscreenCanvas,
-    format: ImageOutputFormat,
-    quality?: number
-  ): Promise<Blob>;
 }
+
+export const IMAGE_ENGINE: ImageEngineDescriptor;
+
+export function decodeImage(blob: Blob): Promise<DecodedImage>;
+export function encodeImage(
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+  format: ImageOutputFormat,
+  quality?: number
+): Promise<Blob>;
 ```
 
-`decode` returns `DecodedImage = { bitmap: ImageBitmap; width: number; height: number }`. Operations call `bitmap.close()` in a `finally` block to release the bitmap deterministically — the browser's GC is not aggressive enough for short-lived decode bursts.
+This mirrors `PDF_ENGINE` / `VIDEO_ENGINE` in the sibling engine packages: a descriptor exposes `name` / `version` / `supportedCapabilities` for the Plugin layer's stub detection (`IMAGE_ENGINE.version.includes('stub')`), while operations are standalone pure functions rather than adapter methods.
 
-`encode` works on either `HTMLCanvasElement` or `OffscreenCanvas`. The Canvas adapter dispatches to `canvas.toBlob` (DOM) or `canvas.convertToBlob` (OffscreenCanvas) so the same code path runs on the main thread and inside a Worker.
+`decodeImage` returns `DecodedImage = { bitmap: ImageBitmap; width: number; height: number }`. Operations call `bitmap.close()` in a `finally` block to release the bitmap deterministically — the browser's GC is not aggressive enough for short-lived decode bursts.
+
+`encodeImage` works on either `HTMLCanvasElement` or `OffscreenCanvas`. It dispatches to `canvas.toBlob` (DOM) or `canvas.convertToBlob` (OffscreenCanvas) so the same code path runs on the main thread and inside a Worker.
 
 ## Operation function signature
 
@@ -80,13 +79,12 @@ The concrete `ResizeParams` / `CompressParams` / etc. interfaces in `types.ts` a
 
 ## Canvas engine implementation
 
-`canvasEngine` is the MVP reference adapter. It has zero WASM dependency and the fastest first paint — `createImageBitmap` + `OffscreenCanvas` cover ~80% of image processing needs. The trade-off is encode quality (Squoosh WASM produces better AVIF/WebP) and AVIF support gaps across browsers.
+The Canvas primitives are the MVP reference implementation. They have zero WASM dependency and the fastest first paint — `createImageBitmap` + `OffscreenCanvas` cover ~80% of image processing needs. The trade-off is encode quality (Squoosh WASM produces better AVIF/WebP) and AVIF support gaps across browsers.
 
-| Method | Implementation |
+| Function | Implementation |
 | --- | --- |
-| `decode(blob)` | `createImageBitmap(blob)` → `{ bitmap, width, height }`. Throws if `createImageBitmap` is missing. |
-| `encode(canvas, format, quality=90)` | `OffscreenCanvas.convertToBlob({ type, quality })` or `HTMLCanvasElement.toBlob(cb, type, quality)`. Quality normalized to `0..1`. |
-| `isSupported()` | `true` if `OffscreenCanvas` or `document` exists — i.e. any modern browser or Worker. |
+| `decodeImage(blob)` | `createImageBitmap(blob)` → `{ bitmap, width, height }`. Throws if `createImageBitmap` is missing. |
+| `encodeImage(canvas, format, quality=90)` | `OffscreenCanvas.convertToBlob({ type, quality })` or `HTMLCanvasElement.toBlob(cb, type, quality)`. Quality normalized to `0..1`. |
 
 `decodeResized(blob, targetW, targetH)` is the single biggest memory optimization in the Canvas engine. Instead of `decode → drawImage scaled`, it uses `createImageBitmap(blob, { resizeWidth, resizeHeight, resizeQuality: 'high' })` to scale **during** decode, never materializing the full-resolution bitmap. Browsers without the resize option (older Safari) fall back to plain `decode`. This matters for big images: a 8000×6000 JPEG decoded to a 1920×1080 thumbnail via plain decode briefly holds ~190MB of bitmap; `decodeResized` holds ~8MB.
 
@@ -108,7 +106,7 @@ interface StreamingImageOperation {
     AsyncIterable<ImageChunk>;
 }
 
-interface StreamingImageEngineAdapter extends ImageEngineAdapter {
+interface StreamingImageEngineAdapter {
   decodeRegion?(blob: Blob, tile: ImageTile): Promise<DecodedImage>;
   mergeChunks?(chunks: ImageChunk[], totalW: number, totalH: number,
                format: ImageOutputFormat, quality?: number): Promise<Blob>;

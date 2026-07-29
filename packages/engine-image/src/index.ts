@@ -17,7 +17,6 @@
 export * from './types.js';
 export * from './canvas-engine.js';
 export * from './operations/index.js';
-export * from './adapter.js';
 export * from './worker-adapter.js';
 
 // ─── 懒加载接口（W15.2）──────────────────────────────────────────

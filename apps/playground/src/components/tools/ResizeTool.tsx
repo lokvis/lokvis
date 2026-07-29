@@ -12,7 +12,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useImageTool } from '@/components/toolkit/useImageTool';
 import { PlatformPresetSelector } from '@/components/toolkit/PlatformPresetSelector';
-import { formatBytes } from '@/components/toolkit/download';
+import { formatBytes } from '@lokvis/runtime';
 import { buildSingleStepImageWorkflow } from '@/components/toolkit/workflow-builder';
 import { ToolResultPanel } from '@/components/toolkit/ToolResultPanel';
 import type { PlatformSizePreset } from '@lokvis/capability';

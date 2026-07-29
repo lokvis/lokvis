@@ -74,7 +74,7 @@ This means you can swap the Canvas engine for a WASM engine (or a sharp engine i
 Each layer has its own deep-dive document:
 
 - [Runtime](./architecture/runtime) — AssetStore three-tier fallback, CapabilityRegistry resolve flow, WorkflowExecutor linear DAG, HistoryStack cursor, MemoryGuard, Worker isolation, extension hooks.
-- [Engine](./architecture/engine) — `ImageEngineAdapter` contract, `Record<string, any>` operation signature rule, Canvas implementation + `decodeResized`, streaming type contracts, Worker integration, stub engine pattern.
+- [Engine](./architecture/engine) — `IMAGE_ENGINE` descriptor + standalone `decodeImage`/`encodeImage` primitives, `Record<string, any>` operation signature rule, Canvas implementation + `decodeResized`, streaming type contracts, Worker integration, stub engine pattern.
 - [Capability](./architecture/capability) — `Capability` shape, 8 `CapabilityParam` types, capability catalog (image real / video-pdf stub), `CapabilityRegistry.resolve` three-stage flow, three-layer workflow validation, MCP manifest generation.
 - [Plugin SDK](./architecture/plugin) — `definePlugin` + `createBlobCapabilityImpl` factories, `PluginContext` restricted Runtime view, lifecycle, MetadataReader, stub plugin pattern, Panels, Vitest testing pattern.
 
@@ -235,7 +235,7 @@ On the UI side, `@lokvis/ui-react` provides:
 - **Workflow schema**: `v1` (share links `?workflow=<base64url>` contain `{v:1, nodes:[...]}`)
 - **MCP manifest version**: `2025-06-18` (MCP spec draft)
 - **Worker protocol**: at handshake the Worker sends `ready` carrying the protocol version; the Host validates it before communication begins
-- **Engine version**: `canvasEngine.version = '0.1.0'`; stub engines have a `version` containing the `'stub'` marker, which `wrapAsImplementation()` in the Plugin layer detects and then sets `CapabilityImplementation.status = 'stub'`; `CapabilityRegistry.resolve()` skips them automatically
+- **Engine version**: `IMAGE_ENGINE.version = '0.1.0'`; stub engines have a `version` containing the `'stub'` marker, which the Plugin layer's `buildXxxCapabilityImplementations()` detects (via `engine.version.includes('stub')`) and then sets `CapabilityImplementation.status = 'stub'`; `CapabilityRegistry.resolve()` skips them automatically
 
 **Known limitations of Phase 1 Alpha** (none block Alpha; see `docs/reports/W12.1-alpha-acceptance.md` §5):
 - L1: Video/PDF/Audio engines are stubs (Phase 2 wires up ffmpeg.wasm / pdf-lib)

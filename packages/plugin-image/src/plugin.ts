@@ -12,6 +12,7 @@
 import { definePlugin } from '@lokvis/plugin-sdk';
 import { IMAGE_CAPABILITIES } from '@lokvis/capability';
 import type { ExifData } from '@lokvis/schema';
+import { METADATA_READER_NAMES } from '@lokvis/schema';
 import { buildImageCapabilityImplementations } from './operations.js';
 import { readExifFromBlob } from './exif-reader.js';
 
@@ -19,8 +20,8 @@ export const PLUGIN_NAME = 'lokvis-image-tools';
 export const PLUGIN_VERSION = '0.1.0';
 export const PLUGIN_ENGINE = 'canvas';
 
-/** 元数据读取器名称(约定与能力名对齐,但不进 Capability 声明) */
-export const EXIF_READER_NAME = 'image.read-exif';
+/** 元数据读取器名称(单一来源:@lokvis/schema METADATA_READER_NAMES) */
+export const EXIF_READER_NAME = METADATA_READER_NAMES.imageExif;
 
 /**
  * 创建图像工具插件

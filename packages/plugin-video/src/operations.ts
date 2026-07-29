@@ -27,6 +27,7 @@ import {
 import type {
   AssetMetadata,
   AssetType,
+  BuiltinCapabilityName,
   CapabilityImplementation,
   PluginContext,
 } from '@lokvis/schema';
@@ -38,6 +39,7 @@ import {
   extractAudio,
   toGif,
   screenshotVideo,
+  VIDEO_ENGINE,
 } from '@lokvis/engine-video';
 
 /** 单输入 → 单输出操作(1→1) */
@@ -55,7 +57,7 @@ export type MergeVideoOperation = (
 /** 视频能力实现绑定项(capability name → engine + operation + outputType) */
 export interface VideoOperationEntry {
   /** 对应 Capability 名(与 generated 声明的 name 字段关联) */
-  capability: string;
+  capability: BuiltinCapabilityName;
   /** 引擎名 */
   engine: string;
   /** 输出 Asset 类型 */
@@ -64,8 +66,8 @@ export interface VideoOperationEntry {
   operation: VideoOperation;
 }
 
-/** 浏览器版引擎名(与 PLUGIN_ENGINE 对齐;概念上对应 ffmpeg.wasm,虽浏览器端不加载) */
-const BROWSER_ENGINE = 'ffmpeg-wasm' as const;
+/** 浏览器版引擎名(单一来源:engine-video 默认入口的 VIDEO_ENGINE 描述符) */
+const BROWSER_ENGINE = VIDEO_ENGINE.name;
 
 /** 1→1 能力实现绑定(merge 单独走 createMergeCapabilityImpl) */
 export const VIDEO_OPERATION_ENTRIES: VideoOperationEntry[] = [
@@ -79,7 +81,7 @@ export const VIDEO_OPERATION_ENTRIES: VideoOperationEntry[] = [
 
 /** merge 操作(单独管理,因形态为 N→1) */
 export const MERGE_OPERATION: {
-  capability: string;
+  capability: BuiltinCapabilityName;
   engine: string;
   outputType: AssetType;
   operation: MergeVideoOperation;
@@ -90,11 +92,11 @@ export const MERGE_OPERATION: {
   operation: mergeVideos,
 };
 
-/** 浏览器版所有操作为 stub(engine-video 浏览器端不加载 ffmpeg.wasm) */
-const isStub = true;
+/** 浏览器版 stub 状态单点推导(AGENTS.md 约定:version 含 'stub') */
+const isStub = VIDEO_ENGINE.version.includes('stub');
 
 /** 从输出 Blob 派生 video/audio/image 类型 Asset 元数据 */
-function deriveVideoMetadata(outputType: AssetType): (outBlob: Blob) => AssetMetadata {
+export function deriveVideoMetadata(outputType: AssetType): (outBlob: Blob) => AssetMetadata {
   return (outBlob: Blob) => {
     let fallback: { mimeType: string; format: string };
     switch (outputType) {

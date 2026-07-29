@@ -11,7 +11,8 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useImageTool } from '@/components/toolkit/useImageTool';
-import { detectTransparency, formatBytes } from '@/components/toolkit/download';
+import { detectTransparency } from '@/components/toolkit/download';
+import { formatBytes } from '@lokvis/runtime';
 import { buildSingleStepImageWorkflow } from '@/components/toolkit/workflow-builder';
 import { ToolResultPanel } from '@/components/toolkit/ToolResultPanel';
 import { ErrorBoundary } from '@/components/ErrorBoundary';

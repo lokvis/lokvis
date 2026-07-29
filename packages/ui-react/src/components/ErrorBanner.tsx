@@ -71,7 +71,7 @@ export function ErrorBanner({ className = '' }: ErrorBannerProps) {
  <p className="text-[11px] font-medium text-[var(--lokvis-danger)]">
  {t('errorBanner.title')}
  </p>
- <p className="mt-0.5 break-words text-[10px] text-[var(--lokvis-danger)]/80">
+ <p className="mt-0.5 break-words text-[11px] text-[var(--lokvis-danger)]/80">
  {formatMessage(t, error)}
  </p>
  </div>
@@ -80,7 +80,7 @@ export function ErrorBanner({ className = '' }: ErrorBannerProps) {
  <button
  type="button"
  onClick={handleRetry}
- className="rounded bg-[var(--lokvis-danger)]/15 px-2 py-0.5 text-[10px] font-medium text-[var(--lokvis-danger)] transition-colors hover:bg-[var(--lokvis-danger)]/30"
+ className="rounded bg-[var(--lokvis-danger)]/15 px-2 py-0.5 text-[11px] font-medium text-[var(--lokvis-danger)] transition-colors hover:bg-[var(--lokvis-danger)]/30"
  >
  {t('errorBanner.retry')}
  </button>

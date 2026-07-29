@@ -32,7 +32,10 @@ export { IdbUnavailableError } from './idb-asset-store.js';
 // degradation:仅错误类被 SDK errors 引用
 export { DegradationRejectedError } from './degradation.js';
 
-// worker-host:6 个错误类被 SDK errors 引用
+// format:全仓唯一的 formatBytes(各消费方从此再导出)
+export { formatBytes } from './format.js';
+
+// worker-errors:6 个错误类被 SDK errors 引用(Worker 生命周期契约)
 export {
   WorkerCrashedError,
   WorkerRestartingError,
@@ -40,7 +43,7 @@ export {
   WorkerRequestTimeoutError,
   WorkerHandshakeError,
   WorkerRequestAbortedError,
-} from './worker-host.js';
+} from './worker-errors.js';
 
 // batch-processor:BatchProcessor 类型 + 错误类 + 常量被 SDK 引用
 export {

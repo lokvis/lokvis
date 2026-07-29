@@ -22,6 +22,15 @@ import type { PluginConfig, PluginInstaller } from '@lokvis/plugin-sdk';
 import { createRuntime } from '@lokvis/runtime';
 import { PluginLoadError } from './errors.js';
 
+// ─── 执行编排(引擎中性,从 ui-react store 下沉)─────────────────
+export { runWithProgress } from './run-with-progress.js';
+export type {
+  NodeRunStatus,
+  NodeStatusUpdate,
+  RunWithProgressOptions,
+  RunWithProgressResult,
+} from './run-with-progress.js';
+
 /** 插件加载项 */
 export interface PluginLoadEntry {
   config: PluginConfig;

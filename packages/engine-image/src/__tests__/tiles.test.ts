@@ -15,10 +15,8 @@ const mockDecode = vi.fn();
 const mockEncode = vi.fn();
 const mockGet2DContext = vi.fn();
 vi.mock('../canvas-engine.js', () => ({
-  canvasEngine: {
-    decode: mockDecode,
-    encode: mockEncode,
-  },
+  decodeImage: mockDecode,
+  encodeImage: mockEncode,
   createCanvas: vi.fn((w: number, h: number) => ({ width: w, height: h, __canvas: true })),
   get2DContext: mockGet2DContext,
   detectFormatSupport: vi.fn(async () => ({

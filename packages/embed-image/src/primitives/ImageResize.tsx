@@ -22,7 +22,8 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { downloadBlob, formatBytes } from '../internal/download';
+import { downloadBlob } from '@lokvis/embed-kit';
+import { formatBytes } from '@lokvis/runtime';
 import {
   useImageResize,
   type ResizePreset,

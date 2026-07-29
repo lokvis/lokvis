@@ -58,7 +58,7 @@ export function ProgressBar({ className = '' }: ProgressBarProps) {
  </div>
 
  {/* 计数 */}
- <span className="shrink-0 text-[10px] font-medium tabular-nums text-[var(--lokvis-fg-muted)]">
+ <span className="shrink-0 text-[11px] font-medium tabular-nums text-[var(--lokvis-fg-muted)]">
  {done}/{total}
  {failedCount > 0 && (
  <span className="ml-1 text-[var(--lokvis-danger)]">{t('progressBar.failedCount', { count: failedCount })}</span>
@@ -67,7 +67,7 @@ export function ProgressBar({ className = '' }: ProgressBarProps) {
 
  {/* 状态消息(running 时显示) */}
  {running && statusMessage && (
- <span className="hidden shrink-0 truncate text-[10px] text-[var(--lokvis-fg-subtle)] sm:inline">
+ <span className="hidden shrink-0 truncate text-[11px] text-[var(--lokvis-fg-subtle)] sm:inline">
  {formatMessage(t, statusMessage)}
  </span>
  )}
@@ -79,7 +79,7 @@ export function ProgressBar({ className = '' }: ProgressBarProps) {
  onClick={() => void cancelRun()}
  aria-label={t('progressBar.cancelAria')}
  title={t('progressBar.cancelAria')}
- className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--lokvis-danger)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--lokvis-danger)] transition-colors hover:bg-[var(--lokvis-danger)]/15"
+ className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--lokvis-danger)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--lokvis-danger)] transition-colors hover:bg-[var(--lokvis-danger)]/15"
  >
  <Icon size={10} strokeWidth={3}><path d="M6 6l12 12M6 18L18 6" /></Icon>
  {t('progressBar.cancel')}
@@ -89,7 +89,7 @@ export function ProgressBar({ className = '' }: ProgressBarProps) {
  {/* 完成图标(非 running 且有结果) */}
  {!running && done === total && (
  <span
- className={`flex shrink-0 items-center gap-1 text-[10px] font-medium ${
+ className={`flex shrink-0 items-center gap-1 text-[11px] font-medium ${
  hasFailure ? 'text-[var(--lokvis-danger)]' : 'text-[var(--lokvis-success)]'
  }`}
  >

@@ -24,15 +24,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Workflow } from '@lokvis/schema';
 import { workflowSchema, validateWorkflow, type ValidateWorkflowOptions } from '@lokvis/schema';
+import { FREE_PLAN_LIMITS, PRO_PLAN_LIMITS } from '../gating.js';
+import { LokvisStorageError } from './storage-errors.js';
 
 const STORAGE_KEY = 'lokvis.workflows';
 /** 同 tab 多实例同步用的自定义事件名 */
 const SYNC_EVENT = 'lokvis:workflows-change';
 
-/** 免费用户工作流槽位上限 */
-export const FREE_WORKFLOW_LIMIT = 5;
-/** Pro 用户无上限 */
-export const PRO_WORKFLOW_LIMIT = Infinity;
+/** 免费用户工作流槽位上限(单一来源:../gating.js) */
+export const FREE_WORKFLOW_LIMIT = FREE_PLAN_LIMITS.workflows;
+/** Pro 用户无上限(单一来源:../gating.js) */
+export const PRO_WORKFLOW_LIMIT = PRO_PLAN_LIMITS.workflows;
 
 /** 工作流槽位存储格式 */
 export interface WorkflowSlot {
@@ -139,7 +141,7 @@ function writeToStorage(slots: WorkflowSlot[]): boolean {
 
 /** 生成唯一 ID */
 function genId(): string {
-  return `wf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `wf-${crypto.randomUUID()}`;
 }
 
 /**
@@ -187,8 +189,11 @@ export function useWorkflows(isPro = false): UseWorkflowsResult {
       }
       // 新增
       if (current.length >= limit) {
-        throw new Error(
-          `工作流槽位已达上限(${limit} 个)${isPro ? '' : ',升级 Pro 可无限制保存'}`
+        throw new LokvisStorageError(
+          'workflow.saveLimit',
+          isPro ? 'error.workflowSaveLimit' : 'error.workflowSaveLimitUpgrade',
+          `Workflow slot limit reached (${limit})${isPro ? '' : ', upgrade to Pro for unlimited saves'}`,
+          { limit, isPro }
         );
       }
       const slot: WorkflowSlot = {
@@ -246,7 +251,11 @@ export function useWorkflows(isPro = false): UseWorkflowsResult {
       try {
         parsed = JSON.parse(json);
       } catch {
-        throw new Error('JSON 格式错误,无法解析');
+        throw new LokvisStorageError(
+          'workflow.importParse',
+          'error.workflowImportParse',
+          'Invalid JSON, unable to parse'
+        );
       }
       const list: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
       const current = readFromStorage();
@@ -278,8 +287,11 @@ export function useWorkflows(isPro = false): UseWorkflowsResult {
         }
         // 检查上限
         if (current.length + imported.length >= limit) {
-          throw new Error(
-            `导入会超过上限(${limit} 个),已导入 ${imported.length} 条,请先删除部分工作流`
+          throw new LokvisStorageError(
+            'workflow.importLimit',
+            'error.workflowImportLimit',
+            `Import would exceed the limit (${limit}); ${imported.length} imported, please delete some workflows first`,
+            { limit, imported: imported.length }
           );
         }
         imported.push({
@@ -297,7 +309,12 @@ export function useWorkflows(isPro = false): UseWorkflowsResult {
         const skipSummary = skipped.length > 0
           ? `; skipped: ${skipped.map((s) => s.reason).join(' | ')}`
           : '';
-        throw new Error(`JSON 中没有有效的工作流定义${skipSummary}`);
+        throw new LokvisStorageError(
+          'workflow.importEmpty',
+          'error.workflowImportEmpty',
+          `No valid workflow definition in JSON${skipSummary}`,
+          { detail: skipSummary }
+        );
       }
 
       const next = [...current, ...imported];

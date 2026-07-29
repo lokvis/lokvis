@@ -1,6 +1,6 @@
 ---
 title: Engine
-description: 深入剖析 @lokvis/engine-image —— 可插拔的图像引擎适配器。涵盖 Canvas 引擎实现、ImageEngineAdapter 契约、操作函数签名、Streaming 类型、Worker 集成、PNG pHYs DPI 元数据以及 Stub 引擎模式。
+description: 深入剖析 @lokvis/engine-image —— Canvas 图像引擎。涵盖独立的 decodeImage/encodeImage 原语、ImageEngineDescriptor 描述符、操作函数签名、Streaming 类型、Worker 集成、PNG pHYs DPI 元数据以及 Stub 引擎模式。
 draft: false
 head: []
 ---
@@ -10,7 +10,7 @@ import MermaidScript from '../../../../components/MermaidScript.astro';
 
 <MermaidScript />
 
-`@lokvis/engine-image` 位于 Lokvis 五层栈的最底层。它暴露纯 Blob↔Blob 操作和一个 `ImageEngineAdapter` 契约。该包对 `Asset`、`Workflow`、`Capability`、`Runtime` 一无所知 —— 那是上层关注的事项。本文档梳理其模块、契约、Canvas 实现、Worker 集成以及元数据边界情况。
+`@lokvis/engine-image` 位于 Lokvis 五层栈的最底层。它暴露纯 Blob↔Blob 操作，以及独立的 `decodeImage` / `encodeImage` 原语和一个 `IMAGE_ENGINE` 描述符。该包对 `Asset`、`Workflow`、`Capability`、`Runtime` 一无所知 —— 那是上层关注的事项。本文档梳理其模块、原语、Canvas 实现、Worker 集成以及元数据边界情况。
 
 > **Canvas 引擎版本：** `CANVAS_ENGINE_VERSION = '0.1.0'` · **Worker 协议：** `IMAGE_WORKER_PROTOCOL_VERSION = '0.1.0'`（与 `@lokvis/runtime` 中的 `WORKER_PROTOCOL_VERSION` 一致）。
 
@@ -18,9 +18,8 @@ import MermaidScript from '../../../../components/MermaidScript.astro';
 
 | 文件 | 导出 | 职责 |
 | --- | --- | --- |
-| `types.ts` | `ImageEngineAdapter`, `ImageEngineName`, `ImageOutputFormat`, `FitStrategy`, `ResizeParams`…, `ImageTile`, `ImageChunk`, `StreamingImageOperation`, `StreamingImageEngineAdapter` | 引擎契约 + Streaming 类型 |
-| `canvas-engine.ts` | `canvasEngine`, `CANVAS_ENGINE_VERSION`, `decodeResized`, `createCanvas`, `get2DContext`, `detectFormatSupport`, `reencode` | 基于 Canvas 的参考适配器 |
-| `adapter.ts` | `registerImageEngine`, `getEngine`, `listEngines`, `selectBestEngine` | 引擎注册表 + 选择 |
+| `types.ts` | `ImageEngineDescriptor`, `ImageEngineName`, `ImageOutputFormat`, `FitStrategy`, `ResizeParams`…, `ImageTile`, `ImageChunk`, `StreamingImageOperation`, `StreamingImageEngineAdapter` | 引擎描述符 + Streaming 类型 |
+| `canvas-engine.ts` | `IMAGE_ENGINE`, `decodeImage`, `encodeImage`, `CANVAS_ENGINE_VERSION`, `decodeResized`, `createCanvas`, `get2DContext`, `detectFormatSupport`, `reencode` | 基于 Canvas 的原语 + 描述符 |
 | `worker-adapter.ts` | `startImageWorker`, `dispatchImageMethod`, `createImageWorkerHandler`, `listImageWorkerMethods`, `IMAGE_WORKER_PROTOCOL_VERSION` | Worker 端协议处理 |
 | `operations/index.ts` | 重新导出 | 操作聚合 |
 | `operations/transform.ts` | `resize`, `crop`, `rotate`, `flip` | 几何操作 |
@@ -33,32 +32,32 @@ import MermaidScript from '../../../../components/MermaidScript.astro';
 | `operations/utils.ts` | `throwIfAborted`, `inferFormat`, `computeTargetSize` | 共享辅助函数 |
 | `index.ts` | 重新导出所有内容 | 包入口 |
 
-## `ImageEngineAdapter` 契约
+## `IMAGE_ENGINE` 描述符 + 原语
 
-`types.ts` 定义了引擎契约。每个引擎（今天的 Canvas；后续的 Squoosh WASM、WebCodecs、ImageMagick）都实现同一套最小接口：
+`types.ts` 定义引擎描述符 —— 一个纯元数据对象，而非类或注册表。`canvas-engine.ts` 导出该具体实例以及两个独立的原语函数：
 
 ```typescript
-interface ImageEngineAdapter {
+interface ImageEngineDescriptor {
   name: ImageEngineName;        // 'canvas' | 'squoosh' | 'webcodecs' | 'imagemagick'
   version: string;              // '0.1.0'; stub 引擎包含 'stub'
   supportedCapabilities: string[];  // 例如 ['image.resize', 'image.compress', ...]
-  isSupported(): Promise<boolean>;
-  initialize?(): Promise<void>;
-  dispose?(): Promise<void>;
-
-  // ─── 原语 ─────────────────────────────────────────
-  decode(blob: Blob): Promise<DecodedImage>;
-  encode(
-    canvas: HTMLCanvasElement | OffscreenCanvas,
-    format: ImageOutputFormat,
-    quality?: number
-  ): Promise<Blob>;
 }
+
+export const IMAGE_ENGINE: ImageEngineDescriptor;
+
+export function decodeImage(blob: Blob): Promise<DecodedImage>;
+export function encodeImage(
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+  format: ImageOutputFormat,
+  quality?: number
+): Promise<Blob>;
 ```
 
-`decode` 返回 `DecodedImage = { bitmap: ImageBitmap; width: number; height: number }`。各操作在 `finally` 块中调用 `bitmap.close()` 以确定性地释放位图 —— 浏览器的 GC 对短命解码突发不够激进。
+这与兄弟引擎包中的 `PDF_ENGINE` / `VIDEO_ENGINE` 保持一致：描述符暴露 `name` / `version` / `supportedCapabilities` 供 Plugin 层做 stub 检测（`IMAGE_ENGINE.version.includes('stub')`），而操作则是独立的纯函数，而非适配器方法。
 
-`encode` 可作用于 `HTMLCanvasElement` 或 `OffscreenCanvas`。Canvas 适配器分派到 `canvas.toBlob`（DOM）或 `canvas.convertToBlob`（OffscreenCanvas），使同一段代码既能跑在主线程，也能跑在 Worker 内。
+`decodeImage` 返回 `DecodedImage = { bitmap: ImageBitmap; width: number; height: number }`。各操作在 `finally` 块中调用 `bitmap.close()` 以确定性地释放位图 —— 浏览器的 GC 对短命解码突发不够激进。
+
+`encodeImage` 可作用于 `HTMLCanvasElement` 或 `OffscreenCanvas`。它分派到 `canvas.toBlob`（DOM）或 `canvas.convertToBlob`（OffscreenCanvas），使同一段代码既能跑在主线程，也能跑在 Worker 内。
 
 ## 操作函数签名
 
@@ -80,13 +79,12 @@ export async function resize(
 
 ## Canvas 引擎实现
 
-`canvasEngine` 是 MVP 参考适配器。它不依赖任何 WASM，首屏速度最快 —— `createImageBitmap` + `OffscreenCanvas` 覆盖约 80% 的图像处理需求。其代价是编码质量（Squoosh WASM 生成的 AVIF/WebP 更好）以及各浏览器对 AVIF 支持的缺口。
+Canvas 原语是 MVP 参考实现。它不依赖任何 WASM，首屏速度最快 —— `createImageBitmap` + `OffscreenCanvas` 覆盖约 80% 的图像处理需求。其代价是编码质量（Squoosh WASM 生成的 AVIF/WebP 更好）以及各浏览器对 AVIF 支持的缺口。
 
-| 方法 | 实现 |
+| 函数 | 实现 |
 | --- | --- |
-| `decode(blob)` | `createImageBitmap(blob)` → `{ bitmap, width, height }`。若 `createImageBitmap` 缺失则抛出。 |
-| `encode(canvas, format, quality=90)` | `OffscreenCanvas.convertToBlob({ type, quality })` 或 `HTMLCanvasElement.toBlob(cb, type, quality)`。质量归一化到 `0..1`。 |
-| `isSupported()` | 若存在 `OffscreenCanvas` 或 `document` 则为 `true` —— 即任何现代浏览器或 Worker。 |
+| `decodeImage(blob)` | `createImageBitmap(blob)` → `{ bitmap, width, height }`。若 `createImageBitmap` 缺失则抛出。 |
+| `encodeImage(canvas, format, quality=90)` | `OffscreenCanvas.convertToBlob({ type, quality })` 或 `HTMLCanvasElement.toBlob(cb, type, quality)`。质量归一化到 `0..1`。 |
 
 `decodeResized(blob, targetW, targetH)` 是 Canvas 引擎中最重要的一项内存优化。它不采用 `decode → drawImage scaled`，而是用 `createImageBitmap(blob, { resizeWidth, resizeHeight, resizeQuality: 'high' })` 在解码**期间**缩放，永不实体化全分辨率位图。不支持 resize 选项的浏览器（较老的 Safari）回退到普通 `decode`。这对大图意义重大：一张 8000×6000 的 JPEG 经普通解码缩放到 1920×1080 缩略图会短暂占用约 190MB 位图；而 `decodeResized` 仅占用约 8MB。
 
@@ -108,7 +106,7 @@ interface StreamingImageOperation {
     AsyncIterable<ImageChunk>;
 }
 
-interface StreamingImageEngineAdapter extends ImageEngineAdapter {
+interface StreamingImageEngineAdapter {
   decodeRegion?(blob: Blob, tile: ImageTile): Promise<DecodedImage>;
   mergeChunks?(chunks: ImageChunk[], totalW: number, totalH: number,
                format: ImageOutputFormat, quality?: number): Promise<Blob>;

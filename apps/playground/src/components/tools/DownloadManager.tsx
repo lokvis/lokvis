@@ -7,7 +7,8 @@
  * demo 数据:用 canvas 生成 2 张示例 PNG Blob,供无真实输入时演示。
  */
 import { useCallback, useState } from 'react';
-import { downloadBlob, formatBytes } from '@/components/toolkit/download';
+import { downloadBlob } from '@lokvis/embed-kit';
+import { formatBytes } from '@lokvis/runtime';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useLang } from '@/i18n/useLang';
 import { useTranslations } from '@/i18n/utils';

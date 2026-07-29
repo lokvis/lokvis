@@ -14,7 +14,8 @@
 import type { ReactNode } from 'react';
 import { UploadBox } from './UploadBox';
 import { PreviewBox } from './PreviewBox';
-import { downloadBlob, imageInfoToMeta } from './download';
+import { downloadBlob } from '@lokvis/embed-kit';
+import { imageInfoToMeta } from './download';
 import type { UseImageToolResult } from './useImageTool';
 import { useLang } from '@/i18n/useLang';
 import { useTranslations } from '@/i18n/utils';

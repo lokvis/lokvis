@@ -11,7 +11,8 @@
  * 设计原则(见 docs/adr/013-capability-manifest.md):
  * - manifest 是唯一信息源,生成代码与手写版本逐字段对应
  * - 不生成 CapabilityImplementation / definePlugin(实现仍由 plugin 手写)
- * - 不修改 CAPABILITY_NAMES 常量对象(保留手写)
+ * - 能力名单一来源:BuiltinCapabilityName 联合类型 + BUILTIN_CAPABILITY_NAMES
+ *   常量数组(手写的 CAPABILITY_NAMES 常量对象已删除,曾长期漂移)
  * - 生成文件加 // AUTO-GENERATED 头防止误编辑
  *
  * 用法:node scripts/codegen-capabilities.ts

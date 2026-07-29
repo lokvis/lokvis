@@ -43,3 +43,23 @@ export {
   type PdfOcrParams,
   type PdfInfo,
 } from './operations.js';
+
+/**
+ * PDF 引擎描述符(供 plugin-pdf 单点推导 engine 级 stub 状态)。
+ *
+ * AGENTS.md Stub Engine 约定:version 含 'stub' 时视为占位实现。
+ * pdf-lib 为真实引擎(version 不含 'stub'),但个别能力(ocr/sign)
+ * 尚未实装,由 plugin-pdf 的 REAL_STUB_CAPABILITIES 按能力叠加标记。
+ */
+export interface PdfEngineDescriptor {
+  /** 引擎名,固定 'pdf-lib' */
+  name: 'pdf-lib';
+  /** 版本号,含 'stub' 时视为占位实现 */
+  version: string;
+}
+
+/** PDF 引擎描述符(pdf-lib)— 真实实现,version 不含 'stub' */
+export const PDF_ENGINE: PdfEngineDescriptor = {
+  name: 'pdf-lib',
+  version: '0.7.1',
+};

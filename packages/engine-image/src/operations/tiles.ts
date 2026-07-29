@@ -23,7 +23,7 @@
  */
 
 import type { ImageChunk, ImageTile, ImageOutputFormat } from '../types.js';
-import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
+import { decodeImage, createCanvas, get2DContext } from '../canvas-engine.js';
 import { throwIfAborted } from './utils.js';
 import { encodeSmart } from './wasm-encode.js';
 
@@ -115,7 +115,7 @@ export async function mergeChunks(
 
   for (const chunk of chunks) {
     throwIfAborted(signal);
-    const { bitmap } = await canvasEngine.decode(chunk.blob);
+    const { bitmap } = await decodeImage(chunk.blob);
     // W21.6: 每个 chunk 的 bitmap 用 try/finally 释放,确保 throwIfAborted
     // 在下一次循环前抛错时当前 bitmap 不泄漏
     try {

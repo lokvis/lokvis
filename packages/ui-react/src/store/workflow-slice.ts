@@ -9,11 +9,11 @@
  * run() 内部依赖 buildLinearWorkflow(@lokvis/workflow)把节点序列构建为 Workflow 定义。
  */
 import type { StateCreator } from 'zustand';
-import { MAX_WORKFLOW_STEPS, type Asset } from '@lokvis/schema';
+import { MAX_WORKFLOW_STEPS } from '@lokvis/schema';
 import { buildLinearWorkflow } from '@lokvis/workflow';
+import { runWithProgress } from '@lokvis/sdk';
 import type { WorkspaceNode } from '../types.js';
 import type { WorkspaceStore, WorkspaceState, WorkspaceActions } from './types.js';
-import { subscribeAll } from './subscribe-utils.js';
 import { genNodeId } from './types.js';
 
 export interface WorkflowSlice
@@ -186,24 +186,6 @@ export const createWorkflowSlice: StateCreator<
       nodes: state.nodes.map((n) => ({ ...n, status: 'pending', error: undefined, duration: undefined })),
     }));
 
-    // 修复 review 报告：原实现节点状态粒度不足
-    //   - completed: 全部节点设 success（OK，但无耗时）
-    //   - failed: 仅把仍为 pending 的节点设 failed，但 executor 在抛错前已 emit
-    //     node:finished 给前面成功的节点（这些 status 仍是 pending）→ 这些节点
-    //     也被标 failed，UI 误显示前面成功的步骤都失败了
-    //   - cancelled: 完全未处理
-    //
-    // 修复：订阅 node:started / node:finished / node:failed 事件实时更新节点状态，
-    //       这样 completed/failed/cancelled 三种情况下节点状态都精确
-    const offAll = subscribeAll(runtime.eventBus, {
-      'node:started': (e) => get().setNodeStatus(e.nodeId, 'running'),
-      'node:finished': (e) => get().setNodeStatus(e.nodeId, 'success', undefined, e.duration),
-      'node:failed': (e) => {
-        const errMsg = e.error instanceof Error ? e.error.message : String(e.error);
-        get().setNodeStatus(e.nodeId, 'failed', errMsg);
-      },
-    });
-
     try {
       // 从选中资产推导输入类型(去硬编码 'image')
       const selectedAsset = assets.find((a) => a.id === selectedAssetId);
@@ -215,10 +197,30 @@ export const createWorkflowSlice: StateCreator<
       const input = await runtime.getAsset(selectedAssetId);
 
       set({ statusMessage: { key: 'status.runningWorkflow' } });
-      const result = await runtime.run(workflow, [input]);
 
-      // 兜底：取消订阅后，根据 result.status 把剩余 pending 节点归位
-      //   - completed: finishedNodeIds 已涵盖所有节点（无需额外处理）
+      // 执行编排下沉到 @lokvis/sdk 的 runWithProgress(订阅节点事件 → run →
+      // 加载输出 → 卸载订阅);store 只把中性的 NodeStatusUpdate 映射到 setNodeStatus。
+      // 修复 review 报告的节点状态粒度问题:completed/failed/cancelled 三种情况下
+      // 节点状态都精确(依赖实时 node:started/finished/failed 事件,而非事后统一改写)。
+      const { result, outputs, failedOutputIds } = await runWithProgress(
+        runtime,
+        workflow,
+        [input],
+        {
+          onNodeStatus: (u) => {
+            if (u.status === 'running') {
+              get().setNodeStatus(u.nodeId, 'running');
+            } else if (u.status === 'success') {
+              get().setNodeStatus(u.nodeId, 'success', undefined, u.duration);
+            } else {
+              get().setNodeStatus(u.nodeId, 'failed', u.error);
+            }
+          },
+        }
+      );
+
+      // 兜底:根据 result.status 把剩余 pending/running 节点归位
+      //   - completed: 节点事件已涵盖所有节点(无需额外处理)
       //   - failed: 失败节点之后未执行的节点标 cancelled
       //   - cancelled: 失败节点之外所有 running/pending 节点标 cancelled
       if (result.status !== 'completed') {
@@ -229,17 +231,7 @@ export const createWorkflowSlice: StateCreator<
         }
       }
 
-      // 加载输出资产。失败时收集失败 id 并设置 error 让用户感知(不静默丢弃)
-      const outputs: Asset[] = [];
-      const failedOutputIds: string[] = [];
-      for (const id of result.outputs) {
-        try {
-          outputs.push(await runtime.getAsset(id));
-        } catch (err) {
-          console.warn(`[lokvis] getAsset(${id}) failed:`, err);
-          failedOutputIds.push(id);
-        }
-      }
+      // 输出加载失败不静默丢弃:runWithProgress 收集 failedOutputIds,此处提示用户
       if (failedOutputIds.length > 0) {
         get().setError({
           key: 'error.outputsLoadFailed',
@@ -292,9 +284,9 @@ export const createWorkflowSlice: StateCreator<
       }
       throw err;
     } finally {
-      // W11.6: 清除 currentRunId(成功/失败/取消都应清除)
+      // W11.6: 清除 currentRunId(成功/失败/取消都应清除)。
+      // 事件订阅的卸载由 runWithProgress 的 finally 负责。
       set({ currentRunId: null });
-      offAll();
     }
   },
 

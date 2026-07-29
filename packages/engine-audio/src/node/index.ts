@@ -37,3 +37,13 @@ export {
   transcodeAudio,
   normalizeAudio,
 } from './operations.js';
+
+import type { AudioEngineDescriptor } from '../types.js';
+
+/** Node 音频引擎描述符(ffmpeg-static)— 真实实现,version 不含 'stub' */
+export const AUDIO_ENGINE: AudioEngineDescriptor = {
+  name: 'ffmpeg-static',
+  version: '0.7.1',
+};
+
+export type { AudioEngineDescriptor } from '../types.js';

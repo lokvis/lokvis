@@ -39,6 +39,7 @@ vi.mock('@lokvis/engine-pdf', () => ({
     new Blob([new Uint8Array([0])], { type: 'application/pdf' })
   ),
   getPdfInfo: vi.fn(async () => ({ pages: 1 })),
+  PDF_ENGINE: { name: 'pdf-lib', version: '0.7.1' },
 }));
 
 const { pdfToolsPluginNode, PLUGIN_ENGINE_NODE } = await import('../node-plugin.js');

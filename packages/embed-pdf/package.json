@@ -45,7 +45,8 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
-    "@lokvis/engine-pdf": "workspace:*",
+    "@lokvis/embed-kit": "workspace:*",
+    "@lokvis/i18n": "workspace:*",
     "@lokvis/plugin-pdf": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/sdk": "workspace:*",

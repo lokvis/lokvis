@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@lokvis/schema": "workspace:*",
+    "@lokvis/i18n": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/sdk": "workspace:*",
     "@lokvis/ui-core": "workspace:*",

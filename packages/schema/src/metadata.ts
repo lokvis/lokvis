@@ -56,3 +56,23 @@ export interface VideoInfo {
   fps: number;
   codec: string;
 }
+
+/**
+ * MetadataReader 名称常量(跨层单一事实源)。
+ *
+ * Plugin 通过 ctx.registerMetadataReader(name, fn) 注册,Runtime 按名查表调用。
+ * 名称此前散落在 runtime(asset-manager 硬编码字符串)与各 plugin(各自定义
+ * EXIF_READER_NAME 等常量),存在漂移风险。收敛到 schema 层后:
+ * - Runtime asset-manager 直接引用本常量
+ * - 各 plugin 的导出常量(EXIF_READER_NAME 等)改为 re-export 本常量的字段
+ */
+export const METADATA_READER_NAMES = {
+  imageExif: 'image.read-exif',
+  imageMetadata: 'image.read-metadata',
+  pdfInfo: 'pdf.read-info',
+  videoInfo: 'video.read-info',
+} as const;
+
+/** MetadataReader 名称联合类型(由 METADATA_READER_NAMES 派生) */
+export type MetadataReaderName =
+  (typeof METADATA_READER_NAMES)[keyof typeof METADATA_READER_NAMES];

@@ -4,12 +4,15 @@
  * 5 个内置模板,覆盖常见图片处理场景:
  *   1. Web 优化 - resize + compress(webp),适用于网页素材
  *   2. 社媒批量 - resize(1080) + watermark,适用于 Instagram/Twitter
- *   3. 电商主图 - resize(800) + compress(jpeg) + watermark(店铺名)
+ *   3. 电商主图 - resize(800) + compress(jpeg) + watermark
  *   4. 打印预处理 - resize(高分辨率) + convert(png),无损打印
  *   5. 截图压缩 - resize(1280) + compress(png, 低质量),减小体积
  *
  * 每个模板仅含 capability + 默认 params,由 loadWorkflowTemplate() 应用到 store。
  * 用户应用模板后仍可在 Inspector 调整参数。
+ *
+ * 名称 / 描述以 i18n 键(nameKey / descriptionKey)承载,由 UI 层 t() 解析,
+ * 数据层不内嵌本地化文案(架构评审 #10)。
  *
  * @module workflow-templates
  */
@@ -26,10 +29,10 @@ export interface WorkflowTemplateNode {
 export interface WorkflowTemplate {
   /** 模板 ID(唯一) */
   id: string;
-  /** 模板名称(中文) */
-  name: string;
-  /** 模板描述 */
-  description: string;
+  /** i18n 键:模板名称(由 UI 层 t() 解析,数据层不内嵌本地化文案) */
+  nameKey: string;
+  /** i18n 键:模板描述 */
+  descriptionKey: string;
   /** 图标 emoji(用于 UI 展示) */
   icon: string;
   /** 模板分类 */
@@ -42,8 +45,8 @@ export interface WorkflowTemplate {
 export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'tpl-web-optimize',
-    name: 'Web 优化',
-    description: '调整尺寸并压缩为 WebP,适用于网页素材',
+    nameKey: 'workflowTemplates.tpl.webOptimize.name',
+    descriptionKey: 'workflowTemplates.tpl.webOptimize.desc',
     icon: '🌐',
     category: 'web',
     nodes: [
@@ -59,8 +62,8 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   },
   {
     id: 'tpl-social-batch',
-    name: '社媒批量',
-    description: '统一为 1080px 并添加水印,适用于 Instagram/Twitter',
+    nameKey: 'workflowTemplates.tpl.socialBatch.name',
+    descriptionKey: 'workflowTemplates.tpl.socialBatch.desc',
     icon: '📱',
     category: 'social',
     nodes: [
@@ -76,8 +79,8 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   },
   {
     id: 'tpl-ecommerce-main',
-    name: '电商主图',
-    description: '800px 主图 + JPEG 压缩 + 店铺水印',
+    nameKey: 'workflowTemplates.tpl.ecommerceMain.name',
+    descriptionKey: 'workflowTemplates.tpl.ecommerceMain.desc',
     icon: '🛒',
     category: 'ecommerce',
     nodes: [
@@ -91,14 +94,14 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       },
       {
         capability: 'image.watermark',
-        params: { text: '店铺名', position: 'center', opacity: 0.3 },
+        params: { text: '@shop', position: 'center', opacity: 0.3 },
       },
     ],
   },
   {
     id: 'tpl-print-prep',
-    name: '打印预处理',
-    description: '高分辨率 resize + PNG 无损转换,适用于打印',
+    nameKey: 'workflowTemplates.tpl.printPrep.name',
+    descriptionKey: 'workflowTemplates.tpl.printPrep.desc',
     icon: '🖨️',
     category: 'print',
     nodes: [
@@ -114,8 +117,8 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   },
   {
     id: 'tpl-screenshot-compress',
-    name: '截图压缩',
-    description: '缩小到 1280px 并压缩为低质量 PNG,减小体积',
+    nameKey: 'workflowTemplates.tpl.screenshotCompress.name',
+    descriptionKey: 'workflowTemplates.tpl.screenshotCompress.desc',
     icon: '📸',
     category: 'utility',
     nodes: [

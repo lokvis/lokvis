@@ -12,7 +12,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ─── mock canvas-engine(W21.4:让 image.resize / image.probe 在 Node 可运行)──
-// 所有操作依赖 canvasEngine.decode / encode、createCanvas、get2DContext。
+// 所有操作依赖 decodeImage / encodeImage、createCanvas、get2DContext。
 // mock 后可验证 createImageWorkerHandler 对 Blob 结果的 transfer list 行为。
 //
 // 注意:本测试文件通过静态 import 加载 worker-adapter(→ operations → canvas-engine),
@@ -26,10 +26,8 @@ const { mockDecode, mockEncode } = vi.hoisted(() => ({
 }));
 
 vi.mock('../canvas-engine.js', () => ({
-  canvasEngine: {
-    decode: mockDecode,
-    encode: mockEncode,
-  },
+  decodeImage: mockDecode,
+  encodeImage: mockEncode,
   createCanvas: vi.fn((w: number, h: number) => ({
     width: w,
     height: h,

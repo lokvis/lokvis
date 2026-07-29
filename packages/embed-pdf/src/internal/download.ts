@@ -1,54 +1,33 @@
 /**
- * PDF 文件信息与下载工具(@lokvis/embed-pdf 内部)。
+ * PDF 文件信息工具(@lokvis/embed-pdf 内部)。
+ *
+ * 仅承载 PDF 专属元信息(PdfFileInfo / getPdfFileInfo)。通用下载 /
+ * 字节格式化分别属 @lokvis/embed-kit(downloadBlob)与 @lokvis/runtime
+ * (formatBytes),消费方直接从对应包导入,不在此中转。
  */
-import { getPdfInfo } from '@lokvis/engine-pdf';
 
 /** PDF 文件元信息 */
 export interface PdfFileInfo {
   /** 文件大小(bytes) */
   size: number;
-  /** 页数(解析失败时为 null) */
+  /** 页数(未知时为 null) */
   pageCount: number | null;
   /** MIME 类型 */
   format: string;
 }
 
 /**
- * 获取 PDF 文件基本信息。
- * 页数通过 engine-pdf 的 getPdfInfo(pdf-lib)解析;解析失败时 pageCount=null。
+ * 由 Blob 与已知页数构造 PdfFileInfo(纯函数)。
+ *
+ * 页数不在此解析:embed-pdf 属顶层消费者,遵循五层单向依赖,不直接 import
+ * engine-pdf。调用方(usePdfTool)持有 runtime 与 assetId,经
+ * `runtime.readAssetPdfInfo(id)`(MetadataReader 依赖反转)读取页数后传入。
+ * 无 runtime 场景可传 null。
  */
-export async function getPdfFileInfo(blob: Blob): Promise<PdfFileInfo> {
-  let pageCount: number | null = null;
-  try {
-    const info = await getPdfInfo(blob);
-    pageCount = info.pages;
-  } catch {
-    // 解析失败(加密/损坏)不阻塞,pageCount 留 null
-  }
+export function getPdfFileInfo(blob: Blob, pageCount: number | null = null): PdfFileInfo {
   return {
     size: blob.size,
     pageCount,
     format: blob.type || 'application/pdf',
   };
-}
-
-/** 触发浏览器下载 */
-export function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-/** 格式化文件大小 */
-export function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / 1024 ** i;
-  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
 }

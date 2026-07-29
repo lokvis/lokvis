@@ -19,7 +19,7 @@ import { useLang } from './i18n/useLang';
 import { useTranslations } from './i18n/utils';
 import type { Language } from './i18n/config';
 import type { EmbedTranslations } from './i18n/EmbedI18nProvider';
-import { formatBytes } from './internal/download';
+import { formatBytes } from '@lokvis/runtime';
 import {
   BusyOverlay as DefaultBusyOverlay,
   FileInfoBar as DefaultFileInfoBar,

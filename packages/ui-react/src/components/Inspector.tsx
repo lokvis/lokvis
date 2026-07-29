@@ -50,7 +50,7 @@ export function Inspector({ className = '' }: InspectorProps) {
 
  return (
  <aside
- className={`flex w-72 shrink-0 flex-col border-l border-[var(--lokvis-border)] ${className}`}
+ className={`flex w-72 shrink-0 flex-col ${className}`}
  >
  {/* EXIF panel (selected image asset only, hides automatically for non-image) */}
  <ExifPanel />
@@ -63,13 +63,13 @@ export function Inspector({ className = '' }: InspectorProps) {
  onClick={() => setConfigureOpen(!configureOpen)}
  aria-expanded={configureOpen}
  aria-controls={`configure-panel-${selectedNode.id}`}
- className="flex w-full items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] text-left transition-colors hover:bg-[var(--lokvis-surface)]"
+ className="flex w-full items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] text-left transition-colors hover:bg-[var(--lokvis-surface-muted)]"
  >
  <div className="flex items-center gap-2">
  <Icon size={12} className={`text-[var(--lokvis-fg-subtle)] transition-transform ${configureOpen ? 'rotate-90' : ''}`}><path d="m9 5 7 7-7 7" /></Icon>
  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">{t('inspector.configure')}</span>
  </div>
- <span className="font-mono text-[10px] text-[var(--lokvis-primary)] bg-[var(--lokvis-primary)]/10 px-1.5 py-0.5 rounded">
+ <span className="font-mono text-[11px] text-[var(--lokvis-primary)] bg-[var(--lokvis-primary)]/10 px-1.5 py-0.5 rounded">
  {selectedNode.capability}
  </span>
  </button>
@@ -112,7 +112,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  {capabilities.length === 0 ? (
  <div className="px-2 py-8 text-center">
  <p className="text-[11px] text-[var(--lokvis-fg-subtle)]">{t('inspector.empty')}</p>
- <p className="mt-1 text-[10px] text-[var(--lokvis-fg-muted)]">{t('inspector.emptyHint')}</p>
+ <p className="mt-1 text-[11px] text-[var(--lokvis-fg-muted)]">{t('inspector.emptyHint')}</p>
  </div>
  ) : filtered.length === 0 ? (
  <p className="px-2 py-4 text-[11px] text-[var(--lokvis-fg-subtle)]">{t('inspector.noMatch')}</p>
@@ -120,7 +120,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  <div className="space-y-3">
  {Array.from(grouped.entries()).map(([group, caps]) => (
  <div key={group}>
- <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
+ <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
  {group}
  </div>
  <ul className="space-y-0.5">
@@ -136,8 +136,8 @@ export function Inspector({ className = '' }: InspectorProps) {
  title={isStubOnly ? t('inspector.comingSoon') : undefined}
  className={`group w-full rounded-md px-2 py-1.5 text-left transition-all ${
  isInPipeline
- ? 'bg-[var(--lokvis-primary)]/5 ring-1 ring-[var(--lokvis-primary)]/40'
- : 'hover:bg-[var(--lokvis-surface)]'
+ ? 'bg-[var(--lokvis-primary-soft)] ring-1 ring-[var(--lokvis-primary)]/40'
+ : 'hover:bg-[var(--lokvis-surface-muted)]'
  }`}
  >
  <div className="flex items-center justify-between gap-2">
@@ -146,11 +146,11 @@ export function Inspector({ className = '' }: InspectorProps) {
  {capabilityLabel(cap)}
  </span>
  {isStubOnly ? (
- <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-medium uppercase bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]">
+ <span className="shrink-0 rounded px-1 py-0.5 text-[11px] font-medium uppercase bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]">
  {t('inspector.soon')}
  </span>
  ) : (
- <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-medium uppercase ${
+ <span className={`shrink-0 rounded px-1 py-0.5 text-[11px] font-medium uppercase ${
  cap.performance === 'fast'
  ? 'bg-[var(--lokvis-success)]/15 text-[var(--lokvis-success)]'
  : cap.performance === 'medium'
@@ -161,7 +161,7 @@ export function Inspector({ className = '' }: InspectorProps) {
  </span>
  )}
  </div>
- <p className="mt-0.5 truncate text-[10px] text-[var(--lokvis-fg-muted)]">{cap.description}</p>
+ <p className="mt-0.5 truncate text-[11px] text-[var(--lokvis-fg-muted)]">{cap.description}</p>
  </button>
  </li>
  );

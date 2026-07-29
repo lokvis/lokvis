@@ -45,3 +45,13 @@ export {
   screenshotVideo,
   getVideoInfo,
 } from './operations.js';
+
+import type { VideoEngineDescriptor } from '../types.js';
+
+/** Node 视频引擎描述符(ffmpeg-static)— 真实实现,version 不含 'stub' */
+export const VIDEO_ENGINE: VideoEngineDescriptor = {
+  name: 'ffmpeg-static',
+  version: '0.7.1',
+};
+
+export type { VideoEngineDescriptor } from '../types.js';

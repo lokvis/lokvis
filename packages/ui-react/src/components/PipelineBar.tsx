@@ -26,7 +26,7 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
 
  return (
  <div className={`flex h-10 shrink-0 items-center gap-2 border-t border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-3 ${className}`}>
- <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)] shrink-0">
+ <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)] shrink-0">
  {t('pipelineBar.title')}
  </span>
 
@@ -37,7 +37,7 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  ) : (
  <div className="flex flex-1 items-center gap-1 overflow-x-auto min-w-0">
  {/* Source indicator */}
- <div className="flex items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[10px] font-medium text-[var(--lokvis-fg-muted)] shrink-0">
+ <div className="flex items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[11px] font-medium text-[var(--lokvis-fg-muted)] shrink-0">
  <Icon size={12}><path d="M12 4.5v15m7.5-7.5h-15" /></Icon>
  {t('pipelineBar.source')}
  </div>
@@ -105,7 +105,7 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
  <Icon size={12} className="shrink-0 text-[var(--lokvis-fg-subtle)]">
  <path d="m9 5 7 7-7 7" />
  </Icon>
- <div className="flex items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[10px] font-medium text-[var(--lokvis-fg-muted)] shrink-0">
+ <div className="flex items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[11px] font-medium text-[var(--lokvis-fg-muted)] shrink-0">
  <Icon size={12}><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></Icon>
  {t('pipelineBar.output')}
  </div>
@@ -114,7 +114,7 @@ export function PipelineBar({ className = '' }: PipelineBarProps) {
 
  {/* Step count */}
  {nodes.length > 0 && (
- <span className="shrink-0 text-[10px] tabular-nums text-[var(--lokvis-fg-subtle)]">
+ <span className="shrink-0 text-[11px] tabular-nums text-[var(--lokvis-fg-subtle)]">
  {t(pluralKey(lang, 'pipelineBar.stepCount', nodes.length), { count: nodes.length })}
  </span>
  )}

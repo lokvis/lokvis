@@ -114,22 +114,18 @@ export interface DecodedImage {
   height: number;
 }
 
-/** 引擎适配器接口（与 whitepaper §6.1 EngineAdapter 对齐） */
-export interface ImageEngineAdapter {
+/**
+ * 图像引擎描述符。
+ *
+ * 与 engine-pdf 的 PDF_ENGINE / engine-video 的 VIDEO_ENGINE 对齐:引擎不再是
+ * 带方法的适配器对象 + 注册表,而是「一组独立纯函数(decodeImage / encodeImage /
+ * operations)+ 一个描述符常量」。描述符仅承载元数据,供 plugin-image 单点
+ * 推导 engine 级 stub 状态(version 含 'stub')。
+ */
+export interface ImageEngineDescriptor {
   name: ImageEngineName;
   version: string;
   supportedCapabilities: string[];
-  isSupported(): Promise<boolean>;
-  initialize?(): Promise<void>;
-  dispose?(): Promise<void>;
-
-  // 基础操作
-  decode(blob: Blob): Promise<DecodedImage>;
-  encode(
-    canvas: HTMLCanvasElement | OffscreenCanvas,
-    format: ImageOutputFormat,
-    quality?: number
-  ): Promise<Blob>;
 }
 
 /** 引擎能力检测：当前浏览器支持哪些图像格式编码 */
@@ -192,10 +188,12 @@ export interface StreamingImageOperation {
 }
 
 /**
- * 流式引擎适配器:在 ImageEngineAdapter 基础上,
- * 额外支持按 tile 解码/编码(供 W3.2 tile-based 处理使用)。
+ * 流式引擎的附加能力(供未来 WASM / WebCodecs 引擎实现)。
+ *
+ * 基础 decode / encode 已是 engine-image 的独立纯函数;流式引擎在其之上
+ * 额外提供按 tile 解码 / chunk 合并。为 reserved 类型,当前无实现。
  */
-export interface StreamingImageEngineAdapter extends ImageEngineAdapter {
+export interface StreamingImageEngineAdapter {
   /** 按区域解码(仅解码指定 tile,而非整张图) */
   decodeRegion?(blob: Blob, tile: ImageTile): Promise<DecodedImage>;
   /** 将多个 chunk 合并为单个 Blob(编码拼合) */

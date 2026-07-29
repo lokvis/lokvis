@@ -48,6 +48,7 @@ vi.mock('@lokvis/engine-video/node', () => ({
     fps: 30,
     codec: 'h264',
   })),
+  VIDEO_ENGINE: { name: 'ffmpeg-static', version: '0.7.1' },
 }));
 
 const { videoToolsPluginNode, PLUGIN_ENGINE_NODE, VIDEO_INFO_READER_NAME } =

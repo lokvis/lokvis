@@ -31,6 +31,7 @@ import {
 import type {
   AssetMetadata,
   AssetType,
+  BuiltinCapabilityName,
   CapabilityImplementation,
   PluginContext,
 } from '@lokvis/schema';
@@ -59,7 +60,7 @@ export type SplitPdfOperation = (
 /** PDF 能力实现绑定项 */
 export interface PdfOperationEntry {
   /** 对应 Capability 名(与 generated 声明的 name 字段关联) */
-  capability: string;
+  capability: BuiltinCapabilityName;
   /** 引擎名 */
   engine: string;
   /** 操作形态:single(1→1) / merge(N→1) / split(1→N) */
@@ -122,7 +123,7 @@ export const PDF_OPERATION_ENTRIES: PdfOperationEntry[] = [
 ];
 
 /** 从输出 Blob 派生新 Asset 的元数据(不读 source,PDF 变换不传播 dimensions) */
-function derivePdfMetadata(outputType: AssetType): (outBlob: Blob) => AssetMetadata {
+export function derivePdfMetadata(outputType: AssetType): (outBlob: Blob) => AssetMetadata {
   const fallback = defaultMimeTypeAndFormat(outputType);
   return (outBlob: Blob) => {
     const mimeType = outBlob.type || fallback.mimeType;

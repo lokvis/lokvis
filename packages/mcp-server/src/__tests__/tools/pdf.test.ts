@@ -244,6 +244,36 @@ describe('PDF tools', () => {
   });
 
   describe('pdfRotate', () => {
+    it('应旋转全部页面(默认)', async () => {
+      const outputPath = join(workdir, 'rotated_all.pdf');
+      const result = await pdfRotate({
+        input_path: testPdfPath1,
+        angle: '90',
+        output_path: outputPath,
+      }, runtime);
+      expect(result.isError).toBeFalsy();
+      const outDoc = await PDFDocument.load(await readFile(outputPath));
+      const pages = outDoc.getPages();
+      expect(pages[0]!.getRotation().angle).toBe(90);
+      expect(pages[1]!.getRotation().angle).toBe(90);
+    });
+
+    it('pages 应透传为 pageNumbers(1-based),仅旋转指定页', async () => {
+      const outputPath = join(workdir, 'rotated_page1.pdf');
+      const result = await pdfRotate({
+        input_path: testPdfPath1,
+        angle: '90',
+        pages: [1],
+        output_path: outputPath,
+      }, runtime);
+      expect(result.isError).toBeFalsy();
+      const outDoc = await PDFDocument.load(await readFile(outputPath));
+      const pages = outDoc.getPages();
+      // pages=[1] 为 1-based,仅第 1 页旋转,第 2 页不变
+      expect(pages[0]!.getRotation().angle).toBe(90);
+      expect(pages[1]!.getRotation().angle).toBe(0);
+    });
+
     it('不存在的文件应返回错误(不抛异常)', async () => {
       const result = await pdfRotate({
         input_path: '/nonexistent/file.pdf',

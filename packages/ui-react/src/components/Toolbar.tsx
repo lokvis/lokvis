@@ -40,7 +40,7 @@ export function Toolbar({ title = 'Lokvis Workspace', rightExtra }: ToolbarProps
  }
 
  return (
- <header className="flex h-[var(--lokvis-toolbar-h)] shrink-0 items-center justify-between border-b border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] px-4">
+ <header className="relative z-10 flex h-[var(--lokvis-toolbar-h)] shrink-0 items-center justify-between bg-[var(--lokvis-surface)] px-4 shadow-[var(--lokvis-elevation-1)]">
  {/* Left: Brand */}
  <div className="flex items-center gap-2.5 min-w-0">
  <span

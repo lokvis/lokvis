@@ -16,7 +16,7 @@ import * as React from 'react';
 import JSZip from 'jszip';
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
-import { formatBytes } from '../utils.js';
+import { formatBytes } from '@lokvis/runtime';
 import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
 import { useWorkspaceTranslations } from '../i18n/utils.js';
 
@@ -178,15 +178,15 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
  className="flex shrink-0 flex-col gap-1 rounded-md border border-[var(--lokvis-border)] p-2"
  >
  <div className="flex items-center gap-2">
- <span className="rounded bg-[var(--lokvis-surface-muted)] px-1 py-0.5 text-[9px] font-medium text-[var(--lokvis-fg-muted)]">
+ <span className="rounded bg-[var(--lokvis-surface-muted)] px-1 py-0.5 text-[11px] font-medium text-[var(--lokvis-fg-muted)]">
  {asset.metadata.format.toUpperCase()}
  </span>
  {dims && (
- <span className="text-[10px] text-[var(--lokvis-fg-muted)] tabular-nums">
+ <span className="text-[11px] text-[var(--lokvis-fg-muted)] tabular-nums">
  {dims.width}×{dims.height}
  </span>
  )}
- <span className="text-[10px] text-[var(--lokvis-fg-subtle)] tabular-nums">
+ <span className="text-[11px] text-[var(--lokvis-fg-subtle)] tabular-nums">
  {formatBytes(asset.metadata.size)}
  </span>
  </div>
@@ -194,7 +194,7 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
  <button
  type="button"
  onClick={() => void handleDownloadOne(asset.id)}
- className={`flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+ className={`flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
  isDownloaded
  ? 'bg-[var(--lokvis-success)]/15 text-[var(--lokvis-success)]'
  : 'bg-[var(--lokvis-primary)]/15 text-[var(--lokvis-primary)] hover:bg-[var(--lokvis-primary)]/25'
@@ -215,14 +215,14 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
  type="button"
  onClick={() => void handleDownloadAll()}
  disabled={batchDownloading || allDownloaded}
- className="rounded-md bg-[var(--lokvis-primary-hover)] px-2.5 py-1 text-[10px] font-medium text-[var(--lokvis-primary-fg)] hover:bg-[var(--lokvis-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+ className="rounded-md bg-[var(--lokvis-primary-hover)] px-2.5 py-1 text-[11px] font-medium text-[var(--lokvis-primary-fg)] hover:bg-[var(--lokvis-primary)] disabled:cursor-not-allowed disabled:opacity-50"
  >
  {batchDownloading ? t('downloadPanel.downloading') : t('downloadPanel.downloadAll')}
  </button>
  <button
  type="button"
  onClick={handleClear}
- className="rounded-md px-2 py-1 text-[10px] text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)] hover:text-[var(--lokvis-fg-muted)]"
+ className="rounded-md px-2 py-1 text-[11px] text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)] hover:text-[var(--lokvis-fg-muted)]"
  >
  {t('downloadPanel.clear')}
  </button>
@@ -230,7 +230,7 @@ export function DownloadPanel({ className = '' }: DownloadPanelProps) {
  </div>
 
  {error && (
- <p className="px-3 pb-2 text-[10px] text-[var(--lokvis-danger)]" role="alert">
+ <p className="px-3 pb-2 text-[11px] text-[var(--lokvis-danger)]" role="alert">
  {error}
  </p>
  )}

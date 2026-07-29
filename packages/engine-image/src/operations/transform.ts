@@ -16,7 +16,7 @@ import type {
   ResizeParams,
   RotateParams,
 } from '../types.js';
-import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
+import { decodeImage, createCanvas, get2DContext } from '../canvas-engine.js';
 import { computeTargetSize, inferFormat, throwIfAborted } from './utils.js';
 import { embedPngDpi } from './png-metadata.js';
 import { encodeSmart } from './wasm-encode.js';
@@ -37,7 +37,7 @@ export async function resize(
   params: Record<string, any>,
   signal?: AbortSignal
 ): Promise<Blob> {
-  const { bitmap, width: srcW, height: srcH } = await canvasEngine.decode(blob);
+  const { bitmap, width: srcW, height: srcH } = await decodeImage(blob);
   try {
     throwIfAborted(signal);
     const p = params as ResizeParams;
@@ -102,7 +102,7 @@ export async function crop(
   signal?: AbortSignal
 ): Promise<Blob> {
   const { x, y, width, height } = params as CropParams;
-  const { bitmap } = await canvasEngine.decode(blob);
+  const { bitmap } = await decodeImage(blob);
   try {
     throwIfAborted(signal);
     const canvas = createCanvas(width, height);
@@ -123,7 +123,7 @@ export async function rotate(
   signal?: AbortSignal
 ): Promise<Blob> {
   const { angle: rawAngle, background } = params as RotateParams;
-  const { bitmap, width, height } = await canvasEngine.decode(blob);
+  const { bitmap, width, height } = await decodeImage(blob);
   try {
     throwIfAborted(signal);
     const angle = ((rawAngle % 360) + 360) % 360;
@@ -152,7 +152,7 @@ export async function flip(
   signal?: AbortSignal
 ): Promise<Blob> {
   const { axis } = params as FlipParams;
-  const { bitmap, width, height } = await canvasEngine.decode(blob);
+  const { bitmap, width, height } = await decodeImage(blob);
   try {
     throwIfAborted(signal);
     const canvas = createCanvas(width, height);

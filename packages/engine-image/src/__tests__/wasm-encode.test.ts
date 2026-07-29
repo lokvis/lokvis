@@ -6,9 +6,9 @@
  * - 原生支持的格式走 canvas 路径
  * - 原生探测结果模块级缓存（探测一次）
  * - avif 原生不支持 + wasm 启用 → encodeAvifWasm（getImageData 提取像素）
- * - avif 原生不支持 + wasm 禁用 → 回退 canvasEngine.encode（保持 throw 语义）
- * - avif 原生不支持 + 无 Worker 环境（Node/SSR）→ 回退 canvasEngine.encode
- * - 无兜底格式（gif）→ 回退 canvasEngine.encode（保持 throw 语义）
+ * - avif 原生不支持 + wasm 禁用 → 回退 encodeImage（保持 throw 语义）
+ * - avif 原生不支持 + 无 Worker 环境（Node/SSR）→ 回退 encodeImage
+ * - 无兜底格式（gif）→ 回退 encodeImage（保持 throw 语义）
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -18,7 +18,7 @@ const mockGetImageData = vi.fn();
 const mockEncodeAvifWasm = vi.fn();
 
 vi.mock('../canvas-engine.js', () => ({
-  canvasEngine: { encode: mockCanvasEncode },
+  encodeImage: mockCanvasEncode,
   detectFormatSupport: mockDetectFormatSupport,
   get2DContext: vi.fn(() => ({ getImageData: mockGetImageData })),
 }));

@@ -31,6 +31,7 @@ import {
 import type {
   AssetMetadata,
   AssetType,
+  BuiltinCapabilityName,
   CapabilityImplementation,
   PluginContext,
 } from '@lokvis/schema';
@@ -39,6 +40,7 @@ import {
   normalizeAudio,
   transcodeAudio,
   mergeAudios,
+  AUDIO_ENGINE,
 } from '@lokvis/engine-audio';
 
 /** 单输入 → 单输出操作(1→1) */
@@ -56,7 +58,7 @@ export type MergeAudioOperation = (
 /** 音频能力实现绑定项(capability name → engine + operation + outputType) */
 export interface AudioOperationEntry {
   /** 对应 Capability 名(与 generated 声明的 name 字段关联) */
-  capability: string;
+  capability: BuiltinCapabilityName;
   /** 引擎名 */
   engine: string;
   /** 输出 Asset 类型 */
@@ -65,8 +67,8 @@ export interface AudioOperationEntry {
   operation: AudioOperation;
 }
 
-/** 浏览器版引擎名(与 PLUGIN_ENGINE 对齐;概念上对应 ffmpeg.wasm,虽浏览器端不加载) */
-const BROWSER_ENGINE = 'ffmpeg-wasm' as const;
+/** 浏览器版引擎名(单一来源:engine-audio 默认入口的 AUDIO_ENGINE 描述符) */
+const BROWSER_ENGINE = AUDIO_ENGINE.name;
 
 /** 1→1 能力实现绑定(merge 单独走 createMergeCapabilityImpl) */
 export const AUDIO_OPERATION_ENTRIES: AudioOperationEntry[] = [
@@ -77,7 +79,7 @@ export const AUDIO_OPERATION_ENTRIES: AudioOperationEntry[] = [
 
 /** merge 操作(单独管理,因形态为 N→1) */
 export const MERGE_OPERATION: {
-  capability: string;
+  capability: BuiltinCapabilityName;
   engine: string;
   outputType: AssetType;
   operation: MergeAudioOperation;
@@ -88,11 +90,11 @@ export const MERGE_OPERATION: {
   operation: mergeAudios,
 };
 
-/** 浏览器版所有操作为 stub(engine-audio 浏览器端不加载 ffmpeg.wasm) */
-const isStub = true;
+/** 浏览器版 stub 状态单点推导(AGENTS.md 约定:version 含 'stub') */
+const isStub = AUDIO_ENGINE.version.includes('stub');
 
 /** 从输出 Blob 派生 audio 类型 Asset 元数据 */
-function deriveAudioMetadata(outBlob: Blob): AssetMetadata {
+export function deriveAudioMetadata(outBlob: Blob): AssetMetadata {
   const fallback = { mimeType: 'audio/mpeg', format: 'mp3' };
   const mimeType = outBlob.type || fallback.mimeType;
   const format = mimeType.split('/')[1] ?? fallback.format;

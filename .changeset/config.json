@@ -5,6 +5,7 @@
   "fixed": [
     [
       "@lokvis/schema",
+      "@lokvis/i18n",
       "@lokvis/capability",
       "@lokvis/workflow",
       "@lokvis/runtime",
@@ -29,7 +30,8 @@
       "@lokvis/mcp-server",
       "@lokvis/embed-image",
       "@lokvis/embed-pdf",
-      "@lokvis/embed-video"
+      "@lokvis/embed-video",
+      "@lokvis/embed-kit"
     ]
   ],
   "linked": [],

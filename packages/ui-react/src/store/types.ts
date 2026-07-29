@@ -195,5 +195,5 @@ export type WorkspaceStore = WorkspaceState & WorkspaceActions;
 
 /** 生成节点 ID */
 export function genNodeId(): string {
-  return `node_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  return `node_${crypto.randomUUID()}`;
 }

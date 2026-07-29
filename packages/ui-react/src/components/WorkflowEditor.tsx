@@ -108,11 +108,11 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  {/* 顶部:标题 + 步数 + 清空 */}
  <div className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--lokvis-border)] px-3">
  <div className="flex items-center gap-2">
- <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
+ <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
  {t('workflowEditor.title')}
  </span>
  <span
- className={`rounded px-1.5 py-0.5 text-[10px] tabular-nums ${
+ className={`rounded px-1.5 py-0.5 text-[11px] tabular-nums ${
  canAddMore
  ? 'bg-[var(--lokvis-surface-muted)] text-[var(--lokvis-fg-muted)]'
  : 'bg-[var(--lokvis-warning)]/15 text-[var(--lokvis-warning)]'
@@ -125,7 +125,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  <button
  type="button"
  onClick={() => setClearOpen(true)}
- className="text-[10px] text-[var(--lokvis-fg-subtle)] transition-colors hover:text-[var(--lokvis-danger)]"
+ className="text-[11px] text-[var(--lokvis-fg-subtle)] transition-colors hover:text-[var(--lokvis-danger)]"
  aria-label={t('workflowEditor.clearAria')}
  >
  {t('workflowEditor.clear')}
@@ -144,7 +144,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  ) : (
  <>
  {/* Source indicator */}
- <div className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[10px] font-medium text-[var(--lokvis-fg-muted)]">
+ <div className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[11px] font-medium text-[var(--lokvis-fg-muted)]">
  <Icon size={12}><path d="M12 4.5v15m7.5-7.5h-15" /></Icon>
  {t('workflowEditor.source')}
  </div>
@@ -195,7 +195,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
  } cursor-grab active:cursor-grabbing`}
  >
  {/* 步骤序号 */}
- <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--lokvis-fg)]/5 text-[9px] tabular-nums">
+ <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--lokvis-fg)]/5 text-[11px] tabular-nums">
  {i + 1}
  </span>
  <span className="font-mono">{node.capability}</span>
@@ -227,7 +227,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
 
  {/* Output indicator */}
  {nodes.length > 0 && (
- <div className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[10px] font-medium text-[var(--lokvis-fg-muted)]">
+ <div className="flex shrink-0 items-center gap-1 rounded-md bg-[var(--lokvis-surface-muted)] px-2 py-1 text-[11px] font-medium text-[var(--lokvis-fg-muted)]">
  <Icon size={12}><path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></Icon>
  {t('workflowEditor.output')}
  </div>
@@ -238,7 +238,7 @@ export function WorkflowEditor({ className = '' }: WorkflowEditorProps) {
 
  {/* 提示行 */}
  {nodes.length > 0 && (
- <div className="flex shrink-0 items-center gap-2 border-t border-[var(--lokvis-border)] px-3 py-1 text-[10px] text-[var(--lokvis-fg-subtle)]">
+ <div className="flex shrink-0 items-center gap-2 border-t border-[var(--lokvis-border)] px-3 py-1 text-[11px] text-[var(--lokvis-fg-subtle)]">
  <Icon size={10}><path d="M13 5.5a1 1 0 1 1 2 0 1-1 0 0 0-.5.86L16.5 9l1.5-.5a1 1 0 1 1 0 2l-1.5-.5-1 1.5a1 1 0 1 1-2 0l1-1.5-1-1.5a1 1 0 0 1 0-2z" /></Icon>
  <span>{t('workflowEditor.hint')}</span>
  </div>
@@ -356,7 +356,7 @@ function InsertConnector({
  {/* 列表 */}
  <div className="max-h-48 overflow-y-auto p-1">
  {filtered.length === 0 ? (
- <p className="px-2 py-2 text-center text-[10px] text-[var(--lokvis-fg-subtle)]">{t('workflowEditor.noMatch')}</p>
+ <p className="px-2 py-2 text-center text-[11px] text-[var(--lokvis-fg-subtle)]">{t('workflowEditor.noMatch')}</p>
  ) : (
  filtered.map((cap) => {
  // A7: stub-only 能力显示 "Coming Soon" 标记
@@ -370,7 +370,7 @@ function InsertConnector({
  className="block w-full rounded px-2 py-1 text-left transition-colors hover:bg-[var(--lokvis-primary)]/10"
  >
  <span className="flex items-center justify-between gap-1.5">
- <span className={`block truncate text-[10px] font-medium text-[var(--lokvis-fg-muted)] ${cap.label ? '' : 'font-mono'}`}>
+ <span className={`block truncate text-[11px] font-medium text-[var(--lokvis-fg-muted)] ${cap.label ? '' : 'font-mono'}`}>
  {cap.icon ? <span aria-hidden="true">{cap.icon} </span> : null}
  {capabilityLabel(cap)}
  </span>
@@ -380,7 +380,7 @@ function InsertConnector({
  </span>
  )}
  </span>
- <span className="block truncate text-[9px] text-[var(--lokvis-fg-muted)]">
+ <span className="block truncate text-[11px] text-[var(--lokvis-fg-muted)]">
  {cap.description}
  </span>
  </button>

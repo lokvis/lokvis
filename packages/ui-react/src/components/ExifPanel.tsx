@@ -5,7 +5,7 @@
  * plugin-image 注册的 MetadataReader,展示结构化 EXIF 字段。
  *
  * 架构合规(长期方案):
- * - UI 只依赖 @lokvis/schema(ExifData 类型 + formatExifRows)和 @lokvis/runtime
+ * - UI 只依赖 @lokvis/schema(ExifData 类型)和 @lokvis/runtime,行格式化用本地 exif-format 模块
  * - 不直接依赖 plugin-image / engine-image(五层单向依赖)
  * - ExifData 类型不含 raw 字段(schema 层类型分层),UI 缓存无需手动剔除
  *
@@ -21,7 +21,8 @@
 
 import * as React from 'react';
 import { Icon } from '@lokvis/ui-core';
-import { formatExifRows, type ExifData } from '@lokvis/schema';
+import type { ExifData } from '@lokvis/schema';
+import { formatExifRows } from '../exif-format.js';
 import { useWorkspaceStore } from '../store/index.js';
 import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
 import { pluralKey, useWorkspaceTranslations } from '../i18n/utils.js';
@@ -126,7 +127,7 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
  <button
  type="button"
  onClick={() => setOpen(!open)}
- className="flex w-full items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] text-left transition-colors hover:bg-[var(--lokvis-surface)]"
+ className="flex w-full items-center justify-between px-3 h-[var(--lokvis-panel-header-h)] text-left transition-colors hover:bg-[var(--lokvis-surface-muted)]"
  aria-expanded={open}
  >
  <div className="flex items-center gap-2">
@@ -141,15 +142,15 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
  </span>
  </div>
  {loading ? (
- <span className="text-[10px] text-[var(--lokvis-fg-subtle)]">{t('exifPanel.loading')}</span>
+ <span className="text-[11px] text-[var(--lokvis-fg-subtle)]">{t('exifPanel.loading')}</span>
  ) : exif ? (
- <span className="font-mono text-[10px] text-[var(--lokvis-success)] bg-[var(--lokvis-success)]/10 px-1.5 py-0.5 rounded">
+ <span className="font-mono text-[11px] text-[var(--lokvis-success)] bg-[var(--lokvis-success)]/10 px-1.5 py-0.5 rounded">
  {t(pluralKey(lang, 'exifPanel.fields', rows.length), { count: rows.length })}
  </span>
  ) : error ? (
- <span className="text-[10px] text-[var(--lokvis-danger)]">{t('exifPanel.error')}</span>
+ <span className="text-[11px] text-[var(--lokvis-danger)]">{t('exifPanel.error')}</span>
  ) : (
- <span className="text-[10px] text-[var(--lokvis-fg-subtle)]">{t('exifPanel.none')}</span>
+ <span className="text-[11px] text-[var(--lokvis-fg-subtle)]">{t('exifPanel.none')}</span>
  )}
  </button>
 
@@ -166,7 +167,7 @@ export function ExifPanel({ className = '' }: ExifPanelProps) {
  ) : rows.length === 0 ? (
  <div className="py-4 text-center">
  <p className="text-[11px] text-[var(--lokvis-fg-subtle)]">{t('exifPanel.noData')}</p>
- <p className="mt-1 text-[10px] text-[var(--lokvis-fg-muted)]">
+ <p className="mt-1 text-[11px] text-[var(--lokvis-fg-muted)]">
  {t('exifPanel.noDataHint')}
  </p>
  </div>

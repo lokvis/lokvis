@@ -9,10 +9,10 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Workflow, Plan } from '@lokvis/sdk';
-import { FREE_BATCH_LIMIT } from '@lokvis/runtime';
+import { FREE_BATCH_LIMIT, formatBytes } from '@lokvis/runtime';
+import { downloadBlob } from '@lokvis/embed-kit';
 import { UploadBox } from '@/components/toolkit/UploadBox';
 import { useLokvisRuntime } from '@/components/toolkit/useLokvisRuntime';
-import { downloadBlob, formatBytes } from '@/components/toolkit/download';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PlanToggle } from '@/components/PlanToggle';
 import { UpgradeDialog, type UpgradeReason } from '@/components/UpgradeDialog';

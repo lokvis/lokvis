@@ -179,7 +179,7 @@ export function GlobalDropzone({
  aria-live="polite"
  >
  {/* 遮罩 */}
- <div className="absolute inset-0 bg-[var(--lokvis-primary)]/10/80 backdrop-blur-sm" />
+ <div className="absolute inset-0 bg-[var(--lokvis-primary-soft)] backdrop-blur-sm" />
 
  {/* 内容 */}
  <div
@@ -202,7 +202,7 @@ export function GlobalDropzone({
  <p className="mt-1.5 text-xs text-[var(--lokvis-danger)]/80">
  {rejectedFiles.join(', ')}
  </p>
- <p className="mt-2 text-[10px] text-[var(--lokvis-fg-muted)]">
+ <p className="mt-2 text-[11px] text-[var(--lokvis-fg-muted)]">
  {t('dropzone.accepted', { accept: accept || t('dropzone.allFiles') })}
  </p>
  </>
@@ -219,7 +219,7 @@ export function GlobalDropzone({
  <p className="mt-1 text-xs text-[var(--lokvis-fg-muted)]">
  {t('dropzone.localHint')}
  </p>
- <p className="mt-2 text-[10px] text-[var(--lokvis-fg-subtle)]">
+ <p className="mt-2 text-[11px] text-[var(--lokvis-fg-subtle)]">
  {t('dropzone.accepted', { accept: accept || t('dropzone.allFiles') })}
  </p>
  </>

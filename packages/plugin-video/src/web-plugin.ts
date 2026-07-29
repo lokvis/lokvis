@@ -31,7 +31,6 @@ import {
 } from '@lokvis/plugin-sdk';
 import { VIDEO_CAPABILITIES } from '@lokvis/capability';
 import type {
-  AssetMetadata,
   AssetType,
   CapabilityImplementation,
   PluginContext,
@@ -44,11 +43,16 @@ import {
   extractAudio,
   toGif,
   screenshotVideo,
+  VIDEO_ENGINE,
 } from '@lokvis/engine-video/web';
 import { PLUGIN_NAME, PLUGIN_VERSION } from './plugin.js';
+import { deriveVideoMetadata } from './operations.js';
 
-/** Web 引擎名(底层是 ffmpeg.wasm) */
-export const PLUGIN_ENGINE_WEB = 'ffmpeg-wasm' as const;
+/** Web 引擎名(单一来源:engine-video/web 的 VIDEO_ENGINE 描述符) */
+export const PLUGIN_ENGINE_WEB = VIDEO_ENGINE.name;
+
+/** Web 端 stub 状态单点推导(AGENTS.md 约定:version 含 'stub') */
+const isStub = VIDEO_ENGINE.version.includes('stub');
 
 /** single 形态的 Blob→Blob 操作签名 */
 type SingleVideoOperation = (
@@ -61,29 +65,6 @@ type MergeVideoOperation = (
   blobs: Blob[],
   params: Record<string, unknown>
 ) => Promise<Blob>;
-
-/** 从输出 Blob 派生 video/audio/image 类型 Asset 元数据 */
-function deriveVideoMetadata(outputType: AssetType): (outBlob: Blob) => AssetMetadata {
-  return (outBlob: Blob) => {
-    let fallback: { mimeType: string; format: string };
-    switch (outputType) {
-      case 'video':
-        fallback = { mimeType: 'video/mp4', format: 'mp4' };
-        break;
-      case 'audio':
-        fallback = { mimeType: 'audio/mpeg', format: 'mp3' };
-        break;
-      case 'image':
-        fallback = { mimeType: 'image/png', format: 'png' };
-        break;
-      default:
-        fallback = { mimeType: 'application/octet-stream', format: 'bin' };
-    }
-    const mimeType = outBlob.type || fallback.mimeType;
-    const format = mimeType.split('/')[1] ?? fallback.format;
-    return { mimeType, size: outBlob.size, format };
-  };
-}
 
 /** 1→1 能力绑定(与 operations.ts 的 VIDEO_OPERATION_ENTRIES 对齐) */
 const SINGLE_ENTRIES: Array<{
@@ -139,7 +120,7 @@ export function videoToolsPluginWeb() {
               engine: PLUGIN_ENGINE_WEB,
               outputType: entry.outputType,
               operation: entry.operation,
-              isStub: false,
+              isStub,
               deriveMetadata: (_source, outBlob) => derive(outBlob),
             },
             ctx
@@ -154,9 +135,9 @@ export function videoToolsPluginWeb() {
           {
             capability: 'video.merge',
             engine: PLUGIN_ENGINE_WEB,
-            outputType: 'video' as AssetType,
+            outputType: 'video',
             operation: mergeVideos as MergeVideoOperation,
-            isStub: false,
+            isStub,
             deriveMetadata: mergeDerive,
           },
           ctx

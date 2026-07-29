@@ -65,7 +65,9 @@ export {
 } from './primitives/index';
 
 // ─── Internal utilities (public for advanced consumers) ──
-export { getPdfFileInfo, downloadBlob, formatBytes, type PdfFileInfo } from './internal/download';
+export { getPdfFileInfo, type PdfFileInfo } from './internal/download';
+export { downloadBlob } from '@lokvis/embed-kit';
+export { formatBytes } from '@lokvis/runtime';
 
 // ─── i18n ────────────────────────────────────────────────
 export {

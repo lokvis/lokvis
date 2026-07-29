@@ -74,7 +74,7 @@ Engine 层暴露**纯 Blob → Blob 函数**，它们对 `Asset`、`Workflow` �
 
 ```ts
 // src/engine.ts
-import { canvasEngine, createCanvas, get2DContext } from '@lokvis/engine-image';
+import { decodeImage, encodeImage, createCanvas, get2DContext } from '@lokvis/engine-image';
 import { throwIfAborted } from '@lokvis/engine-image';
 
 /**
@@ -91,7 +91,7 @@ export async function blur(
   signal?: AbortSignal
 ): Promise<Blob> {
   const radius = Number(params.radius ?? 4);
-  const { bitmap, width, height } = await canvasEngine.decode(blob);
+  const { bitmap, width, height } = await decodeImage(blob);
   throwIfAborted(signal);
 
   const canvas = createCanvas(width, height);
@@ -103,7 +103,7 @@ export async function blur(
   bitmap.close?.();
   throwIfAborted(signal);
 
-  return canvasEngine.encode(canvas, 'png', 95);
+  return encodeImage(canvas, 'png', 95);
 }
 ```
 
@@ -268,7 +268,7 @@ import type { Asset, CapabilityImplementation, PluginContext } from '@lokvis/sch
 
 // fake 引擎，使测试无需真实 Canvas 即可运行
 vi.mock('@lokvis/engine-image', () => ({
-  canvasEngine: { version: '0.1.0', decode: vi.fn(), encode: vi.fn(async () => new Blob()) },
+  decodeImage: vi.fn(), encodeImage: vi.fn(async () => new Blob()),
   createCanvas: vi.fn(),
   get2DContext: vi.fn(() => ({ filter: '', drawImage: vi.fn() })),
   throwIfAborted: vi.fn(),

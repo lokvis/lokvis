@@ -20,6 +20,7 @@
 import { definePlugin, createBlobCapabilityImpl } from '@lokvis/plugin-sdk';
 import { IMAGE_CAPABILITIES } from '@lokvis/capability';
 import type { ExifData, ImageMetadata } from '@lokvis/schema';
+import { METADATA_READER_NAMES } from '@lokvis/schema';
 import {
   resize as opResize,
   compress as opCompress,
@@ -40,8 +41,8 @@ import type { ImageOperation } from './operations.js';
 /** Node 引擎名(对应 sharpEngine.name) */
 export const PLUGIN_ENGINE_NODE = 'sharp' as const;
 
-/** 元数据读取器名称(图像 dimensions/format 查询,走 MetadataReader 机制) */
-export const IMAGE_METADATA_READER_NAME = 'image.read-metadata';
+/** 元数据读取器名称(单一来源:@lokvis/schema METADATA_READER_NAMES) */
+export const IMAGE_METADATA_READER_NAME = METADATA_READER_NAMES.imageMetadata;
 
 /**
  * 创建图像工具插件(Node 环境,基于 sharp 引擎)

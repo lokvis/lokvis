@@ -4,7 +4,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   CAPABILITY_DOMAINS,
-  CAPABILITY_NAMES,
   domainOf,
   actionOf,
   sameDomain,
@@ -63,35 +62,5 @@ describe('CAPABILITY_DOMAINS', () => {
     expect(CAPABILITY_DOMAINS).toContain('pdf');
     expect(CAPABILITY_DOMAINS).toContain('ai');
     expect(CAPABILITY_DOMAINS).toContain('asset');
-  });
-});
-
-describe('CAPABILITY_NAMES', () => {
-  it('每个能力名应符合 domain.action 命名规范', () => {
-    for (const [, name] of Object.entries(CAPABILITY_NAMES)) {
-      expect(name).toMatch(/^[a-z]+\.[a-z-]+$/);
-    }
-  });
-
-  it('应包含图像核心能力', () => {
-    expect(CAPABILITY_NAMES.IMAGE_RESIZE).toBe('image.resize');
-    expect(CAPABILITY_NAMES.IMAGE_COMPRESS).toBe('image.compress');
-    expect(CAPABILITY_NAMES.IMAGE_CONVERT).toBe('image.convert');
-    expect(CAPABILITY_NAMES.IMAGE_CROP).toBe('image.crop');
-  });
-
-  it('应包含 PDF 核心能力', () => {
-    expect(CAPABILITY_NAMES.PDF_MERGE).toBe('pdf.merge');
-    expect(CAPABILITY_NAMES.PDF_SPLIT).toBe('pdf.split');
-  });
-
-  it('应包含视频核心能力', () => {
-    expect(CAPABILITY_NAMES.VIDEO_COMPRESS).toBe('video.compress');
-    expect(CAPABILITY_NAMES.VIDEO_TRIM).toBe('video.trim');
-  });
-
-  it('应包含 AI 能力', () => {
-    expect(CAPABILITY_NAMES.AI_GENERATE_WORKFLOW).toBe('ai.generate-workflow');
-    expect(CAPABILITY_NAMES.AI_CAPTION).toBe('ai.caption');
   });
 });

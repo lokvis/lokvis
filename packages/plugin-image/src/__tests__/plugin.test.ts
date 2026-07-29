@@ -14,7 +14,7 @@ import type {
 
 // 桩 engine-image 操作，避免依赖 Canvas / createImageBitmap
 vi.mock('@lokvis/engine-image', () => ({
-  canvasEngine: { version: '0.1.0' },
+  IMAGE_ENGINE: { name: 'canvas', version: '0.1.0', supportedCapabilities: [] },
   resize: vi.fn(async (blob: Blob) => blob),
   compress: vi.fn(async (blob: Blob) => blob),
   convert: vi.fn(async (blob: Blob) => blob),

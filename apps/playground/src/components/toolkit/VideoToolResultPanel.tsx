@@ -14,7 +14,8 @@
  */
 import type { ReactNode } from 'react';
 import { UploadBox } from './UploadBox';
-import { downloadBlob, formatBytes } from './download';
+import { downloadBlob } from '@lokvis/embed-kit';
+import { formatBytes } from '@lokvis/runtime';
 import type { UseVideoToolResult } from './useVideoTool';
 import { useLang } from '@/i18n/useLang';
 import { useTranslations } from '@/i18n/utils';

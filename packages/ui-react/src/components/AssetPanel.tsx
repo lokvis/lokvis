@@ -82,7 +82,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
 
  return (
  <aside
- className={`flex w-56 shrink-0 flex-col border-r border-[var(--lokvis-border)] ${className}`}
+ className={`flex w-56 shrink-0 flex-col ${className}`}
  onDragOver={(e) => {
  e.preventDefault();
  setDragging(true);
@@ -123,7 +123,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  <Icon size={16} className="mx-auto">
  <path d="M12 4.5v15m7.5-7.5h-15" />
  </Icon>
- <span className="mt-1 block text-[10px] font-medium">
+ <span className="mt-1 block text-[11px] font-medium">
  {dragging ? tr('assetPanel.dropHere') : tr('assetPanel.addFiles')}
  </span>
  </label>
@@ -142,7 +142,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  role="radio"
  aria-checked={filterType === 'all'}
  onClick={() => setFilterType('all')}
- className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+ className={`rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors ${
  filterType === 'all'
  ? 'bg-[var(--lokvis-primary)]/15 text-[var(--lokvis-primary)]'
  : 'bg-[var(--lokvis-surface-muted)] text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-border)]'
@@ -157,7 +157,7 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  role="radio"
  aria-checked={filterType === t}
  onClick={() => setFilterType(t)}
- className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+ className={`rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors ${
  filterType === t
  ? 'bg-[var(--lokvis-primary)]/15 text-[var(--lokvis-primary)]'
  : 'bg-[var(--lokvis-surface-muted)] text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-border)]'
@@ -188,11 +188,11 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  {/* Asset list */}
  <div className="flex-1 overflow-y-auto px-2 pb-2">
  {assets.length === 0 ? (
- <p className="px-1 py-4 text-center text-[10px] text-[var(--lokvis-fg-subtle)]">
+ <p className="px-1 py-4 text-center text-[11px] text-[var(--lokvis-fg-subtle)]">
  {tr('assetPanel.empty')}
  </p>
  ) : filteredAssets.length === 0 ? (
- <p className="px-1 py-4 text-center text-[10px] text-[var(--lokvis-fg-subtle)]">
+ <p className="px-1 py-4 text-center text-[11px] text-[var(--lokvis-fg-subtle)]">
  {tr('assetPanel.noMatch')}
  </p>
  ) : (
@@ -215,24 +215,24 @@ export function AssetPanel({ className = '' }: AssetPanelProps) {
  selectAsset(asset.id);
  }
  }}
- className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-all ${FOCUS_RING} ${
+ className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-all duration-150 ease-out ${FOCUS_RING} ${
  selected
- ? 'bg-[var(--lokvis-primary)]/10 ring-1 ring-[var(--lokvis-primary)]/40'
- : 'hover:bg-[var(--lokvis-surface)]'
+ ? 'bg-[var(--lokvis-primary-soft)] ring-1 ring-[var(--lokvis-primary)]/40'
+ : 'hover:bg-[var(--lokvis-surface-muted)]'
  }`}
  >
  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-[var(--lokvis-surface-muted)]">
  {thumb ? (
  <img src={thumb} alt="" className="h-full w-full object-cover" />
  ) : (
- <span className="text-[10px] font-medium text-[var(--lokvis-fg-subtle)]">{asset.metadata.format.slice(0, 3).toUpperCase()}</span>
+ <span className="text-[11px] font-medium text-[var(--lokvis-fg-subtle)]">{asset.metadata.format.slice(0, 3).toUpperCase()}</span>
  )}
  </div>
  <div className="min-w-0 flex-1">
  <div className="truncate text-[11px] font-medium">
  {asset.metadata.format}
  </div>
- <div className="text-[10px] text-[var(--lokvis-fg-subtle)]">
+ <div className="text-[11px] text-[var(--lokvis-fg-subtle)]">
  {(asset.metadata.size / 1024).toFixed(1)} KB
  </div>
  </div>

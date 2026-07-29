@@ -9,7 +9,7 @@
  * 不会泄漏(浏览器 GC 不保证立即回收)。
  */
 import type { WatermarkParams, WatermarkPosition } from '../types.js';
-import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
+import { decodeImage, createCanvas, get2DContext } from '../canvas-engine.js';
 import { inferFormat, throwIfAborted } from './utils.js';
 import { encodeSmart } from './wasm-encode.js';
 
@@ -63,7 +63,7 @@ export async function watermark(
     color,
   } = params as WatermarkParams;
 
-  const { bitmap, width, height } = await canvasEngine.decode(blob);
+  const { bitmap, width, height } = await decodeImage(blob);
   try {
     throwIfAborted(signal);
     const canvas = createCanvas(width, height);

@@ -19,7 +19,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import type { UseImageToolResult } from '../internal/useImageTool';
-import { downloadBlob } from '../internal/download';
+import { downloadBlob } from '@lokvis/embed-kit';
 import { ImageCompress } from '../primitives/ImageCompress';
 
 // ─── mock useImageTool ─────────────────────────────────────
@@ -32,10 +32,10 @@ vi.mock('../internal/useImageTool', () => ({
   useImageTool: () => stateRef.current,
 }));
 
-// downloadBlob spy 化:保留 formatBytes 等真实实现,仅替换下载动作
+// downloadBlob spy 化:保留 @lokvis/embed-kit 其他真实实现,仅替换下载动作
 // (jsdom 无 URL.createObjectURL,且测试只关心文件名)
-vi.mock('../internal/download', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../internal/download')>();
+vi.mock('@lokvis/embed-kit', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@lokvis/embed-kit')>();
   return { ...actual, downloadBlob: vi.fn() };
 });
 

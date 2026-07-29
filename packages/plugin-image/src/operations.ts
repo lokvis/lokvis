@@ -13,10 +13,10 @@
  */
 
 import type { PluginContext } from '@lokvis/schema';
-import type { CapabilityImplementation } from '@lokvis/schema';
+import type { BuiltinCapabilityName, CapabilityImplementation } from '@lokvis/schema';
 import { createBlobCapabilityImpl } from '@lokvis/plugin-sdk';
 import {
-  canvasEngine,
+  IMAGE_ENGINE,
   resize as opResize,
   compress as opCompress,
   convert as opConvert,
@@ -39,7 +39,7 @@ export type ImageOperation = (
 /** 图像能力实现绑定项(capability name → engine + operation) */
 export interface ImageOperationEntry {
   /** 对应 Capability 名(与 generated 声明的 name 字段关联) */
-  capability: string;
+  capability: BuiltinCapabilityName;
   /** 引擎名 */
   engine: string;
   /** 实际执行函数(Blob → Blob) */
@@ -75,7 +75,7 @@ export const IMAGE_OPERATION_ENTRIES: ImageOperationEntry[] = [
 ];
 
 /** engine-image stub 检测(AGENTS.md 约定:version.includes('stub')) */
-const isStub = canvasEngine.version.includes('stub');
+const isStub = IMAGE_ENGINE.version.includes('stub');
 
 /**
  * 构造所有图像能力的 CapabilityImplementation

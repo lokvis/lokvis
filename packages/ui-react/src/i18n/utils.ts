@@ -1,14 +1,22 @@
 /**
  * i18n 工具函数（@lokvis/ui-react 内部）。
  *
- * 与 embed-image 同构，额外支持 {name} 参数插值（store 侧消息
- * 如 'Importing {count} file(s)...' 需要 key + params 而非纯字符串）。
- *
- * 翻译优先级：overrides[key][lang] → overrides[key][en] → ui[key][lang]
- *             → ui[key][en] → key 本身。
+ * 语言判定 / URL 解析 / 插值 / 复数 / 翻译回退链统一委托 @lokvis/i18n 核心，
+ * 本文件仅提供绑定本包字典（ui）的类型化封装:
+ *   - t: 绑定 ui 字典的翻译函数
+ *   - useWorkspaceTranslations: React hook（读取 Provider 覆盖）
+ *   - formatMessage / I18nMessage: store 侧 key+params 消息渲染
  */
 import { useCallback } from 'react';
-import { defaultLang, languages, type Language } from './config.js';
+import {
+  defaultLang,
+  languages,
+  translate,
+  getLangFromUrl,
+  pluralKey,
+  type Language,
+  type TranslateParams,
+} from '@lokvis/i18n';
 import { ui } from './ui.js';
 import {
   useWorkspaceI18nContext,
@@ -17,63 +25,16 @@ import {
 
 export type { Language };
 export type { WorkspaceTranslations };
+export type { TranslateParams };
 
-/** 插值参数表：{name} 占位符 → 值 */
-export type TranslateParams = Record<string, string | number>;
+// re-export 核心原语,消费方 import { getLangFromUrl, pluralKey } from utils 保持可用
+export { defaultLang, languages, getLangFromUrl, pluralKey };
 
 /** 翻译函数签名（useWorkspaceTranslations 的返回值） */
 export type TranslateFn = (key: string, params?: TranslateParams) => string;
 
-const SUPPORTED_LANGS: ReadonlySet<string> = new Set(Object.keys(languages));
-
-function isLanguage(lang: string): lang is Language {
-  return SUPPORTED_LANGS.has(lang);
-}
-
-/** 从 URL 路径提取语言（/zh/xxx → 'zh'） */
-export function getLangFromUrl(url: URL | string): Language {
-  let pathname: string;
-  if (typeof url === 'string') {
-    // base 兜底:协议相对 URL(//host/path)无 base 时 new URL 会抛 TypeError
-    pathname =
-      url.startsWith('http') || url.startsWith('//')
-        ? new URL(url, 'http://localhost').pathname
-        : url;
-  } else {
-    pathname = url.pathname;
-  }
-  const [, lang] = pathname.split('/');
-  if (lang && isLanguage(lang)) return lang;
-  return defaultLang;
-}
-
-/** {name} 占位符插值 */
-function interpolate(template: string, params?: TranslateParams): string {
-  if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (match, name: string) =>
-    name in params ? String(params[name]) : match
-  );
-}
-
-const pluralRulesCache = new Map<Language, Intl.PluralRules>();
-
 /**
- * 按语言复数规则选择 `${base}One` / `${base}Other` key。
- *
- * 集中复数选择逻辑,避免组件内硬编码 `count === 1`
- * (如法语中 0 为单数:"0 étape" 而非 "0 étapes")。
- */
-export function pluralKey(lang: Language, base: string, count: number): string {
-  let rules = pluralRulesCache.get(lang);
-  if (!rules) {
-    rules = new Intl.PluralRules(lang);
-    pluralRulesCache.set(lang, rules);
-  }
-  return rules.select(count) === 'one' ? `${base}One` : `${base}Other`;
-}
-
-/**
- * 翻译函数：根据 lang + key 返回对应字符串，支持 {name} 参数插值。
+ * 翻译函数：根据 lang + key 返回本包字典对应字符串，支持 {name} 参数插值。
  *
  * @param lang 当前语言
  * @param key 翻译 key（如 'inspector.title'）
@@ -86,14 +47,7 @@ export function t(
   overrides?: WorkspaceTranslations,
   params?: TranslateParams
 ): string {
-  const override = overrides?.[key];
-  if (override) {
-    const resolved = override[lang] ?? override[defaultLang];
-    if (resolved) return interpolate(resolved, params);
-  }
-  const entry = ui[key]?.[lang] ?? ui[key]?.[defaultLang];
-  if (entry !== undefined) return interpolate(entry, params);
-  return key;
+  return translate(ui, lang, key, overrides, params);
 }
 
 /**
@@ -131,8 +85,8 @@ export interface I18nMessage {
  * （如 engine 抛出的错误文本）原样返回。
  */
 export function formatMessage(
-  translate: TranslateFn,
+  translateFn: TranslateFn,
   message: string | I18nMessage
 ): string {
-  return typeof message === 'string' ? message : translate(message.key, message.params);
+  return typeof message === 'string' ? message : translateFn(message.key, message.params);
 }

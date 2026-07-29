@@ -55,6 +55,8 @@ export default defineConfig({
         'packages/plugin-sdk/src/**/*.ts',
         // M2.1 后 mcp-server 已补齐单测,纳入覆盖率统计
         'packages/mcp-server/src/**/*.ts',
+        // #11 后 i18n 核心已补齐单测,纳入覆盖率统计
+        'packages/i18n/src/**/*.ts',
       ],
       // 排除:测试文件、barrel index、纯类型文件、stub/未测试包
       exclude: [

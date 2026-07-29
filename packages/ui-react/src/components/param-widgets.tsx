@@ -68,7 +68,7 @@ export function SliderWidget({ param, value, onChange }: ParamWidgetProps) {
         className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-[var(--lokvis-border)] accent-[var(--lokvis-primary)]"
         aria-label={param.name}
       />
-      <span className="w-10 shrink-0 text-right text-[10px] tabular-nums text-[var(--lokvis-fg-muted)]">
+      <span className="w-10 shrink-0 text-right text-[11px] tabular-nums text-[var(--lokvis-fg-muted)]">
         {current}
       </span>
     </div>
@@ -140,7 +140,7 @@ export function JsonWidget({ param, value, onChange }: ParamWidgetProps) {
       onChange={(e) => handleText(e.target.value)}
       rows={4}
       spellCheck={false}
-      className={`w-full resize-y rounded-md border bg-[var(--lokvis-surface)] px-2.5 py-1.5 font-mono text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 ${
+      className={`w-full resize-y rounded-md border bg-[var(--lokvis-surface)] px-2.5 py-1.5 font-mono text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 ${
         invalid
           ? 'border-[var(--lokvis-danger)] focus-visible:ring-[var(--lokvis-danger)]/30'
           : 'border-[var(--lokvis-border)] hover:border-[var(--lokvis-border-strong)] focus:border-[var(--lokvis-primary)] focus-visible:ring-[var(--lokvis-primary)]/30'

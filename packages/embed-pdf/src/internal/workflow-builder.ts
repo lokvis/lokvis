@@ -1,10 +1,10 @@
 /**
  * 单步 PDF 工作流构造器(@lokvis/embed-pdf 内部)。
  *
- * 与 @lokvis/embed-image 的 workflow-builder 模式一致,
- * 但 category='pdf'、inputs/outputs type='pdf'。
+ * 复用 @lokvis/embed-kit 的参数化工厂(category='pdf'、inputs/outputs type='pdf'),
+ * 以本包原有导出名 buildSingleStepPdfWorkflow 再导出。
  */
-import type { Workflow } from '@lokvis/sdk';
+import { makeSingleStepWorkflowBuilder } from '@lokvis/embed-kit';
 
 /**
  * 构造单步 PDF Workflow(transform 节点)。
@@ -15,31 +15,10 @@ import type { Workflow } from '@lokvis/sdk';
  * @param description 可选描述
  * @param multiple 是否多输入(merge 场景)
  */
-export function buildSingleStepPdfWorkflow(
-  capability: string,
-  params: Record<string, unknown>,
-  name: string,
-  description?: string,
-  multiple = false
-): Workflow {
-  return {
-    id: `${name.toLowerCase()}-${Date.now()}`,
-    version: '1.0',
-    name,
-    description: description ?? name,
-    author: { id: 'embed-pdf', name: 'Embed PDF' },
-    category: 'pdf',
-    tags: [],
-    nodes: [
-      {
-        id: 'n1',
-        type: 'transform',
-        capability,
-        params,
-      },
-    ],
-    edges: [],
-    inputs: { type: 'pdf', multiple },
-    outputs: { type: 'pdf' },
-  };
-}
+export const buildSingleStepPdfWorkflow = makeSingleStepWorkflowBuilder({
+  category: 'pdf',
+  inputType: 'pdf',
+  outputType: 'pdf',
+  authorId: 'embed-pdf',
+  authorName: 'Embed PDF',
+});

@@ -1,33 +1,15 @@
 /**
  * 单步 Video 工作流构造器(@lokvis/embed-video 内部)。
+ *
+ * 复用 @lokvis/embed-kit 的参数化工厂(category='video'、inputs/outputs type='video'),
+ * 以本包原有导出名 buildSingleStepVideoWorkflow 再导出。
  */
-import type { Workflow } from '@lokvis/sdk';
+import { makeSingleStepWorkflowBuilder } from '@lokvis/embed-kit';
 
-export function buildSingleStepVideoWorkflow(
-  capability: string,
-  params: Record<string, unknown>,
-  name: string,
-  description?: string,
-  multiple = false
-): Workflow {
-  return {
-    id: `${name.toLowerCase()}-${Date.now()}`,
-    version: '1.0',
-    name,
-    description: description ?? name,
-    author: { id: 'embed-video', name: 'Embed Video' },
-    category: 'video',
-    tags: [],
-    nodes: [
-      {
-        id: 'n1',
-        type: 'transform',
-        capability,
-        params,
-      },
-    ],
-    edges: [],
-    inputs: { type: 'video', multiple },
-    outputs: { type: 'video' },
-  };
-}
+export const buildSingleStepVideoWorkflow = makeSingleStepWorkflowBuilder({
+  category: 'video',
+  inputType: 'video',
+  outputType: 'video',
+  authorId: 'embed-video',
+  authorName: 'Embed Video',
+});

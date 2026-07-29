@@ -82,7 +82,7 @@ function ParamField({
 
  if (param.type === 'boolean') {
  return (
- <label className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-[var(--lokvis-surface)]">
+ <label className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-[var(--lokvis-surface-muted)]">
  <input
  type="checkbox"
  checked={Boolean(value ?? param.default)}
@@ -91,7 +91,7 @@ function ParamField({
  />
  <span className="flex-1 text-[11px] text-[var(--lokvis-fg-muted)]">{param.name}</span>
  {param.description && (
- <span className="shrink-0 text-[10px] text-[var(--lokvis-fg-subtle)]">{param.description}</span>
+ <span className="shrink-0 text-[11px] text-[var(--lokvis-fg-subtle)]">{param.description}</span>
  )}
  </label>
  );
@@ -150,7 +150,7 @@ function ParamField({
  {param.required && <span className="ml-0.5 text-[var(--lokvis-danger)]">*</span>}
  </label>
  {(param.min !== undefined || param.max !== undefined) && (
- <span className="text-[10px] text-[var(--lokvis-fg-subtle)]">
+ <span className="text-[11px] text-[var(--lokvis-fg-subtle)]">
  {param.min !== undefined ? param.min : '-'}
  {' — '}
  {param.max !== undefined ? param.max : '∞'}

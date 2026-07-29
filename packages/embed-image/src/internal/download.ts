@@ -1,62 +1,11 @@
 /**
- * 下载工具函数(@lokvis/embed-image 内部副本)。
+ * 图片文件信息工具(@lokvis/embed-image 内部)。
  *
- * 与 apps/playground/src/components/toolkit/download.ts 保持一致;
- * 包内独立维护避免与 playground 相互耦合。
- *
- * - downloadBlob:触发浏览器下载单个 Blob
- * - formatBytes:格式化字节数为人类可读(KB/MB)
- * - getImageInfo:从 Blob 读取 dimensions + format + size
+ * 仅承载图片专属分析(getImageInfo / imageInfoToMeta / detectTransparency 等)。
+ * 通用下载 / 字节格式化分别属 @lokvis/embed-kit(downloadBlob)与
+ * @lokvis/runtime(formatBytes),消费方直接从对应包导入,不在此中转。
  */
-/**
- * 从文件扩展名推断 MIME 类型(兜底)。
- * OPFS 存储后端读取 blob 时 type 可能为空,导致 Object URL 无 Content-Type,
- * 浏览器下载时退化成 application/octet-stream。这里从文件名推断 MIME 补全。
- */
-function inferMimeFromFilename(filename: string): string {
-  const ext = filename.split('.').pop()?.toLowerCase();
-  const MIME_BY_EXT: Record<string, string> = {
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    webp: 'image/webp',
-    avif: 'image/avif',
-    gif: 'image/gif',
-    bmp: 'image/bmp',
-    svg: 'image/svg+xml',
-    ico: 'image/x-icon',
-  };
-  return (ext && MIME_BY_EXT[ext]) || '';
-}
-
-export function downloadBlob(blob: Blob, filename: string): void {
-  // 兜底:blob.type 为空或为 'application/octet-stream'(OPFS .bin 读取的默认
-  // 兜底 MIME)时,从文件名推断真实 MIME type,避免下载为 .octet-stream
-  const OPFS_FALLBACK_MIME = 'application/octet-stream';
-  const needsTypeRepair = !blob.type || blob.type === OPFS_FALLBACK_MIME;
-  const finalBlob = needsTypeRepair
-    ? (() => {
-        const mime = inferMimeFromFilename(filename);
-        return mime ? new Blob([blob], { type: mime }) : blob;
-      })()
-    : blob;
-
-  const url = URL.createObjectURL(finalBlob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  // 给浏览器一点时间发起下载再 revoke
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
+import { formatBytes } from '@lokvis/runtime';
 
 export interface ImageInfo {
   width: number;

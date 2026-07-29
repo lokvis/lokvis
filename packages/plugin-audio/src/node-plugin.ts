@@ -29,20 +29,21 @@ import {
   definePlugin,
 } from '@lokvis/plugin-sdk';
 import { AUDIO_CAPABILITIES } from '@lokvis/capability';
-import type {
-  AssetMetadata,
-  AssetType,
-} from '@lokvis/schema';
 import {
   trimAudio as opTrimAudio,
   normalizeAudio as opNormalizeAudio,
   transcodeAudio as opTranscodeAudio,
   mergeAudios as opMergeAudios,
+  AUDIO_ENGINE,
 } from '@lokvis/engine-audio/node';
 import { PLUGIN_NAME, PLUGIN_VERSION } from './plugin.js';
+import { deriveAudioMetadata } from './operations.js';
 
-/** Node 引擎名(底层为 ffmpeg-static,与浏览器版 'ffmpeg-wasm' 区分) */
-export const PLUGIN_ENGINE_NODE = 'ffmpeg-static' as const;
+/** Node 引擎名(单一来源:engine-audio/node 的 AUDIO_ENGINE 描述符) */
+export const PLUGIN_ENGINE_NODE = AUDIO_ENGINE.name;
+
+/** Node 端 stub 状态单点推导(AGENTS.md 约定:version 含 'stub') */
+const isStub = AUDIO_ENGINE.version.includes('stub');
 
 /** single 形态的 Blob→Blob 操作签名 */
 type SingleAudioOperation = (
@@ -55,14 +56,6 @@ type MergeAudioOperation = (
   blobs: Blob[],
   params: Record<string, unknown>
 ) => Promise<Blob>;
-
-/** 从输出 Blob 派生 audio 类型 Asset 元数据 */
-function deriveAudioMetadata(outBlob: Blob): AssetMetadata {
-  const fallback = { mimeType: 'audio/mpeg', format: 'mp3' };
-  const mimeType = outBlob.type || fallback.mimeType;
-  const format = mimeType.split('/')[1] ?? fallback.format;
-  return { mimeType, size: outBlob.size, format };
-}
 
 /**
  * 创建音频工具插件(Node 环境,基于 ffmpeg-static 引擎)
@@ -102,9 +95,9 @@ export async function audioToolsPluginNode() {
           {
             capability: 'audio.trim',
             engine: PLUGIN_ENGINE_NODE,
-            outputType: 'audio' as AssetType,
+            outputType: 'audio',
             operation: opTrimAudio as SingleAudioOperation,
-            isStub: false,
+            isStub,
             deriveMetadata: (_source, outBlob) => deriveAudioMetadata(outBlob),
           },
           ctx
@@ -114,9 +107,9 @@ export async function audioToolsPluginNode() {
           {
             capability: 'audio.normalize',
             engine: PLUGIN_ENGINE_NODE,
-            outputType: 'audio' as AssetType,
+            outputType: 'audio',
             operation: opNormalizeAudio as SingleAudioOperation,
-            isStub: false,
+            isStub,
             deriveMetadata: (_source, outBlob) => deriveAudioMetadata(outBlob),
           },
           ctx
@@ -126,9 +119,9 @@ export async function audioToolsPluginNode() {
           {
             capability: 'audio.transcode',
             engine: PLUGIN_ENGINE_NODE,
-            outputType: 'audio' as AssetType,
+            outputType: 'audio',
             operation: opTranscodeAudio as SingleAudioOperation,
-            isStub: false,
+            isStub,
             deriveMetadata: (_source, outBlob) => deriveAudioMetadata(outBlob),
           },
           ctx
@@ -140,9 +133,9 @@ export async function audioToolsPluginNode() {
           {
             capability: 'audio.merge',
             engine: PLUGIN_ENGINE_NODE,
-            outputType: 'audio' as AssetType,
+            outputType: 'audio',
             operation: opMergeAudios as MergeAudioOperation,
-            isStub: false,
+            isStub,
             deriveMetadata: deriveAudioMetadata,
           },
           ctx

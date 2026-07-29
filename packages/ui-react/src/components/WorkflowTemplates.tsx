@@ -70,7 +70,7 @@ export function WorkflowTemplates({
  <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--lokvis-fg-subtle)]">
  {t('workflowTemplates.title')}
  </span>
- <span className="text-[10px] text-[var(--lokvis-fg-subtle)]">{t('workflowTemplates.builtIn', { count: WORKFLOW_TEMPLATES.length })}</span>
+ <span className="text-[11px] text-[var(--lokvis-fg-subtle)]">{t('workflowTemplates.builtIn', { count: WORKFLOW_TEMPLATES.length })}</span>
  </div>
  <div className="grid grid-cols-1 gap-1.5 p-2">
  {WORKFLOW_TEMPLATES.map((tpl) => (
@@ -84,14 +84,14 @@ export function WorkflowTemplates({
  <div className="flex-1 min-w-0">
  <div className="flex items-center justify-between gap-1">
  <span className="truncate text-[11px] font-medium text-[var(--lokvis-fg-muted)]">
- {tpl.name}
+ {t(tpl.nameKey)}
  </span>
- <span className="shrink-0 rounded bg-[var(--lokvis-surface-muted)] px-1 py-0.5 text-[9px] font-medium uppercase text-[var(--lokvis-fg-muted)]">
+ <span className="shrink-0 rounded bg-[var(--lokvis-surface-muted)] px-1 py-0.5 text-[11px] font-medium uppercase text-[var(--lokvis-fg-muted)]">
  {t(pluralKey(lang, 'workflowTemplates.stepCount', tpl.nodes.length), { count: tpl.nodes.length })}
  </span>
  </div>
- <p className="mt-0.5 truncate text-[10px] text-[var(--lokvis-fg-muted)]">
- {tpl.description}
+ <p className="mt-0.5 truncate text-[11px] text-[var(--lokvis-fg-muted)]">
+ {t(tpl.descriptionKey)}
  </p>
  {/* 节点链预览 */}
  <div className="mt-1 flex flex-wrap items-center gap-0.5">
@@ -102,7 +102,7 @@ export function WorkflowTemplates({
  <path d="m5 5 5 5-5 5" />
  </Icon>
  )}
- <code className="rounded bg-[var(--lokvis-surface-muted)] px-1 py-0.5 text-[9px] text-[var(--lokvis-fg-muted)]">
+ <code className="rounded bg-[var(--lokvis-surface-muted)] px-1 py-0.5 text-[11px] text-[var(--lokvis-fg-muted)]">
  {n.capability}
  </code>
  </React.Fragment>
@@ -119,7 +119,7 @@ export function WorkflowTemplates({
  title={t('workflowTemplates.applyTitle')}
  message={
  pendingTpl
- ? t('workflowTemplates.applyMessage', { name: pendingTpl.name, count: nodes.length })
+ ? t('workflowTemplates.applyMessage', { name: t(pendingTpl.nameKey), count: nodes.length })
  : ''
  }
  confirmText={t('workflowTemplates.replace')}

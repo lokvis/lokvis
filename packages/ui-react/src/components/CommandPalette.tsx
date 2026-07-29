@@ -165,7 +165,7 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  autoComplete="off"
  spellCheck={false}
  />
- <kbd className="rounded border border-[var(--lokvis-border)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--lokvis-fg-subtle)]">
+ <kbd className="rounded border border-[var(--lokvis-border)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--lokvis-fg-subtle)]">
  ESC
  </kbd>
  </div>
@@ -203,9 +203,9 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  disabled={disabled}
  className={`flex w-full items-center gap-3 px-4 py-2 text-left transition-colors ${
  isActive && !disabled
- ? 'bg-[var(--lokvis-primary)]/10'
+ ? 'bg-[var(--lokvis-primary-soft)]'
  : ''
- } ${disabled ? 'cursor-not-allowed opacity-40' : 'hover:bg-[var(--lokvis-surface)]'}`}
+ } ${disabled ? 'cursor-not-allowed opacity-40' : 'hover:bg-[var(--lokvis-surface-muted)]'}`}
  >
  <span
  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded ${
@@ -232,12 +232,12 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  {primary}
  </span>
  {isCap && (
- <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-medium uppercase bg-[var(--lokvis-surface-muted)] text-[var(--lokvis-fg-muted)]">
+ <span className="shrink-0 rounded px-1 py-0.5 text-[11px] font-medium uppercase bg-[var(--lokvis-surface-muted)] text-[var(--lokvis-fg-muted)]">
  {cmd.cap.performance}
  </span>
  )}
  </div>
- <p className="truncate text-[10px] text-[var(--lokvis-fg-muted)]">
+ <p className="truncate text-[11px] text-[var(--lokvis-fg-muted)]">
  {secondary}
  </p>
  </div>
@@ -249,7 +249,7 @@ export function CommandPalette({ open, onClose, className = '' }: CommandPalette
  </ul>
 
  {/* 底部提示 */}
- <div className="flex items-center justify-between border-t border-[var(--lokvis-border)] px-4 py-2 text-[10px] text-[var(--lokvis-fg-subtle)]">
+ <div className="flex items-center justify-between border-t border-[var(--lokvis-border)] px-4 py-2 text-[11px] text-[var(--lokvis-fg-subtle)]">
  <span className="flex items-center gap-1">
  <kbd className="rounded border border-[var(--lokvis-border)] px-1">↑↓</kbd>
  <span>{t('commandPalette.navigate')}</span>

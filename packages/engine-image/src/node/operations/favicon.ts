@@ -10,7 +10,7 @@
  * 内嵌完整 PNG 文件(Vista+ PNG-in-ICO 规范),bitCount=32(RGBA)。
  *
  * 与浏览器版的区别:
- * - 浏览器版用 canvas drawImage 缩放 + canvasEngine.encode('png')
+ * - 浏览器版用 canvas drawImage 缩放 + encodeImage(canvas, 'png')
  * - Node 版用 sharp resize + .png() 输出
  * - ICO 打包逻辑(packIco)完全相同(纯字节操作,无环境依赖)
  */

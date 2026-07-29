@@ -27,15 +27,17 @@ import type {
   PlatformFitStrategy,
   PlatformRecommendedFormat,
 } from '@lokvis/capability';
+import { FREE_PLAN_LIMITS, PRO_PLAN_LIMITS } from '../gating.js';
+import { LokvisStorageError } from './storage-errors.js';
 
 const STORAGE_KEY = 'lokvis.customPresets';
 /** 同 tab 多实例同步用的自定义事件名 */
 const SYNC_EVENT = 'lokvis:custom-presets-change';
 
-/** 免费用户自定义预设上限 */
-export const FREE_PRESET_LIMIT = 3;
-/** Pro 用户无上限 */
-export const PRO_PRESET_LIMIT = Infinity;
+/** 免费用户自定义预设上限(单一来源:../gating.js) */
+export const FREE_PRESET_LIMIT = FREE_PLAN_LIMITS.customPresets;
+/** Pro 用户无上限(单一来源:../gating.js) */
+export const PRO_PRESET_LIMIT = PRO_PLAN_LIMITS.customPresets;
 
 /** 自定义尺寸预设存储格式 */
 export interface CustomSizePreset {
@@ -166,8 +168,7 @@ export function writeCustomPresetsToStorage(presets: CustomSizePreset[]): boolea
 
 /** 生成唯一 ID(custom. 前缀,与内置预设命名空间隔离) */
 export function genCustomPresetId(): string {
-  const rand = Math.random().toString(36).slice(2, 8);
-  return `custom.${Date.now()}-${rand}`;
+  return `custom.${crypto.randomUUID()}`;
 }
 
 /**
@@ -195,10 +196,18 @@ export function useCustomPresets(isPro = false): UseCustomPresetsResult {
     (input: SavePresetInput): CustomSizePreset => {
       // 输入校验
       if (input.width <= 0 || input.height <= 0) {
-        throw new Error('预设尺寸必须为正数');
+        throw new LokvisStorageError(
+          'preset.invalidSize',
+          'error.presetInvalidSize',
+          'Preset dimensions must be positive numbers'
+        );
       }
       if (!input.name.trim()) {
-        throw new Error('预设名称不能为空');
+        throw new LokvisStorageError(
+          'preset.emptyName',
+          'error.presetEmptyName',
+          'Preset name cannot be empty'
+        );
       }
 
       const current = readCustomPresetsFromStorage();
@@ -229,8 +238,11 @@ export function useCustomPresets(isPro = false): UseCustomPresetsResult {
 
       // 新增
       if (current.length >= limit) {
-        throw new Error(
-          `自定义预设已达上限(${limit} 个)${isPro ? '' : ',升级 Pro 可无限制保存'}`
+        throw new LokvisStorageError(
+          'preset.saveLimit',
+          isPro ? 'error.presetSaveLimit' : 'error.presetSaveLimitUpgrade',
+          `Custom preset limit reached (${limit})${isPro ? '' : ', upgrade to Pro for unlimited saves'}`,
+          { limit, isPro }
         );
       }
       const preset: CustomSizePreset = {

@@ -20,7 +20,7 @@ import type {
   ConvertParams,
   ImageOutputFormat,
 } from '../types.js';
-import { canvasEngine, createCanvas, get2DContext } from '../canvas-engine.js';
+import { decodeImage, createCanvas, get2DContext } from '../canvas-engine.js';
 import { inferFormat, throwIfAborted } from './utils.js';
 import { compressToTargetSize } from './compress-target.js';
 import { processLargeImageWithTiles, shouldUseTiles } from './tiles.js';
@@ -40,7 +40,7 @@ export async function compress(
     return compressToTargetSize(blob, format, targetSize, signal);
   }
 
-  const { bitmap, width, height } = await canvasEngine.decode(blob);
+  const { bitmap, width, height } = await decodeImage(blob);
   try {
     throwIfAborted(signal);
     // W21.5: 大图走 tile 路径,绘制阶段峰值降到单 tile 级
@@ -74,7 +74,7 @@ export async function convert(
 ): Promise<Blob> {
   const { format, quality } = params as ConvertParams;
   const q = quality ?? 95;
-  const { bitmap, width, height } = await canvasEngine.decode(blob);
+  const { bitmap, width, height } = await decodeImage(blob);
   try {
     throwIfAborted(signal);
     // W21.5: 大图走 tile 路径。JPEG 需填白底(透明通道转换),tile 绘制回调
@@ -118,7 +118,7 @@ export async function setBackground(
   signal?: AbortSignal
 ): Promise<Blob> {
   const { color } = params as BackgroundParams;
-  const { bitmap, width, height } = await canvasEngine.decode(blob);
+  const { bitmap, width, height } = await decodeImage(blob);
   try {
     throwIfAborted(signal);
     const canvas = createCanvas(width, height);

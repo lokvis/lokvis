@@ -16,10 +16,8 @@ const mockEncode = vi.fn();
 const mockDrawImage = vi.fn();
 
 vi.mock('../canvas-engine.js', () => ({
-  canvasEngine: {
-    decode: mockDecode,
-    encode: mockEncode,
-  },
+  decodeImage: mockDecode,
+  encodeImage: mockEncode,
   createCanvas: vi.fn((w: number, h: number) => ({
     width: w,
     height: h,

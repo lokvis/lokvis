@@ -25,7 +25,7 @@ import {
   setBackground,
   filter,
 } from './operations/index.js';
-import { canvasEngine, detectFormatSupport } from './canvas-engine.js';
+import { decodeImage, detectFormatSupport } from './canvas-engine.js';
 import type {
   BackgroundParams,
   CompressParams,
@@ -115,7 +115,7 @@ export interface ImageProbeResult {
   size: number;
 }
 
-/** 方法名 → 处理函数。能力名与 canvasEngine.supportedCapabilities 对齐(带 `image.` 前缀) */
+/** 方法名 → 处理函数。能力名与 IMAGE_ENGINE.supportedCapabilities 对齐(带 `image.` 前缀) */
 const METHODS: Record<
   string,
   (params: ImageRequestParams, signal?: AbortSignal) => Promise<unknown>
@@ -174,7 +174,7 @@ async function probeImage(params: unknown): Promise<ImageProbeResult> {
   if (!(p.input instanceof Blob)) {
     throw new Error('image.probe requires params.input (Blob)');
   }
-  const { bitmap, width, height } = await canvasEngine.decode(p.input);
+  const { bitmap, width, height } = await decodeImage(p.input);
   bitmap.close?.();
   const mimeType = p.input.type || 'application/octet-stream';
   const format = mimeType.split('/')[1] ?? 'bin';

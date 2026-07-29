@@ -94,13 +94,13 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  <aside
  className={`flex shrink-0 ${
  horizontal
- ? 'h-12 flex-row items-center border-t border-[var(--lokvis-border)]'
- : 'w-48 flex-col border-r border-[var(--lokvis-border)]'
+ ? 'h-12 flex-row items-center border-t border-[var(--lokvis-border)] bg-[var(--lokvis-surface)]'
+ : 'w-48 flex-col border-r border-[var(--lokvis-border)] bg-[var(--lokvis-surface)]'
  } ${className}`}
  aria-label={t('historyPanel.panelAria')}
  >
  {headerEl}
- <p className="px-3 text-[10px] text-[var(--lokvis-fg-subtle)]">{t('historyPanel.empty')}</p>
+ <p className="px-3 text-[11px] text-[var(--lokvis-fg-subtle)]">{t('historyPanel.empty')}</p>
  </aside>
  );
  }
@@ -109,7 +109,7 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  // 横向布局:header | entries(横向滚动)
  return (
  <aside
- className={`flex h-12 shrink-0 items-stretch border-t border-[var(--lokvis-border)] ${className}`}
+ className={`flex h-12 shrink-0 items-stretch border-t border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] ${className}`}
  aria-label={t('historyPanel.panelAria')}
  >
  {headerEl}
@@ -119,10 +119,10 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  <button
  type="button"
  onClick={() => void jumpTo(-1)}
- className={`flex items-center gap-1.5 rounded px-2 py-1 text-[10px] transition-colors ${
+ className={`flex items-center gap-1.5 rounded px-2 py-1 text-[11px] transition-colors ${
  cursor === -1
- ? 'bg-[var(--lokvis-primary)]/10 text-[var(--lokvis-primary)] ring-1 ring-[var(--lokvis-primary)]/40'
- : 'text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface)]'
+ ? 'bg-[var(--lokvis-primary-soft)] text-[var(--lokvis-primary)] ring-1 ring-[var(--lokvis-primary)]/40'
+ : 'text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)]'
  }`}
  >
  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--lokvis-fg-subtle)]" aria-hidden="true" />
@@ -138,12 +138,12 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  type="button"
  onClick={() => void jumpTo(i)}
  aria-current={isCurrent ? 'step' : undefined}
- className={`flex items-center gap-1.5 rounded px-2 py-1 text-[10px] transition-colors ${
+ className={`flex items-center gap-1.5 rounded px-2 py-1 text-[11px] transition-colors ${
  isCurrent
- ? 'bg-[var(--lokvis-primary)]/10 text-[var(--lokvis-primary)] ring-1 ring-[var(--lokvis-primary)]/40'
+ ? 'bg-[var(--lokvis-primary-soft)] text-[var(--lokvis-primary)] ring-1 ring-[var(--lokvis-primary)]/40'
  : isRedoBranch
- ? 'text-[var(--lokvis-fg-subtle)] hover:bg-[var(--lokvis-surface)]'
- : 'text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface)]'
+ ? 'text-[var(--lokvis-fg-subtle)] hover:bg-[var(--lokvis-surface-muted)]'
+ : 'text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)]'
  }`}
  >
  <span
@@ -169,7 +169,7 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  // 垂直布局(原实现)
  return (
  <aside
- className={`flex w-48 shrink-0 flex-col border-r border-[var(--lokvis-border)] ${className}`}
+ className={`flex w-48 shrink-0 flex-col border-r border-[var(--lokvis-border)] bg-[var(--lokvis-surface)] ${className}`}
  aria-label={t('historyPanel.panelAria')}
  >
  {headerEl}
@@ -180,10 +180,10 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  <button
  type="button"
  onClick={() => void jumpTo(-1)}
- className={`flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[10px] transition-colors ${
+ className={`flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[11px] transition-colors ${
  cursor === -1
- ? 'bg-[var(--lokvis-primary)]/10 text-[var(--lokvis-primary)] ring-1 ring-[var(--lokvis-primary)]/40'
- : 'text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface)]'
+ ? 'bg-[var(--lokvis-primary-soft)] text-[var(--lokvis-primary)] ring-1 ring-[var(--lokvis-primary)]/40'
+ : 'text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)]'
  }`}
  >
  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--lokvis-fg-subtle)]" aria-hidden="true" />
@@ -199,12 +199,12 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  type="button"
  onClick={() => void jumpTo(i)}
  aria-current={isCurrent ? 'step' : undefined}
- className={`flex w-full items-start gap-1.5 rounded px-2 py-1 text-left text-[10px] transition-colors ${
+ className={`flex w-full items-start gap-1.5 rounded px-2 py-1 text-left text-[11px] transition-colors ${
  isCurrent
- ? 'bg-[var(--lokvis-primary)]/10 text-[var(--lokvis-primary)] ring-1 ring-[var(--lokvis-primary)]/40'
+ ? 'bg-[var(--lokvis-primary-soft)] text-[var(--lokvis-primary)] ring-1 ring-[var(--lokvis-primary)]/40'
  : isRedoBranch
- ? 'text-[var(--lokvis-fg-subtle)] hover:bg-[var(--lokvis-surface)]'
- : 'text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface)]'
+ ? 'text-[var(--lokvis-fg-subtle)] hover:bg-[var(--lokvis-surface-muted)]'
+ : 'text-[var(--lokvis-fg-muted)] hover:bg-[var(--lokvis-surface-muted)]'
  }`}
  >
  <span
@@ -221,7 +221,7 @@ export function HistoryPanel({ className = '', variant = 'vertical' }: HistoryPa
  <div className="truncate font-medium">
  {describeHistoryEntry(entry)}
  </div>
- <div className="text-[9px] text-[var(--lokvis-fg-subtle)]">
+ <div className="text-[11px] text-[var(--lokvis-fg-subtle)]">
  {new Date(entry.timestamp).toLocaleTimeString()}
  </div>
  </div>

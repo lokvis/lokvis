@@ -2,35 +2,15 @@
 /**
  * toolkit/download.ts 纯函数单测(W5 review #16)
  *
- * 覆盖 formatBytes / formatFromMime(间接)/ imageInfoToMeta / getImageInfo。
+ * 覆盖 formatFromMime(间接)/ imageInfoToMeta / getImageInfo。
  * getImageInfo 用 jsdom 的 Image + mock decode 验证。
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import {
-  formatBytes,
   getImageInfo,
   imageInfoToMeta,
   type ImageInfo,
 } from '../download';
-
-describe('formatBytes', () => {
-  it('小于 1024 时显示 B', () => {
-    expect(formatBytes(0)).toBe('0 B');
-    expect(formatBytes(512)).toBe('512 B');
-    expect(formatBytes(1023)).toBe('1023 B');
-  });
-
-  it('1024 ~ 1MB 之间显示 KB', () => {
-    expect(formatBytes(1024)).toBe('1.0 KB');
-    expect(formatBytes(1536)).toBe('1.5 KB');
-    expect(formatBytes(1024 * 1024 - 1)).toMatch(/KB$/);
-  });
-
-  it('大于等于 1MB 显示 MB', () => {
-    expect(formatBytes(1024 * 1024)).toBe('1.00 MB');
-    expect(formatBytes(1024 * 1024 * 2.5)).toBe('2.50 MB');
-  });
-});
 
 describe('imageInfoToMeta', () => {
   it('null 时返回空字符串', () => {

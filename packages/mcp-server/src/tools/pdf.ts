@@ -386,7 +386,7 @@ export async function pdfSplit(
  * 参数:
  * - input_path: 输入 PDF 路径(必填)
  * - angle: 旋转角度 90/180/270(必填)
- * - pages: 要旋转的页索引数组(可选,默认全部页面)
+ * - pages: 要旋转的页码数组(可选,1-based,默认全部页面)
  * - output_path: 输出路径(可选)
  */
 export async function pdfRotate(
@@ -409,7 +409,7 @@ export async function pdfRotate(
     const transformParams: Record<string, unknown> = {
       angle: Number(params.angle),
     };
-    if (params.pages) transformParams.pages = params.pages;
+    if (params.pages) transformParams.pageNumbers = params.pages;
 
     const { outBlob, pages } = await runPdfTransform(
       runtime,

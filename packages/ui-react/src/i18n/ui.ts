@@ -70,6 +70,33 @@ export const ui: Record<string, TranslationEntry> = {
   'error.workflowFailed': {
     en: 'Workflow failed', zh: '工作流执行失败', ja: 'ワークフローが失敗しました', es: 'El flujo de trabajo falló', de: 'Workflow fehlgeschlagen', fr: 'Échec du flux de travail',
   },
+  'error.workflowSaveLimit': {
+    en: 'Workflow slot limit reached ({limit})', zh: '工作流槽位已达上限({limit} 个)', ja: 'ワークフロースロットが上限に達しました（{limit} 個）', es: 'Se alcanzó el límite de espacios de flujo de trabajo ({limit})', de: 'Workflow-Slot-Limit erreicht ({limit})', fr: 'Limite d\'emplacements de flux de travail atteinte ({limit})',
+  },
+  'error.workflowSaveLimitUpgrade': {
+    en: 'Workflow slot limit reached ({limit}), upgrade to Pro for unlimited saves', zh: '工作流槽位已达上限({limit} 个),升级 Pro 可无限制保存', ja: 'ワークフロースロットが上限に達しました（{limit} 個)。Pro にアップグレードすると無制限に保存できます', es: 'Se alcanzó el límite de espacios de flujo de trabajo ({limit}); actualice a Pro para guardar sin límites', de: 'Workflow-Slot-Limit erreicht ({limit}); auf Pro upgraden für unbegrenztes Speichern', fr: 'Limite d\'emplacements de flux de travail atteinte ({limit}) ; passez à Pro pour un enregistrement illimité',
+  },
+  'error.workflowImportParse': {
+    en: 'Invalid JSON, unable to parse', zh: 'JSON 格式错误,无法解析', ja: 'JSON の形式が不正で解析できません', es: 'JSON no válido, no se puede analizar', de: 'Ungültiges JSON, kann nicht geparst werden', fr: 'JSON invalide, impossible à analyser',
+  },
+  'error.workflowImportLimit': {
+    en: 'Import would exceed the limit ({limit}); {imported} imported, please delete some workflows first', zh: '导入会超过上限({limit} 个),已导入 {imported} 条,请先删除部分工作流', ja: 'インポートすると上限（{limit} 個)を超えます。{imported} 件インポート済み、先にワークフローを削除してください', es: 'La importación superaría el límite ({limit}); {imported} importados, elimine primero algunos flujos de trabajo', de: 'Import würde das Limit überschreiten ({limit}); {imported} importiert, bitte zuerst einige Workflows löschen', fr: 'L\'importation dépasserait la limite ({limit}) ; {imported} importés, supprimez d\'abord des flux de travail',
+  },
+  'error.workflowImportEmpty': {
+    en: 'No valid workflow definition in JSON', zh: 'JSON 中没有有效的工作流定义', ja: 'JSON に有効なワークフロー定義がありません', es: 'No hay una definición de flujo de trabajo válida en el JSON', de: 'Keine gültige Workflow-Definition im JSON', fr: 'Aucune définition de flux de travail valide dans le JSON',
+  },
+  'error.presetInvalidSize': {
+    en: 'Preset dimensions must be positive numbers', zh: '预设尺寸必须为正数', ja: 'プリセットの寸法は正の数である必要があります', es: 'Las dimensiones del preajuste deben ser números positivos', de: 'Preset-Abmessungen müssen positive Zahlen sein', fr: 'Les dimensions du préréglage doivent être des nombres positifs',
+  },
+  'error.presetEmptyName': {
+    en: 'Preset name cannot be empty', zh: '预设名称不能为空', ja: 'プリセット名を空にすることはできません', es: 'El nombre del preajuste no puede estar vacío', de: 'Preset-Name darf nicht leer sein', fr: 'Le nom du préréglage ne peut pas être vide',
+  },
+  'error.presetSaveLimit': {
+    en: 'Custom preset limit reached ({limit})', zh: '自定义预设已达上限({limit} 个)', ja: 'カスタムプリセットが上限に達しました（{limit} 個）', es: 'Se alcanzó el límite de preajustes personalizados ({limit})', de: 'Limit für benutzerdefinierte Presets erreicht ({limit})', fr: 'Limite de préréglages personnalisés atteinte ({limit})',
+  },
+  'error.presetSaveLimitUpgrade': {
+    en: 'Custom preset limit reached ({limit}), upgrade to Pro for unlimited saves', zh: '自定义预设已达上限({limit} 个),升级 Pro 可无限制保存', ja: 'カスタムプリセットが上限に達しました（{limit} 個)。Pro にアップグレードすると無制限に保存できます', es: 'Se alcanzó el límite de preajustes personalizados ({limit}); actualice a Pro para guardar sin límites', de: 'Limit für benutzerdefinierte Presets erreicht ({limit}); auf Pro upgraden für unbegrenztes Speichern', fr: 'Limite de préréglages personnalisés atteinte ({limit}) ; passez à Pro pour un enregistrement illimité',
+  },
 
   // ============ AssetPanel ============
   'assetPanel.title': {
@@ -613,6 +640,36 @@ export const ui: Record<string, TranslationEntry> = {
   },
   'workflowTemplates.replace': {
     en: 'Replace', zh: '替换', ja: '置き換える', es: 'Reemplazar', de: 'Ersetzen', fr: 'Remplacer',
+  },
+  'workflowTemplates.tpl.webOptimize.name': {
+    en: 'Web Optimize', zh: 'Web 优化', ja: 'Web 最適化', es: 'Optimización web', de: 'Web-Optimierung', fr: 'Optimisation web',
+  },
+  'workflowTemplates.tpl.webOptimize.desc': {
+    en: 'Resize and compress to WebP, ideal for web assets', zh: '调整尺寸并压缩为 WebP,适用于网页素材', ja: 'サイズ変更して WebP に圧縮、Web 素材に最適', es: 'Redimensiona y comprime a WebP, ideal para recursos web', de: 'Größe ändern und zu WebP komprimieren, ideal für Web-Assets', fr: 'Redimensionne et compresse en WebP, idéal pour les ressources web',
+  },
+  'workflowTemplates.tpl.socialBatch.name': {
+    en: 'Social Batch', zh: '社媒批量', ja: 'SNS 一括', es: 'Lote para redes', de: 'Social-Batch', fr: 'Lot réseaux sociaux',
+  },
+  'workflowTemplates.tpl.socialBatch.desc': {
+    en: 'Normalize to 1080px and add a watermark, for Instagram/Twitter', zh: '统一为 1080px 并添加水印,适用于 Instagram/Twitter', ja: '1080px に統一してウォーターマークを追加、Instagram/Twitter 向け', es: 'Normaliza a 1080px y añade marca de agua, para Instagram/Twitter', de: 'Auf 1080px vereinheitlichen und Wasserzeichen hinzufügen, für Instagram/Twitter', fr: 'Uniformise à 1080px et ajoute un filigrane, pour Instagram/Twitter',
+  },
+  'workflowTemplates.tpl.ecommerceMain.name': {
+    en: 'E-commerce Main', zh: '电商主图', ja: 'EC メイン画像', es: 'Imagen principal e-commerce', de: 'E-Commerce-Hauptbild', fr: 'Image principale e-commerce',
+  },
+  'workflowTemplates.tpl.ecommerceMain.desc': {
+    en: '800px main image + JPEG compression + watermark', zh: '800px 主图 + JPEG 压缩 + 水印', ja: '800px メイン画像 + JPEG 圧縮 + ウォーターマーク', es: 'Imagen principal de 800px + compresión JPEG + marca de agua', de: '800px-Hauptbild + JPEG-Komprimierung + Wasserzeichen', fr: 'Image principale 800px + compression JPEG + filigrane',
+  },
+  'workflowTemplates.tpl.printPrep.name': {
+    en: 'Print Prep', zh: '打印预处理', ja: '印刷用前処理', es: 'Preparación para impresión', de: 'Druckvorbereitung', fr: 'Préparation à l\'impression',
+  },
+  'workflowTemplates.tpl.printPrep.desc': {
+    en: 'High-resolution resize + lossless PNG conversion, for printing', zh: '高分辨率 resize + PNG 无损转换,适用于打印', ja: '高解像度リサイズ + PNG ロスレス変換、印刷向け', es: 'Redimensión de alta resolución + conversión PNG sin pérdidas, para impresión', de: 'Hochauflösende Größenänderung + verlustfreie PNG-Konvertierung, für den Druck', fr: 'Redimensionnement haute résolution + conversion PNG sans perte, pour l\'impression',
+  },
+  'workflowTemplates.tpl.screenshotCompress.name': {
+    en: 'Screenshot Compress', zh: '截图压缩', ja: 'スクショ圧縮', es: 'Compresión de captura', de: 'Screenshot-Komprimierung', fr: 'Compression de capture',
+  },
+  'workflowTemplates.tpl.screenshotCompress.desc': {
+    en: 'Shrink to 1280px and compress to low-quality PNG to reduce size', zh: '缩小到 1280px 并压缩为低质量 PNG,减小体积', ja: '1280px に縮小して低品質 PNG に圧縮しサイズを削減', es: 'Reduce a 1280px y comprime a PNG de baja calidad para reducir el tamaño', de: 'Auf 1280px verkleinern und zu PNG geringer Qualität komprimieren, um die Größe zu reduzieren', fr: 'Réduit à 1280px et compresse en PNG basse qualité pour réduire la taille',
   },
 
   // ============ Workspace ============

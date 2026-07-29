@@ -74,7 +74,7 @@ Astro 7 + React 19 + Tailwind v4。渲染工作区 UI 与工具页面。
 每一层都有独立的深度文档:
 
 - [Runtime](./architecture/runtime) —— AssetStore 三级回退、CapabilityRegistry 解析流程、WorkflowExecutor 线性 DAG、HistoryStack 游标、MemoryGuard、Worker 隔离、扩展钩子。
-- [Engine](./architecture/engine) —— `ImageEngineAdapter` 契约、`Record<string, any>` 操作签名规则、Canvas 实现 + `decodeResized`、流式类型契约、Worker 集成、stub 引擎模式。
+- [Engine](./architecture/engine) —— `IMAGE_ENGINE` 描述符 + 独立的 `decodeImage`/`encodeImage` 原语、`Record<string, any>` 操作签名规则、Canvas 实现 + `decodeResized`、流式类型契约、Worker 集成、stub 引擎模式。
 - [Capability](./architecture/capability) —— `Capability` 形状、8 种 `CapabilityParam` 类型、能力目录(image 真实 / video-pdf stub)、`CapabilityRegistry.resolve` 三阶段流程、三层工作流校验、MCP manifest 生成。
 - [Plugin SDK](./architecture/plugin) —— `definePlugin` + `createBlobCapabilityImpl` 工厂、`PluginContext` 受限 Runtime 视图、生命周期、MetadataReader、stub 插件模式、Panels、Vitest 测试模式。
 
@@ -235,7 +235,7 @@ UI 端 `@lokvis/ui-react` 提供:
 - **Workflow schema**:`v1`(分享链接 `?workflow=<base64url>` 内 `{v:1, nodes:[...]}`)
 - **MCP manifest version**:`2025-06-18`(MCP spec draft)
 - **Worker protocol**:握手时 Worker 发送 `ready` 携带协议版本,Host 校验后才开始通信
-- **Engine version**:`canvasEngine.version = '0.1.0'`;stub 引擎 `version` 包含 `'stub'` 标识,Plugin 层 `wrapAsImplementation()` 检测后设置 `CapabilityImplementation.status = 'stub'`,`CapabilityRegistry.resolve()` 自动跳过
+- **Engine version**:`IMAGE_ENGINE.version = '0.1.0'`;stub 引擎 `version` 包含 `'stub'` 标识,Plugin 层 `buildXxxCapabilityImplementations()` 通过 `engine.version.includes('stub')` 检测后设置 `CapabilityImplementation.status = 'stub'`,`CapabilityRegistry.resolve()` 自动跳过
 
 **Phase 1 Alpha 已知限制**(不阻塞 Alpha,详见 `docs/reports/W12.1-alpha-acceptance.md` §5):
 - L1:视频/PDF/Audio 引擎为 stub(Phase 2 接入 ffmpeg.wasm / pdf-lib)

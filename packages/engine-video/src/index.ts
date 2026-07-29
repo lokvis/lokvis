@@ -31,7 +31,22 @@ export {
   getVideoInfo,
 } from './operations.js';
 
+import type { VideoEngineDescriptor } from './types.js';
+
+/**
+ * 默认(浏览器)视频引擎描述符 — 占位实现。
+ *
+ * version 含 'stub',plugin-video 默认入口据此推导 isStub=true。
+ * 真实实现见子路径 `@lokvis/engine-video/node`(ffmpeg-static)
+ * 与 `@lokvis/engine-video/web`(ffmpeg.wasm)。
+ */
+export const VIDEO_ENGINE: VideoEngineDescriptor = {
+  name: 'ffmpeg-wasm',
+  version: '0.7.1-stub',
+};
+
 export type {
+  VideoEngineDescriptor,
   VideoOutputFormat,
   VideoTranscodeParams,
   VideoTrimParams,

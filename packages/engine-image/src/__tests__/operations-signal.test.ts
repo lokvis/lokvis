@@ -15,15 +15,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { deflateSync } from 'node:zlib';
 
 // ─── mock canvas-engine ─────────────────────────────────────────
-// 所有操作依赖 canvasEngine.decode / encode, createCanvas, get2DContext
+// 所有操作依赖 decodeImage / encodeImage, createCanvas, get2DContext
 const mockDecode = vi.fn();
 const mockEncode = vi.fn();
 
 vi.mock('../canvas-engine.js', () => ({
-  canvasEngine: {
-    decode: mockDecode,
-    encode: mockEncode,
-  },
+  decodeImage: mockDecode,
+  encodeImage: mockEncode,
   createCanvas: vi.fn((w: number, h: number) => ({
     width: w,
     height: h,

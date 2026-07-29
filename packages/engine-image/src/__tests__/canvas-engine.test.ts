@@ -5,14 +5,14 @@
  * 而非静默回退到 PNG(静默回退 bug 修复)。
  *
  * 背景:capability 声明(image.generated.ts)的 format enum 包含 'ico',
- * schema 校验通过,但 canvasEngine 的 MIME_BY_FORMAT 没有 'ico'。
+ * schema 校验通过,但 canvas 引擎的 MIME_BY_FORMAT 没有 'ico'。
  * 旧实现 `MIME_BY_FORMAT[format] ?? 'image/png'` 会静默产出 PNG。
  *
  * 不依赖真实 Canvas:用 fake canvas 模拟 toBlob 行为,使"静默回退"
  * 能真正发生(而非因 canvas 缺失抛错干扰断言)。
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { canvasEngine } from '../canvas-engine.js';
+import { encodeImage } from '../canvas-engine.js';
 
 // encode 内部用 `canvas instanceof OffscreenCanvas` 分支,Node 测试环境
 // 无 OffscreenCanvas 全局会抛 ReferenceError。此处 stub 一个空类,
@@ -33,11 +33,11 @@ function createFakeCanvas(): unknown {
   };
 }
 
-describe('canvasEngine.encode 格式校验', () => {
+describe('encodeImage 格式校验', () => {
   it('传入不支持的格式(ico)应抛出明确错误,而非静默回退 PNG', async () => {
     const fakeCanvas = createFakeCanvas();
     await expect(
-      canvasEngine.encode(
+      encodeImage(
         fakeCanvas as HTMLCanvasElement,
         'ico' as never,
         90
@@ -48,7 +48,7 @@ describe('canvasEngine.encode 格式校验', () => {
   it('错误消息应包含不支持的格式名并列出所有支持的格式', async () => {
     const fakeCanvas = createFakeCanvas();
     await expect(
-      canvasEngine.encode(
+      encodeImage(
         fakeCanvas as HTMLCanvasElement,
         'ico' as never,
         90
@@ -57,7 +57,7 @@ describe('canvasEngine.encode 格式校验', () => {
   });
 });
 
-describe('canvasEngine.encode 静默回退检测', () => {
+describe('encodeImage 静默回退检测', () => {
   /** fake canvas:模拟浏览器无 AVIF 编码器时 toBlob 静默回退 PNG 的行为 */
   function createFallbackCanvas(): unknown {
     return {
@@ -71,20 +71,20 @@ describe('canvasEngine.encode 静默回退检测', () => {
   it('请求 avif 但浏览器回退 PNG 时应抛错,而非静默返回 PNG', async () => {
     const fallbackCanvas = createFallbackCanvas();
     await expect(
-      canvasEngine.encode(fallbackCanvas as HTMLCanvasElement, 'avif', 80)
+      encodeImage(fallbackCanvas as HTMLCanvasElement, 'avif', 80)
     ).rejects.toThrow(/does not support encoding 'avif'/);
   });
 
   it('回退错误消息应指明实际产出的格式', async () => {
     const fallbackCanvas = createFallbackCanvas();
     await expect(
-      canvasEngine.encode(fallbackCanvas as HTMLCanvasElement, 'avif', 80)
+      encodeImage(fallbackCanvas as HTMLCanvasElement, 'avif', 80)
     ).rejects.toThrow(/image\/png/);
   });
 
   it('请求与产出一致时(webp)应正常返回', async () => {
     const fakeCanvas = createFakeCanvas();
-    const blob = await canvasEngine.encode(fakeCanvas as HTMLCanvasElement, 'webp', 90);
+    const blob = await encodeImage(fakeCanvas as HTMLCanvasElement, 'webp', 90);
     expect(blob.type).toBe('image/webp');
   });
 });
