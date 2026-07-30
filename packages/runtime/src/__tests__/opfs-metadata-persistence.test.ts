@@ -2,7 +2,8 @@
  * OPFS 元数据持久化测试(W6.6)
  *
  * 验证:OPFS store 在"刷新"(销毁内存 Map 后重建)后,list()/get() 仍能
- * 返回之前导入的资产 —— Dexie 元数据库承担持久化职责。
+ * 返回之前导入的资产 —— IndexedDB 元数据库(经 adapter KVStore)承担
+ * 持久化职责。
  *
  * Node 环境无原生 IndexedDB,通过 fake-indexeddb/auto 注入全局。
  * afterAll 删除全局,避免污染其他测试文件(如 opfs 降级链断言
@@ -10,11 +11,11 @@
  */
 // oxlint-disable-next-line import/no-unresolved
 import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import Dexie from 'dexie';
+import { describe, it, expect, afterAll } from 'vitest';
+import { createKVStore } from '@lokvis/browser-adapter';
 import {
   createOpfsAssetStore,
-  OpfsMetadataDatabase,
+  type OpfsMetadataRecord,
 } from '../opfs-asset-store.js';
 import type { AssetStore } from '../asset-store.js';
 // W2.1:共享 OPFS fake(原为本文件内联,与 opfs-asset-store.test.ts 重复)
@@ -24,17 +25,8 @@ import { FakeDirHandle } from '../test-utils/fakes.js';
 
 const g = globalThis as Record<string, unknown>;
 const FAKE_GLOBALS = ['indexedDB', 'IDBKeyRange', 'IDBFactory'];
-let savedDexieIndexedDB: typeof Dexie.dependencies.indexedDB;
-let savedDexieIDBKeyRange: typeof Dexie.dependencies.IDBKeyRange;
-
-beforeAll(() => {
-  savedDexieIndexedDB = Dexie.dependencies.indexedDB;
-  savedDexieIDBKeyRange = Dexie.dependencies.IDBKeyRange;
-});
 
 afterAll(() => {
-  Dexie.dependencies.indexedDB = savedDexieIndexedDB;
-  Dexie.dependencies.IDBKeyRange = savedDexieIDBKeyRange;
   for (const key of FAKE_GLOBALS) {
     delete g[key];
   }
@@ -139,20 +131,24 @@ describe('OPFS 元数据持久化(W6.6)', () => {
     expect(got!.metadata.format).toBe('webp');
   });
 
-  it('metadataDb 注入时应使用注入的实例', async () => {
+  it('metadataKvStore 注入时应使用注入的实例', async () => {
     const root = new FakeDirHandle();
-    const db = new OpfsMetadataDatabase(`injected-${uniqueDbName()}`);
+    const kv = createKVStore<OpfsMetadataRecord>({
+      dbName: `injected-${uniqueDbName()}`,
+      tableName: 'metadata',
+      keyPath: 'id',
+    });
 
     const store = await createOpfsAssetStore({
       rootHandle: root as unknown as FileSystemDirectoryHandle,
-      metadataDb: db,
+      metadataKvStore: kv,
     });
 
     const blob = new Blob([new Uint8Array([0])], { type: 'image/png' });
     const asset = await store.import({ kind: 'blob', blob, name: 'a.png' });
 
-    // 直接查 db,验证注入的实例被使用
-    const record = await db.metadata.get(asset.id);
+    // 直接查 kv,验证注入的实例被使用
+    const record = await kv.get(asset.id);
     expect(record).toBeDefined();
     expect(record!.id).toBe(asset.id);
     expect(record!.asset.metadata.mimeType).toBe('image/png');

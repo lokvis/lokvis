@@ -2,37 +2,30 @@
  * IdbAssetStore 单元测试(PROJECT_PLAN W2)
  *
  * Node 环境无原生 IndexedDB,通过 fake-indexeddb/auto 注入全局。
- * /auto 在模块加载时注册 indexedDB/IDBKeyRange 等全局(早于 Dexie 捕获),
- * 故 Dexie 能正确使用 fake 实现。afterAll 删除全局,避免污染其他测试文件
- * (如 opfs 降级链断言 isIdbSupported()===false)。
+ * /auto 在模块加载时注册 indexedDB/IDBKeyRange 等全局(早于 adapter 内
+ * Dexie 捕获),故底层 KVStore 能正确使用 fake 实现。afterAll 删除全局,
+ * 避免污染其他测试文件(如 opfs 降级链断言 isIdbSupported()===false)。
  */
 // oxlint-disable-next-line import/no-unresolved
 import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import Dexie from 'dexie';
+import { describe, it, expect, afterAll, beforeEach, vi } from 'vitest';
+import { createKVStore } from '@lokvis/browser-adapter';
 import {
   createIdbAssetStore,
   isIdbSupported,
-  AssetDatabase,
   IDB_PATH_PREFIX,
+  type AssetRecord,
 } from '../idb-asset-store.js';
 
 const g = globalThis as Record<string, unknown>;
 /** /auto 设置的全局键,afterAll 删除以还原环境 */
 const FAKE_GLOBALS = ['indexedDB', 'IDBKeyRange', 'IDBFactory'];
-let savedDexieIndexedDB: typeof Dexie.dependencies.indexedDB;
-let savedDexieIDBKeyRange: typeof Dexie.dependencies.IDBKeyRange;
 
-beforeAll(() => {
-  // Dexie 在模块加载时已捕获 fake(因 /auto 先于 dexie import 执行),
-  // 此处仅记录原始依赖以便还原(实际无需改动,但保持幂等)。
-  savedDexieIndexedDB = Dexie.dependencies.indexedDB;
-  savedDexieIDBKeyRange = Dexie.dependencies.IDBKeyRange;
-});
+/** 与 createIdbAssetStore 默认参数一致的注入用 KVStore */
+const createAssetKVStore = (dbName: string) =>
+  createKVStore<AssetRecord>({ dbName, tableName: 'assets', keyPath: 'id' });
 
 afterAll(() => {
-  Dexie.dependencies.indexedDB = savedDexieIndexedDB;
-  Dexie.dependencies.IDBKeyRange = savedDexieIDBKeyRange;
   // 删除 /auto 注册的全局,还原 Node 干净环境
   for (const key of FAKE_GLOBALS) {
     delete g[key];
@@ -201,13 +194,13 @@ describe('createIdbAssetStore', () => {
 
   it('跨 store 实例(同 db)应能读取已持久化数据', async () => {
     // 模拟刷新后:新 store 实例基于同一 db 名应能读回旧数据
-    const db = new AssetDatabase(dbName);
-    const store1 = await createIdbAssetStore({ dbInstance: db });
+    const kv = createAssetKVStore(dbName);
+    const store1 = await createIdbAssetStore({ kvStore: kv });
     const blob = new Blob([new Uint8Array([7, 8])], { type: 'image/png' });
     const asset = await store1.import({ kind: 'blob', blob, name: 'a.png' });
 
     // 新实例(同一 db),get 应能取回
-    const store2 = await createIdbAssetStore({ dbInstance: db });
+    const store2 = await createIdbAssetStore({ kvStore: kv });
     const got = await store2.get(asset.id);
     expect(got).toBeDefined();
     expect(got!.id).toBe(asset.id);
@@ -231,10 +224,10 @@ describe('IdbAssetStore.dispose() (W21.6)', () => {
     dbName = `lokvis-test-dispose-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   });
 
-  it('dispose 应调用 db.close() 关闭 Dexie 连接', async () => {
-    const db = new AssetDatabase(dbName);
-    const closeSpy = vi.spyOn(db, 'close');
-    const store = await createIdbAssetStore({ dbInstance: db });
+  it('dispose 应调用 kvStore.close() 关闭底层连接', async () => {
+    const kv = createAssetKVStore(dbName);
+    const closeSpy = vi.spyOn(kv, 'close');
+    const store = await createIdbAssetStore({ kvStore: kv });
 
     await store.dispose?.();
     expect(closeSpy).toHaveBeenCalledTimes(1);
@@ -247,8 +240,8 @@ describe('IdbAssetStore.dispose() (W21.6)', () => {
   });
 
   it('dispose 后 IDB 数据仍存在(仅关闭连接,不删除数据)', async () => {
-    const db = new AssetDatabase(dbName);
-    const store = await createIdbAssetStore({ dbInstance: db });
+    const kv = createAssetKVStore(dbName);
+    const store = await createIdbAssetStore({ kvStore: kv });
     const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' });
     const asset = await store.import({ kind: 'blob', blob, name: 'a.png' });
 

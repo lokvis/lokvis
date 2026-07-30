@@ -9,6 +9,10 @@
  */
 
 import type { Asset, AssetId, AssetMetadata, AssetSource, BlobHandle } from '@lokvis/schema';
+import {
+  probeImageDimensions,
+  probeMediaDuration,
+} from '@lokvis/browser-adapter';
 import { createOpfsAssetStore, isOpfsSupported } from './opfs-asset-store.js';
 import { createIdbAssetStore, isIdbSupported } from './idb-asset-store.js';
 import { AssetBlobNotFoundError } from './errors.js';
@@ -101,22 +105,22 @@ interface RichMetadata {
 /**
  * 从 Blob 提取富元数据(dimensions/duration)。
  *
- * 提取策略:
- * - image: createImageBitmap → width/height
- * - video/audio: HTMLMediaElement + loadedmetadata → duration
+ * 提取策略(实现在 @lokvis/browser-adapter MediaProbe,ADR-015):
+ * - image: probeImageDimensions(createImageBitmap)→ width/height
+ * - video/audio: probeMediaDuration(HTMLMediaElement)→ duration
  * - 其余: 返回空
  *
  * 注:PDF 页数不在此处提取。页数属领域特定元数据,应经 plugin-pdf 注册的
  * `pdf.read-info` MetadataReader(runtime.readAssetPdfInfo)按需读取,
- * 而非在 Runtime 层用脆弱的结构正则猜测(五层架构:Runtime 不感知 PDF 结构)。
+ * 而非在 Runtime 层用脆弱的结构正则猜测(架构:Runtime 不感知 PDF 结构)。
  *
  * 所有提取均 try/catch:失败时返回空对象,不阻断 import。
- * Node.js / 测试环境可能无 createImageBitmap / document,自然降级为空。
+ * Node.js / 测试环境无浏览器 API 时,adapter 返回 undefined 自然降级为空。
  *
  * TD-3.9 长期方案:catch 不再静默吞错,console.warn 记录异常(区分"无元数据"
  * 与"提取异常")。asset-store 位于 Runtime 层,无 ctx.log 上下文(不像
  * plugin/capability 走 ExecutionContext / MetadataReaderContext),与
- * opfs-asset-store.ts 的错误日志策略一致(见 L155/L170/L183/L205/L258)。
+ * opfs-asset-store.ts 的错误日志策略一致。
  */
 async function extractRichMetadata(
   blob: Blob,
@@ -124,11 +128,15 @@ async function extractRichMetadata(
 ): Promise<RichMetadata> {
   try {
     switch (type) {
-      case 'image':
-        return await extractImageDimensions(blob);
+      case 'image': {
+        const dimensions = await probeImageDimensions(blob);
+        return dimensions ? { dimensions } : {};
+      }
       case 'video':
-      case 'audio':
-        return await extractMediaDuration(blob, type);
+      case 'audio': {
+        const duration = await probeMediaDuration(blob, type);
+        return duration !== undefined ? { duration } : {};
+      }
       default:
         return {};
     }
@@ -141,57 +149,6 @@ async function extractRichMetadata(
     return {};
   }
 }
-
-/** 用 createImageBitmap 提取图片尺寸(浏览器原生 API,失败返回空) */
-async function extractImageDimensions(blob: Blob): Promise<RichMetadata> {
-  if (typeof createImageBitmap !== 'function') return {};
-  const bitmap = await createImageBitmap(blob);
-  try {
-    return { dimensions: { width: bitmap.width, height: bitmap.height } };
-  } finally {
-    // 释放 ImageBitmap 资源,避免内存泄漏(浏览器 GC 不保证立即回收)
-    if (typeof bitmap.close === 'function') bitmap.close();
-  }
-}
-
-/** 用 HTMLMediaElement 提取视频/音频时长(浏览器环境,失败返回空) */
-async function extractMediaDuration(
-  blob: Blob,
-  type: 'video' | 'audio'
-): Promise<RichMetadata> {
-  if (typeof document === 'undefined') return {};
-  const url = URL.createObjectURL(blob);
-  try {
-    const el = document.createElement(type === 'video' ? 'video' : 'audio');
-    el.preload = 'metadata';
-    el.src = url;
-    return await new Promise<RichMetadata>((resolve) => {
-      let settled = false;
-      const finish = (result: RichMetadata) => {
-        if (settled) return;
-        settled = true;
-        el.onloadedmetadata = null;
-        el.onerror = null;
-        el.removeAttribute('src');
-        clearTimeout(timer);
-        resolve(result);
-      };
-      el.onloadedmetadata = () => {
-        const duration = el.duration;
-        finish(Number.isFinite(duration) ? { duration } : {});
-      };
-      el.onerror = () => finish({});
-      // M2 修复:超时兜底,防止坏文件既不触发 loadedmetadata 也不触发 onerror
-      // 导致 Promise 永久挂起 + 外层 finally 的 revokeObjectURL 永不执行(泄漏)
-      const timer = setTimeout(() => finish({}), MEDIA_DURATION_TIMEOUT_MS);
-    });
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-/** 媒体时长提取超时(5s,足够解码大多数媒体头) */
-const MEDIA_DURATION_TIMEOUT_MS = 5000;
 
 /**
  * 从 AssetSource 准备导入数据(共享逻辑,供 Memory/OPFS/IDB store 复用):

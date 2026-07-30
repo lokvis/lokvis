@@ -11,6 +11,7 @@
  *   （以 AbortError 拒绝）——这是可接受的边缘情况：取消方本就放弃了结果，
  *   被连带方重试一次即可（批量场景由上层 job 重试覆盖）
  */
+import { isWorkerSupported } from '@lokvis/browser-adapter';
 import { resolveAvifWasmUrl } from '../wasm-config.js';
 import { throwIfAborted } from '../operations/utils.js';
 
@@ -49,6 +50,12 @@ function failAllPending(error: Error): void {
 }
 
 function createWorker(): Worker {
+  if (!isWorkerSupported()) {
+    throw new Error('Web Worker is not supported in this environment');
+  }
+  // ADR-015 豁免:`new Worker(new URL(...))` 必须保持字面量形态,
+  // Vite/webpack 依赖该语法静态识别并打包 worker chunk;经 adapter
+  // 函数间接创建会破坏打包。仅探测(isWorkerSupported)走 adapter。
   const w = new Worker(new URL('./avif-worker.js', import.meta.url), {
     type: 'module',
   });

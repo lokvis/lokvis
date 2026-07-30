@@ -1,0 +1,96 @@
+name: Benchmark
+
+# D4(architecture-v2-tasks 工作流 D / knowledge W3.4):
+# 月度跑 image benchmark 矩阵,聚合为 knowledge benchmark schema 格式,
+# 经 bot PR 交付 lokvis-knowledge 仓 data/benchmarks/。
+#
+# 安全:
+# - KNOWLEDGE_BOT_TOKEN 为 fine-grained PAT,仅授 lokvis-knowledge 仓
+#   contents + pull-requests 写权限(最小权限)
+# - run 步骤不插值任何不可信输入(无 issue/PR 文本进入 shell)
+
+on:
+  schedule:
+    # 每月 2 日 06:00 UTC(错开 knowledge 仓每月 1 日的 stale-check)
+    - cron: '0 6 2 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+  PNPM_VERSION: '9.12.0'
+
+jobs:
+  benchmark:
+    name: bench → report → bot PR to lokvis-knowledge
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout lokvis-open
+        uses: actions/checkout@v5
+
+      - name: Checkout lokvis-knowledge
+        uses: actions/checkout@v5
+        with:
+          repository: lokvis/lokvis-knowledge
+          path: knowledge
+          token: ${{ secrets.KNOWLEDGE_BOT_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright chromium
+        run: pnpm --filter @lokvis/benchmark exec playwright install --with-deps chromium
+
+      - name: Run benchmark suite
+        run: pnpm bench:image
+        env:
+          BENCH_RUNS: '3'
+
+      - name: Generate knowledge report
+        run: pnpm bench:report
+        env:
+          KNOWLEDGE_DIR: ${{ github.workspace }}/knowledge
+          BENCH_HARDWARE_CLASS: ci-github-ubuntu-latest
+
+      - name: Copy report into knowledge data
+        id: copy
+        run: |
+          REPORT=$(ls benchmark/results/image-ops-*.json | head -1)
+          BASENAME=$(basename "$REPORT")
+          cp "$REPORT" "knowledge/data/benchmarks/$BASENAME"
+          echo "basename=$BASENAME" >> "$GITHUB_OUTPUT"
+
+      - name: Validate knowledge data
+        working-directory: knowledge
+        run: |
+          npm ci
+          npm run validate
+
+      - name: Build diff summary vs previous period
+        run: node benchmark/diff-summary.mjs knowledge/data/benchmarks > pr-body.md
+
+      - name: Create PR to lokvis-knowledge
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.KNOWLEDGE_BOT_TOKEN }}
+          path: knowledge
+          branch: bot/benchmark-${{ github.run_id }}
+          commit-message: 'data(benchmarks): add ${{ steps.copy.outputs.basename }} (automated monthly run)'
+          title: 'data(benchmarks): monthly image benchmark ${{ steps.copy.outputs.basename }}'
+          body-path: pr-body.md
+          delete-branch: true

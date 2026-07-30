@@ -2,13 +2,14 @@
  * OPFS Asset Store
  *
  * 大文件(blob)存 OPFS(Origin Private File System),元数据存内存 Map +
- * IndexedDB(Dexie)持久化。OPFS 是浏览器私有文件系统,blob 持久化(刷新后
- * 文件仍在);W6.6 起元数据也通过 Dexie 持久化,刷新后 list()/get() 能恢复。
+ * IndexedDB 持久化(经 @lokvis/browser-adapter KVStoreFactory,ADR-015)。
+ * OPFS 是浏览器私有文件系统,blob 持久化(刷新后文件仍在);W6.6 起元数据
+ * 也持久化,刷新后 list()/get() 能恢复。
  *
  * 持久化策略(W6.6):
- * - 启动时:db.metadata.toArray() 预加载内存 Map(后续 get/list 零 IO)
- * - import/create:写 OPFS 文件 + db.metadata.put + 内存 Map.set
- * - remove:删 OPFS 文件 + db.metadata.delete + 内存 Map.delete
+ * - 启动时:kv.toArray() 预加载内存 Map(后续 get/list 零 IO)
+ * - import/create:写 OPFS 文件 + kv.put + 内存 Map.set
+ * - remove:删 OPFS 文件 + kv.delete + 内存 Map.delete
  * - IndexedDB 不可用时降级为仅内存模式(刷新后丢失,与 W2 行为一致)
  *
  * 注:任务规格提及 FileSystemSyncAccessHandle(Worker 内同步句柄),
@@ -18,7 +19,13 @@
  * 降级链(W2.8 工厂):OPFS → IndexedDB → Memory
  */
 
-import Dexie, { type Table } from 'dexie';
+import {
+  createKVStore,
+  getOpfsRoot,
+  isIdbSupported,
+  isOpfsSupported,
+  type KVStore,
+} from '@lokvis/browser-adapter';
 import type { Asset, AssetId } from '@lokvis/schema';
 import type { AssetStore } from './asset-store.js';
 import {
@@ -27,7 +34,6 @@ import {
   parseBlobPath,
   prepareImport,
 } from './asset-store.js';
-import { isIdbSupported } from './idb-asset-store.js';
 import { AssetBlobNotFoundError } from './errors.js';
 
 /** OPFS 不可用或初始化失败时抛出 */
@@ -44,24 +50,7 @@ export const OPFS_PATH_PREFIX = 'opfs';
 /** OPFS 文件名后缀 */
 const OPFS_FILE_SUFFIX = '.bin';
 
-/**
- * OPFS 元数据持久化数据库(W6.6)。
- *
- * 仅存 { id, asset }(不含 blob,blob 在 OPFS 文件里),用于刷新后恢复内存 Map。
- * 数据库名独立于 IdbAssetStore 的 'lokvis-assets',避免与全持久化 store 冲突。
- */
-export class OpfsMetadataDatabase extends Dexie {
-  metadata!: Table<OpfsMetadataRecord, AssetId>;
-
-  constructor(name = 'lokvis-opfs-metadata') {
-    super(name);
-    this.version(1).stores({
-      metadata: 'id',
-    });
-  }
-}
-
-/** OPFS 元数据记录 */
+/** OPFS 元数据记录(blob 在 OPFS 文件,不在此存) */
 export interface OpfsMetadataRecord {
   /** 主键 = Asset.id */
   id: AssetId;
@@ -77,26 +66,25 @@ export interface OpfsAssetStoreOptions {
   assetsDirName?: string;
   /**
    * 测试注入:自定义 OPFS 根目录句柄。
-   * 默认使用 navigator.storage.getDirectory()。
+   * 默认经 adapter getOpfsRoot()(navigator.storage.getDirectory)。
    */
   rootHandle?: FileSystemDirectoryHandle;
   /**
-   * 测试注入:自定义元数据库实例(W6.6 持久化)。
-   * 默认在 IndexedDB 可用时自动创建 OpfsMetadataDatabase。
+   * 测试注入:自定义元数据 KV 存储(ADR-015 后替代原 Dexie metadataDb)。
+   * 默认在 IndexedDB 可用时经 adapter createKVStore 创建。
    */
-  metadataDb?: OpfsMetadataDatabase;
-  /** 元数据库名(默认 'lokvis-opfs-metadata';仅 metadataDb 未注入时生效) */
+  metadataKvStore?: KVStore<OpfsMetadataRecord>;
+  /** 元数据库名(默认 'lokvis-opfs-metadata';仅 metadataKvStore 未注入时生效) */
   metadataDbName?: string;
 }
 
-/** 检测当前环境是否支持 OPFS */
-export function isOpfsSupported(): boolean {
-  return (
-    typeof navigator !== 'undefined' &&
-    typeof navigator.storage !== 'undefined' &&
-    typeof navigator.storage.getDirectory === 'function'
-  );
-}
+/**
+ * 检测当前环境是否支持 OPFS。
+ *
+ * @deprecated 实现已迁移至 @lokvis/browser-adapter(ADR-015),
+ * 此处 re-export 仅为 API 兼容保留。
+ */
+export { isOpfsSupported };
 
 /** 获取 OPFS 根目录句柄(自动创建命名空间目录) */
 async function resolveAssetsDir(
@@ -111,7 +99,7 @@ async function resolveAssetsDir(
         'OPFS is not available: navigator.storage.getDirectory is undefined'
       );
     }
-    root = await navigator.storage.getDirectory();
+    root = await getOpfsRoot();
   }
   const lokvisDir = await root.getDirectoryHandle(
     options.rootDirName ?? 'lokvis',
@@ -139,18 +127,23 @@ async function writeOpfsFile(
 }
 
 /**
- * 初始化元数据库(W6.6)。
+ * 初始化元数据 KV 存储(W6.6)。
  *
- * 优先用 options.metadataDb(测试注入);否则在 IndexedDB 可用时创建新实例。
+ * 优先用 options.metadataKvStore(测试注入);否则在 IndexedDB 可用时创建。
  * IndexedDB 不可用时返回 undefined,调用方降级为仅内存模式。
  */
-function resolveMetadataDb(
+function resolveMetadataStore(
   options: OpfsAssetStoreOptions
-): OpfsMetadataDatabase | undefined {
-  if (options.metadataDb) return options.metadataDb;
+): KVStore<OpfsMetadataRecord> | undefined {
+  if (options.metadataKvStore) return options.metadataKvStore;
   if (!isIdbSupported()) return undefined;
   try {
-    return new OpfsMetadataDatabase(options.metadataDbName);
+    return createKVStore<OpfsMetadataRecord>({
+      // 数据库名独立于 IdbAssetStore 的 'lokvis-assets',避免与全持久化 store 冲突
+      dbName: options.metadataDbName ?? 'lokvis-opfs-metadata',
+      tableName: 'metadata',
+      keyPath: 'id',
+    });
   } catch (err) {
     console.warn('[lokvis] OPFS metadata db init failed, falling back to memory-only:', err);
     return undefined;
@@ -159,13 +152,13 @@ function resolveMetadataDb(
 
 /** 安全写入元数据库(失败仅 warn,不阻断主流程) */
 async function persistMetadata(
-  db: OpfsMetadataDatabase | undefined,
+  kv: KVStore<OpfsMetadataRecord> | undefined,
   id: AssetId,
   asset: Asset
 ): Promise<void> {
-  if (!db) return;
+  if (!kv) return;
   try {
-    await db.metadata.put({ id, asset });
+    await kv.put({ id, asset });
   } catch (err) {
     console.warn(`[lokvis] OPFS metadata persist failed for ${id}:`, err);
   }
@@ -173,12 +166,12 @@ async function persistMetadata(
 
 /** 安全删除元数据(失败仅 warn) */
 async function deleteMetadata(
-  db: OpfsMetadataDatabase | undefined,
+  kv: KVStore<OpfsMetadataRecord> | undefined,
   id: AssetId
 ): Promise<void> {
-  if (!db) return;
+  if (!kv) return;
   try {
-    await db.metadata.delete(id);
+    await kv.delete(id);
   } catch (err) {
     console.warn(`[lokvis] OPFS metadata delete failed for ${id}:`, err);
   }
@@ -189,17 +182,17 @@ export async function createOpfsAssetStore(
   options: OpfsAssetStoreOptions = {}
 ): Promise<AssetStore> {
   const assetsDir = await resolveAssetsDir(options);
-  /** 元数据缓存(内存中;W6.6 起启动时从 Dexie 预加载) */
+  /** 元数据缓存(内存中;W6.6 起启动时从 IndexedDB 预加载) */
   const assets = new Map<AssetId, Asset>();
   /** id → 文件句柄(用于 getBlob/remove;刷新后丢失,按需重建) */
   const fileHandles = new Map<AssetId, FileSystemFileHandle>();
-  /** 元数据库(W6.6 持久化;undefined 时仅内存模式) */
-  const db = resolveMetadataDb(options);
+  /** 元数据 KV 存储(W6.6 持久化;undefined 时仅内存模式) */
+  const kv = resolveMetadataStore(options);
 
   // 启动时预加载已持久化的元数据(刷新后恢复 list/get)
-  if (db) {
+  if (kv) {
     try {
-      const records = await db.metadata.toArray();
+      const records = await kv.toArray();
       for (const r of records) assets.set(r.id, r.asset);
     } catch (err) {
       console.warn('[lokvis] OPFS metadata preload failed:', err);
@@ -216,7 +209,7 @@ export async function createOpfsAssetStore(
       fileHandles.set(id, handle);
       const asset = buildAsset(id, blob, metadata, type, OPFS_PATH_PREFIX);
       assets.set(id, asset);
-      await persistMetadata(db, id, asset);
+      await persistMetadata(kv, id, asset);
       return asset;
     },
 
@@ -261,7 +254,7 @@ export async function createOpfsAssetStore(
           );
         }
       }
-      await deleteMetadata(db, id);
+      await deleteMetadata(kv, id);
     },
 
     async list() {
@@ -274,16 +267,16 @@ export async function createOpfsAssetStore(
       fileHandles.set(id, handle);
       const asset = buildAsset(id, blob, metadata, type, OPFS_PATH_PREFIX);
       assets.set(id, asset);
-      await persistMetadata(db, id, asset);
+      await persistMetadata(kv, id, asset);
       return asset;
     },
 
-    // W21.6: 清空内存 Map + 关闭 Dexie 连接。
+    // W21.6: 清空内存 Map + 关闭元数据连接。
     // OPFS 文件不删除(下次创建 store 时从 IndexedDB metadata 预加载恢复)。
     async dispose() {
       assets.clear();
       fileHandles.clear();
-      db?.close();
+      kv?.close();
     },
   };
 }

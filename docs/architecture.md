@@ -45,6 +45,37 @@ Lokvis 遵循严格的五层架构，依赖方向**单向向下**。
 - Schema 永远不感知 Runtime
 - Plugin 永远不感知 Cloud
 
+### 双注册表:引擎选择 vs 能力实现选择(ADR-016)
+
+仓内存在两个"注册表"契约,职责边界如下:
+
+| | EngineRegistry(`@lokvis/engine-core`) | CapabilityRegistry(`@lokvis/runtime`) |
+|---|---|---|
+| 选择粒度 | 每**媒体类型**选一个引擎 | 每**能力**(`<domain>.<action>`)选一个实现 |
+| 判据 | 运行时 `isSupported()` 环境探测,首个支持者胜出 | 构建期元数据:`status` 过滤 stub → `preferredEngine` → 策略(`first` / `fastest` / `balanced`,`fastest` 按 `PerformanceLevel` fast<medium<slow 排序) |
+| 时机 | 异步(`selectBest()`) | 同步(`resolve(name, preferredEngine?)`) |
+| 现状 | **预留契约,0 消费方**——全部引擎已收敛为"纯函数 + 描述符常量"(ADR-016) | Runtime 执行链唯一生效的选择机制 |
+
+依赖关系与数据流(engine 不感知 runtime,注册由 plugin 层单向完成):
+
+```
+  @lokvis/engine-*                @lokvis/plugin-*                 @lokvis/runtime
+┌───────────────────┐   import  ┌────────────────────────┐  ctx   ┌──────────────────────┐
+│ 纯函数 operations  │──────────▶│ 读描述符推导 isStub      │───────▶│ CapabilityRegistry    │
+│ XXX_ENGINE 描述符  │           │ plugin-sdk 工厂包装      │register│  registerCapability   │
+│ { name, version,  │           │ status: stub / stable   │        │  registerImplementation│
+│   supportedCaps? }│           └────────────────────────┘        │  resolve(name) ──▶ 执行 │
+└───────────────────┘                                             └──────────────────────┘
+        │
+        └─ EngineAdapter / EngineRegistry(engine-core):预留给
+           "同媒体类型 ≥2 实现且需运行时环境探测切换"的场景
+           (如未来 image 的 canvas vs Squoosh),当前无消费方。
+```
+
+引擎级 stub 约定:描述符 `version.includes('stub')` 为唯一判据;能力级豁免
+(plugin-pdf `REAL_STUB_CAPABILITIES`、plugin-ai cloud-proxy `!cloudCaller`)
+详见 [ADR-016](adr/016-engine-contract-ruling.md)。
+
 ---
 
 ## 二、存储架构

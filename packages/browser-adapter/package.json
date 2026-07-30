@@ -1,7 +1,7 @@
 {
-  "name": "@lokvis/runtime",
+  "name": "@lokvis/browser-adapter",
   "version": "0.8.1",
-  "description": "Lokvis Runtime - Browser-local workflow execution engine",
+  "description": "Lokvis Browser Adapter - the only non-presentation package allowed to touch raw browser APIs",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -12,6 +12,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./test-utils": {
+      "types": "./src/test-utils.ts",
+      "import": "./src/test-utils.ts"
     }
   },
   "files": [
@@ -30,9 +34,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@lokvis/browser-adapter": "workspace:*",
-    "@lokvis/schema": "workspace:*",
-    "mitt": "^3.0.1"
+    "dexie": "^4.0.10"
   },
   "devDependencies": {
     "fake-indexeddb": "^6.0.0",
@@ -48,12 +50,16 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./test-utils": {
+        "types": "./dist/test-utils.d.ts",
+        "import": "./dist/test-utils.js"
       }
     }
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/lokvis/lokvis.git",
-    "directory": "packages/runtime"
+    "directory": "packages/browser-adapter"
   }
 }

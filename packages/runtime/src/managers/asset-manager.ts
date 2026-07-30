@@ -19,6 +19,7 @@
  *   这里按引用读取(Map 突变对 AssetManager 立即可见),保持 Plugin 注册语义不变。
  */
 
+import { getOpfsRoot, isOpfsSupported } from '@lokvis/browser-adapter';
 import type {
   Asset,
   AssetId,
@@ -89,14 +90,14 @@ export class AssetManager {
         clearTimeout(timeoutId);
       }
     } else if (source.kind === 'opfs') {
-      // OPFS(Origin Private File System)导入:通过 File System Access API
+      // OPFS(Origin Private File System)导入:经 adapter StorageAdapter
       // 读取浏览器 origin 私有文件系统中的文件,转为 blob 源走标准导入。
-      if (typeof navigator === 'undefined' || !navigator.storage?.getDirectory) {
+      if (!isOpfsSupported()) {
         throw new Error(
           "AssetSource kind 'opfs' requires a browser environment with File System Access API support"
         );
       }
-      const root = await navigator.storage.getDirectory();
+      const root = await getOpfsRoot();
       const segments = source.path.split('/').filter(Boolean);
       let dirHandle: FileSystemDirectoryHandle = root;
       // 逐级导航到目标文件所在目录

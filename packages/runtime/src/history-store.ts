@@ -2,11 +2,12 @@
  * History Store —— 历史栈 IndexedDB 持久化(W7.2)
  *
  * 把每个工作流的 HistoryStack 快照(entries + cursor)连同 initialInputs /
- * currentOutputs 一起持久化到独立 Dexie 库 `lokvis-history`,实现跨会话保留:
+ * currentOutputs 一起持久化到独立 KV 库 `lokvis-history`(经
+ * @lokvis/browser-adapter KVStoreFactory,ADR-015),实现跨会话保留:
  * 刷新页面后,undo/redo 历史与"当前输出"游标均可恢复(前提:outputs 引用的
  * 资产仍在 OPFS/IDB 中,由 W6.6 元数据持久化保证)。
  *
- * 与 OpfsMetadataDatabase 同样的降级策略:IndexedDB 不可用时返回 undefined,
+ * 与 OPFS 元数据库同样的降级策略:IndexedDB 不可用时返回 undefined,
  * runtime 退化为仅内存历史(刷新后丢失,与 W2 行为一致)。
  *
  * 持久化时机(由 runtime 驱动):
@@ -18,9 +19,12 @@
  * 恢复时机:
  * - createRuntime 工厂构造完 impl 后调 loadPersistedHistory() 预加载所有快照
  */
-import Dexie, { type Table } from 'dexie';
+import {
+  createKVStore,
+  isIdbSupported,
+  type KVStore,
+} from '@lokvis/browser-adapter';
 import type { AssetId, HistoryEntry } from '@lokvis/schema';
-import { isIdbSupported } from './idb-asset-store.js';
 
 /** 持久化的历史记录(每个工作流一条) */
 export interface HistoryRecord {
@@ -36,24 +40,6 @@ export interface HistoryRecord {
   currentOutputs: AssetId[];
   /** 最后更新时间戳(用于排查与潜在 TTL 清理) */
   updatedAt: number;
-}
-
-/**
- * 历史持久化数据库。
- *
- * 独立于 OpfsMetadataDatabase('lokvis-opfs-metadata')与 IdbAssetStore
- * ('lokvis-assets'),避免与资产元数据冲突。表以 workflowId 为主键,
- * 额外索引 updatedAt 便于未来按时间清理陈旧记录。
- */
-export class HistoryDatabase extends Dexie {
-  history!: Table<HistoryRecord, string>;
-
-  constructor(name = 'lokvis-history') {
-    super(name);
-    this.version(1).stores({
-      history: 'workflowId, updatedAt',
-    });
-  }
 }
 
 /** HistoryStore 抽象接口(便于测试注入 mock) */
@@ -72,9 +58,9 @@ export interface HistoryStore {
 
 /** HistoryStore 工厂选项 */
 export interface HistoryStoreOptions {
-  /** 测试注入:自定义数据库实例 */
-  dbInstance?: HistoryDatabase;
-  /** 数据库名(默认 'lokvis-history';仅 dbInstance 未注入时生效) */
+  /** 测试注入:自定义 KV 存储实例(ADR-015 后替代原 Dexie dbInstance) */
+  kvStore?: KVStore<HistoryRecord>;
+  /** 数据库名(默认 'lokvis-history';仅 kvStore 未注入时生效) */
   dbName?: string;
 }
 
@@ -87,13 +73,13 @@ export interface HistoryStoreOptions {
 export function createHistoryStore(
   options: HistoryStoreOptions = {}
 ): HistoryStore | undefined {
-  const db = resolveHistoryDb(options);
-  if (!db) return undefined;
+  const kv = resolveHistoryStore(options);
+  if (!kv) return undefined;
 
   return {
     async save(record) {
       try {
-        await db.history.put(record);
+        await kv.put(record);
       } catch (err) {
         // 持久化失败不阻断历史操作,仅 warn 便于排查
         console.warn(
@@ -104,7 +90,7 @@ export function createHistoryStore(
     },
     async load(workflowId) {
       try {
-        return await db.history.get(workflowId);
+        return await kv.get(workflowId);
       } catch (err) {
         console.warn(
           `[lokvis] history store load failed for ${workflowId}:`,
@@ -115,7 +101,7 @@ export function createHistoryStore(
     },
     async loadAll() {
       try {
-        return await db.history.toArray();
+        return await kv.toArray();
       } catch (err) {
         console.warn('[lokvis] history store loadAll failed:', err);
         return [];
@@ -123,7 +109,7 @@ export function createHistoryStore(
     },
     async delete(workflowId) {
       try {
-        await db.history.delete(workflowId);
+        await kv.delete(workflowId);
       } catch (err) {
         console.warn(
           `[lokvis] history store delete failed for ${workflowId}:`,
@@ -133,7 +119,7 @@ export function createHistoryStore(
     },
     async clear() {
       try {
-        await db.history.clear();
+        await kv.clear();
       } catch (err) {
         console.warn('[lokvis] history store clear failed:', err);
       }
@@ -141,14 +127,21 @@ export function createHistoryStore(
   };
 }
 
-/** 解析历史数据库实例(注入优先,否则在 IDB 可用时新建) */
-function resolveHistoryDb(
+/** 解析历史 KV 存储(注入优先,否则在 IDB 可用时新建) */
+function resolveHistoryStore(
   options: HistoryStoreOptions
-): HistoryDatabase | undefined {
-  if (options.dbInstance) return options.dbInstance;
+): KVStore<HistoryRecord> | undefined {
+  if (options.kvStore) return options.kvStore;
   if (!isIdbSupported()) return undefined;
   try {
-    return new HistoryDatabase(options.dbName);
+    return createKVStore<HistoryRecord>({
+      // 独立于 'lokvis-opfs-metadata' 与 'lokvis-assets',避免与资产元数据冲突;
+      // 额外索引 updatedAt 便于未来按时间清理陈旧记录
+      dbName: options.dbName ?? 'lokvis-history',
+      tableName: 'history',
+      keyPath: 'workflowId',
+      indexes: ['updatedAt'],
+    });
   } catch (err) {
     console.warn(
       '[lokvis] history database init failed, falling back to memory-only:',

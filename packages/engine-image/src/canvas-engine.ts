@@ -4,10 +4,21 @@
  * MVP 首选引擎：零 WASM 依赖，首屏最快。
  * 通过 createImageBitmap 解码，Canvas 2D 处理，canvas.toBlob 编码。
  *
+ * ADR-015:原生 API 原语(OffscreenCanvas / document.createElement /
+ * toBlob / convertToBlob / createImageBitmap)收敛到 @lokvis/browser-adapter,
+ * 本模块只保留引擎业务语义(MIME 映射、静默回退判错、resize 降级策略)。
+ *
  * 局限：AVIF 编码浏览器支持不全；编码质量略逊于 Squoosh WASM。
  * 后续可通过同一适配层无缝切换到 Squoosh。
  */
 
+import {
+  createCanvas,
+  decodeToBitmap,
+  detectEncodeSupport,
+  encodeCanvasToBlob,
+  get2DContext,
+} from '@lokvis/browser-adapter';
 import type {
   CompressParams,
   ConvertParams,
@@ -51,12 +62,9 @@ export const IMAGE_ENGINE: ImageEngineDescriptor = {
   ],
 };
 
-/** 解码 Blob 为位图与尺寸(createImageBitmap) */
+/** 解码 Blob 为位图与尺寸(createImageBitmap,经 adapter) */
 export async function decodeImage(blob: Blob): Promise<DecodedImage> {
-  if (typeof createImageBitmap !== 'function') {
-    throw new Error('createImageBitmap is not supported in this environment');
-  }
-  const bitmap = await createImageBitmap(blob);
+  const bitmap = await decodeToBitmap(blob);
   return {
     bitmap,
     width: bitmap.width,
@@ -77,22 +85,7 @@ export async function encodeImage(
     );
   }
   const q = Math.min(1, Math.max(0, quality / 100));
-
-  let blob: Blob;
-  if (canvas instanceof OffscreenCanvas) {
-    blob = await canvas.convertToBlob({ type: mime, quality: q });
-  } else {
-    blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (b) => {
-          if (b) resolve(b);
-          else reject(new Error(`Failed to encode canvas as ${format}`));
-        },
-        mime,
-        q
-      );
-    });
-  }
+  const blob = await encodeCanvasToBlob(canvas, mime, q);
 
   // 浏览器缺少对应编码器时(如 AVIF),toBlob / convertToBlob 会按规范
   // 静默回退为 PNG。比对实际产出 MIME,避免把错误格式静默交给上层
@@ -105,32 +98,10 @@ export async function encodeImage(
   return blob;
 }
 
-/** 检测浏览器对各种图像编码格式的支持 */
+/** 检测浏览器对各种图像编码格式的支持(经 adapter FormatSupportProbe) */
 export async function detectFormatSupport(): Promise<Record<ImageOutputFormat, boolean>> {
-  const testCanvas =
-    typeof OffscreenCanvas !== 'undefined'
-      ? new OffscreenCanvas(1, 1)
-      : document.createElement('canvas');
-  const results: Record<ImageOutputFormat, boolean> = {
-    png: true,
-    jpeg: true,
-    webp: false,
-    avif: false,
-    gif: false,
-  };
-
-  for (const fmt of ['webp', 'avif'] as ImageOutputFormat[]) {
-    try {
-      // encode() 在浏览器静默回退 PNG 时会抛错,故成功返回即代表真实支持。
-      // (旧实现用 `blob.type === mime || blob.size > 0` 判断,回退的非空
-      //  PNG 会被误判为支持,已修复。)
-      await encodeImage(testCanvas, fmt, 80);
-      results[fmt] = true;
-    } catch {
-      results[fmt] = false;
-    }
-  }
-  return results;
+  const support = await detectEncodeSupport(Object.keys(MIME_BY_FORMAT));
+  return support as Record<ImageOutputFormat, boolean>;
 }
 
 /** 便捷：直接从 Blob 解码并执行一次编码（用于纯格式转换） */
@@ -168,14 +139,10 @@ export async function decodeResized(
   targetWidth: number,
   targetHeight: number
 ): Promise<DecodedImage> {
-  if (typeof createImageBitmap !== 'function') {
-    throw new Error('createImageBitmap is not supported in this environment');
-  }
   try {
-    const bitmap = await createImageBitmap(blob, {
-      resizeWidth: targetWidth,
-      resizeHeight: targetHeight,
-      resizeQuality: 'high',
+    const bitmap = await decodeToBitmap(blob, {
+      width: targetWidth,
+      height: targetHeight,
     });
     return { bitmap, width: bitmap.width, height: bitmap.height };
   } catch {
@@ -184,32 +151,7 @@ export async function decodeResized(
   }
 }
 
-/** 创建 Canvas（优先 OffscreenCanvas，回退到 DOM Canvas） */
-export function createCanvas(
-  width: number,
-  height: number
-): HTMLCanvasElement | OffscreenCanvas {
-  if (typeof OffscreenCanvas !== 'undefined') {
-    return new OffscreenCanvas(width, height);
-  }
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  return canvas;
-}
-
-/** Canvas 2D Context 类型（兼容 OffscreenCanvas 与 HTMLCanvasElement） */
-export type Canvas2DContext =
-  | CanvasRenderingContext2D
-  | OffscreenCanvasRenderingContext2D;
-
-/** 获取 Canvas 的 2D Context（类型断言版） */
-export function get2DContext(
-  canvas: HTMLCanvasElement | OffscreenCanvas
-): Canvas2DContext {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    throw new Error('Failed to get 2D context from canvas');
-  }
-  return ctx as Canvas2DContext;
-}
+// ADR-015:Canvas 创建/上下文原语迁至 adapter,此处 re-export 保持
+// operations/* 与外部消费方的导入路径不变。
+export { createCanvas, get2DContext };
+export type { Canvas2DContext } from '@lokvis/browser-adapter';

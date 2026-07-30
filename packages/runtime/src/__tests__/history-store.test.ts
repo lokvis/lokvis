@@ -3,7 +3,7 @@
  *
  * 验证:
  * - save/load/loadAll/delete/clear CRUD
- * - 注入 dbInstance 时使用注入实例
+ * - 注入 kvStore 时使用注入实例
  * - IndexedDB 不可用时 createHistoryStore 返回 undefined(降级)
  *
  * Node 环境无原生 IndexedDB,通过 fake-indexeddb/auto 注入全局;
@@ -11,10 +11,9 @@
  */
 // oxlint-disable-next-line import/no-unresolved
 import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import Dexie from 'dexie';
+import { describe, it, expect, afterAll } from 'vitest';
+import { createKVStore } from '@lokvis/browser-adapter';
 import {
-  HistoryDatabase,
   createHistoryStore,
   type HistoryRecord,
 } from '../history-store.js';
@@ -24,17 +23,8 @@ import type { HistoryEntry } from '@lokvis/schema';
 
 const g = globalThis as Record<string, unknown>;
 const FAKE_GLOBALS = ['indexedDB', 'IDBKeyRange', 'IDBFactory'];
-let savedDexieIndexedDB: typeof Dexie.dependencies.indexedDB;
-let savedDexieIDBKeyRange: typeof Dexie.dependencies.IDBKeyRange;
-
-beforeAll(() => {
-  savedDexieIndexedDB = Dexie.dependencies.indexedDB;
-  savedDexieIDBKeyRange = Dexie.dependencies.IDBKeyRange;
-});
 
 afterAll(() => {
-  Dexie.dependencies.indexedDB = savedDexieIndexedDB;
-  Dexie.dependencies.IDBKeyRange = savedDexieIDBKeyRange;
   for (const key of FAKE_GLOBALS) {
     delete g[key];
   }
@@ -133,13 +123,18 @@ describe('HistoryStore 持久化(W7.2)', () => {
     expect(got!.cursor).toBe(1);
   });
 
-  it('注入 dbInstance 时应使用注入实例', async () => {
-    const db = new HistoryDatabase(uniqueDbName());
-    const store = createHistoryStore({ dbInstance: db })!;
+  it('注入 kvStore 时应使用注入实例', async () => {
+    const kv = createKVStore<HistoryRecord>({
+      dbName: uniqueDbName(),
+      tableName: 'history',
+      keyPath: 'workflowId',
+      indexes: ['updatedAt'],
+    });
+    const store = createHistoryStore({ kvStore: kv })!;
     await store.save(makeRecord('wf-a', [makeEntry(0)], 0));
 
-    // 直接查注入的 db,验证同一实例被使用
-    const record = await db.history.get('wf-a');
+    // 直接查注入的 kvStore,验证同一实例被使用
+    const record = await kv.get('wf-a');
     expect(record).toBeDefined();
     expect(record!.entries).toHaveLength(1);
   });

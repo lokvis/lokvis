@@ -41,7 +41,7 @@
   },
   "dependencies": {
     "@lokvis/schema": "workspace:*",
-    "@lokvis/engine-core": "workspace:*",
+    "@lokvis/browser-adapter": "workspace:*",
     "@jsquash/avif": "^2.1.1"
   },
   "devDependencies": {

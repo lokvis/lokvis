@@ -12,8 +12,7 @@
  */
 // oxlint-disable-next-line import/no-unresolved
 import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import Dexie from 'dexie';
+import { describe, it, expect, afterAll } from 'vitest';
 import {
   LokvisRuntimeImpl,
   createRuntime,
@@ -21,7 +20,6 @@ import {
 import { createMemoryAssetStore } from '../../asset-store.js';
 import {
   createHistoryStore,
-  HistoryDatabase,
   type HistoryStore,
 } from '../../history-store.js';
 import type {
@@ -119,17 +117,8 @@ function makeRuntime(historyStore: HistoryStore): LokvisRuntimeImpl {
 
 const g = globalThis as Record<string, unknown>;
 const FAKE_GLOBALS = ['indexedDB', 'IDBKeyRange', 'IDBFactory'];
-let savedDexieIndexedDB: typeof Dexie.dependencies.indexedDB;
-let savedDexieIDBKeyRange: typeof Dexie.dependencies.IDBKeyRange;
-
-beforeAll(() => {
-  savedDexieIndexedDB = Dexie.dependencies.indexedDB;
-  savedDexieIDBKeyRange = Dexie.dependencies.IDBKeyRange;
-});
 
 afterAll(() => {
-  Dexie.dependencies.indexedDB = savedDexieIndexedDB;
-  Dexie.dependencies.IDBKeyRange = savedDexieIDBKeyRange;
   for (const key of FAKE_GLOBALS) {
     delete g[key];
   }
@@ -144,8 +133,7 @@ function uniqueDbName(): string {
 
 describe('集成:历史持久化 + jumpTo(W7.2/W7.9)', () => {
   it('run 产生历史后应持久化到 historyStore', async () => {
-    const db = new HistoryDatabase(uniqueDbName());
-    const historyStore = createHistoryStore({ dbInstance: db })!;
+    const historyStore = createHistoryStore({ dbName: uniqueDbName() })!;
     const runtime = makeRuntime(historyStore);
 
     await runtime.run(buildWorkflow(), [INPUT_ASSET]);
@@ -187,8 +175,7 @@ describe('集成:历史持久化 + jumpTo(W7.2/W7.9)', () => {
   });
 
   it('jumpTo 跳转后 currentOutputs 应正确切换', async () => {
-    const db = new HistoryDatabase(uniqueDbName());
-    const historyStore = createHistoryStore({ dbInstance: db })!;
+    const historyStore = createHistoryStore({ dbName: uniqueDbName() })!;
     const runtime = makeRuntime(historyStore);
     await runtime.run(buildWorkflow(), [INPUT_ASSET]);
     // cursor=1, currentOutputs=['asset-compressed']
@@ -211,8 +198,7 @@ describe('集成:历史持久化 + jumpTo(W7.2/W7.9)', () => {
   });
 
   it('jumpTo 越界应为 no-op(不影响游标与输出)', async () => {
-    const db = new HistoryDatabase(uniqueDbName());
-    const historyStore = createHistoryStore({ dbInstance: db })!;
+    const historyStore = createHistoryStore({ dbName: uniqueDbName() })!;
     const runtime = makeRuntime(historyStore);
     await runtime.run(buildWorkflow(), [INPUT_ASSET]);
     const before = await runtime.getHistoryState(WF_ID);
@@ -229,8 +215,7 @@ describe('集成:历史持久化 + jumpTo(W7.2/W7.9)', () => {
   });
 
   it('getHistoryState 对不存在的工作流应返回空', async () => {
-    const db = new HistoryDatabase(uniqueDbName());
-    const historyStore = createHistoryStore({ dbInstance: db })!;
+    const historyStore = createHistoryStore({ dbName: uniqueDbName() })!;
     const runtime = makeRuntime(historyStore);
 
     const state = await runtime.getHistoryState('nonexistent');
@@ -239,8 +224,7 @@ describe('集成:历史持久化 + jumpTo(W7.2/W7.9)', () => {
   });
 
   it('disposeWorkflow 后持久化记录应被删除', async () => {
-    const db = new HistoryDatabase(uniqueDbName());
-    const historyStore = createHistoryStore({ dbInstance: db })!;
+    const historyStore = createHistoryStore({ dbName: uniqueDbName() })!;
     const runtime = makeRuntime(historyStore);
     await runtime.run(buildWorkflow(), [INPUT_ASSET]);
     expect(await historyStore.load(WF_ID)).toBeDefined();

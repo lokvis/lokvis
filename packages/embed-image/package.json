@@ -45,6 +45,7 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
+    "@lokvis/browser-adapter": "workspace:*",
     "@lokvis/embed-kit": "workspace:*",
     "@lokvis/i18n": "workspace:*",
     "@lokvis/engine-image": "workspace:*",

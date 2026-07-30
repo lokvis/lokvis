@@ -87,7 +87,7 @@ export async function watermark(
         );
       }
       const wmBlob = await resp.blob();
-      const wmBitmap = await createImageBitmap(wmBlob);
+      const { bitmap: wmBitmap } = await decodeImage(wmBlob);
       // W21.6: wmBitmap 也用 try/finally 释放,确保 tile 循环中 throwIfAborted
       // 抛错时不会泄漏(原版 wmBitmap.close 在 if 块末尾,异常路径遗漏)
       try {

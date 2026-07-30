@@ -72,7 +72,7 @@ export interface RuntimeConfig {
   historyStore?: HistoryStore;
   /**
    * HistoryStore 工厂选项(W7.2,仅 historyStore 未注入时生效)。
-   * 测试可注入 dbInstance 或自定义 dbName。
+   * 测试可注入 kvStore 或自定义 dbName。
    */
   historyStoreOptions?: HistoryStoreOptions;
   /**

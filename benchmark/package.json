@@ -1,0 +1,21 @@
+{
+  "name": "@lokvis/benchmark",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Lokvis image benchmark suite - generates @lokvis/data-benchmarks records for lokvis-knowledge (not published)",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "fetch-corpus": "node corpus/generate.mjs",
+    "verify-corpus": "node corpus/generate.mjs --verify",
+    "bench": "node corpus/generate.mjs && node run-bench.mjs",
+    "report": "node report.mjs"
+  },
+  "devDependencies": {
+    "@lokvis/engine-image": "workspace:*",
+    "@playwright/test": "^1.61.1",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "vite": "^6.0.0"
+  }
+}

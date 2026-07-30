@@ -41,6 +41,10 @@ test-results/
 playwright-report/
 playwright/.cache/
 
+# Benchmark 产物(D1/D2):corpus 图像由 generate.mjs 确定性再生,不入库
+benchmark/corpus/images/
+benchmark/results/
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

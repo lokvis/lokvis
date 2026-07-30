@@ -1,13 +1,18 @@
 /**
  * IndexedDB Asset Store
  *
- * 元数据 + Blob 全部存 IndexedDB(通过 Dexie)。
+ * 元数据 + Blob 全部存 IndexedDB(经 @lokvis/browser-adapter 的
+ * KVStoreFactory,ADR-015;底层 Dexie 在 adapter 内)。
  * 当 OPFS 不可用时作为降级方案,数据持久化且支持跨刷新恢复。
  *
  * 降级链(W2.8 工厂):OPFS → IndexedDB(本实现) → Memory
  */
 
-import Dexie, { type Table } from 'dexie';
+import {
+  createKVStore,
+  isIdbSupported,
+  type KVStore,
+} from '@lokvis/browser-adapter';
 import type { Asset, AssetId } from '@lokvis/schema';
 import type { AssetStore } from './asset-store.js';
 import {
@@ -34,10 +39,10 @@ export interface IdbAssetStoreOptions {
   /** 数据库名(默认 'lokvis-assets') */
   dbName?: string;
   /**
-   * 测试注入:自定义 Dexie 实例。
-   * 默认创建新实例。
+   * 测试注入:自定义 KV 存储实例(ADR-015 后替代原 Dexie dbInstance)。
+   * 默认经 adapter createKVStore 创建。
    */
-  dbInstance?: AssetDatabase;
+  kvStore?: KVStore<AssetRecord>;
 }
 
 /** IndexedDB 中的资产记录(Asset 元数据 + Blob 数据) */
@@ -50,53 +55,49 @@ export interface AssetRecord {
   blob: Blob;
 }
 
-/** Dexie 数据库封装 */
-export class AssetDatabase extends Dexie {
-  assets!: Table<AssetRecord, string>;
-
-  constructor(name = 'lokvis-assets') {
-    super(name);
-    this.version(1).stores({
-      // 仅主键 id;按 type 查询由上层过滤 list() 实现,无需二级索引
-      assets: 'id',
-    });
-  }
-}
-
-/** 检测当前环境是否支持 IndexedDB */
-export function isIdbSupported(): boolean {
-  // Dexie 始终可 import,但实际使用需要全局 indexedDB
-  return typeof indexedDB !== 'undefined';
-}
+/**
+ * 检测当前环境是否支持 IndexedDB。
+ *
+ * @deprecated 实现已迁移至 @lokvis/browser-adapter(ADR-015),
+ * 此处 re-export 仅为 API 兼容保留。
+ */
+export { isIdbSupported };
 
 /** 创建 IndexedDB 版 AssetStore */
 export async function createIdbAssetStore(
   options: IdbAssetStoreOptions = {}
 ): Promise<AssetStore> {
-  if (!isIdbSupported() && !options.dbInstance) {
+  if (!isIdbSupported() && !options.kvStore) {
     throw new IdbUnavailableError(
       'IndexedDB is not available in this environment'
     );
   }
 
-  const db = options.dbInstance ?? new AssetDatabase(options.dbName);
+  const kv =
+    options.kvStore ??
+    createKVStore<AssetRecord>({
+      dbName: options.dbName ?? 'lokvis-assets',
+      tableName: 'assets',
+      // 仅主键 id;按 type 查询由上层过滤 list() 实现,无需二级索引
+      keyPath: 'id',
+    });
 
   return {
     async import(source) {
       const { id, blob, metadata, type } = await prepareImport(source);
       const asset = buildAsset(id, blob, metadata, type, IDB_PATH_PREFIX);
-      await db.assets.put({ id, asset, blob });
+      await kv.put({ id, asset, blob });
       return asset;
     },
 
     async get(id) {
-      const record = await db.assets.get(id);
+      const record = await kv.get(id);
       return record?.asset;
     },
 
     async getBlob(handle) {
       const id = parseBlobPath(handle.path, IDB_PATH_PREFIX);
-      const record = await db.assets.get(id);
+      const record = await kv.get(id);
       if (!record) {
         throw new AssetBlobNotFoundError(`Blob not found in IndexedDB for path: ${handle.path}`);
       }
@@ -104,24 +105,24 @@ export async function createIdbAssetStore(
     },
 
     async remove(id) {
-      await db.assets.delete(id);
+      await kv.delete(id);
     },
 
     async list() {
-      const records = await db.assets.toArray();
+      const records = await kv.toArray();
       return records.map((r) => r.asset);
     },
 
     async create(blob, metadata, type) {
       const id = generateId();
       const asset = buildAsset(id, blob, metadata, type, IDB_PATH_PREFIX);
-      await db.assets.put({ id, asset, blob });
+      await kv.put({ id, asset, blob });
       return asset;
     },
 
-    // W21.6: 关闭 Dexie 连接(IDB 数据不删除,下次创建 store 时可恢复)。
+    // W21.6: 关闭底层连接(IDB 数据不删除,下次创建 store 时可恢复)。
     async dispose() {
-      db.close();
+      kv.close();
     },
   };
 }

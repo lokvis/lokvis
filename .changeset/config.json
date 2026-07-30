@@ -6,6 +6,7 @@
     [
       "@lokvis/schema",
       "@lokvis/i18n",
+      "@lokvis/browser-adapter",
       "@lokvis/capability",
       "@lokvis/workflow",
       "@lokvis/runtime",

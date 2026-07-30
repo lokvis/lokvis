@@ -14,6 +14,7 @@ import {
   OpfsUnavailableError,
   OPFS_PATH_PREFIX,
   type OpfsAssetStoreOptions,
+  type OpfsMetadataRecord,
 } from '../opfs-asset-store.js';
 import {
   createAssetStore,
@@ -341,18 +342,18 @@ describe('OpfsAssetStore.dispose() (W21.6)', () => {
     await expect(store.dispose?.()).resolves.toBeUndefined();
   });
 
-  it('dispose 应调用 metadataDb.close()(IDB 可用时)', async () => {
-    // 注入 mock metadataDb 验证 close 调用
-    const { OpfsMetadataDatabase } = await import('../opfs-asset-store.js');
-    const fakeRoot = new FakeDirHandle();
-    const db = new OpfsMetadataDatabase(
-      `lokvis-opfs-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  it('dispose 应调用 metadataKvStore.close()', async () => {
+    // 注入内存 KVStore 验证 close 调用
+    const { createMemoryKVStore } = await import(
+      '@lokvis/browser-adapter/test-utils'
     );
-    const closeSpy = vi.spyOn(db, 'close');
+    const fakeRoot = new FakeDirHandle();
+    const kv = createMemoryKVStore<OpfsMetadataRecord>('id');
+    const closeSpy = vi.spyOn(kv, 'close');
 
     const store = await createOpfsAssetStore({
       rootHandle: fakeRoot as unknown as FileSystemDirectoryHandle,
-      metadataDb: db,
+      metadataKvStore: kv,
     });
 
     await store.dispose?.();
