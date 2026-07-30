@@ -1,5 +1,18 @@
 # @lokvis/embed-pdf
 
+## 0.9.0
+
+### Patch Changes
+
+- Updated dependencies [[`58ecd94`](https://github.com/lokvis/lokvis/commit/58ecd949f5a8685acf19a7faad9cccd8912812e3)]:
+  - @lokvis/runtime@0.9.0
+  - @lokvis/sdk@0.9.0
+  - @lokvis/embed-kit@0.9.0
+  - @lokvis/schema@0.9.0
+  - @lokvis/i18n@0.9.0
+  - @lokvis/workflow@0.9.0
+  - @lokvis/plugin-pdf@0.9.0
+
 ## 0.8.1
 
 ### Patch Changes

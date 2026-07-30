@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/engine-ai",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "Lokvis AI Engine Adapter - Transformers.js / Cloud AI proxy",
   "license": "MIT",
   "type": "module",

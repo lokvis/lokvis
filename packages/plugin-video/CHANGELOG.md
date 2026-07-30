@@ -1,5 +1,15 @@
 # @lokvis/plugin-video
 
+## 0.9.0
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @lokvis/schema@0.9.0
+  - @lokvis/capability@0.9.0
+  - @lokvis/engine-video@0.9.0
+  - @lokvis/plugin-sdk@0.9.0
+
 ## 0.8.1
 
 ### Patch Changes

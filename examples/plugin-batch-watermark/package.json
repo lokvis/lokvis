@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/example-plugin-batch-watermark",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "private": true,
   "description": "Example: an N→1 merge plugin that stamps a text watermark onto multiple images and stitches them into a single contact sheet (teaching reference for createMergeCapabilityImpl)",
   "license": "MIT",

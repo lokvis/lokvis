@@ -1,5 +1,15 @@
 # @lokvis/example-custom-workspace
 
+## 0.1.15
+
+### Patch Changes
+
+- Updated dependencies [[`58ecd94`](https://github.com/lokvis/lokvis/commit/58ecd949f5a8685acf19a7faad9cccd8912812e3)]:
+  - @lokvis/runtime@0.9.0
+  - @lokvis/sdk@0.9.0
+  - @lokvis/plugin-image@0.9.0
+  - @lokvis/schema@0.9.0
+
 ## 0.1.14
 
 ### Patch Changes
