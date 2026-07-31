@@ -1,0 +1,49 @@
+name: Compat Check
+
+# C2(architecture-v2-tasks 工作流 C):
+# FormatSupportProbe(encode)↔ @lokvis/data-compatibility(chrome encode 列)双向守卫。
+# 在真实 chromium 内跑 @lokvis/browser-adapter 的 detectEncodeSupport,与知识仓
+# encode 维度逐格式断言;任一侧数据漂移即 fail(架构 v2「Knowledge 存 Facts」)。
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+concurrency:
+  group: compat-check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  PNPM_VERSION: '9.12.0'
+
+jobs:
+  compat-check:
+    name: FormatSupportProbe ↔ data-compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright chromium
+        run: pnpm --filter @lokvis/benchmark exec playwright install --with-deps chromium
+
+      - name: Consistency guard
+        run: pnpm compat:check

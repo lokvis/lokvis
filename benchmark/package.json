@@ -9,9 +9,12 @@
     "fetch-corpus": "node corpus/generate.mjs",
     "verify-corpus": "node corpus/generate.mjs --verify",
     "bench": "node corpus/generate.mjs && node run-bench.mjs",
-    "report": "node report.mjs"
+    "report": "node report.mjs",
+    "compat-check": "node compat-check.mjs"
   },
   "devDependencies": {
+    "@lokvis/browser-adapter": "workspace:*",
+    "@lokvis/data-compatibility": "0.3.0",
     "@lokvis/engine-image": "workspace:*",
     "@playwright/test": "^1.61.1",
     "ajv": "^8.17.1",
