@@ -4,10 +4,10 @@ AI 编码助手在修改本项目代码时应遵循的约定。
 
 ## 架构约束
 
-五层架构，**单向依赖**，禁止跨层引用：
+六层架构，**单向依赖**，禁止跨层引用：
 
 ```
-UI → Workflow → Runtime → Capability → Engine
+UI → Workflow → Runtime → Capability → Engine → Browser Adapter
 ```
 
 - **UI** 层（@lokvis/ui-react）渲染 Workspace，依赖 @lokvis/workflow + @lokvis/runtime + @lokvis/sdk
@@ -15,7 +15,14 @@ UI → Workflow → Runtime → Capability → Engine
 - **Runtime** 层（@lokvis/runtime）调度 Capability 执行工作流，不直接依赖任何 Engine 包，也不依赖 @lokvis/workflow（Workflow 构造属上层职责）
 - **Capability** 层（plugin-*）负责 Asset ↔ Blob 转换，是 Engine 与 Runtime 的桥梁
 - **Engine** 层只暴露 Blob ↔ Blob 的纯函数操作，不感知 Asset/Workflow
+- **Browser Adapter** 层（@lokvis/browser-adapter）是原生浏览器 API 的统一抽象（EnvProbe / CanvasFactory / MediaProbe / StorageAdapter / KVStoreFactory / WorkerFactory / FormatSupportProbe），是**唯一允许触碰 `navigator.` / `document.` / `window.` / `indexedDB` / canvas 的非展示层**（ADR-015）
 - **Schema** 层（@lokvis/schema）是最底层稳定核心：类型定义 + 校验器 + 业务约束常量（如 MAX_WORKFLOW_STEPS），所有层均可依赖
+
+### 浏览器 API 访问约束
+
+runtime / workflow / capability / plugin-* / sdk **禁止**直接使用原生浏览器 API，
+必须经 `@lokvis/browser-adapter` 注入。engine-* 允许直接 import adapter（engine 属
+L1/L2 边界）；embed-* / ui-*（展示层）不受此铁律约束，可直接触碰 DOM。
 
 ## 类型安全
 
@@ -98,7 +105,7 @@ EventBus 的 `emit()` 中对 `anyHandlers` 迭代：
 - 框架：Vitest，`globals: false`（显式 import）
 - 位置：`src/__tests__/<module>.test.ts`
 - 中文测试描述
-- 浏览器 API（Canvas / OPFS / IndexedDB）使用 fake 实现
+- 浏览器 API（Canvas / OPFS / IndexedDB）使用 fake 实现；优先用 `@lokvis/browser-adapter` 的 `createFakeAdapter()`（或各接口 fake），避免零散全局 mock（ADR-015）
 - 核心包（runtime / schema / capability / engine-image）需要测试覆盖
 - 各 plugin-* 包（plugin-image / plugin-video / plugin-pdf / plugin-audio / plugin-ai）
   均需 `__tests__/plugin.test.ts` 覆盖：插件常量、installer 注册数、

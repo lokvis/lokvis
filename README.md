@@ -1,11 +1,11 @@
 # Lokvis
 
-> **Local-first Browser Workspace Platform — everything runs in your browser.**
+> **Digital Asset Intelligence Platform 的开源 Runtime — local-first，everything runs in your browser.**
 
 [![CI](https://github.com/lokvis/lokvis/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/lokvis/lokvis/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
-[![Coverage](https://img.shields.io/badge/coverage-90.44%25-brightgreen.svg)](docs/reports/W16.6-bug-fix-precheck.md)
+[![Coverage](https://github.com/lokvis/lokvis/actions/workflows/ci.yml)](https://github.com/lokvis/lokvis/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![GitHub Discussions](https://img.shields.io/badge/Discussions-ask%20question-blue.svg)](https://github.com/lokvis/lokvis/discussions)
 [![Powered by Astro](https://img.shields.io/badge/Powered%20by-Astro-FF5D01.svg)](https://astro.build)
@@ -23,7 +23,7 @@
   <em>📝 Hero GIF 占位 — 待 W23.1 后续录屏补全</em>
 </p>
 
-Lokvis 是一个 **Local-first 浏览器工作区平台**。在浏览器中处理图像、视频、PDF、音频——**不上传、不部署服务器、不妥协**。
+Lokvis 是 **Digital Asset Intelligence Platform 的开源 Runtime**(本仓 `lokvis-open`)。在浏览器中处理图像、视频、PDF、音频——**不上传、不部署服务器、不妥协**。平台差异化在于「知识 + 决策 + 执行」的闭环,本仓承担其中的「执行」(Runtime + Browser Adapter)。
 
 > **Local-first**:所有处理在 WebAssembly + Web Workers 中完成,Cloudflare 仅承担边缘服务(CDN / R2 / Workers AI)。你的文件永远不离开设备。零 WASM MVP 用原生 Canvas + `createImageBitmap`,首屏不阻塞。
 
@@ -61,13 +61,13 @@ Lokvis 是一个 **Local-first 浏览器工作区平台**。在浏览器中处�
 
 > 表中 ⚠️ 表示该方案部分支持但有局限。Lokvis 不声称全面优于所有方案,而是聚焦"本地优先 + 可编程 + AI 编排"的交叉定位。
 
-**核心定位**:在浏览器里跑得动、改得动、接得动 AI 的本地优先图像工作区。
+**核心定位**:在浏览器里跑得动、改得动、接得动 AI 的本地优先数字资产 Runtime(图像 / 视频 / PDF / 音频)。
 
 ## ✨ 核心特性
 
 - **🔐 隐私优先**:文件永远不离开浏览器,无服务端上传,无 telemetry 遥测
-- **⚡ 零 WASM MVP**:图像引擎用原生 Canvas + `createImageBitmap`,首屏不阻塞,Phase 2 才引入 ffmpeg.wasm
-- **🧩 五层架构**:`UI → Workflow → Runtime → Capability → Engine`,单向依赖,禁止跨层引用
+- **⚡ 零 WASM 首屏**:图像引擎用原生 Canvas + `createImageBitmap`,首屏不阻塞;视频/音频按需加载 ffmpeg.wasm
+- **🧩 六层架构**:`UI → Workflow → Runtime → Capability → Engine → Browser Adapter`,单向依赖,禁止跨层引用
 - **🔌 插件化**:每个引擎是独立包,通过 Capability 注册到 Runtime,引擎可热插拔
 - **🤖 MCP 集成**:将 Lokvis 能力暴露给 Claude / ChatGPT / Cursor,本地处理 + AI 编排
 - **💾 三级存储**:OPFS → IndexedDB → 内存,自动降级,大文件不 OOM
@@ -108,20 +108,21 @@ Lokvis 是一个 **Local-first 浏览器工作区平台**。在浏览器中处�
 | **性能** | LCP 6.9s / CLS 0.001 / Worker Transferable 零拷贝 / 大图 tile-based | ✅ |
 | **监控** | Sentry 错误(DSN 可选)/ Web Vitals / MemoryGuard 四档压力 | ✅ |
 
-### Phase 2 路线图(stub 已就位)
+### 多资产引擎(已实装)
 
-| 引擎 | 计划依赖 | 许可证 | Bundle 预估 |
-|------|---------|--------|-------------|
-| `engine-video` | ffmpeg.wasm | MIT + FFmpeg LGPL-2.1+ | ~30 MB |
-| `engine-pdf` | pdf-lib | MIT | ~500 KB |
-| `engine-audio` | lamejs / Web Audio API | MIT | ~200 KB |
-| `engine-ai` | transformers.js | Apache-2.0 | 视模型而定 |
+| 引擎 | 实现依赖 | 许可证 | 说明 |
+|------|---------|--------|------|
+| `engine-image` | 原生 Canvas + WASM(AVIF) | MIT | 9 能力,零 WASM MVP |
+| `engine-video` | ffmpeg.wasm(浏览器)/ ffmpeg-static(Node) | MIT + FFmpeg LGPL-2.1+ | compress / transcode / trim / merge / to-gif ... |
+| `engine-pdf` | pdf-lib | MIT | merge / split / compress / rotate / watermark ... |
+| `engine-audio` | ffmpeg-static(Node)/ Web Audio | MIT | trim / normalize / merge / transcode |
+| `engine-ai` | Cloud AI proxy | Apache-2.0 | ocr / caption / generate-workflow ... |
 
-详见 [路线图](docs/roadmap.md)。
+详见 [路线图](docs/roadmap.md) 与 [packages/ENGINES.md](packages/ENGINES.md)。
 
 ## 🏗 架构
 
-Lokvis 采用严格的**五层架构**,单向依赖,禁止跨层引用:
+Lokvis 采用严格的**六层架构**,单向依赖,禁止跨层引用:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -134,6 +135,9 @@ Lokvis 采用严格的**五层架构**,单向依赖,禁止跨层引用:
 │  Capability Layer resize / compress / convert / OCR ...    │
 ├─────────────────────────────────────────────────────────────┤
 │  Engine Layer     Canvas (MVP) / ffmpeg.wasm / pdf-lib ...  │
+├─────────────────────────────────────────────────────────────┤
+│  Browser Adapter  Canvas/OPFS/IDB/Workers 统一抽象          │
+│                   (唯一允许触碰原生浏览器 API 的层)         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -174,10 +178,10 @@ pnpm dev --filter @lokvis/docs
 ### 验证
 
 ```bash
-pnpm typecheck      # 全量类型检查(36 包)
-pnpm build          # 构建(20 任务)
-pnpm test           # 运行测试(1480 测试 / 83 文件)
-pnpm test:coverage  # 覆盖率(lines 90.44% / branches 88.64%)
+pnpm typecheck      # 全量类型检查
+pnpm build          # 构建所有包
+pnpm test           # 运行测试
+pnpm test:coverage  # 运行测试 + 覆盖率(实时数值见 CI)
 ```
 
 ### 在线体验
@@ -191,17 +195,10 @@ pnpm test:coverage  # 覆盖率(lines 90.44% / branches 88.64%)
 
 `@lokvis/sdk` 是将 Lokvis Runtime 嵌入任何 Web 应用的最简方式。
 
-> **npm 发布状态**:**Alpha 待发布**(包配置就绪度 100%,12 个 changeset 待应用,`v*` tag 推送后由 GitHub Actions 自动 publish;详见 [发版就绪度报告](docs/reports/W18.1-plugin-sdk-npm-release-readiness.md))。
->
-> 在 npm 发布前,需从源码构建使用:
+> **npm 发布状态**:已发布 `0.9.x`(`v*` tag 推送后由 GitHub Actions 自动 publish;发版流程见 [发版就绪度报告](docs/reports/W18.1-plugin-sdk-npm-release-readiness.md))。
 
 ```bash
-# 克隆仓库 + 本地构建 + 在你的项目中通过 pnpm link 或 file: 协议引用
-git clone https://github.com/lokvis/lokvis.git
-cd lokvis && pnpm install && pnpm build
-
-# 在你的项目中引用本地构建的 sdk
-# cd your-project && pnpm add link:../lokvis/packages/sdk
+pnpm add @lokvis/sdk @lokvis/plugin-image
 ```
 
 ```typescript
@@ -288,35 +285,42 @@ lokvis/
 ├── apps/
 │   ├── docs/                   # Astro + Starlight 文档站(API ref + 指南)
 │   └── playground/             # 在线 SDK playground(Astro 7 + React 19)
-├── packages/                   # 23 个独立包
+├── packages/                   # 29 个独立包
 │   ├── schema/                 # 类型定义 + Zod 校验(Workflow/Asset/Capability/Plugin/Event)
+│   ├── browser-adapter/        # 浏览器 API 统一抽象(唯一允许触碰原生 API 的非展示层)
 │   ├── runtime/                # 浏览器本地执行引擎(调度/事件总线/AssetStore/历史栈)
 │   ├── workflow/               # 线性工作流构造工具(WorkflowBuilder + buildLinearWorkflow)
 │   ├── sdk/                    # createLokvis() SDK — 嵌入 Runtime 的最简入口
 │   ├── plugin-sdk/             # 插件开发 SDK(definePlugin / PluginContext / 权限沙箱)
 │   ├── capability/             # 标准能力名 + 63 平台预设(Web/Social/Print/Mobile)
+│   ├── i18n/                   # i18n 核心(语言配置 / URL-lang helper / 字典翻译原语)
 │   ├── ui-core/                # React 设计系统(12 组件 + 设计 tokens)
 │   ├── ui-react/               # Workspace UI 组件(Workspace/Canvas/CommandPalette...)
+│   ├── embed-kit/              # embed-* 共享原语(theme/error boundary/runtime hook...)
+│   ├── embed-image/            # 三层图像快动作组件(hooks/primitives/default UI)
+│   ├── embed-pdf/              # 三层 PDF 工具组件(供三方集成)
+│   ├── embed-video/            # 三层视频工具组件(供三方集成)
 │   ├── cli/                    # lokvis CLI(run/capabilities/plugin-create/mcp/version)
 │   ├── engine-core/            # Engine 接口抽象 + 公共类型(供各 engine 复用)
-│   ├── engine-image/           # 图像引擎(Canvas MVP,9 能力,零 WASM)
-│   ├── engine-video/           # 视频引擎(ffmpeg.wasm 适配,stub)
-│   ├── engine-pdf/             # PDF 引擎(pdf-lib 适配,stub)
-│   ├── engine-audio/           # 音频引擎(Web Audio API / lamejs,stub)
-│   ├── engine-ai/              # AI 引擎(transformers.js 适配,stub)
-│   ├── plugin-image/           # 官方图像工具插件(9 能力 + EXIF)
-│   ├── plugin-video/           # 官方视频工具插件(stub,接 engine-video)
-│   ├── plugin-pdf/             # 官方 PDF 工具插件(stub,接 engine-pdf)
-│   ├── plugin-audio/           # 官方音频工具插件(stub,接 engine-audio)
-│   ├── plugin-ai/              # 官方 AI 工具插件(stub,接 engine-ai)
+│   ├── engine-image/           # 图像引擎(Canvas MVP + WASM AVIF,9 能力)
+│   ├── engine-video/           # 视频引擎(ffmpeg.wasm 浏览器 / ffmpeg-static Node)
+│   ├── engine-pdf/             # PDF 引擎(pdf-lib)
+│   ├── engine-audio/           # 音频引擎(ffmpeg-static Node / Web Audio)
+│   ├── engine-ai/              # AI 引擎(Cloud AI proxy)
+│   ├── plugin-image/           # 官方图像工具插件(10 能力 + EXIF)
+│   ├── plugin-video/           # 官方视频工具插件(接 engine-video)
+│   ├── plugin-pdf/             # 官方 PDF 工具插件(接 engine-pdf)
+│   ├── plugin-audio/           # 官方音频工具插件(接 engine-audio)
+│   ├── plugin-ai/              # 官方 AI 工具插件(接 engine-ai)
 │   ├── plugin-dev/             # 开发者工具插件(inspect/profile/validate)
 │   ├── mcp-server/             # MCP server 适配层(Claude/ChatGPT/Cursor)
 │   └── cloud-bridge/           # Cloud 集成桥接(cloud API/pro auth,渐进式)
-├── examples/                   # 7 个示例
+├── examples/                   # 8 个示例
 │   ├── custom-workspace/       # 不用 ui-react 构建自定义 workspace
 │   ├── embedding/              # 嵌入 Workspace 到现有 React 应用(含 cloud auth 3 模式)
 │   ├── cli-automation/         # 在 Node.js 脚本中使用 @lokvis/cli
 │   ├── plugin-grayscale/       # 教学示例:从零写一个插件(13 测试)
+│   ├── plugin-batch-watermark/ # 教学示例:批量水印插件
 │   ├── mcp-claude-desktop/     # MCP server 接入 Claude Desktop 配置
 │   ├── mcp-cursor/             # MCP server 接入 Cursor 配置
 │   └── mcp-e2e-verification/   # MCP 端到端验证可复现脚本
@@ -324,8 +328,7 @@ lokvis/
 ```
 
 **包状态说明**:
-- ✅ **schema / runtime / workflow / sdk / plugin-sdk / capability / ui-core / ui-react / cli / engine-core / engine-image / plugin-image / plugin-dev / mcp-server** — Phase 1 已实现,有完整测试
-- 🚧 **engine-video / engine-pdf / engine-audio / engine-ai / plugin-video / plugin-pdf / plugin-audio / plugin-ai** — stub 占位,Phase 2 接入 WASM 引擎
+- ✅ **schema / browser-adapter / runtime / workflow / sdk / plugin-sdk / capability / i18n / ui-core / ui-react / embed-kit / embed-image / embed-pdf / embed-video / cli / engine-core / engine-image / engine-video / engine-pdf / engine-audio / engine-ai / plugin-image / plugin-video / plugin-pdf / plugin-audio / plugin-ai / plugin-dev / mcp-server** — 已实现,有完整测试
 - 🔌 **cloud-bridge** — 渐进式桥接(cloud API + pro auth),非核心本地功能
 
 ## 🛠 常用命令
@@ -336,12 +339,12 @@ pnpm dev --filter @lokvis/playground    # 启动 playground(http://localhost:560
 pnpm dev --filter @lokvis/docs          # 启动文档站(http://localhost:4321)
 
 # 质量
-pnpm typecheck      # 全量类型检查(36 包,通过 turbo)
-pnpm build          # 构建(20 任务,通过 turbo)
-pnpm test           # 运行测试(1480 测试 / 83 文件)
+pnpm typecheck      # 全量类型检查(通过 turbo)
+pnpm build          # 构建所有包(通过 turbo)
+pnpm test           # 运行测试
 pnpm test:fast      # 跳过覆盖率快速测试
-pnpm test:coverage  # 覆盖率(lines 90.44% / branches 88.64%)
-pnpm --filter @lokvis/playground test:e2e  # Playwright E2E(6 工具 spec,baseURL 5601)
+pnpm test:coverage  # 运行测试 + 覆盖率(实时数值见 CI)
+pnpm --filter @lokvis/playground test:e2e  # Playwright E2E(baseURL 5601)
 pnpm lint           # oxlint(Rust 实现,替代 ESLint)
 
 # 单包操作(--filter)
@@ -385,9 +388,9 @@ node packages/cli/bin/lokvis.js version                            # 查看版�
 | 文档 | ✅ | Starlight 文档站 + API Reference 自动生成(10 包 200+ 页)+ 4 guide + Playground 交互 |
 | 开源治理 | ✅ | CONTRIBUTING + COC + Issue/PR 模板 + CODEOWNERS + AGENTS.md + THIRD_PARTY_LICENSES |
 | Sentry 监控 | ✅ | 接入完成,DSN 待部署时配置(默认 no-op) |
-| 性能基线 | ✅ | LCP 6.9s / CLS 0.001 / 1480 测试 / 90.44% 覆盖率 / Lighthouse 62 分(mobile) |
+| 性能基线 | ✅ | LCP 6.9s / CLS 0.001 / Lighthouse 62 分(mobile);测试数与覆盖率见 CI |
 | 浏览器兼容 | 🟡 | Chrome/Edge ✅ / Firefox 降级提示 ✅ / Safari 降级路径基础设施 ✅(具体降级待 W22.2) |
-| 视频/PDF/Audio 引擎 | 🚧 stub | Phase 2 接入 ffmpeg.wasm / pdf-lib / lamejs |
+| 视频/PDF/Audio/AI 引擎 | ✅ | ffmpeg.wasm / pdf-lib / ffmpeg-static / Cloud AI proxy 已实装 |
 
 详见:
 
@@ -410,8 +413,8 @@ node packages/cli/bin/lokvis.js version                            # 查看版�
 | **项目计划** | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | 周级任务拆分(W1-W24) |
 | **任务清单** | [docs/TASKS.md](docs/TASKS.md) | 状态总览(Phase 1 完成度 91%) |
 | **路线图** | [docs/roadmap.md](docs/roadmap.md) | 三年四阶段战略 |
-| **架构决策** | [docs/adr/](docs/adr/) | ADR 记录(O1-O3 + 001-014) |
-| **架构约束** | [AGENTS.md](AGENTS.md) | AI 编码助手约定(五层架构 + 类型安全) |
+| **架构决策** | [docs/adr/](docs/adr/) | ADR 记录(O1-O3 + 011-016) |
+| **架构约束** | [AGENTS.md](AGENTS.md) | AI 编码助手约定(六层架构 + 类型安全) |
 | **第三方许可** | [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) | 41 MIT + 5 Apache-2.0 依赖清单 |
 
 ### 社区
@@ -432,6 +435,7 @@ node packages/cli/bin/lokvis.js version                            # 查看版�
 | **Custom Workspace** | [examples/custom-workspace](examples/custom-workspace) | 不用 ui-react 构建自定义 workspace |
 | **CLI Automation** | [examples/cli-automation](examples/cli-automation) | 在 Node.js 脚本中使用 @lokvis/cli |
 | **Plugin Grayscale** | [examples/plugin-grayscale](examples/plugin-grayscale) | 教学示例:从零写一个插件(13 测试) |
+| **Plugin Batch Watermark** | [examples/plugin-batch-watermark](examples/plugin-batch-watermark) | 教学示例:批量水印插件 |
 | **MCP Claude Desktop** | [examples/mcp-claude-desktop](examples/mcp-claude-desktop) | MCP server 接入 Claude Desktop |
 | **MCP Cursor** | [examples/mcp-cursor](examples/mcp-cursor) | MCP server 接入 Cursor |
 | **MCP E2E Verification** | [examples/mcp-e2e-verification](examples/mcp-e2e-verification) | MCP 端到端验证可复现脚本 |
@@ -451,7 +455,7 @@ pnpm test:fast && pnpm typecheck && pnpm lint
 
 关键约定:
 
-- **五层架构单向依赖**:`UI → Workflow → Runtime → Capability → Engine`,禁止跨层引用(详见 [AGENTS.md](AGENTS.md))
+- **六层架构单向依赖**:`UI → Workflow → Runtime → Capability → Engine → Browser Adapter`,禁止跨层引用(详见 [AGENTS.md](AGENTS.md))
 - **Conventional Commits**:`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `perf`
 - **行为准则**:见 [Code of Conduct](CODE_OF_CONDUCT.md)——友善、包容、对事不对人
 - **隐私优先**:不在 PR / Issue 中提交真实用户文件 / DSN / token
@@ -474,11 +478,11 @@ Lokvis 使用以下开源依赖(完整清单见 [THIRD_PARTY_LICENSES.md](THIRD_
 - **@sentry/browser** (MIT) — 错误监控(可选)
 - **CodeMirror 6** (MIT) — playground 代码编辑器
 
-**Phase 2 计划引入**(WASM 引擎):
+**多资产引擎依赖**:
 
-- **ffmpeg.wasm** (MIT + FFmpeg LGPL-2.1+) — 视频引擎(需 LGPL 兼容构建,不含 GPL 组件)
+- **ffmpeg.wasm / ffmpeg-static** (MIT + FFmpeg LGPL-2.1+) — 视频/音频引擎(需 LGPL 兼容构建,不含 GPL 组件)
 - **pdf-lib** (MIT) — PDF 引擎
-- **transformers.js** (Apache-2.0) — AI 引擎
+- **Cloud AI proxy** — AI 引擎(浏览器本地不打包模型)
 
 ---
 

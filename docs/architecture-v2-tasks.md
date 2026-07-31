@@ -90,29 +90,42 @@ L1 Browser Adapter Canvas · OPFS · IndexedDB · Web Workers · WebCodecs ·
 
 ### B. Engine 契约一致性（3h，P1）
 
-#### B1 EngineAdapter 契约裁决 — 2h
+#### B1 EngineAdapter 契约裁决 — 2h ✅
 - **执行思路**：三种现状（audio/video/ai 走 EngineAdapter、pdf 纯函数、image 自走 worker-adapter）择一收敛方向写 ADR：倾向**不强推统一**——EngineAdapter 保留给"需要 isSupported 探测与多实现选择"的引擎，pdf/image 的偏离补文档说明豁免理由（pdf 无环境分叉、image 有 worker 边界特殊性）。若裁决统一，则另拆实施任务（+6h，暂不计入）。
 - **验收**：ADR 016 成稿；`packages/ENGINES.md` 重写内容与之一致（联动 E2）。
 
-#### B2 双注册表关系文档化 — 1h
+#### B2 双注册表关系文档化 — 1h ✅
 - **执行思路**：`engine-core` 的 EngineRegistry 与 `runtime` 的 CapabilityRegistry 职责边界（引擎选择 vs 能力实现选择、PerformanceLevel 与 selectBest 的分工）写入 `docs/architecture.md`，配依赖关系图。
 - **验收**：architecture.md 更新并含图。
 
 ### C. Knowledge 数据接入（5h，P1，依赖 knowledge v0.2.0）
 
-#### C1 平台预设改由 data-platforms 驱动 — 3h
+#### C1 平台预设改由 data-platforms 驱动 — 3h ✅
 - **执行思路**：`capability/src/presets/` 现为手工硬编码平台参数，与 `@lokvis/data-platforms` 必然漂移。方案：presets 改为 codegen——构建时从 `@lokvis/data-platforms` 生成（devDependency，产物入库，类似现有 `capability-names.generated.ts` 管线），运行时零新增依赖；生成脚本校验字段映射（recommendedSize→width/height 等）。数据缺口（如平台无某 spec）保留手工覆盖文件并标注来源。
 - **验收**：presets 与 data-platforms v0.2.0 数值一致（CI diff 校验）；运行时包体积不变。
+- **完成记录（2026-07-31）**：presets 拆为三源一产物。`platform-types.ts`（类型，新增 `source: 'knowledge' | 'manual'` 标注）；`platform-manual.ts`（63 个手工预设，过渡态 `source: 'manual'`）；`scripts/codegen-platform-presets.ts` 读 `@lokvis/data-platforms@0.2.0`（devDependency，经 `createRequire` 解析 `dist/platforms.json`）+ 手工数据，生成自包含的 `platform.generated.ts`（64 预设 = 12 knowledge + 52 manual，26 平台）。铁律落地：**尺寸（width/height）以知识仓为唯一事实源**，冲突处知识仓胜（youtube.thumbnail 1280×720→3840×2160、facebook.cover 1640×856→851×315、web.favicon 64×64→32×32、wechat.article 900×500→900×383）；展示字段（platform/name/category/format/fit）在映射预设上沿用手工值以保持 id 与 UX 稳定（Knowledge 存 Facts，Cloud/Open 出 Opinion）。新增 `favicon.apple-touch-icon`（180×180，知识仓派生）。CI 守卫：`platform-knowledge.test.ts` 双向校验 knowledge 预设尺寸与知识仓 `recommendedSize` 逐字段相等（数据漂移或手改产物均 fail）。根 `pnpm codegen` 已接入本脚本。**运行时包体积不变**（产物为纯字面量数组，仅 import type）。
+- **知识仓后续（非 open 侧）**：52 个 manual 预设属长尾平台（TikTok/LinkedIn/Pinterest/打印/电商等），知识仓因严格来源策展（`ref:` 必填）暂未收录。应逐平台向 lokvis-knowledge 仓补入带官方来源的数据后由 codegen 接管，**不在 open 侧手工覆盖**；知识仓收录后把对应规格登记进 codegen `MAPPING`（映射到既有 id）即自动切换为 `source: 'knowledge'`。
 
-#### C2 探测结果与 data-compatibility 一致性测试 — 2h
+#### C2 探测结果与 data-compatibility 一致性测试 — 2h ✅
 - **执行思路**：新增测试：在 CI 的真实 chromium（复用 D2 的 Playwright 环境）里跑 `FormatSupportProbe`，与 `@lokvis/data-compatibility` 中 chrome 列断言一致；不一致即 fail——双向守卫（探测代码错 or 知识数据过期都会暴露）。
 - **验收**：CI 新增 job 通过；人为改错一处数据可使其失败。
+- **完成记录（2026-07-31）**：
+  - **语义修正（关键）**：`FormatSupportProbe.detectEncodeSupport` 测的是 **编码/encode**（canvas→blob 实编 1×1），而 `data-compatibility` 原 `status` 列记的是 **解码/显示**。二者语义不同（chrome 能解码 AVIF 但 canvas 不能编码 AVIF），直接对比会假阳性。
+  - **方案 = 知识仓扩 encode 维度**（而非 open 侧 workaround）：`lokvis-knowledge` compatibility schema 新增可选 `support[env].encode`（`encodeSupport` $def，与 `status` 同形不递归）；`image-browsers` 对 5 个探测格式填 encode 列——jpeg/png/webp `supported`，avif/gif `unsupported`+notes（canvas 编码器缺失静默回退 PNG），覆盖全 8 环境；record `1.2.0→1.3.0`，新增 `ref:mdn-canvas-toblob`（official-doc）。docs §4 补 encode 说明。知识仓 `pnpm run ci` 全绿（55 records，13 tests）。
+  - **发布**：knowledge 本地已 commit + 打 tag `v0.3.0`（root `0.2.0→0.3.0`）；**push 由维护者手动执行**，`release.yml` 于 `v*` tag 自动 `npm publish` 各 `data-*`（含 `@lokvis/data-compatibility@0.3.0`）。
+  - **open 侧守卫**：复用 D2「vite + Playwright chromium + harness」模式（不走 vitest）：
+    - `benchmark/harness-compat/{index.html,main.ts}`：`import { detectEncodeSupport } from '@lokvis/browser-adapter'` 暴露 `window.__compat.probe`。
+    - `benchmark/compat-check.mjs`：读 `@lokvis/data-compatibility` bundle 的 `compat:image-browsers`，真实 chromium 探测 5 格式，与 chrome `encode` 列逐一断言；缺 encode 字段或 status≠supported/unsupported 亦判错；不一致 `exit 1`。
+    - `benchmark/package.json` devDeps 增 `@lokvis/browser-adapter`(workspace:\*) + `@lokvis/data-compatibility@0.3.0`；根 `compat:check` 脚本；新增 `.github/workflows/compat-check.yml`（push/PR→main/dev，装 Playwright chromium 后跑 `pnpm compat:check`）。
+  - **验证**：本地用 0.3.0 tarball（file 链接）跑 `pnpm compat:check` 正测通过（png/jpeg/webp=true，avif/gif=false 全吻合）；负测把 avif chrome `encode.status` 改 supported → 如期 `exit 1`；还原复绿。open `pnpm typecheck` 全绿。
+  - **守卫范围**：5 探测格式（png/jpeg/webp/avif/gif）× chrome 环境。
+  - **⚠️ 遗留（依赖发布顺序）**：`benchmark/package.json` 已固定 `@lokvis/data-compatibility@0.3.0`，但该版本尚未上 npm，故 open 侧 lockfile 未含此依赖。**待维护者 push knowledge `v0.3.0` tag、CI 发版 0.3.0 后**，在 open 侧执行 `pnpm install` 补 lockfile 再提交，`compat-check.yml` 方可 frozen-install 转绿。
 
 ### D. Benchmark 基础设施（12h，P1，产出交付 knowledge 仓）
 
 > 与 `lokvis-knowledge/docs/03-task-breakdown.md` W3 同一事项，归属本仓执行，估时以此处为准。
 >
-> **完成记录（2026-07-30）**：D1–D4 已完成，详见 knowledge 仓 03-task-breakdown.md W3 完成记录。要点：语料改为程序化生成（自产 CC0，sha256 可复现，无需 R2/LFS）；23 组合全绿，AVIF 走 WASM 回退并记录 encoder；首份 `benchmark:image-ops-2026-07`（runsPerImage=5）已合入 knowledge `data/benchmarks/`（validate 54 records 绿）；重复性：体积/SSIM 跨轮 100% 确定，encodeMs 的 "<10% 波动" 口径限定独占 CI runner（本地共享 VM 跨轮漂移 2–3×，宿主竞争所致）；D4 的实际 GitHub 触发验收待维护者配置 `KNOWLEDGE_BOT_TOKEN` secret。附带修复 browser-adapter FormatSupportProbe 的 OffscreenCanvas getContext bug。
+> **完成记录（2026-07-30）**：D1–D4 已完成，详见 knowledge 仓 03-task-breakdown.md W3 完成记录。要点：语料改为程序化生成（自产 CC0，sha256 可复现，无需 R2/LFS）；23 组合全绿，AVIF 走 WASM 回退并记录 encoder；首份 `benchmark:image-ops-2026-07`（runsPerImage=5）已合入 knowledge `data/benchmarks/`（validate 54 records 绿）；重复性：体积/SSIM 跨轮 100% 确定，encodeMs 的 "<10% 波动" 口径限定独占 CI runner（本地共享 VM 跨轮漂移 2–3×，宿主竞争所致）；D4 的实际 GitHub 触发验收待维护者配置 `KNOWLEDGE_BOT_TOKEN` secret（已登记为 [TASKS.md](./TASKS.md) OPS-1 / OPS-2）。附带修复 browser-adapter FormatSupportProbe 的 OffscreenCanvas getContext bug。
 
 #### D1 语料集 corpus v1 — 2h ✅
 - **执行思路**：30–40 张可再分发图像（Wikimedia CC0 优先），五类覆盖（照片/插画/截图/透明/大尺寸）；`benchmark/corpus/manifest.json` 记录 sha256/尺寸/类别/逐张许可；大文件走 R2 或 Git LFS，脚本一键拉取；knowledge 仓登记 `ref:lokvis-corpus-v1`。
@@ -132,20 +145,20 @@ L1 Browser Adapter Canvas · OPFS · IndexedDB · Web Workers · WebCodecs ·
 
 ### E. 文档与元数据治理（5h，P0，可立即做）
 
-#### E1 README 全面修正 — 2h
+#### E1 README 全面修正 — 2h ✅
 - **执行思路**：包数 23→28、补 Monorepo 树漏列的 embed-kit/embed-image/embed-pdf/embed-video/i18n、engine-pdf/video 移出 stub 描述（pdf-lib/ffmpeg.wasm 已实装）、"Alpha 待发布"改为已发布 0.8.x、examples 7→8、覆盖率/测试数徽章改链接 CI 而非快照值、Hero GIF 占位保留 TODO。定位语与架构 v2 对齐（"Digital Asset Intelligence Platform 的开源 Runtime"）。
 - **验收**：README 与 `ls packages` / 实际实现零出入。
 
-#### E2 packages/ENGINES.md 重写 — 1h
+#### E2 packages/ENGINES.md 重写 — 1h ✅
 - **执行思路**：按 B1 裁决重写（当前全文过期：仍称 engine 为 placeholder、引用不存在的 `docs/whitepaper/`）；内容缩为：各 engine 现状表 + EngineAdapter 契约适用范围 + 新增 engine checklist（含 stub 约定，与 AGENTS.md 一致）。
 - **验收**：文档与代码现状一致。
 - **依赖**：B1。
 
-#### E3 docs/architecture.md 更新 — 1.5h
+#### E3 docs/architecture.md 更新 — 1.5h ✅
 - **执行思路**：删除 `apps/web` 残留引用（L79 `_headers`，该资产已按 ADR-012 迁出）；架构图加入 Browser Adapter 层（六层）；补三仓关系一节（链接根 architecture-v2.md）。
 - **验收**：文档内无失效路径引用。
 
-#### E4 AGENTS.md 更新 — 0.5h
+#### E4 AGENTS.md 更新 — 0.5h ✅
 - **执行思路**：五层图更新为含 Adapter 的六层；新增约束条目："runtime/workflow/capability/plugin/sdk 禁止直接使用浏览器 API，必须经 @lokvis/browser-adapter"；测试约定补 adapter fake 用法。
 - **验收**：AGENTS.md 与 A1 的 ADR 一致。
 - **依赖**：A1。

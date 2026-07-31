@@ -227,6 +227,17 @@
 
 ---
 
+## 待运维 / 维护者动作
+
+> 代码侧已就绪、需仓库维护者在 GitHub 侧执行的外部动作。完成后请更新本表状态。
+
+| # | 动作 | 关联任务 | 状态 | 说明 |
+|---|------|---------|------|------|
+| OPS-1 | 配置 `KNOWLEDGE_BOT_TOKEN` secret | D4 / knowledge W3.4 | ⬜ 待执行 | 在 lokvis-open 仓 Settings → Secrets 新增 fine-grained PAT：仅授权 lokvis-knowledge 仓、仅 **Contents + Pull requests** 读写权限（最小权限原则，勿用 classic PAT / 全仓 token） |
+| OPS-2 | 手动触发一次 benchmark workflow 验收 | D4 / knowledge W3.4 | ⬜ 待执行 | 依赖 OPS-1。Actions → `benchmark.yml` → workflow_dispatch 手动触发；验收标准：lokvis-knowledge 仓收到 bot PR（分支 `bot/benchmark-<run_id>`，含 `image-ops-<YYYY-MM>.json` + diff 摘要正文）且该 PR 的 knowledge CI 绿。此次 CI runner 数据（hardwareClass=ci-github-ubuntu-latest）同时用于验证 "encodeMs 中位数波动 <10%" 口径（本地共享 VM 无法验收，见 architecture-v2-tasks.md 工作流 D 完成记录） |
+
+---
+
 ## 交叉引用
 
 | 文档 | 说明 |

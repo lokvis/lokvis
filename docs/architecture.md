@@ -5,26 +5,30 @@
 
 ---
 
-## 一、五层架构总览
+## 一、六层架构总览
 
-Lokvis 遵循严格的五层架构，依赖方向**单向向下**。
+Lokvis 遵循严格的六层架构，依赖方向**单向向下**。
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ 5. UI Layer                                     │
+│ 6. UI Layer                                     │
 │    Astro 7 + React 19 + Tailwind v4             │
 ├─────────────────────────────────────────────────┤
-│ 4. Workflow Layer                               │
+│ 5. Workflow Layer                               │
 │    线性工作流执行器（Year 1）                      │
 ├─────────────────────────────────────────────────┤
-│ 3. Runtime Layer                                │
+│ 4. Runtime Layer                                │
 │    浏览器操作系统：Input → Run → Output           │
 ├─────────────────────────────────────────────────┤
-│ 2. Capability Layer                             │
+│ 3. Capability Layer                             │
 │    <domain>.<action> 命名规范                    │
 ├─────────────────────────────────────────────────┤
-│ 1. Engine Layer                                 │
+│ 2. Engine Layer                                 │
 │    可插拔引擎：Canvas / Squoosh / ffmpeg.wasm    │
+├─────────────────────────────────────────────────┤
+│ 1. Browser Adapter Layer                        │
+│    Canvas/OPFS/IDB/Workers 统一抽象              │
+│    （唯一允许触碰原生浏览器 API 的层）            │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -37,6 +41,7 @@ Lokvis 遵循严格的五层架构，依赖方向**单向向下**。
 | **Runtime Layer** | "浏览器操作系统"，管理 assets、capabilities、history、event bus。不感知 React | `@lokvis/runtime`、IndexedDB、OPFS |
 | **Capability Layer** | `<domain>.<action>` 标准化能力抽象。Runtime 只知 capability，不知 FFmpeg | `@lokvis/capability` |
 | **Engine Layer** | 可插拔适配器，包装 WASM 库。MVP 图像引擎使用原生 Canvas + createImageBitmap | `@lokvis/engine-*` |
+| **Browser Adapter Layer** | 原生浏览器 API 的统一抽象（EnvProbe / CanvasFactory / MediaProbe / StorageAdapter / KVStoreFactory / WorkerFactory / FormatSupportProbe）。**唯一允许触碰 `navigator.` / `document.` / `window.` / `indexedDB` / canvas 的非展示层**；runtime/workflow/capability/plugin/sdk 一律经此注入 | `@lokvis/browser-adapter` |
 
 ### 依赖规则
 
@@ -44,6 +49,7 @@ Lokvis 遵循严格的五层架构，依赖方向**单向向下**。
 - Runtime 永远不感知 React / Redux
 - Schema 永远不感知 Runtime
 - Plugin 永远不感知 Cloud
+- runtime / workflow / capability / plugin / sdk 禁止直接触碰原生浏览器 API，必须经 `@lokvis/browser-adapter`（ADR-015）
 
 ### 双注册表:引擎选择 vs 能力实现选择(ADR-016)
 
@@ -107,7 +113,7 @@ Runtime 在 `run()` 前执行 `checkStorageQuota()`，超限抛 `QuotaExceededEr
 
 所有重计算（图像编解码、未来 WASM 引擎）运行在独立 **Web Worker** 内，与主线程 UI 解耦，避免长任务阻塞渲染。
 
-跨域隔离（COOP/COEP）在部署端配置（open 侧由 `apps/playground` 托管平台设定；cloud 侧 `apps/web/public/_headers`），启用 `SharedArrayBuffer` 供多线程 WASM 使用。
+跨域隔离（COOP/COEP）在部署端配置（open 侧由 `apps/playground` 托管平台设定；cloud 侧由 `lokvis-cloud` 仓的部署配置设定），启用 `SharedArrayBuffer` 供多线程 WASM 使用。
 
 ### 通信协议（`@lokvis/runtime` worker-protocol）
 
@@ -238,6 +244,35 @@ lokvis-open（MIT）                    lokvis-cloud（闭源）
 ```
 
 `lokvis-open` 提供 runtime、schema、plugins 和官方 UI。`lokvis-cloud` 添加商业服务。
+
+### 三仓关系（架构 v2 基线）
+
+Lokvis 平台按 Release Unit 划分为三个仓库，本仓（`lokvis-open`）回答 "How"，承担六层中的 L2 Runtime 与 L1 Browser Adapter：
+
+```
+lokvis/（GitHub org）
+├── lokvis-open        回答 How（本仓）
+│                      Runtime · Browser Adapter · Workflow Engine ·
+│                      Capability Registry · Plugin SDK · CLI · MCP · Playground
+├── lokvis-knowledge   回答 What do we know（CC BY 4.0）
+│                      Formats · Platforms · Compatibility · Benchmarks ·
+│                      Taxonomy · References（仅 machine-consumable 结构化数据）
+└── lokvis-cloud       回答 What should user do（闭源）
+                       Astro 站 · Planner · Workspace · Explorer · Search · SEO
+```
+
+依赖方向（单向，不可逆）：
+
+```
+lokvis-cloud ──npm──► @lokvis/*        （lokvis-open 发布的运行时包）
+lokvis-cloud ──npm──► @lokvis/data-*   （lokvis-knowledge 发布的数据包）
+lokvis-open  ──npm──► @lokvis/data-*   （可选，如 capability 默认参数）
+lokvis-open  ──✕──►  cloud             （永不依赖；cloud-bridge 注入模式隔离）
+lokvis-knowledge ──✕──► 任何仓          （零代码依赖，纯数据）
+```
+
+完整最终态定义（五层平台分层、铁律、已裁决事项）见根目录基线文档
+[`docs/architecture-v2.md`](../../docs/architecture-v2.md)（位于 org 级 docs，本仓引用其结论）。
 
 ---
 
