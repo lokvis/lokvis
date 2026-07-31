@@ -202,6 +202,12 @@ importers:
 
   benchmark:
     devDependencies:
+      '@lokvis/browser-adapter':
+        specifier: workspace:*
+        version: link:../packages/browser-adapter
+      '@lokvis/data-compatibility':
+        specifier: 0.3.0
+        version: 0.3.0
       '@lokvis/engine-image':
         specifier: workspace:*
         version: link:../packages/engine-image
@@ -369,6 +375,9 @@ importers:
         specifier: workspace:*
         version: link:../schema
     devDependencies:
+      '@lokvis/data-platforms':
+        specifier: 0.2.0
+        version: 0.2.0
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
@@ -2340,6 +2349,12 @@ packages:
 
   '@lezer/lr@1.4.10':
     resolution: {integrity: sha512-rnCpTIBafOx4mRp43xOxDJbFipJm/c0cia/V5TiGlhmMa+wsSdoGmUN3w5Bqrks/09Q/D4tNAmWaT8p6NRi77A==}
+
+  '@lokvis/data-compatibility@0.3.0':
+    resolution: {integrity: sha512-oMccoUG6jRoyu/EN3dyLASUEgCZF6MVcUddMIjwSodA0ev5UEKuaZwUhKPeDubt3qab2kTEmDtl8r4BCDK7Lsw==}
+
+  '@lokvis/data-platforms@0.2.0':
+    resolution: {integrity: sha512-ib81rTxfTggjILB+lQPauLcXWLNL3Wb2vBPVR9qgZzXHG8e6ZmAZ08YIiaRlmriyJdQQXp6XX7KCpCP4kMwmOA==}
 
   '@manypkg/find-root@1.1.0':
     resolution: {integrity: sha512-mki5uBvhHzO8kYYix/WRy2WX8S3B5wdVSc9D6KcU5lQNglP2yt58/VfLuAK49glRXChosY8ap2oJ1qgma3GUVA==}
@@ -7350,6 +7365,10 @@ snapshots:
   '@lezer/lr@1.4.10':
     dependencies:
       '@lezer/common': 1.5.2
+
+  '@lokvis/data-compatibility@0.3.0': {}
+
+  '@lokvis/data-platforms@0.2.0': {}
 
   '@manypkg/find-root@1.1.0':
     dependencies:

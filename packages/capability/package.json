@@ -33,6 +33,7 @@
     "@lokvis/schema": "workspace:*"
   },
   "devDependencies": {
+    "@lokvis/data-platforms": "0.2.0",
     "typescript": "^5.6.0"
   },
   "publishConfig": {

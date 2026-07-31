@@ -24,10 +24,11 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish",
-    "codegen": "node scripts/codegen-capabilities.ts && node packages/engine-image/scripts/gen-version.mjs",
+    "codegen": "node scripts/codegen-capabilities.ts && node packages/capability/scripts/codegen-platform-presets.ts && node packages/engine-image/scripts/gen-version.mjs",
     "bench:fetch-corpus": "pnpm --filter @lokvis/benchmark fetch-corpus",
     "bench:image": "pnpm --filter @lokvis/benchmark bench",
-    "bench:report": "pnpm --filter @lokvis/benchmark report"
+    "bench:report": "pnpm --filter @lokvis/benchmark report",
+    "compat:check": "pnpm --filter @lokvis/benchmark compat-check"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.0",
