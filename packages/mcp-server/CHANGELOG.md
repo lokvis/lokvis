@@ -1,5 +1,32 @@
 # @lokvis/mcp-server
 
+## 0.10.0
+
+### Minor Changes
+
+- db5a442: G4: MCP 工具描述数据化 — 工具 description/inputSchema 改由 codegen 从 capability
+  manifests + @lokvis/data-formats 格式约束生成（tool-metadata.generated.ts），手工覆盖
+  （manual-overrides.ts）仅提供 MCP 特有 inputSchema 与描述增强，mirror C1 模式。
+  新增 drift-guard 测试守卫生成集 ↔ 能力元数据一致性。修复既有 bug：audio 域
+  lokvis_audio_compress 引用不存在的 audio.compress 能力，改为 lokvis_audio_normalize
+  （audio.normalize，参数 level dB）。
+
+### Patch Changes
+
+- Updated dependencies [db5a442]
+- Updated dependencies
+  - @lokvis/capability@0.10.0
+  - @lokvis/sdk@0.10.0
+  - @lokvis/cloud-bridge@0.10.0
+  - @lokvis/plugin-ai@0.10.0
+  - @lokvis/plugin-audio@0.10.0
+  - @lokvis/plugin-image@0.10.0
+  - @lokvis/plugin-pdf@0.10.0
+  - @lokvis/plugin-video@0.10.0
+  - @lokvis/schema@0.10.0
+  - @lokvis/workflow@0.10.0
+  - @lokvis/runtime@0.10.0
+
 ## 0.9.0
 
 ### Patch Changes

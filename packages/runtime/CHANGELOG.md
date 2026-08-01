@@ -1,5 +1,12 @@
 # @lokvis/runtime
 
+## 0.10.0
+
+### Patch Changes
+
+- @lokvis/schema@0.10.0
+- @lokvis/browser-adapter@0.10.0
+
 ## 0.9.0
 
 ### Minor Changes

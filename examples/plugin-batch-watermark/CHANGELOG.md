@@ -1,5 +1,12 @@
 # @lokvis/example-plugin-batch-watermark
 
+## 0.1.15
+
+### Patch Changes
+
+- @lokvis/schema@0.10.0
+- @lokvis/plugin-sdk@0.10.0
+
 ## 0.1.14
 
 ### Patch Changes

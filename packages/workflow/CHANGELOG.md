@@ -1,5 +1,11 @@
 # @lokvis/workflow
 
+## 0.10.0
+
+### Patch Changes
+
+- @lokvis/schema@0.10.0
+
 ## 0.9.0
 
 ### Patch Changes

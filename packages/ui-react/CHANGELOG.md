@@ -1,5 +1,19 @@
 # @lokvis/ui-react
 
+## 0.10.0
+
+### Patch Changes
+
+- Updated dependencies [db5a442]
+- Updated dependencies
+  - @lokvis/capability@0.10.0
+  - @lokvis/sdk@0.10.0
+  - @lokvis/schema@0.10.0
+  - @lokvis/i18n@0.10.0
+  - @lokvis/workflow@0.10.0
+  - @lokvis/runtime@0.10.0
+  - @lokvis/ui-core@0.10.0
+
 ## 0.9.0
 
 ### Patch Changes

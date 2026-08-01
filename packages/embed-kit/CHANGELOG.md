@@ -1,5 +1,14 @@
 # @lokvis/embed-kit
 
+## 0.10.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @lokvis/sdk@0.10.0
+  - @lokvis/schema@0.10.0
+  - @lokvis/browser-adapter@0.10.0
+
 ## 0.9.0
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/workflow",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Lokvis Workflow - Linear workflow builder and construction utilities",
   "license": "Apache-2.0",
   "type": "module",

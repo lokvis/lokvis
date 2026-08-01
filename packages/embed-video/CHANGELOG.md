@@ -1,5 +1,21 @@
 # @lokvis/embed-video
 
+## 0.10.0
+
+### Minor Changes
+
+- SDK 组合根：新增 ./image, ./video, ./pdf 子路径导出，embed 包统一经 SDK 导入 plugin/engine（消除跨层直接依赖）
+
+### Patch Changes
+
+- Updated dependencies
+  - @lokvis/sdk@0.10.0
+  - @lokvis/embed-kit@0.10.0
+  - @lokvis/schema@0.10.0
+  - @lokvis/i18n@0.10.0
+  - @lokvis/workflow@0.10.0
+  - @lokvis/runtime@0.10.0
+
 ## 0.9.0
 
 ### Patch Changes

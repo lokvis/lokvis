@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/plugin-video",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Lokvis Video Tools Plugin - compress / transcode / trim / merge / extract-audio / to-gif / screenshot",
   "license": "Apache-2.0",
   "type": "module",

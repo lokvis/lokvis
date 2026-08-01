@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/browser-adapter",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Lokvis Browser Adapter - the only non-presentation package allowed to touch raw browser APIs",
   "license": "Apache-2.0",
   "type": "module",

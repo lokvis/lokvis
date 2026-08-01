@@ -1,5 +1,12 @@
 # @lokvis/example-mcp-e2e-verification
 
+## 0.1.15
+
+### Patch Changes
+
+- Updated dependencies [db5a442]
+  - @lokvis/mcp-server@0.10.0
+
 ## 0.1.14
 
 ### Patch Changes

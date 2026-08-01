@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/cloud-bridge",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Lokvis Cloud Bridge - cloud 鉴权与计费逻辑(独立于 mcp-server,可注入)",
   "license": "Apache-2.0",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/engine-core",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Lokvis Engine Core - shared engine registry factory for engine-* packages",
   "license": "Apache-2.0",
   "type": "module",

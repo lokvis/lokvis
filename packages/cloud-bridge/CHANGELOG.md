@@ -1,5 +1,11 @@
 # @lokvis/cloud-bridge
 
+## 0.10.0
+
+### Patch Changes
+
+- SDK 组合根：新增 ./image, ./video, ./pdf 子路径导出，embed 包统一经 SDK 导入 plugin/engine（消除跨层直接依赖）
+
 ## 0.9.0
 
 ## 0.8.1

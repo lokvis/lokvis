@@ -1,6 +1,6 @@
 {
   "name": "@lokvis/plugin-audio",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Lokvis Audio Tools Plugin - trim / normalize / merge / transcode",
   "license": "Apache-2.0",
   "type": "module",

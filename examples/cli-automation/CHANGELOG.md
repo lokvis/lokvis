@@ -1,5 +1,12 @@
 # @lokvis/example-cli-automation
 
+## 0.2.15
+
+### Patch Changes
+
+- @lokvis/cli@0.10.0
+- @lokvis/schema@0.10.0
+
 ## 0.2.14
 
 ### Patch Changes
