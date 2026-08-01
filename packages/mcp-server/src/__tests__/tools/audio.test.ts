@@ -13,7 +13,7 @@ import { createLokvis } from '@lokvis/sdk';
 import type { LokvisRuntime } from '@lokvis/sdk';
 import { getAudioToolRegistrations } from '../../tools/audio.js';
 import {
-  audioCompressSchema,
+  audioNormalizeSchema,
   audioTranscodeSchema,
   audioTrimSchema,
   audioMergeSchema,
@@ -42,7 +42,7 @@ describe('Audio tools', () => {
     it('tool 命名应遵循 lokvis_audio_<verb> 约定', () => {
       const regs = getAudioToolRegistrations(runtime);
       const names = regs.map((r) => r.name);
-      expect(names).toContain('lokvis_audio_compress');
+      expect(names).toContain('lokvis_audio_normalize');
       expect(names).toContain('lokvis_audio_transcode');
       expect(names).toContain('lokvis_audio_trim');
       expect(names).toContain('lokvis_audio_merge');
@@ -71,26 +71,26 @@ describe('Audio tools', () => {
 
     it('handler 调用不存在的文件应返回错误(不抛异常)', async () => {
       const regs = getAudioToolRegistrations(runtime);
-      const compressReg = regs.find((r) => r.name === 'lokvis_audio_compress')!;
-      const result = await compressReg.handler({ input_path: '/nonexistent/audio.mp3' });
+      const normalizeReg = regs.find((r) => r.name === 'lokvis_audio_normalize')!;
+      const result = await normalizeReg.handler({ input_path: '/nonexistent/audio.mp3' });
       expect(result).toHaveProperty('content');
       expect(result.isError).toBe(true);
     });
   });
 
   describe('audio schema 校验', () => {
-    it('audioCompressSchema: 合法参数通过', () => {
-      const r = validateParams(audioCompressSchema, {
+    it('audioNormalizeSchema: 合法参数通过', () => {
+      const r = validateParams(audioNormalizeSchema, {
         input_path: '/a.mp3',
-        bitrate: 128,
+        level: -14,
       });
       expect(r.success).toBe(true);
     });
 
-    it('audioCompressSchema: bitrate 为字符串应被拦截', () => {
-      const r = validateParams(audioCompressSchema, {
+    it('audioNormalizeSchema: level 为字符串应被拦截', () => {
+      const r = validateParams(audioNormalizeSchema, {
         input_path: '/a.mp3',
-        bitrate: '128',
+        level: '-14',
       });
       expect(r.success).toBe(false);
     });

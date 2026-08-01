@@ -2,7 +2,7 @@
   "name": "@lokvis/engine-video",
   "version": "0.9.0",
   "description": "Lokvis Video Engine - ffmpeg.wasm (browser) / ffmpeg-static (Node)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",

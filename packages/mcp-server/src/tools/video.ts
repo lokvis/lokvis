@@ -38,6 +38,8 @@ import {
   videoExtractAudioSchema,
   validateParams,
 } from './schemas.js';
+import { GENERATED_TOOL_META } from './tool-metadata.generated.js';
+import { requireToolMeta } from './manual-overrides.js';
 
 /** 默认视频 MIME 类型(构造输入 File 时使用) */
 const VIDEO_MIME = 'video/mp4';
@@ -478,7 +480,11 @@ export async function videoExtractAudio(
 /**
  * 注册 Video tools 到 MCP server adapter。
  *
- * Tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/[-.]/g, '_')}`
+ * 工具描述与 inputSchema 由 codegen 数据驱动（G4）：
+ * - description / capability 映射来自 tool-metadata.generated.ts
+ *   （capability manifests + @lokvis/data-formats 格式约束）
+ * - inputSchema 与描述增强来自 manual-overrides.ts（MCP 特有 input_path/output_path）
+ * 本函数仅提供 handler（走 runtime capability 系统）。
  *
  * @param runtime Lokvis Runtime
  */
@@ -488,213 +494,54 @@ export function getVideoToolRegistrations(runtime: LokvisRuntime): Array<{
   inputSchema: object;
   handler: (params: Record<string, unknown>) => Promise<McpToolResult>;
 }> {
+  const reg = (
+    toolName: string,
+    handler: (params: Record<string, unknown>) => Promise<McpToolResult>,
+  ) => {
+    const meta = requireToolMeta(GENERATED_TOOL_META, toolName);
+    return {
+      name: meta.name,
+      description: meta.description,
+      inputSchema: meta.inputSchema,
+      handler,
+    };
+  };
+
   return [
-    {
-      name: 'lokvis_video_compress',
-      description:
-        'Compress a video file to reduce file size. ' +
-        'Optionally specify quality level.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input video file',
-          },
-          quality: {
-            type: 'number',
-            description: 'Quality level (optional, higher = better quality)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_compressed.mp4)',
-          },
-        },
-        required: ['input_path'],
-      },
-      handler: async (p) => {
-        const r = validateParams(videoCompressSchema, p);
-        if (!r.success) return r.error;
-        return videoCompress(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_video_transcode',
-      description:
-        'Transcode a video to a different format (mp4, webm, or gif).',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input video file',
-          },
-          format: {
-            type: 'string',
-            enum: ['mp4', 'webm', 'gif'],
-            description: 'Target format',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional)',
-          },
-        },
-        required: ['input_path', 'format'],
-      },
-      handler: async (p) => {
-        const r = validateParams(videoTranscodeSchema, p);
-        if (!r.success) return r.error;
-        return videoTranscode(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_video_trim',
-      description:
-        'Trim a video to a specific time range (start/end in seconds).',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input video file',
-          },
-          start: {
-            type: 'number',
-            description: 'Start time in seconds',
-          },
-          end: {
-            type: 'number',
-            description: 'End time in seconds',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_trimmed.mp4)',
-          },
-        },
-        required: ['input_path', 'start', 'end'],
-      },
-      handler: async (p) => {
-        const r = validateParams(videoTrimSchema, p);
-        if (!r.success) return r.error;
-        return videoTrim(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_video_merge',
-      description:
-        'Merge multiple video files into a single video. ' +
-        'Files are merged in the order specified in input_paths.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_paths: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Array of paths to video files to merge (minimum 2)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to first_input_merged.mp4)',
-          },
-        },
-        required: ['input_paths'],
-      },
-      handler: async (p) => {
-        const r = validateParams(videoMergeSchema, p);
-        if (!r.success) return r.error;
-        return videoMerge(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_video_to_gif',
-      description:
-        'Convert a video to an animated GIF. ' +
-        'Optionally specify fps and width for the output.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input video file',
-          },
-          fps: {
-            type: 'number',
-            description: 'Frames per second for the GIF (optional)',
-          },
-          width: {
-            type: 'number',
-            description: 'Output width in pixels (optional, maintains aspect ratio)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_gif.gif)',
-          },
-        },
-        required: ['input_path'],
-      },
-      handler: async (p) => {
-        const r = validateParams(videoToGifSchema, p);
-        if (!r.success) return r.error;
-        return videoToGif(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_video_screenshot',
-      description:
-        'Capture a screenshot (frame) from a video at a specific time.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input video file',
-          },
-          time: {
-            type: 'number',
-            description: 'Time in seconds to capture the frame (optional, defaults to 0)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output image file (optional, defaults to input_screenshot.png)',
-          },
-        },
-        required: ['input_path'],
-      },
-      handler: async (p) => {
-        const r = validateParams(videoScreenshotSchema, p);
-        if (!r.success) return r.error;
-        return videoScreenshot(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_video_extract_audio',
-      description:
-        'Extract the audio track from a video file. ' +
-        'Output format can be mp3, wav, or aac.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input video file',
-          },
-          format: {
-            type: 'string',
-            enum: ['mp3', 'wav', 'aac'],
-            description: 'Audio output format (optional, defaults to mp3)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output audio file (optional)',
-          },
-        },
-        required: ['input_path'],
-      },
-      handler: async (p) => {
-        const r = validateParams(videoExtractAudioSchema, p);
-        if (!r.success) return r.error;
-        return videoExtractAudio(r.data, runtime);
-      },
-    },
+    reg('lokvis_video_compress', async (p) => {
+      const r = validateParams(videoCompressSchema, p);
+      if (!r.success) return r.error;
+      return videoCompress(r.data, runtime);
+    }),
+    reg('lokvis_video_transcode', async (p) => {
+      const r = validateParams(videoTranscodeSchema, p);
+      if (!r.success) return r.error;
+      return videoTranscode(r.data, runtime);
+    }),
+    reg('lokvis_video_trim', async (p) => {
+      const r = validateParams(videoTrimSchema, p);
+      if (!r.success) return r.error;
+      return videoTrim(r.data, runtime);
+    }),
+    reg('lokvis_video_merge', async (p) => {
+      const r = validateParams(videoMergeSchema, p);
+      if (!r.success) return r.error;
+      return videoMerge(r.data, runtime);
+    }),
+    reg('lokvis_video_to_gif', async (p) => {
+      const r = validateParams(videoToGifSchema, p);
+      if (!r.success) return r.error;
+      return videoToGif(r.data, runtime);
+    }),
+    reg('lokvis_video_screenshot', async (p) => {
+      const r = validateParams(videoScreenshotSchema, p);
+      if (!r.success) return r.error;
+      return videoScreenshot(r.data, runtime);
+    }),
+    reg('lokvis_video_extract_audio', async (p) => {
+      const r = validateParams(videoExtractAudioSchema, p);
+      if (!r.success) return r.error;
+      return videoExtractAudio(r.data, runtime);
+    }),
   ];
 }

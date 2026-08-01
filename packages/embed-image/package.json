@@ -2,7 +2,7 @@
   "name": "@lokvis/embed-image",
   "version": "0.9.0",
   "description": "Lokvis Embed Image - Three-layer image quick-action components (hooks / primitives / default UI)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "sideEffects": [
     "**/*.css"

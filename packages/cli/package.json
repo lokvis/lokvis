@@ -2,7 +2,7 @@
   "name": "@lokvis/cli",
   "version": "0.9.0",
   "description": "Lokvis CLI - Run workflows, list capabilities, scaffold plugins from the terminal",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",

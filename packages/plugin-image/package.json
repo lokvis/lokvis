@@ -2,7 +2,7 @@
   "name": "@lokvis/plugin-image",
   "version": "0.9.0",
   "description": "Lokvis Image Tools Plugin - resize / compress / convert / crop / rotate / flip / watermark / background",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",

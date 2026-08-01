@@ -44,14 +44,14 @@ L1 Browser Adapter Canvas · OPFS · IndexedDB · Web Workers · WebCodecs ·
 
 | 工作流 | 任务数 | 估时 | 优先级 | 依赖 |
 |---|---|---|---|---|
-| A Browser Adapter Layer 抽取 | 7 | 20h | P0 | 无 |
-| B Engine 契约一致性 | 2 | 3h | P1 | A 完成后更顺 |
-| C Knowledge 数据接入 | 2 | 5h | P1 | knowledge v0.2.0 发布 |
-| D Benchmark 基础设施 | 4 | 12h | P1 | 无（产出交付 knowledge 仓） |
-| E 文档与元数据治理 | 4 | 5h | P0 | 无 |
-| F 协议与治理 | 2 | 3h | P2 | maintainer 决策 |
-| G 长线扩域（最终态完整性） | 5 | 20h | P2 | A |
-| 合计 | 26 | **68h** | | |
+| A Browser Adapter Layer 抽取 ✅ | 7 | 20h | P0 | 无 |
+| B Engine 契约一致性 ✅ | 2 | 3h | P1 | A 完成后更顺 |
+| C Knowledge 数据接入 ✅ | 2 | 5h | P1 | knowledge v0.2.0 发布 |
+| D Benchmark 基础设施 ✅ | 4 | 12h | P1 | 无（产出交付 knowledge 仓） |
+| E 文档与元数据治理 ✅ | 4 | 5h | P0 | 无 |
+| F 协议与治理 ✅ | 2 | 3h | P2 | maintainer 决策 |
+| G 长线扩域（最终态完整性） ✅ | 4 | 20h | P2 | A |
+| 合计 | 25 | **68h** | | |
 
 ---
 
@@ -59,34 +59,35 @@ L1 Browser Adapter Canvas · OPFS · IndexedDB · Web Workers · WebCodecs ·
 
 ### A. Browser Adapter Layer 抽取（20h，P0）
 
-#### A1 接口设计与 ADR — 3h
+#### A1 接口设计与 ADR — 3h ✅
 - **执行思路**：新增 `docs/adr/015-browser-adapter-layer.md`。定义 `@lokvis/browser-adapter` 包的接口面：`EnvProbe`（现 browser-detect 全量能力探测）、`CanvasFactory`（OffscreenCanvas/HTMLCanvas 降级、getContext、createImageBitmap）、`MediaProbe`（图片尺寸/音视频时长提取）、`StorageAdapter`（OPFS getDirectory 封装）、`KVStoreFactory`（IndexedDB/Dexie 封装）、`WorkerFactory`、`FormatSupportProbe`（1×1 编码探测，统一三处重复实现）、`FilePickerAdapter`（File System Access，预留）。同时定义注入方式：runtime 构造参数可选传入，默认导出 `createBrowserAdapter()` 与测试用 `createFakeAdapter()`。分层裁决写明：adapter 是唯一允许触碰原生浏览器 API 的包；AGENTS.md 五层图更新为六层（Adapter 在 Engine 之下）。
 - **验收**：ADR 评审通过；接口 TS 定义文件成稿。
 
-#### A2 建包 + 迁移 EnvProbe/FormatSupportProbe — 2h
+#### A2 建包 + 迁移 EnvProbe/FormatSupportProbe — 2h ✅
 - **执行思路**：脚手架 `packages/browser-adapter`（对齐现有包模板：tsconfig/vitest/exports）；将 `runtime/src/browser-detect.ts` 整体迁入为 `EnvProbe` 实现，runtime 改为从 adapter re-export（保持 API 兼容，deprecated 标注）；`FormatSupportProbe` 以 engine-image 的 `detectFormatSupport` 为准实现。fake 实现同步提供（测试约定要求浏览器 API 用 fake）。
 - **验收**：新包 build/test 通过；runtime 原有 browser-detect 测试不破坏。
 
-#### A3 runtime MediaProbe 迁出 — 3h
+#### A3 runtime MediaProbe 迁出 — 3h ✅
 - **执行思路**：`runtime/src/asset-store.ts:145-165` 的元数据提取（createImageBitmap 取尺寸、`document.createElement('video'/'audio')` 取时长）迁到 adapter `MediaProbe`；runtime 通过注入使用，默认 no-op（元数据缺省），浏览器入口（sdk/embed）注入真实实现。这是"runtime 摸 DOM"最典型违规点，迁完后 runtime 源码 grep `document.` 应为零。
 - **验收**：`grep -r "document\." packages/runtime/src` 零命中（测试 fake 除外）；asset 元数据行为回归通过。
 
-#### A4 Storage/KV 后端注入化 — 4h
+#### A4 Storage/KV 后端注入化 — 4h ✅
 - **执行思路**：`opfs-asset-store.ts`/`asset-manager.ts` 的 `navigator.storage.getDirectory()` 改走 `StorageAdapter`；`idb-asset-store.ts`/`history-store.ts` 的 Dexie 构造改走 `KVStoreFactory`。三级降级链（OPFS→IDB→内存）逻辑保留在 runtime（属业务策略），仅把"触碰原生 API 的那一行"下沉。注意保持包体积：Dexie 依赖随实现移入 adapter，runtime 依赖树变轻。
 - **验收**：`grep -rE "navigator\.|indexedDB" packages/runtime/src` 零命中；OPFS/IDB/内存三链路测试全绿。
 
-#### A5 engine-image canvas 调用收敛 — 4h
+#### A5 engine-image canvas 调用收敛 — 4h ✅
 - **执行思路**：`canvas-engine.ts`（`document.createElement('canvas')` L113/L195、OffscreenCanvas、getContext）与 `operations/tiles.ts`/`transform.ts`/`watermark.ts` 的 createImageBitmap 统一改经 `CanvasFactory`；`wasm/avif-encoder.ts:52` 的 `new Worker` 改经 `WorkerFactory`。engine 仍可直接 import adapter（engine 属 L1/L2 边界），收益是 Node 侧（sharp-engine）与浏览器侧共享同一探测/降级逻辑，且测试无需全局 mock。
 - **验收**：engine-image 测试全绿；浏览器 smoke（playground 手动跑 resize/convert）正常。
 
-#### A6 embed-* 重复实现收敛 — 2h
+#### A6 embed-* 重复实现收敛 — 2h ✅
 - **执行思路**：删除 `embed-image/src/internal/format-support.ts` 自带探测，改用 adapter `FormatSupportProbe`；`embed-kit/download.ts`、`theme.ts`（document.body/matchMedia）保留——UI 层允许触碰 DOM，但注明边界（embed 是 Presentation，不受 L2 铁律约束）。
 - **验收**：embed-image 探测行为与 engine-image 一致（同一实现）；包体积不回归。
 
-#### A7 回归与发版 — 2h
+#### A7 回归与发版 — 2h ✅
 - **执行思路**：全仓 `pnpm typecheck && pnpm test:coverage && pnpm build`；playground/docs 站手动 smoke；changeset（minor，fixed 组全包联动）；发布后 cloud 侧按新版本升级验证（跨仓回归）。
 - **验收**：npm 新 minor 发布；cloud `pnpm ci` 用新版本通过。
 - **依赖**：A2–A6。
+- **完成记录（2026-08-01）**：A1–A6 于 commit `58ecd94` 一次性落地（54 files，+3408/−691），随 0.9.0 统一发版（`acf0525`）发布。A7 补充：新增 `scripts/check-browser-api.sh` CI 架构守卫（ADR-015 铁律机械校验），grep `navigator.|document.|indexedDB|new Worker(` 于 runtime/engine-image 非测试源码，排除注释/字符串/avif-encoder ADR 豁免；根 `pnpm check:arch` 脚本 + `ci.yml` 新增 "Architecture guard (ADR-015)" step（Lint 之后）。负测验证：注入 `document.createElement` → exit 1。全仓 typecheck 65/65、test 162 files/2770 tests 绿。
 
 ### B. Engine 契约一致性（3h，P1）
 
@@ -165,35 +166,38 @@ L1 Browser Adapter Canvas · OPFS · IndexedDB · Web Workers · WebCodecs ·
 
 ### F. 协议与治理（3h，P2，需 maintainer 决策）
 
-#### F1 MIT → Apache-2.0 评估与决策 — 2h
+#### F1 MIT → Apache-2.0 评估与决策 — 2h ✅
 - **执行思路**：架构 v2 最终态裁决 Open 用 Apache-2.0（专利授权条款对 Runtime 类项目更稳），现为 MIT。写 ADR 列利弊：已发布 0.8.x 的 MIT 版本不可撤回（换协议只影响后续版本）、30 个 package.json + LICENSE + NOTICE 文件 + THIRD_PARTY_LICENSES 联动、外部贡献者 CLA 现状确认。**是否切换由 maintainer 拍板，本任务只交付决策材料；若维持 MIT，更新根 architecture-v2.md §2 备注。**
 - **验收**：ADR 017 成稿含推荐结论；决策记录在案。
+- **完成记录（2026-08-01）**：maintainer 决策采用 Apache-2.0。ADR-019 成稿（Accepted）；根 LICENSE 替换为 Apache-2.0 全文；新增 NOTICE（含商标保留）；43 个 package.json `"license"` 字段 MIT→Apache-2.0；README/CONTRIBUTING/architecture.md 许可引用同步更新。已发布 ≤0.9.x 版本永久保持 MIT（不可撤回），0.10.0+ 生效 Apache-2.0。
 
-#### F2 商标与品牌声明 — 1h
+#### F2 商标与品牌声明 — 1h ✅
 - **执行思路**：README/LICENSE 补 "Lokvis" 名称与 logo 商标保留声明（Open Core 惯例：代码开源、商标保留），与对话结论一致；检查 npm org 主页描述同步。
 - **验收**：声明落文；不阻塞任何现有使用场景。
+- **完成记录（2026-08-01）**：README License 节新增商标声明（"Lokvis" 名称/Logo 不含在 Apache-2.0 授权内，引用 §6）；NOTICE 文件同步英文商标保留条款。
 
 ### G. 长线扩域——最终态包完整性（20h，P2，Y2/Y3 节奏）
 
-#### G1 engine-archive + plugin-archive — 8h（拆 4 步）
+#### G1 engine-archive + plugin-archive — 8h（拆 4 步） ✅
 - **G1a 设计 1h**：ADR 定能力面（zip/unzip/list，fflate 纯 JS 零 WASM，浏览器/Node 同构）；capability 命名入 codegen 管线。
 - **G1b 实现 4h**：engine-archive（Blob↔Blob 纯函数，遵守 `Record<string, any>` 参数签名约定）+ plugin-archive（installer + implementations，stub 约定不适用因直接真实现）。
 - **G1c 测试 2h**：`__tests__/plugin.test.ts` 按 AGENTS.md 约定全套；大文件内存守卫联动 MemoryGuard 验证。
 - **G1d 发布 1h**：changeset minor；docs/capabilities.md 更新。
 - **验收**：playground 可 zip/unzip；覆盖率达标。
 
-#### G2 engine-office 技术选型 spike — 4h
+#### G2 engine-office 技术选型 spike — 4h ✅
 - **执行思路**：时间盒 4h 只做评估不实现：docx（docx 库/mammoth 读）、xlsx（SheetJS 社区版许可风险 vs exceljs）、浏览器内存可行性；产出 spike 报告 + go/no-go 建议（对话结论 office 属 Y2 后半）。
 - **验收**：报告落 docs/reports/，含推荐路线与风险。
 
-#### G3 File System Access（FilePickerAdapter 实装） — 5h
+#### G3 File System Access（FilePickerAdapter 实装） — 5h ✅
 - **G3a 裁决 1h**：独立 `@lokvis/fs` vs 并入 browser-adapter——倾向并入（同属 L1，避免包碎片化），ADR 记录。
 - **G3b 实装 4h**：`showOpenFilePicker`/`showSaveFilePicker`/拖拽目录遍历封装 + Safari/Firefox 降级（input[type=file] / a[download]）；接通 `plugin-permissions.ts` 预留的权限点；embed-kit download.ts 改走此路径。
 - **验收**：Chrome 原生另存为、Safari 降级下载均可用；权限模型测试覆盖。
 
-#### G4 MCP 工具描述数据化 — 3h
+#### G4 MCP 工具描述数据化 — 3h ✅
 - **执行思路**：mcp-server 工具描述由静态手写改为构建时从 capability 元数据 + `@lokvis/data-formats`（格式说明）生成，让 AI 客户端获得更准确的参数/格式约束；保留手工覆盖位。与 "AI 后面的 Runtime" 定位直接相关，提高 Agent 调用成功率。
 - **验收**：examples 中 Claude Desktop/Cursor 配置回归可用；工具描述含格式约束信息。
+- **完成记录（2026-08-01）**：`scripts/codegen-mcp-tools.ts` 从 capability manifests + `@lokvis/data-formats@0.3.0`（devDep，createRequire）生成 `tool-metadata.generated.ts`（35 tools，image 域含 14 格式约束）；`manual-overrides.ts` 提供 MCP 特有 inputSchema + 描述增强（mirror C1 platform-manual 模式）；5 个 tool 文件（image/pdf/video/audio/ai）改由 `reg()` helper 数据驱动注册。drift-guard 测试（schemas.test.ts）守卫生成集 ↔ BUILTIN_CAPABILITIES 一致性。修复既有 bug：`lokvis_audio_compress` 引用不存在的 `audio.compress` → 改为 `lokvis_audio_normalize`（audio.normalize，level dB）。codegen 幂等；typecheck 65/65、test 2770 绿。
 
 ---
 

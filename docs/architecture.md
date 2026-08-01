@@ -233,7 +233,7 @@ Runtime 通过事件总线解耦各模块通信。主要事件：
 ## 七、Open Core 模式
 
 ```
-lokvis-open（MIT）                    lokvis-cloud（闭源）
+lokvis-open（Apache-2.0）                    lokvis-cloud（闭源）
 ├── Runtime                           ├── API
 ├── Schema                            ├── Marketplace
 ├── Plugins（官方）                    ├── Dashboard

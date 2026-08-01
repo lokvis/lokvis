@@ -26,6 +26,8 @@ import {
   aiDiagnoseErrorSchema,
   validateParams,
 } from './schemas.js';
+import { GENERATED_TOOL_META } from './tool-metadata.generated.js';
+import { requireToolMeta } from './manual-overrides.js';
 
 /**
  * 通用 AI params→data 流程:构造 workflow → runtime.run([]) → 读取输出 JSON。
@@ -68,7 +70,11 @@ function errorResult(message: string): McpToolResult {
 /**
  * 注册 AI tools 到 MCP server adapter。
  *
- * Tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/[-.]/g, '_')}`
+ * 工具描述与 inputSchema 由 codegen 数据驱动（G4）：
+ * - description / capability 映射来自 tool-metadata.generated.ts
+ *   （capability manifests + @lokvis/data-formats 格式约束）
+ * - inputSchema 与描述增强来自 manual-overrides.ts（MCP 特有 input_path/output_path）
+ * 本函数仅提供 handler（走 runtime capability 系统）。
  *
  * @param runtime Lokvis Runtime
  */
@@ -78,105 +84,68 @@ export function getAiToolRegistrations(runtime: LokvisRuntime): Array<{
   inputSchema: object;
   handler: (params: Record<string, unknown>) => Promise<McpToolResult>;
 }> {
+  const reg = (
+    toolName: string,
+    handler: (params: Record<string, unknown>) => Promise<McpToolResult>,
+  ) => {
+    const meta = requireToolMeta(GENERATED_TOOL_META, toolName);
+    return {
+      name: meta.name,
+      description: meta.description,
+      inputSchema: meta.inputSchema,
+      handler,
+    };
+  };
+
   return [
-    {
-      name: 'lokvis_ai_generate_workflow',
-      description:
-        'Generate a Lokvis workflow from a natural language prompt. ' +
-        'Returns the generated workflow as JSON. Requires cloud AI configuration.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          prompt: {
-            type: 'string',
-            description: 'Natural language description of the desired workflow (e.g. "resize image to 800x600 and convert to webp")',
-          },
-        },
-        required: ['prompt'],
-      },
-      handler: async (params) => {
-        const r = validateParams(aiGenerateWorkflowSchema, params);
-        if (!r.success) return r.error;
+    reg('lokvis_ai_generate_workflow', async (params) => {
+      const r = validateParams(aiGenerateWorkflowSchema, params);
+      if (!r.success) return r.error;
+      try {
+        const json = await runAiCapability(runtime, 'ai.generate-workflow', {
+          prompt: r.data.prompt,
+        });
+        return { content: [{ type: 'text', text: json }] };
+      } catch (err) {
+        return errorResult(
+          `AI generate-workflow failed: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }),
+    reg('lokvis_ai_optimize_workflow', async (params) => {
+      const r = validateParams(aiOptimizeWorkflowSchema, params);
+      if (!r.success) return r.error;
+      try {
+        // 解析 workflow JSON 字符串为对象传给 capability
+        let workflowObj: unknown;
         try {
-          const json = await runAiCapability(runtime, 'ai.generate-workflow', {
-            prompt: r.data.prompt,
-          });
-          return { content: [{ type: 'text', text: json }] };
-        } catch (err) {
-          return errorResult(
-            `AI generate-workflow failed: ${err instanceof Error ? err.message : String(err)}`
-          );
+          workflowObj = JSON.parse(r.data.workflow);
+        } catch {
+          return errorResult('Invalid workflow JSON: failed to parse');
         }
-      },
-    },
-    {
-      name: 'lokvis_ai_optimize_workflow',
-      description:
-        'Optimize an existing Lokvis workflow. ' +
-        'Accepts a workflow JSON string and returns an optimized version. ' +
-        'Requires cloud AI configuration.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          workflow: {
-            type: 'string',
-            description: 'The workflow JSON string to optimize',
-          },
-        },
-        required: ['workflow'],
-      },
-      handler: async (params) => {
-        const r = validateParams(aiOptimizeWorkflowSchema, params);
-        if (!r.success) return r.error;
-        try {
-          // 解析 workflow JSON 字符串为对象传给 capability
-          let workflowObj: unknown;
-          try {
-            workflowObj = JSON.parse(r.data.workflow);
-          } catch {
-            return errorResult('Invalid workflow JSON: failed to parse');
-          }
-          const json = await runAiCapability(runtime, 'ai.optimize-workflow', {
-            workflow: workflowObj,
-          });
-          return { content: [{ type: 'text', text: json }] };
-        } catch (err) {
-          return errorResult(
-            `AI optimize-workflow failed: ${err instanceof Error ? err.message : String(err)}`
-          );
-        }
-      },
-    },
-    {
-      name: 'lokvis_ai_diagnose_error',
-      description:
-        'Diagnose a Lokvis workflow execution error. ' +
-        'Accepts an error message and returns a diagnosis report with suggestions. ' +
-        'Requires cloud AI configuration.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          error: {
-            type: 'string',
-            description: 'The error message or stack trace to diagnose',
-          },
-        },
-        required: ['error'],
-      },
-      handler: async (params) => {
-        const r = validateParams(aiDiagnoseErrorSchema, params);
-        if (!r.success) return r.error;
-        try {
-          const json = await runAiCapability(runtime, 'ai.diagnose-error', {
-            error: r.data.error,
-          });
-          return { content: [{ type: 'text', text: json }] };
-        } catch (err) {
-          return errorResult(
-            `AI diagnose-error failed: ${err instanceof Error ? err.message : String(err)}`
-          );
-        }
-      },
-    },
+        const json = await runAiCapability(runtime, 'ai.optimize-workflow', {
+          workflow: workflowObj,
+        });
+        return { content: [{ type: 'text', text: json }] };
+      } catch (err) {
+        return errorResult(
+          `AI optimize-workflow failed: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }),
+    reg('lokvis_ai_diagnose_error', async (params) => {
+      const r = validateParams(aiDiagnoseErrorSchema, params);
+      if (!r.success) return r.error;
+      try {
+        const json = await runAiCapability(runtime, 'ai.diagnose-error', {
+          error: r.data.error,
+        });
+        return { content: [{ type: 'text', text: json }] };
+      } catch (err) {
+        return errorResult(
+          `AI diagnose-error failed: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }),
   ];
 }

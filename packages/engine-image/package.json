@@ -2,7 +2,7 @@
   "name": "@lokvis/engine-image",
   "version": "0.9.0",
   "description": "Lokvis Image Engine - Browser-native image processing via Canvas / createImageBitmap (MVP) with adapter for Squoosh WASM (future)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",

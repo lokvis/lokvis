@@ -11,6 +11,7 @@ import { AUDIO_CAPABILITIES } from './audio.generated.js';
 import { AI_CAPABILITIES } from './ai.generated.js';
 import { ASSET_CAPABILITIES } from './asset.js';
 import { DEV_CAPABILITIES } from './developer.generated.js';
+import { ARCHIVE_CAPABILITIES } from './archive.generated.js';
 
 /** 所有内置能力预设(按域顺序聚合) */
 export const BUILTIN_CAPABILITIES: Capability[] = [
@@ -21,4 +22,5 @@ export const BUILTIN_CAPABILITIES: Capability[] = [
   ...AI_CAPABILITIES,
   ...ASSET_CAPABILITIES,
   ...DEV_CAPABILITIES,
+  ...ARCHIVE_CAPABILITIES,
 ];

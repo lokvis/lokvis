@@ -2,7 +2,7 @@
  * Audio tools:MCP tool handlers for audio processing.
  *
  * 4 个 tool 经 runtime.run(workflow, inputs) 走完整 Capability 系统:
- * - lokvis_audio_compress: 压缩音频(audio.compress,1→1)
+ * - lokvis_audio_normalize: 响度标准化(audio.normalize,1→1)
  * - lokvis_audio_transcode: 格式转码(audio.transcode,1→1)
  * - lokvis_audio_trim: 裁剪片段(audio.trim,1→1)
  * - lokvis_audio_merge: 合并多个音频(audio.merge,N→1)
@@ -26,12 +26,14 @@ import {
   buildMergeWorkflow,
 } from './workflow-helpers.js';
 import {
-  audioCompressSchema,
+  audioNormalizeSchema,
   audioTranscodeSchema,
   audioTrimSchema,
   audioMergeSchema,
   validateParams,
 } from './schemas.js';
+import { GENERATED_TOOL_META } from './tool-metadata.generated.js';
+import { requireToolMeta } from './manual-overrides.js';
 
 /** 默认音频 MIME 类型(构造输入 File 时使用) */
 const AUDIO_MIME = 'audio/mpeg';
@@ -87,12 +89,12 @@ async function runAudioTransform(
 }
 
 /**
- * lokvis_audio_compress:压缩音频文件。
+ * lokvis_audio_normalize:将音频响度标准化到目标电平。
  */
-export async function audioCompress(
+export async function audioNormalize(
   params: {
     input_path: string;
-    bitrate?: number;
+    level?: number;
     output_path?: string;
   },
   runtime: LokvisRuntime
@@ -100,34 +102,31 @@ export async function audioCompress(
   const inputPath = resolve(params.input_path);
   const outputPath = params.output_path
     ? resolve(params.output_path)
-    : makeOutputPath(inputPath, 'compressed', 'mp3');
+    : makeOutputPath(inputPath, 'normalized', 'mp3');
 
   try {
     const originalSize = await getFileSize(inputPath);
 
     const transformParams: Record<string, unknown> = {};
-    if (params.bitrate !== undefined) transformParams.bitrate = params.bitrate;
+    if (params.level !== undefined) transformParams.level = params.level;
 
     const { outBlob } = await runAudioTransform(
       runtime,
       [inputPath],
-      'audio.compress',
+      'audio.normalize',
       transformParams,
       { merge: false }
     );
     await blobToFile(outBlob, outputPath);
-
-    const ratio = ((1 - outBlob.size / originalSize) * 100).toFixed(1);
 
     return {
       content: [
         {
           type: 'text',
           text: [
-            `Audio compressed successfully.`,
+            `Audio normalized successfully.`,
             `  Input: ${inputPath} (${formatSize(originalSize)})`,
             `  Output: ${outputPath} (${formatSize(outBlob.size)})`,
-            `  Saved: ${ratio}%`,
           ].join('\n'),
         },
       ],
@@ -135,7 +134,7 @@ export async function audioCompress(
   } catch (err) {
     return {
       content: [
-        { type: 'text', text: `Failed to compress audio: ${err}` },
+        { type: 'text', text: `Failed to normalize audio: ${err}` },
       ],
       isError: true,
     };
@@ -309,7 +308,11 @@ export async function audioMerge(
 /**
  * 注册 Audio tools 到 MCP server adapter。
  *
- * Tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/[-.]/g, '_')}`
+ * 工具描述与 inputSchema 由 codegen 数据驱动（G4）：
+ * - description / capability 映射来自 tool-metadata.generated.ts
+ *   （capability manifests + @lokvis/data-formats 格式约束）
+ * - inputSchema 与描述增强来自 manual-overrides.ts（MCP 特有 input_path/output_path）
+ * 本函数仅提供 handler（走 runtime capability 系统）。
  *
  * @param runtime Lokvis Runtime
  */
@@ -319,122 +322,39 @@ export function getAudioToolRegistrations(runtime: LokvisRuntime): Array<{
   inputSchema: object;
   handler: (params: Record<string, unknown>) => Promise<McpToolResult>;
 }> {
+  const reg = (
+    toolName: string,
+    handler: (params: Record<string, unknown>) => Promise<McpToolResult>,
+  ) => {
+    const meta = requireToolMeta(GENERATED_TOOL_META, toolName);
+    return {
+      name: meta.name,
+      description: meta.description,
+      inputSchema: meta.inputSchema,
+      handler,
+    };
+  };
+
   return [
-    {
-      name: 'lokvis_audio_compress',
-      description:
-        'Compress an audio file to reduce file size. ' +
-        'Optionally specify target bitrate.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input audio file',
-          },
-          bitrate: {
-            type: 'number',
-            description: 'Target bitrate in kbps (optional)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_compressed.mp3)',
-          },
-        },
-        required: ['input_path'],
-      },
-      handler: async (p) => {
-        const r = validateParams(audioCompressSchema, p);
-        if (!r.success) return r.error;
-        return audioCompress(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_audio_transcode',
-      description:
-        'Transcode an audio file to a different format (mp3, wav, aac, ogg, or flac).',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input audio file',
-          },
-          format: {
-            type: 'string',
-            enum: ['mp3', 'wav', 'aac', 'ogg', 'flac'],
-            description: 'Target audio format',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional)',
-          },
-        },
-        required: ['input_path', 'format'],
-      },
-      handler: async (p) => {
-        const r = validateParams(audioTranscodeSchema, p);
-        if (!r.success) return r.error;
-        return audioTranscode(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_audio_trim',
-      description:
-        'Trim an audio file to a specific time range (start/end in seconds).',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input audio file',
-          },
-          start: {
-            type: 'number',
-            description: 'Start time in seconds',
-          },
-          end: {
-            type: 'number',
-            description: 'End time in seconds',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_trimmed.mp3)',
-          },
-        },
-        required: ['input_path', 'start', 'end'],
-      },
-      handler: async (p) => {
-        const r = validateParams(audioTrimSchema, p);
-        if (!r.success) return r.error;
-        return audioTrim(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_audio_merge',
-      description:
-        'Merge multiple audio files into a single audio file. ' +
-        'Files are merged in the order specified in input_paths.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_paths: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Array of paths to audio files to merge (minimum 2)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to first_input_merged.mp3)',
-          },
-        },
-        required: ['input_paths'],
-      },
-      handler: async (p) => {
-        const r = validateParams(audioMergeSchema, p);
-        if (!r.success) return r.error;
-        return audioMerge(r.data, runtime);
-      },
-    },
+    reg('lokvis_audio_normalize', async (p) => {
+      const r = validateParams(audioNormalizeSchema, p);
+      if (!r.success) return r.error;
+      return audioNormalize(r.data, runtime);
+    }),
+    reg('lokvis_audio_transcode', async (p) => {
+      const r = validateParams(audioTranscodeSchema, p);
+      if (!r.success) return r.error;
+      return audioTranscode(r.data, runtime);
+    }),
+    reg('lokvis_audio_trim', async (p) => {
+      const r = validateParams(audioTrimSchema, p);
+      if (!r.success) return r.error;
+      return audioTrim(r.data, runtime);
+    }),
+    reg('lokvis_audio_merge', async (p) => {
+      const r = validateParams(audioMergeSchema, p);
+      if (!r.success) return r.error;
+      return audioMerge(r.data, runtime);
+    }),
   ];
 }

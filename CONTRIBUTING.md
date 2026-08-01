@@ -219,7 +219,7 @@ git checkout -b refactor/your-refactor
 
 ## License 贡献
 
-提交 PR 即代表你同意以 [MIT License](LICENSE) 授权你的贡献给 Lokvis 项目。我们**不要求** DCO / CLA,但请确保:
+提交 PR 即代表你同意以 [Apache-2.0 License](LICENSE) 授权你的贡献给 Lokvis 项目。我们**不要求** DCO / CLA,但请确保:
 
 - 你拥有提交内容的版权(自己写的,或有明确授权)
 - 引入第三方代码必须保留原始 license 头并在 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) 登记

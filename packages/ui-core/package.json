@@ -2,7 +2,7 @@
   "name": "@lokvis/ui-core",
   "version": "0.9.0",
   "description": "Lokvis UI Core - Shared React components and design system",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "sideEffects": [
     "**/*.css"

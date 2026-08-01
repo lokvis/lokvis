@@ -3,7 +3,7 @@
   "version": "0.1.14",
   "private": true,
   "description": "End-to-end verification script: starts the Lokvis MCP server, connects via SDK Client, exercises every image tool — the verifiable M2.4 demo.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "verify": "node verify.mjs"

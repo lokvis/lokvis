@@ -43,6 +43,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Architecture guard (ADR-015)
+        run: pnpm check:arch
+
       - name: Typecheck
         run: pnpm typecheck
 

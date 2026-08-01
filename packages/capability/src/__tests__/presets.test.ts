@@ -12,6 +12,7 @@ import {
   AI_CAPABILITIES,
   ASSET_CAPABILITIES,
   DEV_CAPABILITIES,
+  ARCHIVE_CAPABILITIES,
   BUILTIN_CAPABILITIES,
   IMAGE_RESIZE,
   IMAGE_COMPRESS,
@@ -154,10 +155,19 @@ describe('AI 能力预设', () => {
 });
 
 describe('内置能力集合', () => {
-  it('ASSET_CAPABILITIES 应包含 rename 与 archive', () => {
+  it('ASSET_CAPABILITIES 应包含 rename(archive 已迁至 archive.* 域)', () => {
     const names = ASSET_CAPABILITIES.map((c) => c.name);
     expect(names).toContain('asset.rename');
-    expect(names).toContain('asset.archive');
+    expect(names).not.toContain('asset.archive');
+  });
+
+  it('ARCHIVE_CAPABILITIES 应包含 zip / unzip / list 三项', () => {
+    expect(ARCHIVE_CAPABILITIES).toHaveLength(3);
+    const names = ARCHIVE_CAPABILITIES.map((c) => c.name);
+    expect(names).toContain('archive.zip');
+    expect(names).toContain('archive.unzip');
+    expect(names).toContain('archive.list');
+    expect(ARCHIVE_CAPABILITIES.every((c) => c.name.startsWith('archive.'))).toBe(true);
   });
 
   it('DEV_CAPABILITIES 应包含 9 个开发工具', () => {
@@ -173,7 +183,8 @@ describe('内置能力集合', () => {
         AUDIO_CAPABILITIES.length +
         AI_CAPABILITIES.length +
         ASSET_CAPABILITIES.length +
-        DEV_CAPABILITIES.length
+        DEV_CAPABILITIES.length +
+        ARCHIVE_CAPABILITIES.length
     );
   });
 

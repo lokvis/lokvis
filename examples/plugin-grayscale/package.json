@@ -3,7 +3,7 @@
   "version": "0.1.14",
   "private": true,
   "description": "Example: a minimal teaching plugin that adds image.grayscale via canvas pixel manipulation",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {

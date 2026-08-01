@@ -2,7 +2,7 @@
   "name": "@lokvis/plugin-dev",
   "version": "0.9.0",
   "description": "Lokvis Developer Tools Plugin - capability introspection / asset inspection / workflow validation / performance profiling",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",

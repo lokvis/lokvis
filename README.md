@@ -3,7 +3,7 @@
 > **Digital Asset Intelligence Platform 的开源 Runtime — local-first，everything runs in your browser.**
 
 [![CI](https://github.com/lokvis/lokvis/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/lokvis/lokvis/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
 [![Coverage](https://github.com/lokvis/lokvis/actions/workflows/ci.yml)](https://github.com/lokvis/lokvis/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -56,7 +56,7 @@ Lokvis 是 **Digital Asset Intelligence Platform 的开源 Runtime**(本仓 `lok
 | **AI 编排** | ❌ 闭源流水线 | ❌ 无 | ✅ **MCP 协议接 Claude/Cursor** |
 | **离线** | ❌ 必须联网 | ✅ 离线可用 | ✅ **PWA,首次加载后离线可用** |
 | **可扩展** | ❌ 厂商锁定 | ⚠️ 插件生态有限/封闭 | ✅ **Plugin SDK + Capability Manifest** |
-| **成本** | ❌ 按 GB/请求计费 | ⚠️ Photoshop 订阅制 / GIMP 免费 | ✅ **开源 MIT,零成本** |
+| **成本** | ❌ 按 GB/请求计费 | ⚠️ Photoshop 订阅制 / GIMP 免费 | ✅ **开源 Apache-2.0,零成本** |
 | **跨平台** | ✅ 浏览器即可 | ⚠️ GIMP 跨平台 / PS 仅 Mac/Win | ✅ **任何现代浏览器** |
 
 > 表中 ⚠️ 表示该方案部分支持但有局限。Lokvis 不声称全面优于所有方案,而是聚焦"本地优先 + 可编程 + AI 编排"的交叉定位。
@@ -112,11 +112,12 @@ Lokvis 是 **Digital Asset Intelligence Platform 的开源 Runtime**(本仓 `lok
 
 | 引擎 | 实现依赖 | 许可证 | 说明 |
 |------|---------|--------|------|
-| `engine-image` | 原生 Canvas + WASM(AVIF) | MIT | 9 能力,零 WASM MVP |
-| `engine-video` | ffmpeg.wasm(浏览器)/ ffmpeg-static(Node) | MIT + FFmpeg LGPL-2.1+ | compress / transcode / trim / merge / to-gif ... |
-| `engine-pdf` | pdf-lib | MIT | merge / split / compress / rotate / watermark ... |
-| `engine-audio` | ffmpeg-static(Node)/ Web Audio | MIT | trim / normalize / merge / transcode |
+| `engine-image` | 原生 Canvas + WASM(AVIF) | Apache-2.0 | 9 能力,零 WASM MVP |
+| `engine-video` | ffmpeg.wasm(浏览器)/ ffmpeg-static(Node) | Apache-2.0 + FFmpeg LGPL-2.1+ | compress / transcode / trim / merge / to-gif ... |
+| `engine-pdf` | pdf-lib | Apache-2.0 | merge / split / compress / rotate / watermark ... |
+| `engine-audio` | ffmpeg-static(Node)/ Web Audio | Apache-2.0 | trim / normalize / merge / transcode |
 | `engine-ai` | Cloud AI proxy | Apache-2.0 | ocr / caption / generate-workflow ... |
+| `engine-archive` | fflate(纯 JS) | Apache-2.0 | zip / unzip / list,浏览器/Node 同构 |
 
 详见 [路线图](docs/roadmap.md) 与 [packages/ENGINES.md](packages/ENGINES.md)。
 
@@ -285,7 +286,7 @@ lokvis/
 ├── apps/
 │   ├── docs/                   # Astro + Starlight 文档站(API ref + 指南)
 │   └── playground/             # 在线 SDK playground(Astro 7 + React 19)
-├── packages/                   # 29 个独立包
+├── packages/                   # 31 个独立包
 │   ├── schema/                 # 类型定义 + Zod 校验(Workflow/Asset/Capability/Plugin/Event)
 │   ├── browser-adapter/        # 浏览器 API 统一抽象(唯一允许触碰原生 API 的非展示层)
 │   ├── runtime/                # 浏览器本地执行引擎(调度/事件总线/AssetStore/历史栈)
@@ -307,11 +308,13 @@ lokvis/
 │   ├── engine-pdf/             # PDF 引擎(pdf-lib)
 │   ├── engine-audio/           # 音频引擎(ffmpeg-static Node / Web Audio)
 │   ├── engine-ai/              # AI 引擎(Cloud AI proxy)
+│   ├── engine-archive/         # 归档引擎(fflate 纯 JS,zip/unzip/list)
 │   ├── plugin-image/           # 官方图像工具插件(10 能力 + EXIF)
 │   ├── plugin-video/           # 官方视频工具插件(接 engine-video)
 │   ├── plugin-pdf/             # 官方 PDF 工具插件(接 engine-pdf)
 │   ├── plugin-audio/           # 官方音频工具插件(接 engine-audio)
 │   ├── plugin-ai/              # 官方 AI 工具插件(接 engine-ai)
+│   ├── plugin-archive/         # 官方归档工具插件(接 engine-archive)
 │   ├── plugin-dev/             # 开发者工具插件(inspect/profile/validate)
 │   ├── mcp-server/             # MCP server 适配层(Claude/ChatGPT/Cursor)
 │   └── cloud-bridge/           # Cloud 集成桥接(cloud API/pro auth,渐进式)
@@ -328,7 +331,7 @@ lokvis/
 ```
 
 **包状态说明**:
-- ✅ **schema / browser-adapter / runtime / workflow / sdk / plugin-sdk / capability / i18n / ui-core / ui-react / embed-kit / embed-image / embed-pdf / embed-video / cli / engine-core / engine-image / engine-video / engine-pdf / engine-audio / engine-ai / plugin-image / plugin-video / plugin-pdf / plugin-audio / plugin-ai / plugin-dev / mcp-server** — 已实现,有完整测试
+- ✅ **schema / browser-adapter / runtime / workflow / sdk / plugin-sdk / capability / i18n / ui-core / ui-react / embed-kit / embed-image / embed-pdf / embed-video / cli / engine-core / engine-image / engine-video / engine-pdf / engine-audio / engine-ai / engine-archive / plugin-image / plugin-video / plugin-pdf / plugin-audio / plugin-ai / plugin-archive / plugin-dev / mcp-server** — 已实现,有完整测试
 - 🔌 **cloud-bridge** — 渐进式桥接(cloud API + pro auth),非核心本地功能
 
 ## 🛠 常用命令
@@ -459,11 +462,15 @@ pnpm test:fast && pnpm typecheck && pnpm lint
 - **Conventional Commits**:`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `perf`
 - **行为准则**:见 [Code of Conduct](CODE_OF_CONDUCT.md)——友善、包容、对事不对人
 - **隐私优先**:不在 PR / Issue 中提交真实用户文件 / DSN / token
-- **License**:MIT,不要求 DCO / CLA,但禁止 GPL/AGPL 进入主 bundle(详见 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md))
+- **License**:Apache-2.0,不要求 DCO / CLA,但禁止 GPL/AGPL 进入主 bundle(详见 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md))
 
 ## 📄 License
 
-[MIT](LICENSE) © Lokvis Contributors
+[Apache-2.0](LICENSE) © Lokvis Contributors
+
+**商标声明**："Lokvis" 名称、Logo 及相关品牌标识为 Lokvis 项目保留的商标，
+不包含在 Apache-2.0 许可授权范围内（参见 Apache-2.0 §6 Trademarks）。
+未经书面许可，不得在衍生作品或商业推广中使用。
 
 ### 第三方依赖
 

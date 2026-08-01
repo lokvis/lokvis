@@ -3,7 +3,7 @@
   "version": "0.1.15",
   "private": true,
   "description": "Example: embed the Lokvis Workspace into an existing React app",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",

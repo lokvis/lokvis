@@ -3,7 +3,7 @@
   "version": "0.1.15",
   "private": true,
   "description": "Example: build a custom workspace UI with only @lokvis/sdk (no @lokvis/ui-react)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",

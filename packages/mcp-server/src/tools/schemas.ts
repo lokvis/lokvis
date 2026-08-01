@@ -240,10 +240,10 @@ export const videoExtractAudioSchema = z.object({
 // Audio tool schemas
 // ──────────────────────────────────────────────────────────────────────────
 
-/** lokvis_audio_compress */
-export const audioCompressSchema = z.object({
+/** lokvis_audio_normalize */
+export const audioNormalizeSchema = z.object({
   input_path: z.string(),
-  bitrate: z.number().optional(),
+  level: z.number().optional(),
   output_path: z.string().optional(),
 });
 

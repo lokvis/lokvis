@@ -9,7 +9,7 @@
  * - error 文本包含路径与提示,便于 AI 客户端诊断
  */
 import { describe, it, expect } from 'vitest';
-import { IMAGE_WATERMARK } from '@lokvis/capability';
+import { IMAGE_WATERMARK, BUILTIN_CAPABILITIES } from '@lokvis/capability';
 import {
   resizeSchema,
   compressSchema,
@@ -21,6 +21,8 @@ import {
   validateParams,
   WATERMARK_POSITION_VALUES,
 } from '../../tools/schemas.js';
+import { GENERATED_TOOL_META } from '../../tools/tool-metadata.generated.js';
+import { MCP_TOOL_OVERRIDES, resolveToolMeta } from '../../tools/manual-overrides.js';
 
 describe('O-15:zod schema 运行时校验', () => {
   describe('validateParams 通用行为', () => {
@@ -199,5 +201,106 @@ describe('O-15:zod schema 运行时校验', () => {
       const schemaValues: string[] = [...WATERMARK_POSITION_VALUES].sort();
       expect(schemaValues).toEqual(manifestValues);
     });
+  });
+});
+
+/**
+ * G4 drift-guard：MCP 工具元数据 ↔ capability 元数据一致性。
+ *
+ * codegen（scripts/codegen-mcp-tools.ts）从 capability manifests + @lokvis/data-formats
+ * 生成 tool-metadata.generated.ts。本组测试守卫三向漂移：
+ * 1. generated 工具集 == 从 BUILTIN_CAPABILITIES 派生的期望集（改 manifest 不重跑 codegen → fail）
+ * 2. manual-overrides 无孤儿（每个 override 都有对应 generated 条目）
+ * 3. 每个已注册工具可解析出非空 description + inputSchema（resolveToolMeta 不会在运行时抛错）
+ * 4. data-formats 格式约束确实被消费（image 工具描述含 "Supported image formats"）
+ */
+describe('G4: MCP 工具元数据 drift-guard', () => {
+  // codegen 跳过 developer / archive 域（非 MCP 暴露域）
+  const SKIP_DOMAINS = new Set(['developer', 'archive', 'asset']);
+
+  /** 从 capability 元数据派生期望的 (toolName, capability) 集 */
+  function expectedTools(): Array<{ name: string; capability: string }> {
+    return BUILTIN_CAPABILITIES
+      .filter((cap) => cap.mcpExposure !== 'private')
+      .filter((cap) => !SKIP_DOMAINS.has(cap.name.split('.')[0]!))
+      .map((cap) => ({
+        name: cap.mcpToolName ?? `lokvis_${cap.name.replace(/[-.]/g, '_')}`,
+        capability: cap.name,
+      }));
+  }
+
+  it('generated 工具集与 capability 元数据派生集完全一致', () => {
+    const genKeys = GENERATED_TOOL_META
+      .map((t) => `${t.name}::${t.capability}`)
+      .sort();
+    const expKeys = expectedTools()
+      .map((t) => `${t.name}::${t.capability}`)
+      .sort();
+    expect(genKeys).toEqual(expKeys);
+  });
+
+  it('generated 工具名无重复', () => {
+    const names = GENERATED_TOOL_META.map((t) => t.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('每个工具名遵循 mcpToolName ?? lokvis_<capability> 约定', () => {
+    for (const tool of GENERATED_TOOL_META) {
+      const cap = BUILTIN_CAPABILITIES.find((c) => c.name === tool.capability);
+      expect(cap, `capability ${tool.capability} 应存在于 BUILTIN_CAPABILITIES`).toBeDefined();
+      const expectedName = cap!.mcpToolName ?? `lokvis_${cap!.name.replace(/[-.]/g, '_')}`;
+      expect(tool.name).toBe(expectedName);
+    }
+  });
+
+  it('manual-overrides 无孤儿（每个 override 都有 generated 条目）', () => {
+    const genNames = new Set(GENERATED_TOOL_META.map((t) => t.name));
+    for (const key of Object.keys(MCP_TOOL_OVERRIDES)) {
+      expect(genNames.has(key), `override ${key} 缺少 generated 条目`).toBe(true);
+    }
+  });
+
+  it('每个已注册工具可解析出非空 description 与 inputSchema', () => {
+    for (const key of Object.keys(MCP_TOOL_OVERRIDES)) {
+      const meta = resolveToolMeta(GENERATED_TOOL_META, key);
+      expect(meta, `${key} 应可解析`).not.toBeNull();
+      expect(meta!.name).toBe(key);
+      expect(meta!.capability.length).toBeGreaterThan(0);
+      expect(meta!.description.length).toBeGreaterThan(0);
+      const schema = meta!.inputSchema as { type?: string; properties?: object };
+      expect(schema.type).toBe('object');
+      expect(schema.properties).toBeDefined();
+    }
+  });
+
+  it('data-formats 格式约束被消费（image 工具描述含格式说明）', () => {
+    const resize = GENERATED_TOOL_META.find((t) => t.name === 'lokvis_image_resize');
+    expect(resize).toBeDefined();
+    expect(resize!.description).toContain('Supported image formats');
+  });
+
+  it('具体映射锚点：lokvis_image_resize ↔ image.resize', () => {
+    const resize = GENERATED_TOOL_META.find((t) => t.name === 'lokvis_image_resize');
+    expect(resize?.capability).toBe('image.resize');
+  });
+
+  it('manual-overrides inputSchema 枚举值与 Zod schema 一致（防参数漂移）', () => {
+    const cases: Array<{
+      tool: string;
+      prop: string;
+      zodEnum: readonly string[];
+    }> = [
+      { tool: 'lokvis_audio_transcode', prop: 'format', zodEnum: ['mp3', 'wav', 'aac', 'ogg', 'flac'] },
+      { tool: 'lokvis_image_resize', prop: 'fit', zodEnum: ['cover', 'contain', 'fill', 'inside', 'outside'] },
+      { tool: 'lokvis_image_convert', prop: 'format', zodEnum: ['jpeg', 'png', 'webp', 'avif'] },
+    ];
+    for (const { tool, prop, zodEnum } of cases) {
+      const override = MCP_TOOL_OVERRIDES[tool];
+      expect(override, `${tool} override 应存在`).toBeDefined();
+      const props = (override!.inputSchema as any).properties;
+      const overrideEnum = props?.[prop]?.enum;
+      expect(overrideEnum, `${tool}.${prop} override 应有 enum`).toBeDefined();
+      expect([...overrideEnum].sort()).toEqual([...zodEnum].sort());
+    }
   });
 });

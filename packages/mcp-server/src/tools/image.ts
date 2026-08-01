@@ -49,6 +49,8 @@ import {
   faviconSchema,
   validateParams,
 } from './schemas.js';
+import { GENERATED_TOOL_META } from './tool-metadata.generated.js';
+import { requireToolMeta } from './manual-overrides.js';
 
 /** 文件扩展名 → MIME 类型(构造输入 File 时使用,runtime 据此推断格式) */
 const EXT_TO_MIME: Record<string, string> = {
@@ -808,17 +810,11 @@ export async function imageFavicon(
 /**
  * 注册 image tools 到 MCP server adapter。
  *
- * Tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/\./g, '_')}`
- * - image.resize → lokvis_image_resize
- * - image.compress → lokvis_image_compress
- * - image.convert → lokvis_image_convert
- * - image.crop → lokvis_image_crop
- * - image.watermark → lokvis_image_watermark
- * - image.rotate → lokvis_image_rotate
- * - image.flip → lokvis_image_flip
- * - image.background → lokvis_image_background
- * - image.filter → lokvis_image_filter
- * - image.favicon → lokvis_image_favicon
+ * 工具描述与 inputSchema 由 codegen 数据驱动（G4）：
+ * - description / capability 映射来自 tool-metadata.generated.ts
+ *   （capability manifests + @lokvis/data-formats 格式约束）
+ * - inputSchema 与描述增强来自 manual-overrides.ts（MCP 特有 input_path/output_path）
+ * 本函数仅提供 handler（走 runtime capability 系统）。
  *
  * @param runtime Lokvis Runtime(已安装 imageToolsPluginNode,注册 image capabilities)
  */
@@ -828,361 +824,69 @@ export function getImageToolRegistrations(runtime: LokvisRuntime): Array<{
   inputSchema: object;
   handler: (params: Record<string, unknown>) => Promise<McpToolResult>;
 }> {
+  const reg = (
+    toolName: string,
+    handler: (params: Record<string, unknown>) => Promise<McpToolResult>,
+  ) => {
+    const meta = requireToolMeta(GENERATED_TOOL_META, toolName);
+    return {
+      name: meta.name,
+      description: meta.description,
+      inputSchema: meta.inputSchema,
+      handler,
+    };
+  };
+
   return [
-    {
-      name: 'lokvis_image_resize',
-      description:
-        'Resize an image to specified width and/or height. ' +
-        'If only one dimension is specified, the other is scaled proportionally.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input image file',
-          },
-          width: {
-            type: 'number',
-            description: 'Target width in pixels (optional, scales proportionally if omitted)',
-          },
-          height: {
-            type: 'number',
-            description: 'Target height in pixels (optional, scales proportionally if omitted)',
-          },
-          fit: {
-            type: 'string',
-            enum: ['cover', 'contain', 'fill', 'inside', 'outside'],
-            description: 'Resize strategy (default: cover)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_resized.<ext>)',
-          },
-        },
-        required: ['input_path'],
-      },
-      handler: async (p) => {
-        const r = validateParams(resizeSchema, p);
-        if (!r.success) return r.error;
-        return imageResize(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_image_compress',
-      description:
-        'Compress an image to reduce file size. ' +
-        'Supports JPEG, PNG, WebP, and AVIF formats.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input image file',
-          },
-          quality: {
-            type: 'number',
-            minimum: 1,
-            maximum: 100,
-            description: 'Compression quality 1-100 (default: 80)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_compressed.<ext>)',
-          },
-        },
-        required: ['input_path'],
-      },
-      handler: async (p) => {
-        const r = validateParams(compressSchema, p);
-        if (!r.success) return r.error;
-        return imageCompress(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_image_convert',
-      description:
-        'Convert an image to a different format (jpeg, png, webp, or avif).',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input image file',
-          },
-          format: {
-            type: 'string',
-            enum: ['jpeg', 'png', 'webp', 'avif'],
-            description: 'Target format',
-          },
-          quality: {
-            type: 'number',
-            minimum: 1,
-            maximum: 100,
-            description: 'Quality for lossy formats (default: 90)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_converted.<format>)',
-          },
-        },
-        required: ['input_path', 'format'],
-      },
-      handler: async (p) => {
-        const r = validateParams(convertSchema, p);
-        if (!r.success) return r.error;
-        return imageConvert(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_image_crop',
-      description:
-        'Crop an image to extract a rectangular region. ' +
-        'Specify the top-left corner (x, y) and the region size (width, height).',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input image file',
-          },
-          x: {
-            type: 'number',
-            description: 'X coordinate of the top-left corner of the crop region',
-          },
-          y: {
-            type: 'number',
-            description: 'Y coordinate of the top-left corner of the crop region',
-          },
-          width: {
-            type: 'number',
-            description: 'Width of the crop region in pixels',
-          },
-          height: {
-            type: 'number',
-            description: 'Height of the crop region in pixels',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_cropped.<ext>)',
-          },
-        },
-        required: ['input_path', 'x', 'y', 'width', 'height'],
-      },
-      handler: async (p) => {
-        const r = validateParams(cropSchema, p);
-        if (!r.success) return r.error;
-        return imageCrop(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_image_watermark',
-      description:
-        'Add a watermark to an image (text or image watermark). ' +
-        'Supports 9-grid positions and tile mode. ' +
-        'Either text or image must be provided.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input image file',
-          },
-          text: {
-            type: 'string',
-            description: 'Watermark text (required if image is not provided)',
-          },
-          image: {
-            type: 'string',
-            description: 'Watermark image URL (data URL or http(s) URL; required if text is not provided)',
-          },
-          position: {
-            type: 'string',
-            enum: ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center', 'tile'],
-            description: 'Watermark position (default: bottom-right)',
-          },
-          opacity: {
-            type: 'number',
-            minimum: 0,
-            maximum: 1,
-            description: 'Watermark opacity 0-1 (default: 0.8)',
-          },
-          fontSize: {
-            type: 'number',
-            description: 'Font size for text watermark (default: 24)',
-          },
-          color: {
-            type: 'string',
-            description: 'Color for text watermark (default: #ffffff)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_watermarked.<ext>)',
-          },
-        },
-        required: ['input_path'],
-      },
-      handler: async (p) => {
-        const r = validateParams(watermarkSchema, p);
-        if (!r.success) return r.error;
-        return imageWatermark(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_image_rotate',
-      description:
-        'Rotate an image by a specified angle (degrees). ' +
-        'Supports arbitrary angles; empty areas are filled with a background color.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input image file',
-          },
-          angle: {
-            type: 'number',
-            description: 'Rotation angle in degrees (e.g. 90, 180, 270, or any value)',
-          },
-          background: {
-            type: 'string',
-            description: 'Background color for empty areas (default: #ffffff)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_rotated.<ext>)',
-          },
-        },
-        required: ['input_path', 'angle'],
-      },
-      handler: async (p) => {
-        const r = validateParams(rotateSchema, p);
-        if (!r.success) return r.error;
-        return imageRotate(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_image_flip',
-      description:
-        'Flip (mirror) an image along a specified axis. ' +
-        'Supports horizontal, vertical, or both axes.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input image file',
-          },
-          axis: {
-            type: 'string',
-            enum: ['horizontal', 'vertical', 'both'],
-            description: 'Flip axis: horizontal (left-right), vertical (top-bottom), or both',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_flipped.<ext>)',
-          },
-        },
-        required: ['input_path', 'axis'],
-      },
-      handler: async (p) => {
-        const r = validateParams(flipSchema, p);
-        if (!r.success) return r.error;
-        return imageFlip(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_image_background',
-      description:
-        'Replace transparent areas of an image with a solid background color. ' +
-        'Useful for converting PNG with transparency to JPEG-ready flat images.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input image file',
-          },
-          color: {
-            type: 'string',
-            description: 'Background color (CSS color string, e.g. #ffffff, rgb(255,0,0))',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_bg.<ext>)',
-          },
-        },
-        required: ['input_path', 'color'],
-      },
-      handler: async (p) => {
-        const r = validateParams(backgroundSchema, p);
-        if (!r.success) return r.error;
-        return imageBackground(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_image_filter',
-      description:
-        'Apply a preset filter to an image. ' +
-        'Supported filters: grayscale, invert, sepia, blur.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input image file',
-          },
-          preset: {
-            type: 'string',
-            enum: ['grayscale', 'invert', 'sepia', 'blur'],
-            description: 'Filter preset to apply',
-          },
-          radius: {
-            type: 'number',
-            description: 'Blur radius in pixels (only for blur preset, default: 4)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_filtered.<ext>)',
-          },
-        },
-        required: ['input_path', 'preset'],
-      },
-      handler: async (p) => {
-        const r = validateParams(filterSchema, p);
-        if (!r.success) return r.error;
-        return imageFilter(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_image_favicon',
-      description:
-        'Generate a multi-size ICO favicon from an image. ' +
-        'Non-square inputs are center-cropped to square. ' +
-        'Output contains PNG-in-ICO entries for each specified size.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input image file',
-          },
-          sizes: {
-            type: 'array',
-            items: { type: 'number' },
-            description: 'Target sizes in pixels (default: [16, 32, 48, 256])',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output .ico file (optional, defaults to input_favicon.ico)',
-          },
-        },
-        required: ['input_path'],
-      },
-      handler: async (p) => {
-        const r = validateParams(faviconSchema, p);
-        if (!r.success) return r.error;
-        return imageFavicon(r.data, runtime);
-      },
-    },
+    reg('lokvis_image_resize', async (p) => {
+      const r = validateParams(resizeSchema, p);
+      if (!r.success) return r.error;
+      return imageResize(r.data, runtime);
+    }),
+    reg('lokvis_image_compress', async (p) => {
+      const r = validateParams(compressSchema, p);
+      if (!r.success) return r.error;
+      return imageCompress(r.data, runtime);
+    }),
+    reg('lokvis_image_convert', async (p) => {
+      const r = validateParams(convertSchema, p);
+      if (!r.success) return r.error;
+      return imageConvert(r.data, runtime);
+    }),
+    reg('lokvis_image_crop', async (p) => {
+      const r = validateParams(cropSchema, p);
+      if (!r.success) return r.error;
+      return imageCrop(r.data, runtime);
+    }),
+    reg('lokvis_image_watermark', async (p) => {
+      const r = validateParams(watermarkSchema, p);
+      if (!r.success) return r.error;
+      return imageWatermark(r.data, runtime);
+    }),
+    reg('lokvis_image_rotate', async (p) => {
+      const r = validateParams(rotateSchema, p);
+      if (!r.success) return r.error;
+      return imageRotate(r.data, runtime);
+    }),
+    reg('lokvis_image_flip', async (p) => {
+      const r = validateParams(flipSchema, p);
+      if (!r.success) return r.error;
+      return imageFlip(r.data, runtime);
+    }),
+    reg('lokvis_image_background', async (p) => {
+      const r = validateParams(backgroundSchema, p);
+      if (!r.success) return r.error;
+      return imageBackground(r.data, runtime);
+    }),
+    reg('lokvis_image_filter', async (p) => {
+      const r = validateParams(filterSchema, p);
+      if (!r.success) return r.error;
+      return imageFilter(r.data, runtime);
+    }),
+    reg('lokvis_image_favicon', async (p) => {
+      const r = validateParams(faviconSchema, p);
+      if (!r.success) return r.error;
+      return imageFavicon(r.data, runtime);
+    }),
   ];
 }

@@ -109,5 +109,9 @@ runtime 依赖树下沉；Node/SSR 降级策略集中在一处；测试 fake 统
 **代价**：新增一个发布包（fixed 组自动联动）；一层间接调用（纯函数
 透传，无运行时开销）；存量测试注入口需小幅适配（A4 内消化）。
 
+**技术债**：CI 架构守卫当前为 shell grep + sed 近似分析（`scripts/check-browser-api.sh`），
+无法处理模板字面量嵌套、多行字符串等边界。待项目引入自定义 ESLint 插件基础设施后，
+应迁移为 AST 级 `no-restricted-globals` / `no-restricted-syntax` 规则（精确、零误报）。
+
 **不做的事**：不强推全面 DI 容器；不迁移 Presentation 层 DOM 操作；
 不在本期实现 FilePickerAdapter。

@@ -488,6 +488,9 @@ importers:
 
   packages/embed-kit:
     dependencies:
+      '@lokvis/browser-adapter':
+        specifier: workspace:*
+        version: link:../browser-adapter
       '@lokvis/schema':
         specifier: workspace:*
         version: link:../schema
@@ -643,6 +646,25 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.20.0)(jsdom@25.0.1)(lightningcss@1.32.0)
 
+  packages/engine-archive:
+    dependencies:
+      '@lokvis/schema':
+        specifier: workspace:*
+        version: link:../schema
+      fflate:
+        specifier: ^0.8.2
+        version: 0.8.3
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.0
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.0)(jsdom@25.0.1)(lightningcss@1.32.0)
+
   packages/engine-audio:
     dependencies:
       '@lokvis/schema':
@@ -782,6 +804,9 @@ importers:
         specifier: ^3.23.0
         version: 3.25.76
     devDependencies:
+      '@lokvis/data-formats':
+        specifier: 0.3.0
+        version: 0.3.0
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.0
@@ -825,6 +850,31 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^2.1.0
         version: 2.1.9(vitest@2.1.9(@types/node@22.20.0)(jsdom@25.0.1)(lightningcss@1.32.0))
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.0)(jsdom@25.0.1)(lightningcss@1.32.0)
+
+  packages/plugin-archive:
+    dependencies:
+      '@lokvis/capability':
+        specifier: workspace:*
+        version: link:../capability
+      '@lokvis/engine-archive':
+        specifier: workspace:*
+        version: link:../engine-archive
+      '@lokvis/plugin-sdk':
+        specifier: workspace:*
+        version: link:../plugin-sdk
+      '@lokvis/schema':
+        specifier: workspace:*
+        version: link:../schema
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.0
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
@@ -2352,6 +2402,9 @@ packages:
 
   '@lokvis/data-compatibility@0.3.0':
     resolution: {integrity: sha512-oMccoUG6jRoyu/EN3dyLASUEgCZF6MVcUddMIjwSodA0ev5UEKuaZwUhKPeDubt3qab2kTEmDtl8r4BCDK7Lsw==}
+
+  '@lokvis/data-formats@0.3.0':
+    resolution: {integrity: sha512-qL/XLoxsj5WigqlJgi51/JXZ87Uia9XFODvzPDDJwGohF1TCiOrBQJiZUrBK9xqc7FmXdAtxgHNH3GNrEAAX9Q==}
 
   '@lokvis/data-platforms@0.2.0':
     resolution: {integrity: sha512-ib81rTxfTggjILB+lQPauLcXWLNL3Wb2vBPVR9qgZzXHG8e6ZmAZ08YIiaRlmriyJdQQXp6XX7KCpCP4kMwmOA==}
@@ -3890,6 +3943,9 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
+
+  fflate@0.8.3:
+    resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
 
   ffmpeg-static@5.3.0:
     resolution: {integrity: sha512-H+K6sW6TiIX6VGend0KQwthe+kaceeH/luE8dIZyOP35ik7ahYojDuqlTV1bOrtEwl01sy2HFNGQfi5IDJvotg==}
@@ -7368,6 +7424,8 @@ snapshots:
 
   '@lokvis/data-compatibility@0.3.0': {}
 
+  '@lokvis/data-formats@0.3.0': {}
+
   '@lokvis/data-platforms@0.2.0': {}
 
   '@manypkg/find-root@1.1.0':
@@ -8947,6 +9005,8 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.4):
     optionalDependencies:
       picomatch: 4.0.4
+
+  fflate@0.8.3: {}
 
   ffmpeg-static@5.3.0:
     dependencies:

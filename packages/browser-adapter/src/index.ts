@@ -12,7 +12,7 @@
  * - kv-store:IndexedDB(Dexie)泛型 KV 存储
  * - canvas:Canvas 创建与编解码原语
  * - worker:Web Worker 创建
- * - file-picker:File System Access(预留,仅类型)
+ * - file-picker:File System Access 文件选择/保存 + 目录遍历(降级 input/a)
  *
  * 环境安全约定:所有实现在 Node/SSR 下不抛 ReferenceError——以特性
  * 检测 + 优雅降级(返回空/false/抛语义化错误)代替。

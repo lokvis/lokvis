@@ -4,7 +4,15 @@
  * 此前 embed-image / embed-pdf / embed-video 各自维护 downloadBlob 副本
  * (embed-image 版含 MIME 兜底修复,pdf/video 版为简化实现),易 drift。
  * 统一收敛到 embed-kit,各包从此再导出。
+ *
+ * DOM 保存动作(a[download] / showSaveFilePicker)统一走
+ * `@lokvis/browser-adapter` 的 FilePickerAdapter(ADR-015 / ADR-018),
+ * 不再在本文件散写 `document.createElement('a')`:
+ * - `downloadBlob`:同步、即时下载(a[download] 降级路径,不弹"另存为"),
+ *   保持既有 embed-* / playground 调用点与 e2e 行为不变。
+ * - `saveBlob`:异步、优先原生"另存为"对话框(Chrome/Edge),降级 a[download]。
  */
+import { createFilePickerAdapter } from '@lokvis/browser-adapter';
 
 /**
  * 从文件扩展名推断 MIME 类型(兜底)。
@@ -38,29 +46,39 @@ function inferMimeFromFilename(filename: string): string {
   return (ext && MIME_BY_EXT[ext]) || '';
 }
 
+/** blob.type 为空或 OPFS 兜底 MIME 时,据文件名补全 type */
+function repairBlobType(blob: Blob, filename: string): Blob {
+  const OPFS_FALLBACK_MIME = 'application/octet-stream';
+  const needsTypeRepair = !blob.type || blob.type === OPFS_FALLBACK_MIME;
+  if (!needsTypeRepair) return blob;
+  const mime = inferMimeFromFilename(filename);
+  return mime ? new Blob([blob], { type: mime }) : blob;
+}
+
 /**
- * 触发浏览器下载单个 Blob。
+ * 触发浏览器下载单个 Blob(同步、即时,不弹"另存为")。
  *
  * blob.type 为空或为 'application/octet-stream'(OPFS .bin 读取的默认兜底
  * MIME)时,从文件名推断真实 MIME type,避免下载为 .octet-stream。
+ *
+ * 委托 FilePickerAdapter.downloadFile:始终走 a[download] 即时下载,
+ * 不触发原生"另存为"对话框,保持既有调用点/e2e 行为不变。
  */
 export function downloadBlob(blob: Blob, filename: string): void {
-  const OPFS_FALLBACK_MIME = 'application/octet-stream';
-  const needsTypeRepair = !blob.type || blob.type === OPFS_FALLBACK_MIME;
-  const finalBlob = needsTypeRepair
-    ? (() => {
-        const mime = inferMimeFromFilename(filename);
-        return mime ? new Blob([blob], { type: mime }) : blob;
-      })()
-    : blob;
+  const finalBlob = repairBlobType(blob, filename);
+  const picker = createFilePickerAdapter();
+  picker.downloadFile(finalBlob, filename);
+}
 
-  const url = URL.createObjectURL(finalBlob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  // 给浏览器一点时间发起下载再 revoke
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+/**
+ * 保存 Blob,优先原生"另存为"对话框(Chrome/Edge showSaveFilePicker),
+ * 不支持时降级即时下载(a[download])。
+ *
+ * 与 downloadBlob 的区别:异步 + 让用户选择保存位置。返回 true 表示已保存/
+ * 已触发下载,false 表示用户取消(仅原生可判定)。
+ */
+export async function saveBlob(blob: Blob, filename: string): Promise<boolean> {
+  const finalBlob = repairBlobType(blob, filename);
+  const picker = createFilePickerAdapter();
+  return picker.saveFile(finalBlob, filename);
 }

@@ -49,6 +49,8 @@ import {
   pdfAddPageNumbersSchema,
   validateParams,
 } from './schemas.js';
+import { GENERATED_TOOL_META } from './tool-metadata.generated.js';
+import { requireToolMeta } from './manual-overrides.js';
 
 /** PDF 文件的 MIME 类型(构造输入 File 时使用) */
 const PDF_MIME = 'application/pdf';
@@ -591,13 +593,11 @@ export async function pdfAddPageNumbers(
 /**
  * 注册 PDF tools 到 MCP server adapter。
  *
- * Tool 命名遵循 manifest 约定:`lokvis_${capability.replace(/\./g, '_')}`
- * - pdf.merge → lokvis_pdf_merge
- * - pdf.compress → lokvis_pdf_compress
- * - pdf.split → lokvis_pdf_split
- * - pdf.rotate → lokvis_pdf_rotate
- * - pdf.watermark → lokvis_pdf_watermark
- * - pdf.add-page-numbers → lokvis_pdf_add_page_numbers
+ * 工具描述与 inputSchema 由 codegen 数据驱动（G4）：
+ * - description / capability 映射来自 tool-metadata.generated.ts
+ *   （capability manifests + @lokvis/data-formats 格式约束）
+ * - inputSchema 与描述增强来自 manual-overrides.ts（MCP 特有 input_path/output_path）
+ * 本函数仅提供 handler（走 runtime capability 系统）。
  *
  * @param runtime Lokvis Runtime(已安装 pdfToolsPluginNode,注册 pdf capabilities)
  */
@@ -607,228 +607,49 @@ export function getPdfToolRegistrations(runtime: LokvisRuntime): Array<{
   inputSchema: object;
   handler: (params: Record<string, unknown>) => Promise<McpToolResult>;
 }> {
+  const reg = (
+    toolName: string,
+    handler: (params: Record<string, unknown>) => Promise<McpToolResult>,
+  ) => {
+    const meta = requireToolMeta(GENERATED_TOOL_META, toolName);
+    return {
+      name: meta.name,
+      description: meta.description,
+      inputSchema: meta.inputSchema,
+      handler,
+    };
+  };
+
   return [
-    {
-      name: 'lokvis_pdf_merge',
-      description:
-        'Merge multiple PDF files into a single PDF. ' +
-        'Files are merged in the order specified in input_paths.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_paths: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Array of paths to PDF files to merge (minimum 2)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to first_input_merged.pdf)',
-          },
-        },
-        required: ['input_paths'],
-      },
-      handler: async (p) => {
-        const r = validateParams(pdfMergeSchema, p);
-        if (!r.success) return r.error;
-        return pdfMerge(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_pdf_compress',
-      description:
-        'Compress a PDF to reduce file size. ' +
-        'Uses object stream compression (level 4-9) for better compression.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input PDF file',
-          },
-          level: {
-            type: 'number',
-            minimum: 0,
-            maximum: 9,
-            description: 'Compression level 0-9 (default: 6; 4+ enables object streams)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_compressed.pdf)',
-          },
-        },
-        required: ['input_path'],
-      },
-      handler: async (p) => {
-        const r = validateParams(pdfCompressSchema, p);
-        if (!r.success) return r.error;
-        return pdfCompress(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_pdf_split',
-      description:
-        'Split a PDF into multiple files. ' +
-        'Specify pages_per_file for equal splits or ranges for custom page ranges.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input PDF file',
-          },
-          pages_per_file: {
-            type: 'number',
-            description: 'Number of pages per output file (mutually exclusive with ranges)',
-          },
-          ranges: {
-            type: 'array',
-            items: {
-              type: 'array',
-              items: { type: 'number' },
-              minItems: 2,
-              maxItems: 2,
-            },
-            description: 'Page ranges as [start, end] tuples (1-indexed, inclusive)',
-          },
-          output_dir: {
-            type: 'string',
-            description: 'Output directory (optional, defaults to input file directory)',
-          },
-        },
-        required: ['input_path'],
-      },
-      handler: async (p) => {
-        const r = validateParams(pdfSplitSchema, p);
-        if (!r.success) return r.error;
-        return pdfSplit(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_pdf_rotate',
-      description:
-        'Rotate pages in a PDF by 90, 180, or 270 degrees. ' +
-        'Optionally specify which pages to rotate.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input PDF file',
-          },
-          angle: {
-            type: 'string',
-            enum: ['90', '180', '270'],
-            description: 'Rotation angle in degrees',
-          },
-          pages: {
-            type: 'array',
-            items: { type: 'number' },
-            description: 'Page indices to rotate (0-indexed; optional, defaults to all pages)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_rotated.pdf)',
-          },
-        },
-        required: ['input_path', 'angle'],
-      },
-      handler: async (p) => {
-        const r = validateParams(pdfRotateSchema, p);
-        if (!r.success) return r.error;
-        return pdfRotate(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_pdf_watermark',
-      description:
-        'Add a text watermark to all pages of a PDF. ' +
-        'Customize opacity, font size, and color.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input PDF file',
-          },
-          text: {
-            type: 'string',
-            description: 'Watermark text to add',
-          },
-          opacity: {
-            type: 'number',
-            minimum: 0,
-            maximum: 1,
-            description: 'Watermark opacity 0-1 (default: 0.3)',
-          },
-          font_size: {
-            type: 'number',
-            description: 'Font size for the watermark text (default: 36)',
-          },
-          color: {
-            type: 'string',
-            description: 'Watermark color as hex string (default: #888888)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_watermarked.pdf)',
-          },
-        },
-        required: ['input_path', 'text'],
-      },
-      handler: async (p) => {
-        const r = validateParams(pdfWatermarkSchema, p);
-        if (!r.success) return r.error;
-        return pdfWatermark(r.data, runtime);
-      },
-    },
-    {
-      name: 'lokvis_pdf_add_page_numbers',
-      description:
-        'Add page numbers to all pages of a PDF. ' +
-        'Customize position, format template ({n}/{total}), start number, font size, and color.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          input_path: {
-            type: 'string',
-            description: 'Path to the input PDF file',
-          },
-          position: {
-            type: 'string',
-            enum: ['bottom-center', 'bottom-right', 'top-center', 'top-right'],
-            description: 'Page number position (default: bottom-center)',
-          },
-          format: {
-            type: 'string',
-            description:
-              'Format template with {n} (current page) and {total} placeholders (default: "Page {n} of {total}")',
-          },
-          start_from: {
-            type: 'number',
-            minimum: 1,
-            description: 'Starting page number (default: 1)',
-          },
-          font_size: {
-            type: 'number',
-            description: 'Font size for the page numbers (default: 10)',
-          },
-          color: {
-            type: 'string',
-            description: 'Page number color as hex string (default: #666666)',
-          },
-          output_path: {
-            type: 'string',
-            description: 'Path for the output file (optional, defaults to input_numbered.pdf)',
-          },
-        },
-        required: ['input_path'],
-      },
-      handler: async (p) => {
-        const r = validateParams(pdfAddPageNumbersSchema, p);
-        if (!r.success) return r.error;
-        return pdfAddPageNumbers(r.data, runtime);
-      },
-    },
+    reg('lokvis_pdf_merge', async (p) => {
+      const r = validateParams(pdfMergeSchema, p);
+      if (!r.success) return r.error;
+      return pdfMerge(r.data, runtime);
+    }),
+    reg('lokvis_pdf_compress', async (p) => {
+      const r = validateParams(pdfCompressSchema, p);
+      if (!r.success) return r.error;
+      return pdfCompress(r.data, runtime);
+    }),
+    reg('lokvis_pdf_split', async (p) => {
+      const r = validateParams(pdfSplitSchema, p);
+      if (!r.success) return r.error;
+      return pdfSplit(r.data, runtime);
+    }),
+    reg('lokvis_pdf_rotate', async (p) => {
+      const r = validateParams(pdfRotateSchema, p);
+      if (!r.success) return r.error;
+      return pdfRotate(r.data, runtime);
+    }),
+    reg('lokvis_pdf_watermark', async (p) => {
+      const r = validateParams(pdfWatermarkSchema, p);
+      if (!r.success) return r.error;
+      return pdfWatermark(r.data, runtime);
+    }),
+    reg('lokvis_pdf_add_page_numbers', async (p) => {
+      const r = validateParams(pdfAddPageNumbersSchema, p);
+      if (!r.success) return r.error;
+      return pdfAddPageNumbers(r.data, runtime);
+    }),
   ];
 }

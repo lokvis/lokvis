@@ -2,7 +2,7 @@
   "name": "@lokvis/plugin-pdf",
   "version": "0.9.0",
   "description": "Lokvis PDF Tools Plugin - merge / split / compress / rotate / watermark / ocr / sign",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",

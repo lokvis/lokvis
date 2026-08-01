@@ -1,0 +1,36 @@
+{
+  "$schema": "./schema.json",
+  "domain": "archive",
+  "capabilities": [
+    {
+      "action": "zip",
+      "description": "Pack multiple assets into a single zip archive",
+      "inputTypes": ["image", "video", "audio", "pdf", "text", "data"],
+      "outputTypes": ["data"],
+      "params": [
+        { "name": "names", "type": "array", "items": "string", "required": false, "description": "各输入条目在归档内的文件名(按输入顺序);缺省按 file-{index} 生成" },
+        { "name": "level", "type": "number", "min": 0, "max": 9, "default": 6, "description": "DEFLATE 压缩级别 (0 仅存储 - 9 最大压缩)" }
+      ],
+      "performance": "medium",
+      "batchable": false
+    },
+    {
+      "action": "unzip",
+      "description": "Extract a zip archive into multiple assets",
+      "inputTypes": ["data"],
+      "outputTypes": ["data"],
+      "params": [],
+      "performance": "medium",
+      "batchable": true
+    },
+    {
+      "action": "list",
+      "description": "List entries of a zip archive as a JSON data asset",
+      "inputTypes": ["data"],
+      "outputTypes": ["data"],
+      "params": [],
+      "performance": "fast",
+      "batchable": true
+    }
+  ]
+}

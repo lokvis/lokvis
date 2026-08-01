@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "description": "Lokvis image benchmark suite - generates @lokvis/data-benchmarks records for lokvis-knowledge (not published)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "fetch-corpus": "node corpus/generate.mjs",

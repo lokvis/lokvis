@@ -1,7 +1,11 @@
 /**
  * Asset 通用能力预设
  *
- * 跨类型资产的通用操作:rename / archive。与具体媒体类型解耦。
+ * 跨类型资产的通用操作:rename。与具体媒体类型解耦。
+ *
+ * 注意:旧 `asset.archive` 已弃用并迁移至独立 `archive.*` 域
+ * (archive.zip / archive.unzip / archive.list,由 engine-archive + plugin-archive
+ * 真实现,见 docs/adr/ADR-017-archive-domain.md)。
  */
 import type { Capability } from '@lokvis/schema';
 
@@ -22,15 +26,5 @@ export const ASSET_RENAME: Capability = {
   batchable: true,
 };
 
-export const ASSET_ARCHIVE: Capability = {
-  name: 'asset.archive',
-  description: 'Pack multiple assets into a zip archive',
-  inputTypes: ['image', 'video', 'audio', 'pdf', 'text', 'data'],
-  outputTypes: ['data'],
-  params: [{ name: 'format', type: 'enum', values: ['zip'], default: 'zip' }],
-  performance: 'medium',
-  batchable: false,
-};
-
 /** 所有内置 Asset 通用能力预设 */
-export const ASSET_CAPABILITIES: Capability[] = [ASSET_RENAME, ASSET_ARCHIVE];
+export const ASSET_CAPABILITIES: Capability[] = [ASSET_RENAME];

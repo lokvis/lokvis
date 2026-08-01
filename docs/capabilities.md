@@ -21,6 +21,7 @@
 | `video.*` | 视频处理 |
 | `audio.*` | 音频处理 |
 | `pdf.*` | PDF 操作 |
+| `archive.*` | 归档打包（zip） |
 | `ai.*` | AI 驱动的操作 |
 | `developer.*` | 开发者工具（内省、性能分析） |
 
@@ -103,7 +104,21 @@
 | 能力 | 说明 | 参数 |
 |------|------|------|
 | `asset.rename` | 模式重命名 | pattern (`{name}` `{index}` `{date}`) |
-| `asset.archive` | 打包为 zip | format (zip) |
+
+> 注：旧 `asset.archive` 已弃用，迁移至独立 `archive.*` 域（真实现，见下）。
+
+### Archive（`@lokvis/plugin-archive`，fflate 同构真实现）
+
+| 能力 | 说明 | 形态 | 浏览器 | Node |
+|------|------|------|--------|------|
+| `archive.zip` | 多资产打包为 zip | N→1 | ✅ | ✅ |
+| `archive.unzip` | 解包为多资产 | 1→N | ✅ | ✅ |
+| `archive.list` | 列举条目（输出 `application/json` data Asset） | 1→1 | ✅ | ✅ |
+
+> 基于 [fflate](https://github.com/101arrowz/fflate)（纯 JS，零 WASM，浏览器/Node 同构），
+> 故非 stub —— `status='stable'`，`CapabilityRegistry.resolve()` 正常选用。
+> `archive.zip` 参数：`names`（各条目文件名，缺省 `file-{index}`）、`level`（0-9，默认 6）。
+> 详见 [`docs/adr/ADR-017-archive-domain.md`](./adr/ADR-017-archive-domain.md)。
 
 ### AI（`@lokvis/engine-ai`，Phase 2+）
 

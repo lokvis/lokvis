@@ -27,4 +27,4 @@ export {
   type EmbedErrorBoundaryProps,
   type EmbedErrorBoundaryDeps,
 } from './ErrorBoundary.js';
-export { downloadBlob } from './download.js';
+export { downloadBlob, saveBlob } from './download.js';
