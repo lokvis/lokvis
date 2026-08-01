@@ -110,4 +110,4 @@ export { downloadBlob } from '@lokvis/embed-kit';
 export { formatBytes } from '@lokvis/runtime';
 
 // ─── Engine Config ───────────────────────────────────────
-export { configureFfmpegWasm, type FfmpegWasmConfig } from '@lokvis/engine-video/web';
+export { configureFfmpegWasm, type FfmpegWasmConfig } from '@lokvis/sdk/video';

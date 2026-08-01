@@ -47,7 +47,6 @@
   "dependencies": {
     "@lokvis/embed-kit": "workspace:*",
     "@lokvis/i18n": "workspace:*",
-    "@lokvis/plugin-pdf": "workspace:*",
     "@lokvis/runtime": "workspace:*",
     "@lokvis/sdk": "workspace:*",
     "@lokvis/schema": "workspace:*",

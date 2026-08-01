@@ -6,7 +6,7 @@
  * 三方也可通过 plugins 选项注入自定义处理插件。
  */
 import { createUseLokvisRuntime, type UseLokvisRuntimeResult } from '@lokvis/embed-kit';
-import { videoToolsPluginWeb } from '@lokvis/plugin-video/web';
+import { videoToolsPluginWeb } from '@lokvis/sdk/video';
 
 export type { UseLokvisRuntimeResult };
 

@@ -9,7 +9,7 @@
  * 传入空数组 `[]` 表示显式不加载任何插件(用于纯 Runtime 容器场景)。
  */
 import { createUseLokvisRuntime, type UseLokvisRuntimeResult } from '@lokvis/embed-kit';
-import { imageToolsPlugin } from '@lokvis/plugin-image';
+import { imageToolsPlugin } from '@lokvis/sdk/image';
 
 export type { UseLokvisRuntimeResult };
 

@@ -376,8 +376,8 @@ importers:
         version: link:../schema
     devDependencies:
       '@lokvis/data-platforms':
-        specifier: 0.2.0
-        version: 0.2.0
+        specifier: 0.3.0
+        version: 0.3.0
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
@@ -433,15 +433,9 @@ importers:
       '@lokvis/embed-kit':
         specifier: workspace:*
         version: link:../embed-kit
-      '@lokvis/engine-image':
-        specifier: workspace:*
-        version: link:../engine-image
       '@lokvis/i18n':
         specifier: workspace:*
         version: link:../i18n
-      '@lokvis/plugin-image':
-        specifier: workspace:*
-        version: link:../plugin-image
       '@lokvis/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -522,9 +516,6 @@ importers:
       '@lokvis/i18n':
         specifier: workspace:*
         version: link:../i18n
-      '@lokvis/plugin-pdf':
-        specifier: workspace:*
-        version: link:../plugin-pdf
       '@lokvis/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -577,15 +568,9 @@ importers:
       '@lokvis/embed-kit':
         specifier: workspace:*
         version: link:../embed-kit
-      '@lokvis/engine-video':
-        specifier: workspace:*
-        version: link:../engine-video
       '@lokvis/i18n':
         specifier: workspace:*
         version: link:../i18n
-      '@lokvis/plugin-video':
-        specifier: workspace:*
-        version: link:../plugin-video
       '@lokvis/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -1042,9 +1027,21 @@ importers:
 
   packages/sdk:
     dependencies:
+      '@lokvis/engine-video':
+        specifier: workspace:*
+        version: link:../engine-video
+      '@lokvis/plugin-image':
+        specifier: workspace:*
+        version: link:../plugin-image
+      '@lokvis/plugin-pdf':
+        specifier: workspace:*
+        version: link:../plugin-pdf
       '@lokvis/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk
+      '@lokvis/plugin-video':
+        specifier: workspace:*
+        version: link:../plugin-video
       '@lokvis/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -2406,8 +2403,8 @@ packages:
   '@lokvis/data-formats@0.3.0':
     resolution: {integrity: sha512-qL/XLoxsj5WigqlJgi51/JXZ87Uia9XFODvzPDDJwGohF1TCiOrBQJiZUrBK9xqc7FmXdAtxgHNH3GNrEAAX9Q==}
 
-  '@lokvis/data-platforms@0.2.0':
-    resolution: {integrity: sha512-ib81rTxfTggjILB+lQPauLcXWLNL3Wb2vBPVR9qgZzXHG8e6ZmAZ08YIiaRlmriyJdQQXp6XX7KCpCP4kMwmOA==}
+  '@lokvis/data-platforms@0.3.0':
+    resolution: {integrity: sha512-B9HgjPxT5Dut2Z4+lWyWMRgOVrzFVgW5XClwQVxO8buEC8ZefLar5BiDpuqy4MXC2mSXw14ykUChSJt6eguwsg==}
 
   '@manypkg/find-root@1.1.0':
     resolution: {integrity: sha512-mki5uBvhHzO8kYYix/WRy2WX8S3B5wdVSc9D6KcU5lQNglP2yt58/VfLuAK49glRXChosY8ap2oJ1qgma3GUVA==}
@@ -7426,7 +7423,7 @@ snapshots:
 
   '@lokvis/data-formats@0.3.0': {}
 
-  '@lokvis/data-platforms@0.2.0': {}
+  '@lokvis/data-platforms@0.3.0': {}
 
   '@manypkg/find-root@1.1.0':
     dependencies:

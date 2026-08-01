@@ -5,7 +5,7 @@
  * 以本包原有导出名再导出,保持 API 不变。
  */
 import { createUseLokvisRuntime, type UseLokvisRuntimeResult } from '@lokvis/embed-kit';
-import { pdfToolsPluginWeb } from '@lokvis/plugin-pdf/web';
+import { pdfToolsPluginWeb } from '@lokvis/sdk/pdf';
 
 export type { UseLokvisRuntimeResult };
 

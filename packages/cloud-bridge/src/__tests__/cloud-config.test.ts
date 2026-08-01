@@ -121,13 +121,11 @@ describe('resolveCloudConfig', () => {
   });
 
   describe('K1:PPP 定价表(pppPricing)', () => {
-    it('默认 pppPricing 应含 default/US/CN/IN 等国家', () => {
+    it('默认 pppPricing 应仅含 default(权威表在 cloud 侧)', () => {
       const config = resolveCloudConfig({});
       expect(config.pppPricing).toBeDefined();
       expect(config.pppPricing.default).toBe(1.0);
-      expect(config.pppPricing.US).toBe(1.0);
-      expect(config.pppPricing.CN).toBe(0.5);
-      expect(config.pppPricing.IN).toBe(0.3);
+      expect(Object.keys(config.pppPricing)).toHaveLength(1);
     });
 
     it('LOKVIS_PPP_PRICING_JSON 应覆盖 pppPricing', () => {
@@ -143,7 +141,6 @@ describe('resolveCloudConfig', () => {
         LOKVIS_PPP_PRICING_JSON: '{invalid json',
       });
       expect(config.pppPricing.default).toBe(1.0);
-      expect(config.pppPricing.US).toBe(1.0);
     });
 
     it('LOKVIS_PPP_PRICING_JSON 含非 number 值应过滤', () => {

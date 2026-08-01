@@ -4,7 +4,7 @@
  * 校验 PLATFORM_PRESETS 数据完整性与辅助函数行为:
  * - 字段必填 + 类型/取值合法
  * - id 全局唯一(避免选择器 value 冲突)
- * - 至少覆盖 20+ 平台 / 60+ 预设(符合 PROJECT_PLAN W8.1 验收标准,当前 63 个)
+ * - 至少覆盖 20+ 平台 / 60+ 预设(符合 PROJECT_PLAN W8.1 验收标准)
  * - 五大 category 均非空(social / ecommerce / video / print / other)
  * - 推荐格式 / fit 取值合法
  * - groupPlatformPresetsByCategory / byPlatform / findPlatformPreset / listPlatforms 行为正确

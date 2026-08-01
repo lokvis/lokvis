@@ -15,7 +15,7 @@
  *   - jpeg:  JPEG(有损,无透明,默认 q=90)
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { wasmEncodersEnabled } from '@lokvis/plugin-image';
+import { wasmEncodersEnabled } from '@lokvis/sdk/image';
 import { useImageTool } from '../internal/useImageTool';
 import { useInputBlobImport } from '../internal/useInputBlobImport';
 import { buildSingleStepImageWorkflow } from '../internal/workflow-builder';
