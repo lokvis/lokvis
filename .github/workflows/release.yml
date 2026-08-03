@@ -45,12 +45,25 @@ jobs:
           CHANNEL="skip"
           DIST_TAG=""
 
-          # 使用 merge-base --is-ancestor 判断 tag commit 是否为分支祖先
+          # 使用 merge-base --is-ancestor 判断 tag commit 与分支的关系
           # 比 `git branch -r --contains` 更可靠(不依赖远端分支 ref 的即时一致性)
+          #
+          # 两种命中方式:
+          # 1. tag commit 是分支祖先(打在分支历史中的某个 commit 上) —— 常规情况
+          # 2. tag commit 基于分支创建(分支是 tag commit 的祖先),但 release commit
+          #    未 push 回分支 —— 兜底,避免 changeset release commit 漏推分支导致 skip
           if git merge-base --is-ancestor "$SHA" origin/main 2>/dev/null; then
             CHANNEL="stable"
             DIST_TAG="latest"
           elif git merge-base --is-ancestor "$SHA" origin/dev 2>/dev/null; then
+            CHANNEL="beta"
+            DIST_TAG="beta"
+          elif git merge-base --is-ancestor origin/main "$SHA" 2>/dev/null; then
+            echo "::warning::Tag $TAG 基于 main 但其 commit 未合入 main;按 stable 处理"
+            CHANNEL="stable"
+            DIST_TAG="latest"
+          elif git merge-base --is-ancestor origin/dev "$SHA" 2>/dev/null; then
+            echo "::warning::Tag $TAG 基于 dev 但其 commit 未合入 dev;按 beta 处理"
             CHANNEL="beta"
             DIST_TAG="beta"
           else
