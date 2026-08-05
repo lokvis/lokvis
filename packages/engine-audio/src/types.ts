@@ -23,6 +23,8 @@ export interface AudioEngineDescriptor {
   name: string;
   /** 版本号,含 'stub' 时视为占位实现 */
   version: string;
+  /** 支持(或计划支持)的 capability id 列表(AGENTS.md stub 三要素之一) */
+  supportedCapabilities: string[];
 }
 
 /** 音频裁剪参数(按时间范围截取片段) */

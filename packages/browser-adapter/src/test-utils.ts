@@ -2,8 +2,14 @@
  * 测试 fake(ADR-015)。
  *
  * 经 `@lokvis/browser-adapter/test-utils` 子路径导入,不进主入口。
- * 替代各包自行 vi.stubGlobal 浏览器 API 的做法(测试约定:浏览器 API
- * 用 fake)。存量测试不强制迁移,新测试优先用本模块。
+ *
+ * 使用约定(FO-28 决议):
+ * - **createFakeAdapter**:被测代码通过依赖注入接收 adapter 实例时
+ *   (如 engine 层测试、embed 层测试),用 createFakeAdapter 提供完整 fake。
+ * - **vi.stubGlobal**:被测代码直接访问模块级全局 API 时
+ *   (如 browser-detect 探测 navigator/OffscreenCanvas、adapter 内部
+ *   probeImageDimensions 访问 createImageBitmap),stubGlobal 是正确做法,
+ *   因为 createFakeAdapter 无法拦截模块级函数对全局的直接读取。
  */
 
 import type { KVStore, KVStoreOptions } from './kv-store.js';

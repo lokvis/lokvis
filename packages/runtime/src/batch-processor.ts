@@ -5,6 +5,7 @@
  * 对外保持原公开 API 不变。调度/重试/进度/并发 委托给协作对象;
  * Facade 保留 jobs Map 管理、批量上限校验、状态机控制、toJobView。
  */
+import { FREE_BATCH_LIMIT } from '@lokvis/schema';
 import type { BatchItemStatus, EventBus } from '@lokvis/schema';
 import type { LokvisRuntime } from './types.js';
 import { MemoryGuard } from './memory-guard.js';
@@ -36,8 +37,8 @@ export class BatchLimitExceededError extends Error {
   }
 }
 
-/** 免费版批量上限(W6.2) */
-export const FREE_BATCH_LIMIT = 10;
+// FO-05:免费版批量上限单一事实源在 @lokvis/schema plan-limits.ts,此处 re-export
+export { FREE_BATCH_LIMIT } from '@lokvis/schema';
 /** 终态 job 保留上限(超出按 FIFO 淘汰最旧) */
 export const MAX_RETAINED_JOBS = 10;
 
@@ -231,6 +232,14 @@ export class BatchProcessor {
 
   onProgress(jobId: string, handler: (p: BatchProgress) => void): () => void {
     return this.progress.onProgress(jobId, handler);
+  }
+
+  /**
+   * 派生某批量项实际执行的 workflow id(FO-04:UI 侧 cancel / disposeWorkflow 用)。
+   * 与 BatchScheduler.itemWorkflowId 保持同一派生规则。
+   */
+  workflowIdFor(jobId: string, itemId: string): string {
+    return this.scheduler.itemWorkflowId(jobId, itemId);
   }
 
   /**

@@ -6,6 +6,9 @@
  *
  * W23:接受可选 `plugins` 参数,透传给 useLokvisRuntime。三方接入可组合
  * image / audio / pdf / video 插件。undefined 时使用默认 [imageToolsPlugin()]。
+ *
+ * 注:未使用 useEmbedTool 工厂,因 image 为 scalar 形态(单输入/单输出)且有
+ * commitOutput 方法(迭代压缩场景),与 array 形态的 PDF/Video 差异较大。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AssetId, PluginLoadEntry, Workflow, WorkflowResult } from '@lokvis/sdk';

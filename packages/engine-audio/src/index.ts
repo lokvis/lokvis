@@ -39,6 +39,12 @@ import type { AudioEngineDescriptor } from './types.js';
 export const AUDIO_ENGINE: AudioEngineDescriptor = {
   name: 'ffmpeg-wasm',
   version: '0.7.1-stub',
+  supportedCapabilities: [
+    'audio.trim',
+    'audio.normalize',
+    'audio.transcode',
+    'audio.merge',
+  ],
 };
 
 export type {

@@ -10,67 +10,125 @@
  * 6. start / close 调用 transport
  *
  * 不启动真实 stdio(避免阻塞),用 transportFactory 注入 mock。
+ * 等待策略为确定性等待:`transport.request()` 在 server 经 send() 发回同 id 响应时
+ * resolve,不使用 setTimeout 固定延时。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
+import type { JSONRPCMessage, JSONRPCRequest } from '@modelcontextprotocol/sdk/types.js';
 import { McpServerAdapter } from '../mcp-server-adapter.js';
 
-/** 创建 mock transport:捕获 onmessage 回调,提供 sendRequest 模拟客户端请求 */
-interface MockTransport extends Transport {
-  start: ReturnType<typeof vi.fn>;
-  send: ReturnType<typeof vi.fn>;
-  close: ReturnType<typeof vi.fn>;
-  onclose?: () => void;
-  onerror?: (e: Error) => void;
-  onmessage?: <T extends JSONRPCMessage>(msg: T) => void;
+/** 测试用 JSON-RPC 响应判别联合(result 成功 vs error 失败) */
+interface JsonRpcSuccess<T> {
+  jsonrpc: '2.0';
+  id: number | string | null;
+  result: T;
+}
+interface JsonRpcFailure {
+  jsonrpc: '2.0';
+  id: number | string | null;
+  error: { code: number; message: string; data?: unknown };
+}
+type JsonRpcResponse<T> = JsonRpcSuccess<T> | JsonRpcFailure;
+
+/** 常用 result 形状(仅覆盖测试断言所需字段) */
+interface ToolsListResult {
+  tools: Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }>;
+}
+interface CallToolResult {
+  content: Array<{ type: string; text?: string }>;
+  isError?: boolean;
+}
+interface ResourcesListResult {
+  resources: Array<{ uri: string; name: string }>;
+}
+interface ResourceReadResult {
+  contents: Array<{ uri: string; mimeType?: string; text?: string }>;
+}
+interface PromptsListResult {
+  prompts: Array<{
+    name: string;
+    description?: string;
+    arguments?: Array<{ name: string; description?: string; required?: boolean }>;
+  }>;
+}
+interface PromptGetResult {
+  messages: Array<{ role: string; content: { type: string; text?: string } }>;
 }
 
-function createMockTransport(): MockTransport & {
-  /** 模拟客户端发送请求,触发 server 的 onmessage 回调 */
-  sendRequest(msg: JSONRPCMessage): void;
+/** 断言响应为 result 变体,否则抛错(测试失败信息更清晰) */
+function asSuccess<T>(resp: JsonRpcResponse<T>): JsonRpcSuccess<T> {
+  if ('result' in resp) return resp;
+  throw new Error(`期望 result 响应,实际为 error: ${resp.error.message}`);
+}
+
+/** 断言响应为 error 变体 */
+function asError(resp: JsonRpcResponse<unknown>): JsonRpcFailure {
+  if ('error' in resp) return resp;
+  throw new Error('期望 error 响应,实际为 result 响应');
+}
+
+interface MockExtras {
+  /** 模拟客户端发送请求,返回同 id 响应到达时的 Promise(确定性等待) */
+  request<T>(msg: JSONRPCRequest): Promise<JsonRpcResponse<T>>;
   /** 已发送的消息(供测试断言) */
   sentMessages: JSONRPCMessage[];
-} {
-  let onmessageCb: ((msg: JSONRPCMessage) => void) | undefined;
+}
+
+/** mock transport:捕获 onmessage 回调,send 时按 id 唤醒等待中的 request() */
+function createMockTransport(): Transport & MockExtras {
+  let onmessageCb: Transport['onmessage'];
   const sentMessages: JSONRPCMessage[] = [];
-  const t: MockTransport & {
-    sendRequest: (msg: JSONRPCMessage) => void;
-    sentMessages: JSONRPCMessage[];
-  } = {
-    start: vi.fn().mockResolvedValue(undefined),
-    send: vi.fn((msg: JSONRPCMessage) => {
+  const pending = new Map<number | string, (resp: JsonRpcResponse<unknown>) => void>();
+
+  return {
+    start: vi.fn(async () => {}),
+    send: vi.fn(async (msg: JSONRPCMessage) => {
       sentMessages.push(msg);
-      return Promise.resolve();
+      if ('id' in msg && msg.id !== null && msg.id !== undefined) {
+        const resolve = pending.get(msg.id);
+        if (resolve) {
+          pending.delete(msg.id);
+          resolve(msg as JsonRpcResponse<unknown>);
+        }
+      }
     }),
-    close: vi.fn().mockResolvedValue(undefined),
+    close: vi.fn(async () => {}),
     get onmessage() {
-      return onmessageCb as never;
+      return onmessageCb;
     },
-    set onmessage(fn: ((msg: JSONRPCMessage) => void) | undefined) {
+    set onmessage(fn: Transport['onmessage']) {
       onmessageCb = fn;
     },
-    sendRequest(msg: JSONRPCMessage) {
-      onmessageCb?.(msg);
+    request<T>(msg: JSONRPCRequest): Promise<JsonRpcResponse<T>> {
+      return new Promise<JsonRpcResponse<T>>((resolve) => {
+        pending.set(msg.id, (resp) => resolve(resp as JsonRpcResponse<T>));
+        onmessageCb?.(msg);
+      });
     },
     sentMessages,
   };
-  return t;
+}
+
+/** 从已发送消息中按 id 查找响应(补充断言用) */
+function findResponse<T>(messages: JSONRPCMessage[], id: number | string): JsonRpcResponse<T> {
+  const msg = messages.find((m) => 'id' in m && m.id === id);
+  expect(msg, `应找到 id=${id} 的响应消息`).toBeDefined();
+  return msg as JsonRpcResponse<T>;
 }
 
 /** 构造 JSON-RPC 请求消息 */
-function makeRequest(id: number | string, method: string, params: object = {}): JSONRPCMessage {
-  return {
-    jsonrpc: '2.0',
-    id,
-    method,
-    params,
-  } as JSONRPCMessage;
+function makeRequest(
+  id: number | string,
+  method: string,
+  params: Record<string, unknown> = {}
+): JSONRPCRequest {
+  return { jsonrpc: '2.0', id, method, params };
 }
 
 describe('McpServerAdapter', () => {
   let adapter: McpServerAdapter;
-  let transport: ReturnType<typeof createMockTransport>;
+  let transport: Transport & MockExtras;
 
   beforeEach(() => {
     transport = createMockTransport();
@@ -129,32 +187,28 @@ describe('McpServerAdapter', () => {
       );
 
       await adapter.start();
-      transport.sendRequest(
-        makeRequest(1, 'tools/list', {})
+      const resp = asSuccess(
+        await transport.request<ToolsListResult>(makeRequest(1, 'tools/list'))
       );
 
-      // 等待 server 内部异步处理完成(handler 同步返回但仍需 microtask)
-      await new Promise((r) => setTimeout(r, 10));
-
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      expect(response).toBeDefined();
-      expect((response as any).result.tools).toHaveLength(1);
-      expect((response as any).result.tools[0]).toMatchObject({
+      expect(resp.result.tools).toHaveLength(1);
+      expect(resp.result.tools[0]).toMatchObject({
         name: 'lokvis_image_resize',
         description: 'Resize image',
       });
-      expect((response as any).result.tools[0].inputSchema).toMatchObject({
+      expect(resp.result.tools[0]?.inputSchema).toMatchObject({
         type: 'object',
       });
+      // findResponse 辅助亦能从 sentMessages 中找到同一响应
+      expect(findResponse(transport.sentMessages, 1)).toBeDefined();
     });
 
     it('未注册 tool 时返回空数组', async () => {
       await adapter.start();
-      transport.sendRequest(makeRequest(1, 'tools/list', {}));
-      await new Promise((r) => setTimeout(r, 10));
-
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      expect((response as any).result.tools).toEqual([]);
+      const resp = asSuccess(
+        await transport.request<ToolsListResult>(makeRequest(1, 'tools/list'))
+      );
+      expect(resp.result.tools).toEqual([]);
     });
   });
 
@@ -166,36 +220,35 @@ describe('McpServerAdapter', () => {
       adapter.registerTool('lokvis_image_resize', 'Resize', {}, handler);
 
       await adapter.start();
-      transport.sendRequest(
-        makeRequest(1, 'tools/call', {
-          name: 'lokvis_image_resize',
-          arguments: { width: 100 },
-        })
+      const resp = asSuccess(
+        await transport.request<CallToolResult>(
+          makeRequest(1, 'tools/call', {
+            name: 'lokvis_image_resize',
+            arguments: { width: 100 },
+          })
+        )
       );
-      // 等待 handler 的 Promise resolve
-      await new Promise((r) => setTimeout(r, 10));
 
       expect(handler).toHaveBeenCalledWith({ width: 100 });
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      expect((response as any).result).toMatchObject({
+      expect(resp.result).toMatchObject({
         content: [{ type: 'text', text: 'success' }],
       });
-      expect((response as any).result.isError).toBeFalsy();
+      expect(resp.result.isError).toBeFalsy();
     });
 
     it('tool 不存在时返回 isError=true', async () => {
       await adapter.start();
-      transport.sendRequest(
-        makeRequest(1, 'tools/call', {
-          name: 'not_exist',
-          arguments: {},
-        })
+      const resp = asSuccess(
+        await transport.request<CallToolResult>(
+          makeRequest(1, 'tools/call', {
+            name: 'not_exist',
+            arguments: {},
+          })
+        )
       );
-      await new Promise((r) => setTimeout(r, 10));
 
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      expect((response as any).result.isError).toBe(true);
-      expect((response as any).result.content[0].text).toContain('not found');
+      expect(resp.result.isError).toBe(true);
+      expect(resp.result.content[0]?.text).toContain('not found');
     });
 
     it('handler 抛错时返回 isError=true 并包含错误消息', async () => {
@@ -203,17 +256,17 @@ describe('McpServerAdapter', () => {
       adapter.registerTool('lokvis_image_resize', 'Resize', {}, handler);
 
       await adapter.start();
-      transport.sendRequest(
-        makeRequest(1, 'tools/call', {
-          name: 'lokvis_image_resize',
-          arguments: {},
-        })
+      const resp = asSuccess(
+        await transport.request<CallToolResult>(
+          makeRequest(1, 'tools/call', {
+            name: 'lokvis_image_resize',
+            arguments: {},
+          })
+        )
       );
-      await new Promise((r) => setTimeout(r, 10));
 
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      expect((response as any).result.isError).toBe(true);
-      expect((response as any).result.content[0].text).toContain('boom');
+      expect(resp.result.isError).toBe(true);
+      expect(resp.result.content[0]?.text).toContain('boom');
     });
 
     it('arguments 缺省时应传空对象给 handler', async () => {
@@ -221,13 +274,12 @@ describe('McpServerAdapter', () => {
       adapter.registerTool('a', 'A', {}, handler);
 
       await adapter.start();
-      transport.sendRequest(
+      await transport.request<CallToolResult>(
         makeRequest(1, 'tools/call', {
           name: 'a',
           // 不传 arguments
         })
       );
-      await new Promise((r) => setTimeout(r, 10));
 
       expect(handler).toHaveBeenCalledWith({});
     });
@@ -237,14 +289,14 @@ describe('McpServerAdapter', () => {
       adapter.registerTool('a', 'A', {}, handler);
 
       await adapter.start();
-      transport.sendRequest(
-        makeRequest(1, 'tools/call', { name: 'a', arguments: {} })
+      const resp = asSuccess(
+        await transport.request<CallToolResult>(
+          makeRequest(1, 'tools/call', { name: 'a', arguments: {} })
+        )
       );
-      await new Promise((r) => setTimeout(r, 10));
 
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      expect((response as any).result.isError).toBe(true);
-      expect((response as any).result.content[0].text).toContain('string error');
+      expect(resp.result.isError).toBe(true);
+      expect(resp.result.content[0]?.text).toContain('string error');
     });
   });
 
@@ -259,12 +311,12 @@ describe('McpServerAdapter', () => {
       );
 
       await adapter.start();
-      transport.sendRequest(makeRequest(1, 'resources/list', {}));
-      await new Promise((r) => setTimeout(r, 10));
+      const resp = asSuccess(
+        await transport.request<ResourcesListResult>(makeRequest(1, 'resources/list'))
+      );
 
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      expect((response as any).result.resources).toHaveLength(1);
-      expect((response as any).result.resources[0]).toMatchObject({
+      expect(resp.result.resources).toHaveLength(1);
+      expect(resp.result.resources[0]).toMatchObject({
         uri: 'lokvis://manifest',
         name: 'manifest',
       });
@@ -277,26 +329,25 @@ describe('McpServerAdapter', () => {
       adapter.registerResource('lokvis://manifest', 'manifest', 'desc', 'application/json', handler);
 
       await adapter.start();
-      transport.sendRequest(
-        makeRequest(1, 'resources/read', { uri: 'lokvis://manifest' })
+      const resp = asSuccess(
+        await transport.request<ResourceReadResult>(
+          makeRequest(1, 'resources/read', { uri: 'lokvis://manifest' })
+        )
       );
-      await new Promise((r) => setTimeout(r, 10));
 
       expect(handler).toHaveBeenCalledWith('lokvis://manifest');
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      expect((response as any).result.contents[0].text).toBe('{}');
+      expect(resp.result.contents[0]?.text).toBe('{}');
     });
 
     it('resource 不存在时应返回错误(JSON-RPC error)', async () => {
       await adapter.start();
-      transport.sendRequest(
-        makeRequest(1, 'resources/read', { uri: 'lokvis://nope' })
+      const resp = asError(
+        await transport.request(
+          makeRequest(1, 'resources/read', { uri: 'lokvis://nope' })
+        )
       );
-      await new Promise((r) => setTimeout(r, 10));
 
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      expect((response as any).error).toBeDefined();
-      expect((response as any).error.message).toContain('not found');
+      expect(resp.error.message).toContain('not found');
     });
   });
 
@@ -305,16 +356,16 @@ describe('McpServerAdapter', () => {
       adapter.registerPrompt('greet', 'Greeting prompt', vi.fn());
 
       await adapter.start();
-      transport.sendRequest(makeRequest(1, 'prompts/list', {}));
-      await new Promise((r) => setTimeout(r, 10));
+      const resp = asSuccess(
+        await transport.request<PromptsListResult>(makeRequest(1, 'prompts/list'))
+      );
 
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      expect((response as any).result.prompts).toHaveLength(1);
-      expect((response as any).result.prompts[0]).toMatchObject({
+      expect(resp.result.prompts).toHaveLength(1);
+      expect(resp.result.prompts[0]).toMatchObject({
         name: 'greet',
         description: 'Greeting prompt',
       });
-      expect((response as any).result.prompts[0].arguments).toEqual([]);
+      expect(resp.result.prompts[0]?.arguments).toEqual([]);
     });
 
     it('应从 argumentsSchema 生成 arguments 列表', async () => {
@@ -323,11 +374,11 @@ describe('McpServerAdapter', () => {
       });
 
       await adapter.start();
-      transport.sendRequest(makeRequest(1, 'prompts/list', {}));
-      await new Promise((r) => setTimeout(r, 10));
+      const resp = asSuccess(
+        await transport.request<PromptsListResult>(makeRequest(1, 'prompts/list'))
+      );
 
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      const args = (response as any).result.prompts[0].arguments;
+      const args = resp.result.prompts[0]?.arguments ?? [];
       expect(args).toHaveLength(1);
       expect(args[0]).toMatchObject({
         name: 'name',
@@ -343,23 +394,23 @@ describe('McpServerAdapter', () => {
       adapter.registerPrompt('greet', 'Greet', handler);
 
       await adapter.start();
-      transport.sendRequest(
-        makeRequest(1, 'prompts/get', { name: 'greet', arguments: {} })
+      const resp = asSuccess(
+        await transport.request<PromptGetResult>(
+          makeRequest(1, 'prompts/get', { name: 'greet', arguments: {} })
+        )
       );
-      await new Promise((r) => setTimeout(r, 10));
 
       expect(handler).toHaveBeenCalledWith({});
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      expect((response as any).result.messages[0].content.text).toBe('hello');
+      expect(resp.result.messages[0]?.content.text).toBe('hello');
     });
 
     it('prompt 不存在时应返回错误', async () => {
       await adapter.start();
-      transport.sendRequest(makeRequest(1, 'prompts/get', { name: 'nope' }));
-      await new Promise((r) => setTimeout(r, 10));
+      const resp = asError(
+        await transport.request(makeRequest(1, 'prompts/get', { name: 'nope' }))
+      );
 
-      const response = transport.sentMessages.find((m) => (m as any).id === 1);
-      expect((response as any).error).toBeDefined();
+      expect(resp.error).toBeDefined();
     });
   });
 });

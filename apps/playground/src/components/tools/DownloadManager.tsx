@@ -12,6 +12,7 @@ import { formatBytes } from '@lokvis/runtime';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useLang } from '@/i18n/useLang';
 import { useTranslations } from '@/i18n/utils';
+import { sleep } from '@/utils/sleep';
 
 interface DownloadItem {
   id: string;
@@ -20,9 +21,6 @@ interface DownloadItem {
   size: number;
   downloaded: boolean;
 }
-
-// 延迟工具,避免浏览器拦截多下载
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 // 用 canvas 生成示例图片 Blob(供 demo)
 // toBlob 回调可能返回 null(某些 Safari 场景或 canvas 被污染),

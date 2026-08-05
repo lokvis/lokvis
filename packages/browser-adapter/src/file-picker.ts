@@ -110,9 +110,23 @@ export interface FilePickerDocument {
   };
 }
 
+/**
+ * 通过全局对象构建 file picker host。
+ * 
+ * 注意：此处的 `as unknown as` 是安全的必要转换：
+ * - TypeScript 不假设全局作用域存在 File System Access API 属性
+ * - Runtime check (showOpenFilePicker === 'function') 确保实际存在性（ADR-015）
+ * - 避免生产环境出现 ReferenceError，非兼容性 workaround
+ */
 function resolveHost(host?: FilePickerHost): FilePickerHost {
   if (host) return host;
   const g = globalThis as unknown as FilePickerHost & { document?: FilePickerDocument };
+  
+  // Runtime guard:确保类型系统已知的属性实际存在
+  if (!g.showOpenFilePicker && !g.document) {
+    throw new Error('FilePickerAdapter requires browser environment');
+  }
+  
   return {
     showOpenFilePicker: g.showOpenFilePicker,
     showSaveFilePicker: g.showSaveFilePicker,

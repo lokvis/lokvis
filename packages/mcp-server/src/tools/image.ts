@@ -24,9 +24,9 @@
  * 输出:处理后的文件路径 + 元数据(尺寸/大小变化)
  */
 
-import { resolve, extname, basename } from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { resolve, extname } from 'node:path';
 import type { LokvisRuntime, ImageMetadata } from '@lokvis/sdk';
+import { mimeFromExt, formatFromExt } from '@lokvis/schema';
 import type { ImageWatermarkPosition } from '@lokvis/capability';
 import type { McpToolResult } from '../server.js';
 import {
@@ -35,7 +35,7 @@ import {
   getFileSize,
   formatSize,
 } from './fs-helpers.js';
-import { buildSingleTransformWorkflow } from './workflow-helpers.js';
+import { runFileTransform } from './workflow-helpers.js';
 import {
   resizeSchema,
   compressSchema,
@@ -52,37 +52,19 @@ import {
 import { GENERATED_TOOL_META } from './tool-metadata.generated.js';
 import { requireToolMeta } from './manual-overrides.js';
 
-/** 文件扩展名 → MIME 类型(构造输入 File 时使用,runtime 据此推断格式) */
-const EXT_TO_MIME: Record<string, string> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-  avif: 'image/avif',
-  gif: 'image/gif',
-};
-
-/** 从文件路径扩展名推断 MIME */
+/** 从文件路径扩展名推断 MIME(委托 @lokvis/schema 单一映射表,FO-14) */
 function extToMime(path: string): string {
   const ext = extname(path).slice(1).toLowerCase();
-  return EXT_TO_MIME[ext] ?? 'application/octet-stream';
+  return mimeFromExt(ext);
 }
 
 /** 水印位置(从 capability manifest 派生,避免本地复制漂移) */
 type WatermarkPosition = ImageWatermarkPosition;
 
 /**
- * 通用 image transform 流程:file → importAsset → runtime.run → exportAsset → cleanup。
+ * 通用 image transform 流程(FO-18 工厂化)。
  *
- * 走完整 capability 系统(TD-1.1 长期方案),与浏览器侧 Runtime→Capability→Engine
- * 链路对齐。input/output asset 在流程结束后清理(避免 NodeAssetStore 累积)。
- *
- * dimensions 读取:Node 环境 createImageBitmap 不可用,runtime.importAsset 无法
- * 提取图像 dimensions(asset-store.ts 的 extractImageDimensions 降级为空)。
- * 此处通过 runtime.readAssetImageMetadata() 读取输出 asset 的 dimensions ——
- * 走 MetadataReader 依赖反转(plugin-image/node 注册 'image.read-metadata' reader,
- * 内部调 engine-image/node 的 getMetadata),避免 mcp-server 直接依赖 engine-image
- * (五层架构单向依赖,见 A1 修复)。
+ * dimensions 读取通过 onExported 回调在 cleanup 前完成(走 MetadataReader 依赖反转)。
  */
 async function runImageTransform(
   runtime: LokvisRuntime,
@@ -90,41 +72,20 @@ async function runImageTransform(
   capability: string,
   params: Record<string, unknown>
 ): Promise<{ outBlob: Blob; outMeta: ImageMetadata | null }> {
-  const mime = extToMime(inputPath);
-  const buffer = await readFile(inputPath);
-  // AGENTS.md:Node.js 环境构造 File 对象用标准 API
-  const file = new File([buffer], basename(inputPath), { type: mime });
-  const inputAssetId = await runtime.importAsset({ kind: 'file', file });
-
-  try {
-    const workflow = buildSingleTransformWorkflow(capability, params, 'image', 'image');
-    const result = await runtime.run(workflow, [inputAssetId]);
-    if (result.status !== 'completed' || !result.outputs[0]) {
-      throw new Error(
-        `Workflow ${capability} failed: status=${result.status}` +
-          (result.error ? ` error=${result.error}` : '')
-      );
-    }
-
-    const outAssetId = result.outputs[0];
-    const outBlob = await runtime.exportAsset(outAssetId);
-
-    // 读取输出 asset 的 dimensions/format(走 MetadataReader,失败时降级为 null)
-    // reader 未注册 / 解析失败均返回 null,不影响主流程
-    const outMeta = await runtime.readAssetImageMetadata(outAssetId);
-
-    // 清理 output asset(已导出 Blob,不再需要)。失败仅 warn,不影响主流程结果
-    await runtime.removeAsset(outAssetId).catch((e) => {
-      console.warn('[mcp-server] cleanup output asset failed:', e);
-    });
-
-    return { outBlob, outMeta };
-  } finally {
-    // 清理 input asset(避免 NodeAssetStore 累积)。失败仅 warn,不影响主流程结果
-    await runtime.removeAsset(inputAssetId).catch((e) => {
-      console.warn('[mcp-server] cleanup input asset failed:', e);
-    });
-  }
+  const result = await runFileTransform({
+    runtime,
+    inputPaths: [inputPath],
+    capability,
+    params,
+    mime: extToMime(inputPath),
+    category: 'image',
+    assetType: 'image',
+    onExported: async (outAssetId) => {
+      const outMeta = await runtime.readAssetImageMetadata(outAssetId);
+      return { outMeta };
+    },
+  });
+  return { outBlob: result.outBlob, outMeta: result.outMeta as ImageMetadata | null };
 }
 
 /** 从 ImageMetadata 格式化为 "WxH" 字符串 */
@@ -240,7 +201,7 @@ export async function imageCompress(
   try {
     // 保持输入格式:从扩展名推断 format 传给 capability
     const inputExt = extname(inputPath).slice(1).toLowerCase();
-    const format = (EXT_TO_MIME[inputExt]?.split('/')[1] ?? 'webp') as
+    const format = (formatFromExt(inputExt) ?? 'webp') as
       | 'png' | 'jpeg' | 'webp' | 'avif' | 'gif';
     const { outBlob, outMeta } = await runImageTransform(
       runtime,

@@ -325,6 +325,7 @@ export {
 // ImageInfo 出现在所有 hook 的返回值(inputInfo/outputInfo)与
 // FileInfoBar slot 契约中,从包入口导出供三方标注类型。
 export type { ImageInfo } from './internal/download';
+export { getImageInfo, imageInfoToMeta, detectTransparency } from './internal/download';
 export { formatBytes } from '@lokvis/runtime';
 // BusyOverlay / FileInfoBar 是 6 个 Layer-2 组件共有的 components slot,
 // 三方实现替换组件时需要这两个 Props 契约。

@@ -1,7 +1,7 @@
 /**
  * @lokvis/engine-core
  *
- * Engine 层共享的引擎注册表工厂。
+ * Engine 层共享的引擎注册表工厂 + Node 端 ffmpeg 共享基建。
  *
  * 背景:engine-audio / engine-video / engine-ai 三个包
  * 各自复制了一份相同的样板:
@@ -10,6 +10,10 @@
  *
  * 本包抽出 `createEngineRegistry<T>()` 工厂,把上面四段样板合并为一次调用,
  * 各 engine-* 包只需提供 adapter 类型与初始 adapter 列表。
+ *
+ * FO-11:新增 `node-ffmpeg.ts` 共享 Node 端 ffmpeg 调用逻辑（getFfmpegPath /
+ * runFfmpegStdio / runFfmpegConcatMerge / validateTrimRange / mimeTypeForFormat），
+ * 消除 engine-video / engine-audio 约 150 行重复代码。
  *
  * 注:engine-pdf 已移除 adapter 模式,改为只暴露 Blob↔Blob 纯函数操作
  *    (见 packages/engine-pdf/src/index.ts)。
@@ -20,6 +24,8 @@
  * - 默认引擎 fallback 行为由调用方通过 `defaultEngine` 显式传入
  *   (各包的默认引擎不同:web-audio / ffmpeg-wasm / transformers-js)
  */
+
+export * from './node-ffmpeg.js';
 
 /**
  * Engine 适配器的最小契约。

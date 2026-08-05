@@ -45,8 +45,8 @@ The playground provides:
 ```bash
 pnpm typecheck   # Full type check (36 packages)
 pnpm build       # Build (20 tasks)
-pnpm test        # Run tests (777 tests)
-pnpm test:coverage  # Coverage (lines 91%+ / branches 88%+)
+pnpm test        # Run tests
+pnpm test:coverage  # Coverage report
 ```
 
 ## 4. Embed the Runtime SDK
@@ -64,6 +64,7 @@ pnpm add @lokvis/sdk @lokvis/plugin-image
 ```typescript
 import { createLokvis } from '@lokvis/sdk';
 import { imageToolsPlugin } from '@lokvis/plugin-image';
+import { WorkflowBuilder } from '@lokvis/workflow';
 
 const lokvis = await createLokvis({
   plugins: [imageToolsPlugin()],
@@ -72,25 +73,14 @@ const lokvis = await createLokvis({
 // Import file
 const assetId = await lokvis.importAsset({ kind: 'file', file });
 
-// Define a workflow (linear, 5-step max)
-const workflow = {
-  id: 'demo',
-  name: 'Web Optimize',
-  category: 'web',
-  inputs: { type: 'image/*' },
-  outputs: [{ type: 'image/webp', label: 'optimized' }],
-  nodes: [
-    { id: 'n1', capability: 'image.resize', params: { width: 1920, height: 1080, fit: 'inside' } },
-    { id: 'n2', capability: 'image.compress', params: { quality: 80 } },
-    { id: 'n3', capability: 'image.convert', params: { format: 'webp' } },
-  ],
-  edges: [
-    { from: 'input', to: 'n1' },
-    { from: 'n1', to: 'n2' },
-    { from: 'n2', to: 'n3' },
-    { from: 'n3', to: 'output' },
-  ],
-};
+// Define a workflow (recommended: WorkflowBuilder)
+const workflow = new WorkflowBuilder({ id: 'wf_demo', name: 'Web Optimize' })
+  .setInput({ type: 'image', multiple: false })
+  .setOutput({ type: 'image', format: 'webp' })
+  .add('image.resize', { width: 1920, height: 1080, fit: 'inside' })
+  .add('image.compress', { quality: 80 })
+  .add('image.convert', { format: 'webp' })
+  .build();
 
 // Run
 const result = await lokvis.run(workflow, [assetId]);

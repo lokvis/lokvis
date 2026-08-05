@@ -21,9 +21,28 @@ pnpm add -g @lokvis/cli
 
 ```bash
 lokvis run ./my-workflow.json ./input.png
+lokvis run ./workflow.json -i ./input.png -o ./output.png
 ```
 
-Loads a workflow JSON and runs it on the input files. Note: capabilities that depend on browser APIs (Canvas, createImageBitmap) cannot run in Node.js — use the Web app for those.
+Loads a workflow JSON and runs it on the input files. Options: `-i/--input`, `-o/--output`. The CLI injects Node.js engines (e.g. sharp for image) so most workflows run without a browser.
+
+### validate
+
+```bash
+lokvis validate ./my-workflow.json
+lokvis validate ./my-workflow.json --max-steps 5 --json
+```
+
+Validates a workflow JSON file without executing it. Checks structure, node IDs, edge integrity, and DAG acyclicity. Options: `--max-steps`, `--json`.
+
+### list
+
+```bash
+lokvis list ./workflows/
+lokvis list . --all --json
+```
+
+Lists workflow JSON files in a directory. Options: `--all` (include hidden), `--json`, `--max-depth`.
 
 ### capabilities
 

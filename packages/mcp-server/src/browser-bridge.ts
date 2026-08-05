@@ -20,6 +20,9 @@
 import { randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 
+/** callTool 默认超时(ms) */
+const DEFAULT_CALL_TIMEOUT_MS = 30000;
+
 /** 浏览器返回的 tool 结果(与 McpToolResult 对齐) */
 export interface BridgeToolResult {
   content: Array<
@@ -104,7 +107,7 @@ export class BrowserBridge {
       throw new Error('Browser not connected');
     }
     const id = randomUUID();
-    const { callTimeoutMs = 30000 } = this.options;
+    const { callTimeoutMs = DEFAULT_CALL_TIMEOUT_MS } = this.options;
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {

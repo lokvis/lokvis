@@ -19,8 +19,11 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { basename } from 'node:path';
 import { WorkflowBuilder } from '@lokvis/workflow';
 import type { AssetType, Workflow, WorkflowCategory } from '@lokvis/schema';
+import type { LokvisRuntime } from '@lokvis/sdk';
 
 /**
  * 构造单节点 capability Workflow(公共辅助)。
@@ -107,4 +110,77 @@ export function buildSplitWorkflow(
   assetType: AssetType
 ): Workflow {
   return buildCapabilityWorkflow(capability, params, category, assetType, false);
+}
+
+// ─── FO-18: unified file transform ────────────────────────────
+
+/** runFileTransform 选项 */
+export interface RunFileTransformOptions {
+  runtime: LokvisRuntime;
+  inputPaths: string[];
+  capability: string;
+  params: Record<string, unknown>;
+  /** 所有输入文件的 MIME 类型(image 需调用方预先解析) */
+  mime: string;
+  category: WorkflowCategory;
+  assetType: AssetType;
+  /** true 时使用 merge workflow(N→1);默认 false(single,1→1) */
+  merge?: boolean;
+  /** export 后、cleanup 前调用,可读取 output asset 元数据(FO-18) */
+  onExported?: (outAssetId: string) => Promise<Record<string, unknown>>;
+}
+
+/**
+ * 统一的文件转换流程(FO-18)。
+ *
+ * 合并 image/video/audio/pdf 四包中 ~90% 相同的:
+ * readFile → new File → importAsset → run workflow → exportAsset → cleanup
+ *
+ * 调用方负责:
+ * - MIME 解析(image 按扩展名,其余为固定常量)
+ * - 元数据读取(如 readAssetImageMetadata,在 export 后自行处理)
+ */
+export async function runFileTransform(
+  opts: RunFileTransformOptions
+): Promise<{ outBlob: Blob } & Record<string, unknown>> {
+  const { runtime, inputPaths, capability, params, mime, category, assetType, merge, onExported } = opts;
+
+  const inputAssetIds: string[] = [];
+  for (const p of inputPaths) {
+    const buffer = await readFile(p);
+    const file = new File([buffer], basename(p), { type: mime });
+    const id = await runtime.importAsset({ kind: 'file', file });
+    inputAssetIds.push(id);
+  }
+
+  try {
+    const workflow = merge
+      ? buildMergeWorkflow(capability, params, category, assetType)
+      : buildSingleTransformWorkflow(capability, params, category, assetType);
+
+    const result = await runtime.run(workflow, inputAssetIds);
+    if (result.status !== 'completed' || !result.outputs[0]) {
+      throw new Error(
+        `Workflow ${capability} failed: status=${result.status}` +
+          (result.error ? ` error=${result.error}` : '')
+      );
+    }
+
+    const outAssetId = result.outputs[0];
+    const outBlob = await runtime.exportAsset(outAssetId);
+
+    const extra = onExported ? await onExported(outAssetId) : {};
+
+    await runtime.removeAsset(outAssetId).catch((e) => {
+      console.warn('[mcp-server] cleanup output asset failed:', e);
+    });
+
+    return { outBlob, ...extra };
+  } finally {
+    for (const id of inputAssetIds) {
+      await runtime.removeAsset(id).catch((e) => {
+        console.warn('[mcp-server] cleanup input asset failed:', e);
+      });
+    }
+  }
 }

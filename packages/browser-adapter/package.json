@@ -34,6 +34,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@lokvis/schema": "workspace:*",
     "dexie": "^4.0.10"
   },
   "devDependencies": {

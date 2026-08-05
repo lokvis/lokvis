@@ -21,9 +21,28 @@ pnpm add -g @lokvis/cli
 
 ```bash
 lokvis run ./my-workflow.json ./input.png
+lokvis run ./workflow.json -i ./input.png -o ./output.png
 ```
 
-加载工作流 JSON 并在输入文件上运行。注意:依赖浏览器 API(Canvas、createImageBitmap)的能力无法在 Node.js 中运行 —— 这类能力请使用 Web 应用处理。
+加载工作流 JSON 并在输入文件上运行。选项:`-i/--input`、`-o/--output`。CLI 注入 Node.js 引擎(如 sharp),多数 workflow 无需浏览器即可运行。
+
+### validate
+
+```bash
+lokvis validate ./my-workflow.json
+lokvis validate ./my-workflow.json --max-steps 5 --json
+```
+
+校验工作流 JSON 文件(不执行)。检查结构、节点 ID、边完整性和 DAG 无环性。选项:`--max-steps`、`--json`。
+
+### list
+
+```bash
+lokvis list ./workflows/
+lokvis list . --all --json
+```
+
+列出目录中的工作流 JSON 文件。选项:`--all`(含隐藏)、`--json`、`--max-depth`。
 
 ### capabilities
 

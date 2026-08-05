@@ -259,7 +259,7 @@ const blob = await lokvis.exportAsset(result.outputs[0]!);
 
 ## 10. Vitest 测试模式
 
-Lokvis 使用 Vitest 并设 `globals: false`（显式导入），测试位于 `src/__tests__/`，使用中文描述。浏览器 API（`Canvas`、`createImageBitmap`、`OffscreenCanvas`）通过 `vi.stubGlobal` 或 `vi.mock` 提供 fake。
+Lokvis 使用 Vitest 并设 `globals: false`（显式导入），测试位于 `src/__tests__/`，使用中文描述。浏览器 API（`Canvas`、`createImageBitmap`、`OffscreenCanvas`）应通过 `@lokvis/browser-adapter` 的 `createFakeAdapter()`（或各接口 fake）提供 fake，而非 `vi.stubGlobal` —— 详见 [ADR-015](../../architecture#adr-015)。
 
 ```ts
 // src/__tests__/plugin.test.ts

@@ -16,7 +16,17 @@ export function createEventBus(): EventBus {
 
   return {
     on(type, handler) {
-      const wrapped = (e: unknown) => handler(e as never);
+      const wrapped = (e: unknown) => {
+        try {
+          handler(e as never);
+        } catch (err) {
+          console.error(`[event-bus] handler threw for "${type}":`, err);
+          // Dev mode: re-throw to surface bugs during development
+          if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+            throw err;
+          }
+        }
+      };
       emitter.on(type, wrapped);
       return () => emitter.off(type, wrapped);
     },

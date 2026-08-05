@@ -89,7 +89,7 @@ function PlaygroundContent() {
         addLog(`[error] ${err instanceof Error ? err.message : String(err)}`, 'error');
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 仅 mount 时初始化 runtime 一次;addLog/setRuntime 为稳定 setter,无需列入依赖
   }, []);
 
   // Persist code + snippetId to localStorage (debounced via microtask)
@@ -119,7 +119,7 @@ function PlaygroundContent() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // handleRun 经闭包读取 runtime;runtime 变化时重新挂载监听即可,无需把 handleRun 列入依赖
   }, [runtime]);
 
   async function handleRun() {

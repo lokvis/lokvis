@@ -32,7 +32,6 @@ const lokvis = await createLokvis({
 | `storageQuota` | `number` | — | 存储配额(字节),超限抛 `QuotaExceededError` |
 | `plugins` | `Plugin[]` | `[]` | 插件列表(如 `imageToolsPlugin()`) |
 | `auth?` | `object` | — | Cloud 注入的 session/token(对接 Pro 功能,open 仓库不依赖) |
-| `historyLimit?` | `number` | `10` | 历史栈上限(默认 10 步 LRU) |
 | `memoryBudget?` | `number` | `DEFAULT_MEMORY_BUDGET` | MemoryGuard 内存预算(字节) |
 
 ## Runtime API
@@ -46,6 +45,7 @@ const lokvis = await createLokvis({
 | `status` | `RuntimeStatus`(readonly 属性) | 当前状态 |
 | `eventBus` | `EventBus`(readonly 属性) | 事件总线(订阅/发布) |
 | `isPro` | `boolean`(readonly 属性) | 是否为 Pro 模式(影响批量上限/并发槽位/workflow 数) |
+| `plan` | `Plan`(readonly 属性) | 用户订阅计划(`'free'` / `'pro'` / `'cloud_pro'` / `'enterprise'`);`isPro` 由 `plan !== 'free'` 派生 |
 | `batch` | `BatchProcessor`(readonly 属性) | 批量处理器(并发控制 + 进度 + 失败重试) |
 | `importAsset(source)` | `Promise<AssetId>` | 导入资产(File / Blob / URL / base64) |
 | `getAsset(id)` | `Promise<Asset>` | 获取资产元数据 |
@@ -53,12 +53,15 @@ const lokvis = await createLokvis({
 | `removeAsset(id)` | `Promise<void>` | 删除资产(释放配额) |
 | `listAssets()` | `Promise<Asset[]>` | 列出所有资产 |
 | `readAssetExif(id)` | `Promise<ExifData \| null>` | 读取 image 资产的 EXIF 元数据(非 image / 无 EXIF / reader 未注册返回 null) |
+| `readAssetImageMetadata(id)` | `Promise<ImageMetadata \| null>` | 读取 image 资产的 dimensions/format 元数据(非 image / reader 未注册返回 null) |
+| `readAssetPdfInfo(id)` | `Promise<PdfInfo \| null>` | 读取 pdf 资产的页数(非 pdf / reader 未注册返回 null) |
 | `run(workflow, inputs, options?)` | `Promise<WorkflowResult>` | 执行工作流(可选 RunOptions:`appendHistory`) |
 | `cancel(workflowId)` | `Promise<void>` | 取消执行(AbortSignal 贯穿到 Worker) |
 | `pause(workflowId)` | `Promise<void>` | 暂停执行 |
 | `resume(workflowId)` | `Promise<void>` | 恢复执行 |
 | `getCurrentOutputs(workflowId)` | `Promise<AssetId[]>` | 获取工作流当前输出 AssetId(undo/redo 后的"当前"状态) |
 | `disposeWorkflow(workflowId)` | `Promise<void>` | 销毁工作流运行时状态(取消运行 + 清空历史栈 + 回收历史 outputs 资产) |
+| `dispose()` | `Promise<void>` | 销毁整个 Runtime(取消所有运行 + 清空历史 + 清理事件总线);销毁后再调用会抛错 |
 | `history(workflowId)` | `Promise<HistoryEntry[]>` | 获取工作流执行历史 |
 | `getHistoryState(workflowId)` | `Promise<{ entries: HistoryEntry[]; cursor: number }>` | 获取历史状态(cursor -1 表示无已应用条目) |
 | `undo(workflowId)` | `Promise<void>` | 撤销一步 |
@@ -70,20 +73,17 @@ const lokvis = await createLokvis({
 | `getStorageUsage()` | `Promise<{ usage: number; quota: number }>` | 获取存储用量(已用 / 配额,字节) |
 | `toMcpManifest(options?)` | `McpManifest`(同步) | 生成 MCP server manifest(`options.batchMode` 控制 batch-only 能力是否暴露;private 永不暴露) |
 | `installPlugin(plugin)` | `Promise<void>` | 安装插件(注册能力 → 构造 PluginContext → 调用 plugin.install → 发射 `plugin:loaded` 事件;失败抛 PluginLoadError) |
+| `listPanels()` | `PanelDefinition[]`(同步) | 列出插件通过 `ctx.registerPanel()` 注册的所有 UI Panel |
 
 ### 事件总线
 
 ```typescript
 lokvis.eventBus.on('asset:imported', (e) => console.log('Imported:', e.assetId));
 lokvis.eventBus.on('workflow:started', (e) => console.log('Started:', e.workflowId));
-lokvis.eventBus.on('workflow:completed', (e) => console.log('Done:', e.elapsedMs));
-lokvis.eventBus.on('history:changed', (e) => console.log('History:', e.action));
-lokvis.eventBus.on('memory:pressure', (e) => console.log('Pressure:', e.level));
+lokvis.eventBus.on('workflow:completed', (e) => console.log('Done:', e.result.duration, 'ms'));
+lokvis.eventBus.on('history:changed', (e) => console.log('History:', e.workflowId, 'cursor:', e.currentIndex));
 
-// 一次性
-lokvis.eventBus.once('workflow:completed', handler);
-
-// 取消
+// 取消订阅
 const off = lokvis.eventBus.on('asset:imported', handler);
 off();
 ```
@@ -141,7 +141,7 @@ Pro 标志由 Cloud 注入(`auth.session`),open 仓库始终为免费模式。
 
 ```typescript
 const manifest = lokvis.toMcpManifest({
-  includeStubCapabilities: false, // 默认排除 stub 能力
+  batchMode: true, // 暴露 batch-only 能力(默认 false)
 });
 
 console.log(manifest.tools);
@@ -239,11 +239,12 @@ try {
 pnpm add -g @lokvis/cli
 
 lokvis run ./my-workflow.json ./input.png  # 执行 workflow
+lokvis validate ./my-workflow.json         # 校验 workflow(不执行)
+lokvis list ./workflows/                   # 列出 workflow 文件
 lokvis capabilities                         # 列出已注册能力
 lokvis plugin create my-plugin              # 脚手架创建新插件
-lokvis mcp                                  # 启动 MCP server(stdio)
 lokvis version
 lokvis help
 ```
 
-> 注意:依赖浏览器 API(Canvas / createImageBitmap)的能力无法在 Node.js 中运行,`lokvis run` 仅适用于不依赖浏览器的 workflow。
+> 注意:CLI 注入 Node.js 引擎(如 sharp 用于图片处理),多数 workflow 无需浏览器即可运行。MCP server 请使用 `@lokvis/mcp-server`(独立二进制)。

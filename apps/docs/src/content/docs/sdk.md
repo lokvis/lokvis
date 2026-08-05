@@ -32,7 +32,6 @@ const lokvis = await createLokvis({
 | `storageQuota` | `number` | — | Storage quota in bytes; throws `QuotaExceededError` when exceeded |
 | `plugins` | `Plugin[]` | `[]` | List of plugins (e.g. `imageToolsPlugin()`) |
 | `auth?` | `object` | — | Cloud-injected session/token (for Pro features; the open repo does not depend on it) |
-| `historyLimit?` | `number` | `10` | History stack limit (default 10-step LRU) |
 | `memoryBudget?` | `number` | `DEFAULT_MEMORY_BUDGET` | MemoryGuard memory budget in bytes |
 
 ## Runtime API
@@ -46,6 +45,7 @@ const lokvis = await createLokvis({
 | `status` | `RuntimeStatus` (readonly property) | Current status |
 | `eventBus` | `EventBus` (readonly property) | Event bus (subscribe / publish) |
 | `isPro` | `boolean` (readonly property) | Whether Pro mode is active (affects batch limit / concurrency slots / workflow count) |
+| `plan` | `Plan` (readonly property) | User subscription plan (`'free'` / `'pro'` / `'cloud_pro'` / `'enterprise'`); `isPro` is derived from `plan !== 'free'` |
 | `batch` | `BatchProcessor` (readonly property) | Batch processor (concurrency control + progress + retry) |
 | `importAsset(source)` | `Promise<AssetId>` | Import an asset (File / Blob / URL / base64) |
 | `getAsset(id)` | `Promise<Asset>` | Get asset metadata |
@@ -53,12 +53,15 @@ const lokvis = await createLokvis({
 | `removeAsset(id)` | `Promise<void>` | Delete an asset (reclaims quota) |
 | `listAssets()` | `Promise<Asset[]>` | List all assets |
 | `readAssetExif(id)` | `Promise<ExifData \| null>` | Read EXIF metadata of an image asset (returns null for non-image / no EXIF / no reader registered) |
+| `readAssetImageMetadata(id)` | `Promise<ImageMetadata \| null>` | Read image asset dimensions/format metadata (returns null for non-image / no reader registered) |
+| `readAssetPdfInfo(id)` | `Promise<PdfInfo \| null>` | Read PDF asset page count (returns null for non-pdf / no reader registered) |
 | `run(workflow, inputs, options?)` | `Promise<WorkflowResult>` | Execute a workflow (optional RunOptions: `appendHistory`) |
 | `cancel(workflowId)` | `Promise<void>` | Cancel execution (AbortSignal flows through to the Worker) |
 | `pause(workflowId)` | `Promise<void>` | Pause execution |
 | `resume(workflowId)` | `Promise<void>` | Resume execution |
 | `getCurrentOutputs(workflowId)` | `Promise<AssetId[]>` | Get the workflow's current output AssetIds (the "current" state after undo/redo) |
 | `disposeWorkflow(workflowId)` | `Promise<void>` | Dispose workflow runtime state (cancel run + clear history stack + reclaim history output assets) |
+| `dispose()` | `Promise<void>` | Dispose the entire Runtime (cancel all runs + clear all history + clean up event bus); throws if used after disposal |
 | `history(workflowId)` | `Promise<HistoryEntry[]>` | Get the workflow execution history |
 | `getHistoryState(workflowId)` | `Promise<{ entries: HistoryEntry[]; cursor: number }>` | Get history state (cursor -1 means no applied entries) |
 | `undo(workflowId)` | `Promise<void>` | Undo one step |
@@ -70,18 +73,15 @@ const lokvis = await createLokvis({
 | `getStorageUsage()` | `Promise<{ usage: number; quota: number }>` | Get storage usage (used / quota, in bytes) |
 | `toMcpManifest(options?)` | `McpManifest` (sync) | Generate an MCP server manifest (`options.batchMode` controls whether batch-only capabilities are exposed; private ones are never exposed) |
 | `installPlugin(plugin)` | `Promise<void>` | Install a plugin (register capabilities → build PluginContext → call plugin.install → emit `plugin:loaded` event; throws PluginLoadError on failure) |
+| `listPanels()` | `PanelDefinition[]` (sync) | List all UI panels registered by plugins via `ctx.registerPanel()` |
 
 ### Event Bus
 
 ```typescript
 lokvis.eventBus.on('asset:imported', (e) => console.log('Imported:', e.assetId));
 lokvis.eventBus.on('workflow:started', (e) => console.log('Started:', e.workflowId));
-lokvis.eventBus.on('workflow:completed', (e) => console.log('Done:', e.elapsedMs));
-lokvis.eventBus.on('history:changed', (e) => console.log('History:', e.action));
-lokvis.eventBus.on('memory:pressure', (e) => console.log('Pressure:', e.level));
-
-// One-shot
-lokvis.eventBus.once('workflow:completed', handler);
+lokvis.eventBus.on('workflow:completed', (e) => console.log('Done:', e.result.duration, 'ms'));
+lokvis.eventBus.on('history:changed', (e) => console.log('History:', e.workflowId, 'cursor:', e.currentIndex));
 
 // Unsubscribe
 const off = lokvis.eventBus.on('asset:imported', handler);
@@ -141,7 +141,7 @@ The Pro flag is injected by the Cloud (`auth.session`); the open repo is always 
 
 ```typescript
 const manifest = lokvis.toMcpManifest({
-  includeStubCapabilities: false, // Exclude stub capabilities by default
+  batchMode: true, // Expose batch-only capabilities (default false)
 });
 
 console.log(manifest.tools);
@@ -241,11 +241,12 @@ try {
 pnpm add -g @lokvis/cli
 
 lokvis run ./my-workflow.json ./input.png  # Run a workflow
-lokvis capabilities                         # List registered capabilities
-lokvis plugin create my-plugin              # Scaffold a new plugin
-lokvis mcp                                  # Start an MCP server (stdio)
+lokvis validate ./my-workflow.json         # Validate a workflow without running
+lokvis list ./workflows/                   # List workflow files in a directory
+lokvis capabilities                        # List registered capabilities
+lokvis plugin create my-plugin             # Scaffold a new plugin
 lokvis version
 lokvis help
 ```
 
-> Note: Capabilities that depend on browser APIs (Canvas / createImageBitmap) cannot run in Node.js, so `lokvis run` only applies to workflows that don't depend on the browser.
+> Note: The CLI injects Node.js engines (e.g. sharp for image processing) so most workflows run without a browser. For MCP server usage, see `@lokvis/mcp-server` (separate binary).

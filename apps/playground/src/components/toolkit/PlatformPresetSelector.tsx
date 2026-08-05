@@ -25,7 +25,13 @@ import {
   type PlatformPresetCategory,
 } from '@lokvis/capability';
 import { Dialog } from '@lokvis/ui-core';
-import { useCustomPresets, type CustomPreset } from './useCustomPresets';
+import { useCustomPresets, type CustomSizePreset } from '@lokvis/ui-react';
+import { migrateLegacyCustomPresets } from './migrateCustomPresets';
+
+// 首次加载时把旧版 playground(W8.3, key `lokvis.custom-presets`)数据
+// 合并进 ui-react 的统一存储(key `lokvis.customPresets`),幂等且带 try/catch。
+// 必须在使用 hook 的组件渲染前执行,故放在模块顶层。
+migrateLegacyCustomPresets();
 
 export interface PlatformPresetSelectorProps {
   /** 当前选中的预设 id(null 表示未选) */
@@ -60,9 +66,9 @@ export interface PlatformPresetSelectorProps {
  * category 字段仅用于满足类型约束,实际渲染时自定义预设走独立 optgroup,
  * 不参与内置分类分组。
  */
-function toPresetShape(custom: CustomPreset): PlatformSizePreset {
+function toPresetShape(custom: CustomSizePreset): PlatformSizePreset {
   return {
-    id: `custom.${custom.id}`,
+    id: custom.id,
     platform: '我的预设',
     name: custom.name,
     width: custom.width,
@@ -109,10 +115,9 @@ export function PlatformPresetSelector({
       onSelect(null);
       return;
     }
-    // 自定义预设
+    // 自定义预设(ui-react 的 id 自带 `custom.` 前缀)
     if (id.startsWith('custom.')) {
-      const customId = id.slice('custom.'.length);
-      const custom = customPresets.find((c) => c.id === customId);
+      const custom = customPresets.find((c) => c.id === id);
       if (custom) onSelect(toPresetShape(custom));
       return;
     }
@@ -143,8 +148,7 @@ export function PlatformPresetSelector({
   const openDeleteDialog = () => {
     if (customPresets.length === 0) return;
     // 优先默认选中当前选中的自定义预设(若当前选中的是自定义预设),否则列表第一个
-    const selectedCustomId =
-      value?.startsWith('custom.') ? value.slice('custom.'.length) : null;
+    const selectedCustomId = value?.startsWith('custom.') ? value : null;
     setDeleteId(selectedCustomId ?? customPresets[0]!.id);
     setDeleteOpen(true);
   };

@@ -23,9 +23,12 @@
 import {
   createBlobCapabilityImpl,
   createMergeCapabilityImpl,
+  deriveOutputMetadata,
+  deriveOutputMetadataWithSource,
+  isStubEngine,
 } from '@lokvis/plugin-sdk';
+import type { BlobOperation, MergeOperation } from '@lokvis/plugin-sdk';
 import type {
-  AssetMetadata,
   AssetType,
   BuiltinCapabilityName,
   CapabilityImplementation,
@@ -42,17 +45,11 @@ import {
   VIDEO_ENGINE,
 } from '@lokvis/engine-video';
 
-/** 单输入 → 单输出操作(1→1) */
-export type VideoOperation = (
-  blob: Blob,
-  params: Record<string, unknown>
-) => Promise<Blob>;
+/** 单输入 → 单输出操作(1→1,FO-39:复用 plugin-sdk 通用类型) */
+export type VideoOperation = BlobOperation;
 
-/** 多输入 → 单输出操作(N→1,merge) */
-export type MergeVideoOperation = (
-  blobs: Blob[],
-  params: Record<string, unknown>
-) => Promise<Blob>;
+/** 多输入 → 单输出操作(N→1,merge,FO-39:复用 plugin-sdk 通用类型) */
+export type MergeVideoOperation = MergeOperation;
 
 /** 视频能力实现绑定项(capability name → engine + operation + outputType) */
 export interface VideoOperationEntry {
@@ -93,30 +90,13 @@ export const MERGE_OPERATION: {
 };
 
 /** 浏览器版 stub 状态单点推导(AGENTS.md 约定:version 含 'stub') */
-const isStub = VIDEO_ENGINE.version.includes('stub');
+const isStub = isStubEngine(VIDEO_ENGINE);
 
-/** 从输出 Blob 派生 video/audio/image 类型 Asset 元数据 */
-export function deriveVideoMetadata(outputType: AssetType): (outBlob: Blob) => AssetMetadata {
-  return (outBlob: Blob) => {
-    let fallback: { mimeType: string; format: string };
-    switch (outputType) {
-      case 'video':
-        fallback = { mimeType: 'video/mp4', format: 'mp4' };
-        break;
-      case 'audio':
-        fallback = { mimeType: 'audio/mpeg', format: 'mp3' };
-        break;
-      case 'image':
-        fallback = { mimeType: 'image/png', format: 'png' };
-        break;
-      default:
-        fallback = { mimeType: 'application/octet-stream', format: 'bin' };
-    }
-    const mimeType = outBlob.type || fallback.mimeType;
-    const format = mimeType.split('/')[1] ?? fallback.format;
-    return { mimeType, size: outBlob.size, format };
-  };
-}
+/**
+ * 从输出 Blob 派生 video/audio/image 类型 Asset 元数据
+ * @deprecated 使用 plugin-sdk 的 deriveOutputMetadata 代替,此导出仅为向后兼容保留
+ */
+export const deriveVideoMetadata = deriveOutputMetadata;
 
 /**
  * 构造所有视频能力的 CapabilityImplementation(浏览器版,全 stub)
@@ -129,7 +109,6 @@ export function buildVideoCapabilityImplementations(
   ctx: PluginContext
 ): CapabilityImplementation[] {
   const singleImpls = VIDEO_OPERATION_ENTRIES.map((entry) => {
-    const derive = deriveVideoMetadata(entry.outputType);
     return createBlobCapabilityImpl(
       {
         capability: entry.capability,
@@ -137,13 +116,12 @@ export function buildVideoCapabilityImplementations(
         outputType: entry.outputType,
         operation: entry.operation,
         isStub,
-        deriveMetadata: (_source, outBlob) => derive(outBlob),
+        deriveMetadata: deriveOutputMetadataWithSource(entry.outputType),
       },
       ctx
     );
   });
 
-  const mergeDerive = deriveVideoMetadata(MERGE_OPERATION.outputType);
   const mergeImpl = createMergeCapabilityImpl(
     {
       capability: MERGE_OPERATION.capability,
@@ -151,7 +129,7 @@ export function buildVideoCapabilityImplementations(
       outputType: MERGE_OPERATION.outputType,
       operation: MERGE_OPERATION.operation,
       isStub,
-      deriveMetadata: mergeDerive,
+      deriveMetadata: deriveOutputMetadata(MERGE_OPERATION.outputType),
     },
     ctx
   );

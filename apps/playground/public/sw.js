@@ -350,7 +350,7 @@ async function staleWhileRevalidate(request) {
   // 命中缓存立即返回；否则等待 network
   if (cached) {
     // 触发后台更新（不 await）
-    networkUpdate.catch(() => {});
+    networkUpdate.catch((err) => console.debug("[sw] background update failed:", err));
     return cached;
   }
   const resp = await networkUpdate;
@@ -620,7 +620,7 @@ async function handleAssetWithRetry(request) {
 
   if (cached) {
     // 触发后台更新（不 await）
-    networkUpdate.catch(() => {});
+    networkUpdate.catch((err) => console.debug("[sw] background update failed:", err));
     return cached;
   }
   const resp = await networkUpdate;
@@ -752,7 +752,7 @@ self.addEventListener('online', () => {
   // 仅在 false → true 转换时广播（避免重复通知）
   if (!wasOnline) {
     wasOnline = true;
-    notifyClients({ type: 'NETWORK_RECOVERED', version: SW_VERSION }).catch(() => {});
+    notifyClients({ type: 'NETWORK_RECOVERED', version: SW_VERSION }).catch((err) => console.debug("[sw] notifyClients failed:", err));
   }
 });
 self.addEventListener('offline', () => {

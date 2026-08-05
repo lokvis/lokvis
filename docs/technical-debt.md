@@ -14,6 +14,7 @@
 |---|---|---|---|
 | Phase 2 路线 | 1 项 | 中 | 按 Phase 2 路线推进(TD-1.1 / TD-1.3 / TD-1.4 / TD-1.5 已清偿,仅剩 TD-1.2) |
 | 测试环境 hack | 3 处 | 低 | 合理写法,非债务(记录备查) |
+| 有意设计 + 已知边界 | 1 项 | 低 | best-effort 取舍,记录豁免理由(记录备查) |
 
 **净评估**:无阻塞性债务。剩余 1 项(TD-1.2)是已知的功能性取舍(Phase 2 路线),其余技术债已全部清偿(详见 Review #9 / #10 / #11)。
 
@@ -50,6 +51,20 @@
 
 - **位置**:`packages/runtime/src/__tests__/worker-host.test.ts:174-176`
 - **做法**:临时移除 `crypto.randomUUID` 模拟降级
+
+---
+
+## 3. 有意设计 + 已知边界(记录备查,非缺陷)
+
+### TD-9.1 plugin-permissions 网络沙箱为 best-effort monkey-patch
+
+- **位置**:`packages/runtime/src/plugin-permissions.ts`(文件头部「设计取舍」注释为准)
+- **现状**:runtime 直接 monkey-patch `globalThis.fetch / XMLHttpRequest / WebSocket / EventSource` 实现 `network:none` 守卫,且仅在 `installPlugin()` 期间生效;capability `execute()` 路径由 plugin 经 `ctx.sandbox.assertNetworkAllowed()` 主动自检
+- **已知边界(有意为之)**:
+  - 窗口外的异步调用(如插件 `setTimeout` 回调)**不被覆盖** —— best-effort 守卫,不承诺进程级隔离
+  - `filesystem:opfs / filesystem:local` 仅做断言,不 monkey-patch OPFS API
+- **豁免理由**:真正的进程隔离(Realm / Worker / iframe sandbox)成本高且不在当前路线;monkey-patch 已覆盖 99% 网络调用路径,且语义明确、可测试。2026-07-15 全仓审计与 2026-08-04 全项目审查(FO-02)均确认此为有意设计
+- **触发条件**:若引入第三方不可信插件生态(需要真隔离),再评估 Realm / Worker sandbox 方案
 
 ---
 

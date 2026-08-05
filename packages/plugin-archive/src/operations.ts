@@ -18,6 +18,7 @@ import {
   createBlobCapabilityImpl,
   createMergeCapabilityImpl,
   createSplitCapabilityImpl,
+  isStubEngine,
 } from '@lokvis/plugin-sdk';
 import type {
   AssetMetadata,
@@ -35,7 +36,7 @@ import {
 const ENGINE = ARCHIVE_ENGINE.name;
 
 /** stub 状态单点推导(AGENTS.md 约定:version 含 'stub';archive 为真实现故为 false) */
-const isStub = ARCHIVE_ENGINE.version.includes('stub');
+const isStub = isStubEngine(ARCHIVE_ENGINE);
 
 /** 从输出 Blob 派生 data 类型 Asset 元数据(archive 输出统一为 data 类型) */
 function deriveDataMetadata(outBlob: Blob): AssetMetadata {

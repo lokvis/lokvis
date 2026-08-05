@@ -1,54 +1,47 @@
 /**
  * W5.6 · Batch Queue 工具页
  *
- * 拖拽多文件 → 队列 UI → 并发 4 处理 → 进度/状态显示。
+ * 拖拽多文件 → 队列 UI → runtime.batch 调度处理 → 进度/状态显示。
  * 每个文件 = importAsset + run(image.compress) + exportAsset。
  * 文件状态机:pending → processing → done/error。
  *
- * 并发池:维护一个 queueRef(源) + state(渲染),每次有 done/error 就补满到 4。
+ * FO-04:调度委托 runtime.batch(BatchProcessor)——并发随 plan 取值
+ * (free=FREE_CONCURRENCY / pro=PRO_CONCURRENCY)、免费批量上限由 enqueue
+ * 抛 BatchLimitExceededError 强制,不再组件自查;逐文件状态经
+ * useBatchRunner 的 batch:* 事件订阅驱动。
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { Workflow, Plan } from '@lokvis/sdk';
-import { FREE_BATCH_LIMIT, formatBytes } from '@lokvis/runtime';
+import { formatBytes } from '@lokvis/runtime';
 import { downloadBlob } from '@lokvis/embed-kit';
 import { UploadBox } from '@/components/toolkit/UploadBox';
 import { useLokvisRuntime } from '@/components/toolkit/useLokvisRuntime';
+import {
+  useBatchRunner,
+  type BatchRunnerItem,
+  type BatchRunnerStatus,
+} from '@/components/toolkit/useBatchRunner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PlanToggle } from '@/components/PlanToggle';
 import { UpgradeDialog, type UpgradeReason } from '@/components/UpgradeDialog';
 import { useLang } from '@/i18n/useLang';
 import { useTranslations } from '@/i18n/utils';
+import { sleep } from '@/utils/sleep';
 
 type Format = 'webp' | 'jpeg' | 'png';
-type ItemStatus = 'pending' | 'processing' | 'done' | 'error';
 
-interface QueueItem {
-  id: string;
-  file: File;
-  inputSize: number;
-  status: ItemStatus;
-  outputBlob?: Blob;
-  outputSize?: number;
-  error?: string;
-}
-
-const CONCURRENCY = 4;
-
-const STATUS_KEYS: Record<ItemStatus, string> = {
+const STATUS_KEYS: Record<BatchRunnerStatus, string> = {
   pending: 'batch.statusPending',
   processing: 'batch.statusProcessing',
   done: 'batch.statusDone',
   error: 'batch.statusError',
 };
 
-// 延迟工具,避免浏览器拦截多下载
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-
 // 状态徽章
-function StatusBadge({ status }: { status: ItemStatus }) {
+function StatusBadge({ status }: { status: BatchRunnerStatus }) {
   const lang = useLang();
   const t = useTranslations(lang);
-  const clsMap: Record<ItemStatus, string> = {
+  const clsMap: Record<BatchRunnerStatus, string> = {
     pending: 'bg-zinc-800 text-zinc-400',
     processing: 'bg-indigo-600/20 text-indigo-300',
     done: 'bg-emerald-600/20 text-emerald-300',
@@ -60,9 +53,6 @@ function StatusBadge({ status }: { status: ItemStatus }) {
     </span>
   );
 }
-
-let idSeq = 0;
-const nextId = () => `q-${Date.now()}-${(idSeq++).toString(36)}`;
 
 export default function BatchQueue() {
   return (
@@ -78,46 +68,19 @@ function BatchQueueContent() {
   // G1:plan 模拟(默认 free)。切换时 useLokvisRuntime 重建 runtime,触发四环门控。
   const [plan, setPlan] = useState<Plan>('free');
   const { runtime, ready, error: initError } = useLokvisRuntime({ plan });
-  const runtimeRef = useRef(runtime);
-  useEffect(() => {
-    runtimeRef.current = runtime;
-  }, [runtime]);
-  // G1:升级提示状态(null=不显示,UpgradeReason=显示对应文案)
-  const [upgradeReason, setUpgradeReason] = useState<UpgradeReason | null>(null);
 
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const queueRef = useRef<QueueItem[]>([]);
   const [format, setFormat] = useState<Format>('webp');
   const [quality, setQuality] = useState(80);
   const [error, setError] = useState<string | null>(null);
   const [batchDownloading, setBatchDownloading] = useState(false);
   // 错误详情可见性:记录当前展开查看错误的 item id
   const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null);
+  // G1:升级提示状态(null=不显示,UpgradeReason=显示对应文案)
+  const [upgradeReason, setUpgradeReason] = useState<UpgradeReason | null>(null);
 
-  // 调度器引用(打破 processItem ↔ schedule 的循环依赖)
-  const scheduleRef = useRef<() => void>(() => {});
-
-  // W21.6: 跟踪进行中的 workflow id + 组件挂载状态,unmount 时 cancel 避免后台泄漏
-  const processingWfIdsRef = useRef<Set<string>>(new Set());
-  const mountedRef = useRef(true);
-
-  // ref 与 state 同步更新:ref 为源,触发 re-render
-  const commit = useCallback((next: QueueItem[]) => {
-    queueRef.current = next;
-    setQueue(next);
-  }, []);
-
-  const patchItem = useCallback(
-    (id: string, patch: Partial<QueueItem>) => {
-      commit(queueRef.current.map((it) => (it.id === id ? { ...it, ...patch } : it)));
-    },
-    [commit]
-  );
-
-  // 构造 compress workflow(id 由调用方传入,便于 processItem 提前登记到 cancel 跟踪)
   const buildWorkflow = useCallback(
-    (workflowId: string): Workflow => ({
-      id: workflowId,
+    (item: BatchRunnerItem): Workflow => ({
+      id: `batch-${item.id}`,
       version: '1.0',
       name: 'Batch Compress',
       description: 'Batch compress images',
@@ -134,135 +97,37 @@ function BatchQueueContent() {
     [format, quality]
   );
 
-  // 处理单个文件:import → run → export,完成后调度下一个
-  const processItem = useCallback(
-    async (item: QueueItem) => {
-      const rt = runtimeRef.current;
-      if (!rt) return;
-      // W21.6: workflowId 提前生成并登记,unmount 时可统一 cancel
-      const workflowId = `batch-${item.id}-${Date.now()}`;
-      processingWfIdsRef.current.add(workflowId);
-      try {
-        const assetId = await rt.importAsset({ kind: 'file', file: item.file });
-        // 已 unmount:不再 patch state,也不再调度后续(避免泄漏 + 无效更新)
-        if (!mountedRef.current) return;
-        const result = await rt.run(buildWorkflow(workflowId), [assetId]);
-        if (!mountedRef.current) return;
-        if (result.status === 'completed' && result.outputs[0]) {
-          const blob = await rt.exportAsset(result.outputs[0]);
-          if (!mountedRef.current) return;
-          patchItem(item.id, { status: 'done', outputBlob: blob, outputSize: blob.size });
-        } else {
-          patchItem(item.id, { status: 'error', error: result.error ?? t('batch.processFailed') });
-        }
-      } catch (err) {
-        if (!mountedRef.current) return;
-        patchItem(item.id, {
-          status: 'error',
-          error: err instanceof Error ? err.message : String(err),
-        });
-      } finally {
-        processingWfIdsRef.current.delete(workflowId);
-        if (mountedRef.current) scheduleRef.current();
-      }
-    },
-    [buildWorkflow, patchItem, t]
-  );
-
-  // 并发池调度:补满到 CONCURRENCY,用原子化补满避免竞态。
-  // 竞态修复(#2):原版 schedule 读 running 计数后循环 patchItem,
-  // 若两个 processItem 几乎同时完成并都调 schedule,会读到相同的 running 快照,
-  // 双方都补满 slots 导致实际并发超过 CONCURRENCY。
-  // 修复:单次 schedule 内一次性把所有 pending→processing 的 patch 合并提交,
-  // 不依赖多次 patchItem 间的中间状态;并加 scheduleLock 防止重入。
-  const scheduleLock = useRef(false);
-  const schedule = useCallback(() => {
-    if (scheduleLock.current) return;
-    const rt = runtimeRef.current;
-    if (!rt) return;
-    scheduleLock.current = true;
-    try {
-      const items = queueRef.current;
-      const running = items.filter((i) => i.status === 'processing').length;
-      const slots = CONCURRENCY - running;
-      if (slots <= 0) return;
-      const toStart = items.filter((i) => i.status === 'pending').slice(0, slots);
-      if (toStart.length === 0) return;
-      // 一次性合并 patch:把所有 toStart 的状态改为 processing
-      const startIds = new Set(toStart.map((i) => i.id));
-      const next = items.map((it) =>
-        startIds.has(it.id) ? { ...it, status: 'processing' as ItemStatus } : it
-      );
-      commit(next);
-      // 启动处理(异步,不阻塞 schedule)
-      for (const item of toStart) {
-        void processItem(item);
-      }
-    } finally {
-      scheduleLock.current = false;
-    }
-  }, [commit, processItem]);
-
-  useEffect(() => {
-    scheduleRef.current = schedule;
-  }, [schedule]);
-
-  // W21.6: unmount 时 cancel 所有进行中 workflow,防止 fire-and-forget 的
-  // processItem 在后台继续执行(rt.run 持有 Worker + 内存,泄漏风险 P0)
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      const rt = runtimeRef.current;
-      if (!rt) return;
-      for (const wfId of processingWfIdsRef.current) {
-        // cancel 是 idempotent 的:不存在的 workflowId 安全无副作用
-        void rt.cancel(wfId).catch((err) => {
-          console.warn(`[lokvis] BatchQueue unmount: cancel(${wfId}) failed:`, err);
-        });
-      }
-      processingWfIdsRef.current.clear();
-    };
-  }, []);
+  const { queue, processing, addFiles, processAll, clear } = useBatchRunner({
+    runtime,
+    buildWorkflow,
+  });
 
   const handleFiles = useCallback(
     (files: File[]) => {
-      if (files.length === 0) return;
-      // G1:Free plan 触达 batch 上限时显示升级提示(四环之一)
-      // 注:BatchQueue 自身并发逻辑不强制此上限(用 runtime.batch.enqueue 才会抛
-      // BatchLimitExceededError);这里手动检查以演示 G1 的 UI 路径。
-      const projectedTotal = queueRef.current.length + files.length;
-      if (plan === 'free' && projectedTotal > FREE_BATCH_LIMIT) {
-        setUpgradeReason('batchLimit');
-      }
-      const newItems: QueueItem[] = files.map((file) => ({
-        id: nextId(),
-        file,
-        inputSize: file.size,
-        status: 'pending',
-      }));
-      commit([...queueRef.current, ...newItems]);
+      addFiles(files);
       setError(null);
     },
-    [commit, plan]
+    [addFiles]
   );
 
-  const handleProcessAll = useCallback(() => {
+  const handleProcessAll = useCallback(async () => {
     if (!ready) {
       setError(t('batch.runtimeNotReady'));
       return;
     }
     setError(null);
-    schedule();
-  }, [ready, schedule, t]);
+    const result = await processAll();
+    // G1:免费批量上限由 runtime.batch.enqueue 抛错强制,UI 据此弹升级提示
+    if (result === 'limit') setUpgradeReason('batchLimit');
+  }, [processAll, ready, t]);
 
-  const handleClear = useCallback(() => {
-    commit([]);
-  }, [commit]);
+  const handleClear = useCallback(async () => {
+    await clear();
+  }, [clear]);
 
   // 单个下载:用选中格式作为扩展名
   const handleDownloadOne = useCallback(
-    (item: QueueItem) => {
+    (item: BatchRunnerItem) => {
       if (!item.outputBlob) return;
       const base = item.file.name.replace(/\.[^.]+$/, '') || 'image';
       downloadBlob(item.outputBlob, `${base}.${format}`);
@@ -272,7 +137,7 @@ function BatchQueueContent() {
 
   // 全部下载:逐个触发,间隔 150ms 避免浏览器拦截
   const handleDownloadAll = useCallback(async () => {
-    const done = queueRef.current.filter((i) => i.status === 'done' && i.outputBlob);
+    const done = queue.filter((i) => i.status === 'done' && i.outputBlob);
     if (done.length === 0) return;
     setBatchDownloading(true);
     try {
@@ -284,14 +149,13 @@ function BatchQueueContent() {
     } finally {
       setBatchDownloading(false);
     }
-  }, [format]);
+  }, [format, queue]);
 
   // 派生统计
   const total = queue.length;
   const finished = queue.filter((i) => i.status === 'done' || i.status === 'error').length;
   const doneCount = queue.filter((i) => i.status === 'done').length;
   const hasPending = queue.some((i) => i.status === 'pending');
-  const processing = queue.some((i) => i.status === 'processing');
   const pct = total === 0 ? 0 : (finished / total) * 100;
 
   return (
@@ -338,14 +202,14 @@ function BatchQueueContent() {
         {/* 操作按钮:居中处理 + 右侧清空(与其他工具页布局一致) */}
         <div className="flex items-center gap-3">
           <button
-            onClick={handleProcessAll}
+            onClick={() => void handleProcessAll()}
             disabled={!ready || !hasPending || processing}
             className="mx-auto rounded-lg bg-indigo-600 px-24 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {processing ? t('batch.processing') : hasPending ? t('batch.processAll') : t('batch.completed')}
           </button>
           <button
-            onClick={handleClear}
+            onClick={() => void handleClear()}
             disabled={total === 0}
             className="rounded-lg border border-zinc-700 px-4 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -422,7 +286,7 @@ function BatchQueueContent() {
                 {t('batch.progressPrefix')}{finished}{t('batch.progressMiddle')}{total}{t('batch.progressSuffix')}{doneCount}{t('batch.progressEnd')}
               </span>
               <button
-                onClick={handleDownloadAll}
+                onClick={() => void handleDownloadAll()}
                 disabled={doneCount === 0 || batchDownloading}
                 className="rounded-lg border border-zinc-700 px-4 py-1 text-xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
               >

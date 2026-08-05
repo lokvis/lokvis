@@ -48,9 +48,9 @@ vi.mock('../internal/format-support', () => ({
 
 // wasm 兜底开关 mock:默认关闭(保持既有"纯原生门控"用例语义不变),
 // wasm 专项用例按需 mockReturnValue(true)。
-// 注:useImageConvert 通过 @lokvis/plugin-image(Capability 桥接)访问,非直接引 engine-image。
+// 注:useImageConvert 从 @lokvis/sdk/image 导入 wasmEncodersEnabled。
 const wasmEncodersEnabledMock = vi.fn(() => false);
-vi.mock('@lokvis/plugin-image', () => ({
+vi.mock('@lokvis/sdk/image', () => ({
   wasmEncodersEnabled: () => wasmEncodersEnabledMock(),
 }));
 

@@ -52,6 +52,15 @@ import type { VideoEngineDescriptor } from '../types.js';
 export const VIDEO_ENGINE: VideoEngineDescriptor = {
   name: 'ffmpeg-static',
   version: '0.7.1',
+  supportedCapabilities: [
+    'video.compress',
+    'video.transcode',
+    'video.trim',
+    'video.extract-audio',
+    'video.to-gif',
+    'video.screenshot',
+    'video.merge',
+  ],
 };
 
 export type { VideoEngineDescriptor } from '../types.js';

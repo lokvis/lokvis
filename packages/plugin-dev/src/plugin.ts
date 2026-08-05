@@ -16,7 +16,7 @@
  * 能力实现拆分到 capabilities/ 目录,本文件只保留 definePlugin 编排。
  */
 
-import { definePlugin } from '@lokvis/plugin-sdk';
+import { definePlugin, registerImplementations } from '@lokvis/plugin-sdk';
 import { DEV_CAPABILITIES } from '@lokvis/capability';
 import { buildDevCapabilityImplementations } from './capabilities/index.js';
 
@@ -48,9 +48,7 @@ export function devToolsPlugin() {
     },
     (ctx) => {
       const impls = buildDevCapabilityImplementations(ctx);
-      for (const impl of impls) {
-        ctx.registerCapability(impl);
-      }
+      registerImplementations(ctx, impls);
       ctx.log('info', `Registered ${DEV_CAPABILITIES.length} developer capabilities`);
     }
   );

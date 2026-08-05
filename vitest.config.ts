@@ -59,6 +59,12 @@ export default defineConfig({
         'packages/i18n/src/**/*.ts',
         // ADR-015 后 browser-adapter 已有单测,纳入覆盖率统计
         'packages/browser-adapter/src/**/*.ts',
+        // FO-26 后 workflow 已补 buildLinearWorkflow 测试,纳入覆盖率统计
+        'packages/workflow/src/**/*.ts',
+        // FO-19 后 cloud-bridge 已有单测,纳入覆盖率统计
+        'packages/cloud-bridge/src/**/*.ts',
+        // FO-25 后 embed-kit 已补单测,纳入覆盖率统计
+        'packages/embed-kit/src/**/*.ts',
       ],
       // 排除:测试文件、barrel index、纯类型文件、stub/未测试包
       exclude: [

@@ -6,25 +6,13 @@
  * @lokvis/runtime(formatBytes),消费方直接从对应包导入,不在此中转。
  */
 import { formatBytes } from '@lokvis/runtime';
+import { formatFromMime } from '@lokvis/schema';
 
 export interface ImageInfo {
   width: number;
   height: number;
   size: number;
   format: string;
-}
-
-/**
- * 从 MIME 类型提取格式名。
- * - image/jpeg → JPEG
- * - image/svg+xml → SVG(去掉 +xml 后缀)
- * - image/webp → WEBP
- * - 未知 → UNKNOWN
- */
-function formatFromMime(mime: string): string {
-  const sub = mime.split('/')[1] ?? 'unknown';
-  const main = sub.split('+')[0] ?? sub;
-  return main.toUpperCase();
 }
 
 /**

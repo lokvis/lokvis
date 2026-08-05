@@ -12,6 +12,9 @@
  *  - 用户也可另起 `createLokvis()` 创建独立实例(用于演示工厂用法)。
  */
 
+// FO-05:限额文案引用 @lokvis/schema 单一事实源,不再硬编码数字
+import { FREE_BATCH_LIMIT, FREE_CONCURRENCY, PRO_CONCURRENCY } from '@lokvis/schema';
+
 export interface Snippet {
   /** 唯一 id,用作 select value 与 localStorage snippetId */
   id: string;
@@ -157,21 +160,17 @@ manifest.tools.slice(0, 3).forEach((t) => console.log('  -', t.name));
     descEn: 'BatchProcessor enqueue + onProgress',
     descZh: '入队 + 进度回调',
     code: `// Use the BatchProcessor for concurrent jobs.
-// Free tier limits: 10 files / 4 concurrency (Pro: unlimited / 16).
+// Free tier limits: ${FREE_BATCH_LIMIT} files / ${FREE_CONCURRENCY} concurrency (Pro: unlimited / ${PRO_CONCURRENCY}).
 
 const batch = lokvis.batch;
 
 console.log('Batch processor ready.');
-console.log('Stats:', {
-  pending: batch.stats.pending,
-  running: batch.stats.running,
-  completed: batch.stats.completed,
-});
+console.log('Jobs:', batch.list());
 
-// Note: real enqueue requires Asset IDs — see "Resize an uploaded image" snippet
+// Note: real enqueue requires BatchItemInput[] — see "Resize an uploaded image" snippet
 // for an end-to-end example. Here we only inspect the processor.
 
-console.log('Free limits: 10 files / 4 concurrency.');
+console.log('Free limits: ${FREE_BATCH_LIMIT} files / ${FREE_CONCURRENCY} concurrency.');
 `,
   },
 ] as const;

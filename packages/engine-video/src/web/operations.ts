@@ -37,6 +37,7 @@ import type {
   VideoOutputFormat,
 } from '../types.js';
 import { getFfmpegInstance } from './ffmpeg-instance.js';
+import { mimeForFormat, extForFormat as schemaExtForFormat } from '@lokvis/schema';
 
 /** 操作计数器(生成唯一文件名,避免并发冲突) */
 let opCounter = 0;
@@ -44,38 +45,29 @@ function nextId(): string {
   return `op_${Date.now()}_${++opCounter}`;
 }
 
-/** 根据输出格式推断 MIME 类型 */
+/**
+ * ffmpeg 虚拟文件系统清理(best-effort,FO-07)。
+ *
+ * 清理失败仅意味着残留临时文件(下次操作覆盖/实例销毁即消失),
+ * 不应中断主流程;但不再静默吞错,以 console.debug 记录便于排查
+ * FS 泄漏类问题(TD-3.x 清偿口径)。
+ */
+async function safeDeleteFile(ffmpeg: FFmpeg, name: string): Promise<void> {
+  await ffmpeg.deleteFile(name).catch((err) => {
+    console.debug(`[lokvis:engine-video] ffmpeg FS cleanup failed (${name}):`, err);
+  });
+}
+
+/** 根据输出格式推断 MIME 类型(委托 @lokvis/schema 单一映射表,FO-14) */
 function mimeTypeForFormat(
   format: VideoOutputFormat | 'mp3' | 'aac' | 'wav' | 'png' | 'jpeg' | 'webp' | 'gif'
 ): string {
-  switch (format) {
-    case 'mp4': return 'video/mp4';
-    case 'webm': return 'video/webm';
-    case 'gif': return 'image/gif';
-    case 'mp3': return 'audio/mpeg';
-    case 'aac': return 'audio/aac';
-    case 'wav': return 'audio/wav';
-    case 'png': return 'image/png';
-    case 'jpeg': return 'image/jpeg';
-    case 'webp': return 'image/webp';
-    default: return 'application/octet-stream';
-  }
+  return mimeForFormat(format);
 }
 
-/** 根据格式推断文件扩展名 */
-function extForFormat(format: string): string {
-  switch (format) {
-    case 'mp4': return 'mp4';
-    case 'webm': return 'webm';
-    case 'gif': return 'gif';
-    case 'mp3': return 'mp3';
-    case 'aac': return 'aac';
-    case 'wav': return 'wav';
-    case 'png': return 'png';
-    case 'jpeg': return 'jpg';
-    case 'webp': return 'webp';
-    default: return 'bin';
-  }
+/** 根据格式推断文件扩展名(委托 @lokvis/schema 单一映射表,FO-14) */
+function localExtForFormat(format: string): string {
+  return schemaExtForFormat(format);
 }
 
 /** 从 Blob.type 推断视频输入扩展名(用于 ffmpeg 虚拟文件系统命名) */
@@ -122,8 +114,8 @@ async function runSingleOp(
     return new Blob([outputData.slice()], { type: outputMime });
   } finally {
     // 清理虚拟文件系统
-    await ffmpeg.deleteFile(inputName).catch(() => {});
-    await ffmpeg.deleteFile(outputName).catch(() => {});
+    await safeDeleteFile(ffmpeg, inputName);
+    await safeDeleteFile(ffmpeg, outputName);
   }
 }
 
@@ -162,7 +154,7 @@ export async function compressVideo(
   // H.264 + yuv420p(最大兼容性)
   args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-movflags', '+faststart');
 
-  return runSingleOp(ffmpeg, blob, inputExtFromBlob(blob), [], args, extForFormat(format), mimeTypeForFormat(format));
+  return runSingleOp(ffmpeg, blob, inputExtFromBlob(blob), [], args, localExtForFormat(format), mimeTypeForFormat(format));
 }
 
 /**
@@ -197,7 +189,7 @@ export async function transcodeVideo(
   }
   args.push('-movflags', '+faststart');
 
-  return runSingleOp(ffmpeg, blob, inputExtFromBlob(blob), [], args, extForFormat(p.format), mimeTypeForFormat(p.format));
+  return runSingleOp(ffmpeg, blob, inputExtFromBlob(blob), [], args, localExtForFormat(p.format), mimeTypeForFormat(p.format));
 }
 
 /**
@@ -258,12 +250,12 @@ export async function mergeVideos(
   const id = nextId();
   const inputNames: string[] = [];
   const listName = `${id}_list.txt`;
-  const outputName = `${id}_out.${extForFormat(format)}`;
+  const outputName = `${id}_out.${localExtForFormat(format)}`;
 
   try {
     // 写入所有输入文件
     for (let i = 0; i < blobs.length; i++) {
-      const name = `${id}_in${i}.${extForFormat(format)}`;
+      const name = `${id}_in${i}.${localExtForFormat(format)}`;
       const data = new Uint8Array(await blobs[i]!.arrayBuffer());
       await ffmpeg.writeFile(name, data);
       inputNames.push(name);
@@ -280,10 +272,10 @@ export async function mergeVideos(
     return new Blob([outputData.slice()], { type: mimeTypeForFormat(format) });
   } finally {
     for (const name of inputNames) {
-      await ffmpeg.deleteFile(name).catch(() => {});
+      await safeDeleteFile(ffmpeg, name);
     }
-    await ffmpeg.deleteFile(listName).catch(() => {});
-    await ffmpeg.deleteFile(outputName).catch(() => {});
+    await safeDeleteFile(ffmpeg, listName);
+    await safeDeleteFile(ffmpeg, outputName);
   }
 }
 
@@ -319,7 +311,7 @@ export async function extractAudio(
   }
 
   const inputExt = inputExtFromBlob(blob);
-  return runSingleOp(ffmpeg, blob, inputExt, [], args, extForFormat(format), mimeTypeForFormat(format));
+  return runSingleOp(ffmpeg, blob, inputExt, [], args, localExtForFormat(format), mimeTypeForFormat(format));
 }
 
 /**
@@ -388,9 +380,9 @@ export async function toGif(
     const outputData = await ffmpeg.readFile(outputName) as Uint8Array;
     return new Blob([outputData.slice()], { type: 'image/gif' });
   } finally {
-    await ffmpeg.deleteFile(inputName).catch(() => {});
-    await ffmpeg.deleteFile(paletteName).catch(() => {});
-    await ffmpeg.deleteFile(outputName).catch(() => {});
+    await safeDeleteFile(ffmpeg, inputName);
+    await safeDeleteFile(ffmpeg, paletteName);
+    await safeDeleteFile(ffmpeg, outputName);
   }
 }
 
@@ -426,7 +418,7 @@ export async function screenshotVideo(
       break;
   }
 
-  return runSingleOp(ffmpeg, blob, inputExtFromBlob(blob), preInput, postInput, extForFormat(format), mimeTypeForFormat(format));
+  return runSingleOp(ffmpeg, blob, inputExtFromBlob(blob), preInput, postInput, localExtForFormat(format), mimeTypeForFormat(format));
 }
 
 /**
@@ -454,8 +446,11 @@ export async function getVideoInfo(blob: Blob): Promise<VideoInfo> {
 
     try {
       // -f null -:解码输入并丢弃输出,正常情况退出码为 0
-      // .catch() 为防御性处理(损坏文件可能非零退出,但 log 中仍有部分信息)
-      await ffmpeg.exec(['-i', inputName, '-f', 'null', '-']).catch(() => {});
+      // .catch() 为防御性处理(损坏文件可能非零退出,但 log 中仍有部分信息);
+      // FO-07:不再静默,debug 级记录便于排查
+      await ffmpeg.exec(['-i', inputName, '-f', 'null', '-']).catch((err) => {
+        console.debug('[lokvis:engine-video] getVideoInfo probe exited non-zero:', err);
+      });
     } finally {
       ffmpeg.off('log', logHandler);
     }
@@ -509,6 +504,6 @@ export async function getVideoInfo(blob: Blob): Promise<VideoInfo> {
 
     return { width, height, duration, fps, codec };
   } finally {
-    await ffmpeg.deleteFile(inputName).catch(() => {});
+    await safeDeleteFile(ffmpeg, inputName);
   }
 }

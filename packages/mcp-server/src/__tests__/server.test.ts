@@ -9,6 +9,7 @@
  * 4. domains 控制注册的 tools
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -191,7 +192,7 @@ describe('createLokvisMcpServer', () => {
   });
 
   it('应支持 transportFactory 注入(测试用)', async () => {
-    const mockTransport = {
+    const mockTransport: Transport = {
       start: vi.fn(async () => {}),
       close: vi.fn(async () => {}),
       send: vi.fn(async () => {}),
@@ -200,7 +201,7 @@ describe('createLokvisMcpServer', () => {
       onmessage: undefined,
     };
     const { server } = await createLokvisMcpServer({
-      transportFactory: () => mockTransport as any,
+      transportFactory: () => mockTransport,
     });
     // 验证 transportFactory 被传入(不实际启动)
     expect(server).toBeDefined();

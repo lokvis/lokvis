@@ -12,6 +12,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./react": {
+      "types": "./src/react.tsx",
+      "import": "./src/react.tsx"
     }
   },
   "files": [
@@ -30,7 +34,16 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
+    "@types/react": "^19.0.0",
     "typescript": "^5.6.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public",
@@ -42,6 +55,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./react": {
+        "types": "./dist/react.d.ts",
+        "import": "./dist/react.js"
       }
     }
   },

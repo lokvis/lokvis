@@ -259,7 +259,7 @@ const blob = await lokvis.exportAsset(result.outputs[0]!);
 
 ## 10. Vitest test pattern
 
-Lokvis uses Vitest with `globals: false` (explicit imports), tests in `src/__tests__/`, and Chinese test descriptions. Browser APIs (`Canvas`, `createImageBitmap`, `OffscreenCanvas`) are faked with `vi.stubGlobal` or `vi.mock`.
+Lokvis uses Vitest with `globals: false` (explicit imports), tests in `src/__tests__/`, and Chinese test descriptions. Browser APIs (`Canvas`, `createImageBitmap`, `OffscreenCanvas`) should be faked via `@lokvis/browser-adapter`'s `createFakeAdapter()` (or per-interface fakes) rather than `vi.stubGlobal` — see [ADR-015](../../architecture#adr-015).
 
 ```ts
 // src/__tests__/plugin.test.ts

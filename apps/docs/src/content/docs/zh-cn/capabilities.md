@@ -17,7 +17,8 @@ head: []
 - `audio.*` — 音频处理
 - `pdf.*` — PDF 操作
 - `ai.*` — AI 驱动的操作
-- `developer.*` — 开发者工具(内省、性能分析)
+- `developer.*` — 开发者工具(内省、性能分析、实用工具)
+- `archive.*` — 归档操作(zip/unzip/list)
 
 ## 内置能力
 
@@ -32,6 +33,7 @@ head: []
 - `image.watermark` — 添加文字或图片水印
 - `image.background` — 设置背景色
 - `image.filter` — 应用滤镜预设(grayscale/invert/sepia/blur),blur 可指定 `radius`
+- `image.favicon` — 从源图生成多尺寸 favicon 集合
 
 ### 视频(Video)
 
@@ -50,6 +52,7 @@ head: []
 - `pdf.compress`
 - `pdf.rotate`
 - `pdf.watermark`
+- `pdf.add-page-numbers`
 - `pdf.ocr`
 - `pdf.sign`
 
@@ -69,11 +72,17 @@ head: []
 - `ai.ocr` — 本地 OCR(transformersEngine)
 - `ai.caption` — 图片描述,用于无障碍/SEO(transformersEngine)
 - `ai.background-remove` — 背景移除(transformersEngine)
+- `ai.diagnose-error` — AI 辅助工作流错误诊断(cloudProxyEngine)
 
 ### 资源(Asset)
 
 - `asset.rename` — 基于模式的重命名(`{name}` `{index}` `{date}`)
-- `asset.archive` — 将资源打包为 zip
+
+### 归档(Archive)
+
+- `archive.zip` — 将多个资源打包为 zip 归档
+- `archive.unzip` — 从 zip 归档中提取资源
+- `archive.list` — 列出 zip 归档内容
 
 ### 开发者(Developer)
 
@@ -81,6 +90,11 @@ head: []
 - `developer.inspect.asset`
 - `developer.validate.workflow`
 - `developer.profile`
+- `developer.regex.test` — 对输入文本测试正则表达式
+- `developer.diff` — 计算两个输入之间的文本差异
+- `developer.base64` — Base64 编码/解码
+- `developer.hash` — 计算输入的哈希值(SHA-256/MD5 等)
+- `developer.jwt.decode` — 解码 JWT token
 
 ## 自定义能力
 

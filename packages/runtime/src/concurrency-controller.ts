@@ -11,9 +11,8 @@
  */
 import type { MemoryGuard, MemoryPressure } from './memory-guard.js';
 
-/** 默认并发槽位 */
-export const FREE_CONCURRENCY = 4;
-export const PRO_CONCURRENCY = 16;
+// FO-05:默认并发槽位单一事实源在 @lokvis/schema plan-limits.ts,此处 re-export
+export { FREE_CONCURRENCY, PRO_CONCURRENCY } from '@lokvis/schema';
 
 /** 按 MemoryPressure 收缩并发槽位 */
 export function shrinkConcurrencyByPressure(

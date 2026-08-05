@@ -37,13 +37,24 @@ export {
   createCapabilityImpl,
   definePanel,
   defaultDeriveOutputMetadata,
+  deriveOutputMetadata,
+  deriveOutputMetadataWithSource,
   createBlobCapabilityImpl,
   createMergeCapabilityImpl,
   createSplitCapabilityImpl,
+  registerImplementations,
+  isStubEngine,
+  createBlobMetadataReader,
+  createStubMessage,
 } from './plugin-sdk.js';
 
 export type {
   BlobCapabilityOptions,
   MergeCapabilityOptions,
   SplitCapabilityOptions,
+  EngineDescriptor,
+  MetadataReaderContext,
+  BlobOperation,
+  MergeOperation,
+  SplitOperation,
 } from './plugin-sdk.js';

@@ -168,8 +168,9 @@ await page.goto('https://your-app.example.com');
 const fileBytes = readFileSync('./input.png');
 const result = await page.evaluate(async (bytes) => {
   const file = new File([new Uint8Array(bytes)], 'input.png', { type: 'image/png' });
-  const id = await (window as any).lokvis.importAsset({ kind: 'file', file });
-  return (window as any).lokvis.run(WORKFLOW, [id]);
+  const lokvis = (window as unknown as { lokvis: import('@lokvis/sdk').LokvisRuntime }).lokvis;
+  const id = await lokvis.importAsset({ kind: 'file', file });
+  return lokvis.run(WORKFLOW, [id]);
 }, fileBytes);
 
 console.log(result.status, result.duration);

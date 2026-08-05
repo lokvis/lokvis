@@ -68,9 +68,9 @@ export const ui: Dict = {
   'nav.tools.watermark.label': { en: 'Watermark', zh: '水印', ja: 'ウォーターマーク', es: 'Marca de agua', de: 'Wasserzeichen', fr: 'Filigrane' },
   'nav.tools.watermark.desc': { en: 'image.watermark · text watermark', zh: 'image.watermark · 文字水印', ja: 'image.watermark · テキストウォーターマーク', es: 'image.watermark · marca de agua de texto', de: 'image.watermark · Text-Wasserzeichen', fr: 'image.watermark · filigrane de texte' },
   'nav.tools.watermarkBatch.label': { en: 'Watermark Batch', zh: '批量水印', ja: 'ウォーターマーク一括', es: 'Marca de agua por lotes', de: 'Wasserzeichen-Stapel', fr: 'Filigrane par lot' },
-  'nav.tools.watermarkBatch.desc': { en: 'Batch watermark (concurrency 4)', zh: '批量加水印（并发 4）', ja: '一括ウォーターマーク（並行 4）', es: 'Marca de agua por lotes (concurrencia 4)', de: 'Stapel-Wasserzeichen (Nebenläufigkeit 4)', fr: 'Filigrane par lot (concurrence 4)' },
+  'nav.tools.watermarkBatch.desc': { en: 'Batch watermark (plan-based concurrency)', zh: '批量加水印（并发随计划）', ja: '一括ウォーターマーク（プラン別並行）', es: 'Marca de agua por lotes (concurrencia según plan)', de: 'Stapel-Wasserzeichen (Nebenläufigkeit je nach Plan)', fr: 'Filigrane par lot (concurrence selon plan)' },
   'nav.tools.batch.label': { en: 'Batch Queue', zh: '批量队列', ja: 'バッチキュー', es: 'Cola por lotes', de: 'Stapel-Warteschlange', fr: 'File d\'attente par lot' },
-  'nav.tools.batch.desc': { en: 'Batch concurrent processing (concurrency 4)', zh: '批量并发处理（并发 4）', ja: 'バッチ並行処理（並行 4）', es: 'Procesamiento por lotes concurrente (concurrencia 4)', de: 'Stapelverarbeitung mit Nebenläufigkeit (Nebenläufigkeit 4)', fr: 'Traitement par lot concurrent (concurrence 4)' },
+  'nav.tools.batch.desc': { en: 'Batch concurrent processing (plan-based concurrency)', zh: '批量并发处理（并发随计划）', ja: 'バッチ並行処理（プラン別並行）', es: 'Procesamiento por lotes concurrente (concurrencia según plan)', de: 'Stapelverarbeitung mit Nebenläufigkeit (Nebenläufigkeit je nach Plan)', fr: 'Traitement par lot concurrent (concurrence selon plan)' },
   'nav.tools.download.label': { en: 'Download Manager', zh: '下载管理器', ja: 'ダウンロードマネージャー', es: 'Gestor de descargas', de: 'Download-Manager', fr: 'Gestionnaire de téléchargement' },
   'nav.tools.download.desc': { en: 'Single/batch download management', zh: '单/批量下载管理', ja: '単一/一括ダウンロード管理', es: 'Gestión de descarga única/por lotes', de: 'Einzel-/Stapel-Download-Verwaltung', fr: 'Gestion de téléchargement unique/par lot' },
   'nav.tools.pdfCompress.label': { en: 'PDF Compress', zh: 'PDF 压缩', ja: 'PDF 圧縮', es: 'Comprimir PDF', de: 'PDF komprimieren', fr: 'Compresser PDF' },
@@ -449,7 +449,7 @@ export const ui: Dict = {
 
   // ─── Watermark Batch Tool ─────────────────────────────
   'watermark.batch.title': { en: 'Watermark Batch', zh: '批量水印', ja: 'ウォーターマーク一括', es: 'Marca de agua por lotes', de: 'Wasserzeichen-Stapel', fr: 'Filigrane par lot' },
-  'watermark.batch.subtitle': { en: 'image.watermark · batch watermark (concurrency 4)', zh: 'image.watermark · 批量加水印（并发 4）', ja: 'image.watermark · 一括ウォーターマーク（並行 4）', es: 'image.watermark · marca de agua por lotes (concurrencia 4)', de: 'image.watermark · Stapel-Wasserzeichen (Nebenläufigkeit 4)', fr: 'image.watermark · filigrane par lot (concurrence 4)' },
+  'watermark.batch.subtitle': { en: 'image.watermark · batch watermark (plan-based concurrency)', zh: 'image.watermark · 批量加水印（并发随计划）', ja: 'image.watermark · 一括ウォーターマーク（プラン別並行）', es: 'image.watermark · marca de agua por lotes (concurrencia según plan)', de: 'image.watermark · Stapel-Wasserzeichen (Nebenläufigkeit je nach Plan)', fr: 'image.watermark · filigrane par lot (concurrence selon plan)' },
   'watermark.batch.processAll': { en: 'Watermark all', zh: '全部加水印', ja: 'すべてにウォーターマークを追加', es: 'Marcar todo', de: 'Alle mit Wasserzeichen versehen', fr: 'Filigraner tout' },
   'watermark.batch.processing': { en: 'Processing…', zh: '处理中…', ja: '処理中…', es: 'Procesando…', de: 'Verarbeitung…', fr: 'Traitement…' },
   'watermark.batch.completed': { en: 'Completed', zh: '已完成', ja: '完了', es: 'Completado', de: 'Abgeschlossen', fr: 'Terminé' },
@@ -471,7 +471,7 @@ export const ui: Dict = {
 
   // ─── Batch Queue Tool ─────────────────────────────────
   'batch.title': { en: 'Batch Queue', zh: '批量队列', ja: 'バッチキュー', es: 'Cola por lotes', de: 'Stapel-Warteschlange', fr: 'File d\'attente par lot' },
-  'batch.subtitle': { en: 'image.compress · batch concurrent processing (concurrency 4)', zh: 'image.compress · 批量并发处理（并发 4）', ja: 'image.compress · バッチ並行処理（並行 4）', es: 'image.compress · procesamiento por lotes concurrente (concurrencia 4)', de: 'image.compress · Stapelverarbeitung mit Nebenläufigkeit (Nebenläufigkeit 4)', fr: 'image.compress · traitement par lot concurrent (concurrence 4)' },
+  'batch.subtitle': { en: 'image.compress · batch concurrent processing (plan-based concurrency)', zh: 'image.compress · 批量并发处理（并发随计划）', ja: 'image.compress · バッチ並行処理（プラン別並行）', es: 'image.compress · procesamiento por lotes concurrente (concurrencia según plan)', de: 'image.compress · Stapelverarbeitung mit Nebenläufigkeit (Nebenläufigkeit je nach Plan)', fr: 'image.compress · traitement par lot concurrent (concurrence selon plan)' },
   'batch.format': { en: 'Output format', zh: '输出格式', ja: '出力形式', es: 'Formato de salida', de: 'Ausgabeformat', fr: 'Format de sortie' },
   'batch.formatWebp': { en: 'WebP (recommended)', zh: 'WebP（推荐）', ja: 'WebP（推奨）', es: 'WebP (recomendado)', de: 'WebP (empfohlen)', fr: 'WebP (recommandé)' },
   'batch.formatJpeg': { en: 'JPEG', zh: 'JPEG', ja: 'JPEG', es: 'JPEG', de: 'JPEG', fr: 'JPEG' },

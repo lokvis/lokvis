@@ -118,6 +118,14 @@ describe('audioToolsPlugin 定义', () => {
     expect(plugin.config.permissions).toContain('asset:write');
     expect(plugin.config.permissions).toContain('network:none');
   });
+
+  it('AUDIO_ENGINE.supportedCapabilities 应覆盖全部 4 个声明能力(FO-03)', async () => {
+    const { AUDIO_ENGINE } = await import('@lokvis/engine-audio');
+    const plugin = audioToolsPlugin();
+    for (const cap of plugin.config.capabilities) {
+      expect(AUDIO_ENGINE.supportedCapabilities).toContain(cap.name);
+    }
+  });
 });
 
 describe('audioToolsPlugin install', () => {

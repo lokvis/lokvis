@@ -9,7 +9,7 @@
  * Asset→Asset 变换契约(见 schema/src/plugin.ts MetadataReader 注释)。
  */
 
-import { definePlugin } from '@lokvis/plugin-sdk';
+import { definePlugin, registerImplementations } from '@lokvis/plugin-sdk';
 import { IMAGE_CAPABILITIES } from '@lokvis/capability';
 import type { ExifData } from '@lokvis/schema';
 import { METADATA_READER_NAMES } from '@lokvis/schema';
@@ -50,9 +50,7 @@ export function imageToolsPlugin() {
     (ctx) => {
       // 变换能力(Asset→Asset,经 CapabilityRegistry / WorkflowExecutor)
       const impls = buildImageCapabilityImplementations(ctx);
-      for (const impl of impls) {
-        ctx.registerCapability(impl);
-      }
+      registerImplementations(ctx, impls);
 
       // 元数据读取(Asset→ExifData,经 MetadataReader,不经 WorkflowExecutor)
       // Runtime.readAssetExif 通过此 reader 调用,UI 不直接依赖 plugin / engine

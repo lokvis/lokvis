@@ -37,94 +37,13 @@ import type {
   VideoToGifParams,
   VideoScreenshotParams,
   VideoInfo,
-  VideoOutputFormat,
 } from '../types.js';
-
-/** ffmpeg-static 动态导入(可选 peerDependency,缺失时抛错) */
-async function getFfmpegPath(): Promise<string> {
-  try {
-    const mod = await import('ffmpeg-static');
-    // ffmpeg-static 默认导出 ffmpeg 二进制路径(string)
-    return (mod as { default: string }).default;
-  } catch (err) {
-    throw new Error(
-      `ffmpeg-static is required for Node-side video operations. ` +
-        `Install it with: pnpm add ffmpeg-static. ` +
-        `Original error: ${err instanceof Error ? err.message : String(err)}`
-    );
-  }
-}
-
-/** 根据输出格式推断 MIME 类型 */
-function mimeTypeForFormat(format: VideoOutputFormat | 'mp3' | 'aac' | 'wav' | 'png' | 'jpeg' | 'webp'): string {
-  switch (format) {
-    case 'mp4': return 'video/mp4';
-    case 'webm': return 'video/webm';
-    case 'gif': return 'image/gif';
-    case 'mp3': return 'audio/mpeg';
-    case 'aac': return 'audio/aac';
-    case 'wav': return 'audio/wav';
-    case 'png': return 'image/png';
-    case 'jpeg': return 'image/jpeg';
-    case 'webp': return 'image/webp';
-    default: return 'application/octet-stream';
-  }
-}
-
-/**
- * 运行 ffmpeg 子进程,通过 stdin 输入、stdout 输出。
- *
- * @param args ffmpeg 命令行参数(不含 ffmpeg 本身)
- * @param inputBlob 输入 Blob(写入 stdin)
- * @param outputMimeType 输出 MIME 类型(用于构造 Blob)
- * @returns 输出 Blob
- */
-async function runFfmpegStdio(
-  args: string[],
-  inputBlob: Blob,
-  outputMimeType: string
-): Promise<Blob> {
-  const ffmpegPath = await getFfmpegPath();
-  // ffmpeg 参数:-i pipe:0(从 stdin 读) ... pipe:1(写 stdout)
-  const fullArgs = ['-i', 'pipe:0', ...args, 'pipe:1'];
-
-  return new Promise<Blob>((resolve, reject) => {
-    const proc = spawn(ffmpegPath, fullArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
-    const chunks: Buffer[] = [];
-    let stderrData = '';
-
-    proc.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
-    proc.stderr.on('data', (chunk: Buffer) => {
-      stderrData += chunk.toString();
-    });
-
-    proc.on('error', (err) => {
-      reject(new Error(`ffmpeg spawn failed: ${err.message}`));
-    });
-
-    proc.on('close', (code) => {
-      if (code === 0) {
-        const buffer = Buffer.concat(chunks);
-        resolve(new Blob([new Uint8Array(buffer)], { type: outputMimeType }));
-      } else {
-        reject(
-          new Error(
-            `ffmpeg exited with code ${code}. stderr: ${stderrData.slice(-2000)}`
-          )
-        );
-      }
-    });
-
-    // 写入输入 Blob 到 stdin
-    inputBlob.arrayBuffer().then((ab) => {
-      proc.stdin.write(new Uint8Array(ab));
-      proc.stdin.end();
-    }).catch((err) => {
-      reject(new Error(`Failed to read input blob: ${err}`));
-      proc.kill();
-    });
-  });
-}
+import {
+  getFfmpegPath,
+  mimeTypeForFormat,
+  runFfmpegStdio,
+  validateTrimRange,
+} from '@lokvis/engine-core';
 
 /**
  * 压缩视频(Blob → Blob)。
@@ -206,12 +125,7 @@ export async function trimVideo(
   if (typeof p.start !== 'number' || typeof p.end !== 'number') {
     throw new Error('trimVideo: start and end are required (in seconds)');
   }
-  if (p.start < 0 || p.end < 0) {
-    throw new Error(`trimVideo: start and end must be >= 0, got start=${p.start} end=${p.end}`);
-  }
-  if (p.start >= p.end) {
-    throw new Error(`trimVideo: start must be < end, got start=${p.start} end=${p.end}`);
-  }
+  validateTrimRange(p.start, p.end);
   // -ss 在 -i 之前:快速 seek(关键帧对齐);-to 指定结束时间
   // -c copy:不重编码,直接拷贝(速度极快)
   // 注:对于精确帧裁剪,需要去掉 -c copy 并重编码,这里取折中

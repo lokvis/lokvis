@@ -17,6 +17,8 @@
 
 import type { AuthenticatedUser } from './auth.js';
 import type { CloudConfig } from './cloud-config.js';
+import { DEFAULT_API_BASE_URL, DEFAULT_UPGRADE_URL, DEFAULT_PLAN_QUOTAS, DEFAULT_PRICE_PER_CALL_CENTS } from './cloud-config.js';
+import { cloudFetch } from './internal/cloud-fetch.js';
 
 /** fetch 请求超时(10s,billing 请求应比 auth 更快返回) */
 const FETCH_TIMEOUT_MS = 10_000;
@@ -73,15 +75,10 @@ export class CloudBilling {
     pricePerCallCents?: number;
   }) {
     this.apiKey = options?.apiKey;
-    this.apiBaseUrl = options?.apiBaseUrl ?? 'https://api.lokvis.com';
-    this.upgradeUrl = options?.upgradeUrl ?? 'https://app.lokvis.com/billing';
-    this.planQuotas = options?.planQuotas ?? {
-      free: 0,
-      pro: 0,
-      cloud_pro: 10,
-      enterprise: Infinity,
-    };
-    this.pricePerCallCents = options?.pricePerCallCents ?? 1;
+    this.apiBaseUrl = options?.apiBaseUrl ?? DEFAULT_API_BASE_URL;
+    this.upgradeUrl = options?.upgradeUrl ?? DEFAULT_UPGRADE_URL;
+    this.planQuotas = options?.planQuotas ?? DEFAULT_PLAN_QUOTAS;
+    this.pricePerCallCents = options?.pricePerCallCents ?? DEFAULT_PRICE_PER_CALL_CENTS;
   }
 
   /**
@@ -155,14 +152,15 @@ export class CloudBilling {
 
     // D3:调用 cloud API 扣减 credits（1 credit = pricePerCallCents 美分）
     if (!this.apiKey) return;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      const res = await fetch(`${this.apiBaseUrl}/v1/credits/deduct`, {
+      const res = await cloudFetch({
+        apiBaseUrl: this.apiBaseUrl,
+        apiKey: this.apiKey,
+        path: '/v1/credits/deduct',
         method: 'POST',
-        headers: { 'x-api-key': this.apiKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: 1, reason: 'consume:ai_call' }),
-        signal: controller.signal,
+        body: { amount: 1, reason: 'consume:ai_call' },
+        timeoutMs: FETCH_TIMEOUT_MS,
+        extraHeaders: { 'Content-Type': 'application/json' },
       });
       if (!res.ok) {
         console.warn(
@@ -175,8 +173,6 @@ export class CloudBilling {
       console.warn(
         `${LOG_PREFIX} credits/deduct network error: user=${user.id} err=${err instanceof Error ? err.message : String(err)} (fire-and-forget, daily limit still applies)`
       );
-    } finally {
-      clearTimeout(timeoutId);
     }
   }
 
@@ -196,50 +192,23 @@ export class CloudBilling {
       console.info(
         `${LOG_PREFIX} getEntitlements fallback: user=${user.id} plan=${user.plan} reason=no_api_key (credits=${planQuota})`
       );
-      const fallback: EntitlementsResponse = {
-        plan: user.plan,
-        quotas: {
-          aiCallsPerDay: planQuota,
-          workflows: 0,
-          storageMb: 0,
-          maxApiKeys: 0,
-        },
-        credits: { ai: planQuota },
-      };
-      return fallback;
+      return this.buildFallbackEntitlements(user, planQuota);
     }
 
     try {
-      const url = `${this.apiBaseUrl}/v1/users/me/entitlements`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-      let res: Response;
-      try {
-        res = await fetch(url, {
-          headers: { 'x-api-key': this.apiKey },
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeoutId);
-      }
+      const res = await cloudFetch({
+        apiBaseUrl: this.apiBaseUrl,
+        apiKey: this.apiKey,
+        path: '/v1/users/me/entitlements',
+        timeoutMs: FETCH_TIMEOUT_MS,
+      });
 
       if (!res.ok) {
-        // 降级到 plan 静态映射（credits 降级为每日配额,与限流对齐）
         const planQuota = this.planQuotas[user.plan] ?? 0;
         console.warn(
           `${LOG_PREFIX} getEntitlements fallback: user=${user.id} status=${res.status} reason=http_error (credits=${planQuota})`
         );
-        const fallback: EntitlementsResponse = {
-          plan: user.plan,
-          quotas: {
-            aiCallsPerDay: planQuota,
-            workflows: 0,
-            storageMb: 0,
-            maxApiKeys: 0,
-          },
-          credits: { ai: planQuota },
-        };
-        return fallback;
+        return this.buildFallbackEntitlements(user, planQuota);
       }
 
       const data = (await res.json()) as EntitlementsResponse;
@@ -250,23 +219,26 @@ export class CloudBilling {
       );
       return data;
     } catch (err) {
-      // 降级到 plan 静态映射（credits 降级为每日配额,与限流对齐）
       const planQuota = this.planQuotas[user.plan] ?? 0;
       console.warn(
         `${LOG_PREFIX} getEntitlements fallback: user=${user.id} err=${err instanceof Error ? err.message : String(err)} reason=network (credits=${planQuota})`
       );
-      const fallback: EntitlementsResponse = {
-        plan: user.plan,
-        quotas: {
-          aiCallsPerDay: planQuota,
-          workflows: 0,
-          storageMb: 0,
-          maxApiKeys: 0,
-        },
-        credits: { ai: planQuota },
-      };
-      return fallback;
+      return this.buildFallbackEntitlements(user, planQuota);
     }
+  }
+
+  /** 构造降级 entitlements(三处 fallback 共用,FO-19) */
+  private buildFallbackEntitlements(user: AuthenticatedUser, planQuota: number): EntitlementsResponse {
+    return {
+      plan: user.plan,
+      quotas: {
+        aiCallsPerDay: planQuota,
+        workflows: 0,
+        storageMb: 0,
+        maxApiKeys: 0,
+      },
+      credits: { ai: planQuota },
+    };
   }
 
   /** 重置每日调用计数(测试/定时任务用) */

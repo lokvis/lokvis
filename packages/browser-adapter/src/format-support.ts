@@ -15,14 +15,7 @@
  * png/jpeg 仍短路为 true,其余格式一律 false,不抛错。
  */
 
-/** 格式 → MIME 映射(与 engine-image MIME_BY_FORMAT 保持一致) */
-const MIME_BY_FORMAT: Record<string, string> = {
-  png: 'image/png',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-  avif: 'image/avif',
-  gif: 'image/gif',
-};
+import { MIME_BY_FORMAT } from '@lokvis/schema';
 
 /** 把 1×1 画布编码为指定 MIME(兼容 OffscreenCanvas 与 DOM canvas) */
 async function encodeToBlob(

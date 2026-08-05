@@ -5,7 +5,7 @@
  * installer 阶段把每个能力映射到 engine-video 的实现。
  */
 
-import { definePlugin } from '@lokvis/plugin-sdk';
+import { definePlugin, registerImplementations } from '@lokvis/plugin-sdk';
 import { VIDEO_CAPABILITIES } from '@lokvis/capability';
 import { buildVideoCapabilityImplementations } from './operations.js';
 
@@ -39,9 +39,7 @@ export function videoToolsPlugin() {
     },
     (ctx) => {
       const impls = buildVideoCapabilityImplementations(ctx);
-      for (const impl of impls) {
-        ctx.registerCapability(impl);
-      }
+      registerImplementations(ctx, impls);
       ctx.log('info', `Registered ${impls.length} video capabilities`);
     }
   );

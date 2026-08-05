@@ -11,6 +11,8 @@
  */
 
 import type { CloudConfig } from './cloud-config.js';
+import { DEFAULT_API_BASE_URL } from './cloud-config.js';
+import { cloudFetch } from './internal/cloud-fetch.js';
 
 /** API Key 格式校验:lk_ + 64 位 hex */
 export function isValidApiKeyFormat(key: string): boolean {
@@ -57,7 +59,7 @@ export class CloudAuthenticator {
     apiBaseUrl?: string;
   }) {
     this.apiKey = options?.apiKey;
-    this.apiBaseUrl = options?.apiBaseUrl ?? 'https://api.lokvis.com';
+    this.apiBaseUrl = options?.apiBaseUrl ?? DEFAULT_API_BASE_URL;
   }
 
   /** 是否配置了 API Key */
@@ -84,19 +86,12 @@ export class CloudAuthenticator {
     }
 
     try {
-      const url = `${this.apiBaseUrl}/v1/users/me`;
-      // 30s 超时:防止 cloud API 不可达时长时间挂起,mcp-server 启动不被阻塞
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS);
-      let res: Response;
-      try {
-        res = await fetch(url, {
-          headers: { 'x-api-key': this.apiKey },
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeoutId);
-      }
+      const res = await cloudFetch({
+        apiBaseUrl: this.apiBaseUrl,
+        apiKey: this.apiKey,
+        path: '/v1/users/me',
+        timeoutMs: VERIFY_TIMEOUT_MS,
+      });
 
       if (!res.ok) {
         if (res.status === 401) {

@@ -119,7 +119,7 @@ async function main() {
         );
       } catch (e) {
         console.log(`CRASH (${String(e.message).slice(0, 80)}), recreating page`);
-        await page.close().catch(() => {});
+        await page.close().catch((err) => console.debug("page.close failed:", err));
         page = await openHarness();
         results.push({
           ...combo,
@@ -132,7 +132,7 @@ async function main() {
         continue;
       }
       // case 间重建 page,避免跨 case 内存累积影响计时与稳定性
-      await page.close().catch(() => {});
+      await page.close().catch((err) => console.debug("page.close failed:", err));
       page = await openHarness();
       const ok = perImage.filter((r) => !r.error);
       const failed = perImage.filter((r) => r.error);

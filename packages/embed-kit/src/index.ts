@@ -28,3 +28,12 @@ export {
   type EmbedErrorBoundaryDeps,
 } from './ErrorBoundary.js';
 export { downloadBlob, saveBlob } from './download.js';
+export {
+  useEmbedTool,
+  type UseEmbedToolOptions,
+  type UseEmbedToolResult,
+} from './embed-tool.js';
+export {
+  DefaultPresetButton,
+  type DefaultPresetButtonProps,
+} from './preset-button.js';

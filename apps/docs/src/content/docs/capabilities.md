@@ -17,7 +17,8 @@ Capabilities use a `<domain>.<action>` naming convention. Runtime never knows ab
 - `audio.*` — audio processing
 - `pdf.*` — PDF operations
 - `ai.*` — AI-powered operations
-- `developer.*` — developer tools (introspection, profiling)
+- `developer.*` — developer tools (introspection, profiling, utilities)
+- `archive.*` — archive operations (zip/unzip/list)
 
 ## Built-in Capabilities
 
@@ -32,6 +33,7 @@ Capabilities use a `<domain>.<action>` naming convention. Runtime never knows ab
 - `image.watermark` — Add text or image watermark
 - `image.background` — Set background color
 - `image.filter` — Apply preset filter (grayscale/invert/sepia/blur), with optional `radius` for blur
+- `image.favicon` — Generate favicon set from source image (multiple sizes)
 
 ### Video
 
@@ -50,6 +52,7 @@ Capabilities use a `<domain>.<action>` naming convention. Runtime never knows ab
 - `pdf.compress`
 - `pdf.rotate`
 - `pdf.watermark`
+- `pdf.add-page-numbers`
 - `pdf.ocr`
 - `pdf.sign`
 
@@ -69,11 +72,17 @@ Capabilities use a `<domain>.<action>` naming convention. Runtime never knows ab
 - `ai.ocr` — Local OCR (transformersEngine)
 - `ai.caption` — Image captioning for accessibility/SEO (transformersEngine)
 - `ai.background-remove` — Background removal (transformersEngine)
+- `ai.diagnose-error` — AI-assisted workflow error diagnosis (cloudProxyEngine)
 
 ### Asset
 
 - `asset.rename` — Pattern-based rename (`{name}` `{index}` `{date}`)
-- `asset.archive` — Pack assets into a zip
+
+### Archive
+
+- `archive.zip` — Pack multiple assets into a zip archive
+- `archive.unzip` — Extract assets from a zip archive
+- `archive.list` — List contents of a zip archive
 
 ### Developer
 
@@ -81,6 +90,11 @@ Capabilities use a `<domain>.<action>` naming convention. Runtime never knows ab
 - `developer.inspect.asset`
 - `developer.validate.workflow`
 - `developer.profile`
+- `developer.regex.test` — Test a regular expression against input text
+- `developer.diff` — Compute text diff between two inputs
+- `developer.base64` — Encode/decode base64
+- `developer.hash` — Compute hash (SHA-256/MD5/etc.) of input
+- `developer.jwt.decode` — Decode a JWT token
 
 ## Custom Capabilities
 

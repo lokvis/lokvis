@@ -44,6 +44,12 @@ import type { AudioEngineDescriptor } from '../types.js';
 export const AUDIO_ENGINE: AudioEngineDescriptor = {
   name: 'ffmpeg-static',
   version: '0.7.1',
+  supportedCapabilities: [
+    'audio.trim',
+    'audio.normalize',
+    'audio.transcode',
+    'audio.merge',
+  ],
 };
 
 export type { AudioEngineDescriptor } from '../types.js';

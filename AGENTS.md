@@ -24,6 +24,18 @@ runtime / workflow / capability / plugin-* / sdk **禁止**直接使用原生浏
 必须经 `@lokvis/browser-adapter` 注入。engine-* 允许直接 import adapter（engine 属
 L1/L2 边界）；embed-* / ui-*（展示层）不受此铁律约束，可直接触碰 DOM。
 
+### SDK 组合根豁免（FO-08 决议）
+
+@lokvis/sdk 是组合根（composition root）：其 presets（如 `presets/video.ts`）
+**允许 re-export Capability 层（plugin-*）与 Engine 层（engine-*）符号**，
+以便 embed-* / ui-* 只依赖 sdk，保持依赖箭头 UI → SDK → Capability，
+而非 UI → Capability 直连。
+
+- 正确：embed-video 从 `@lokvis/sdk/video` 导入 `configureFfmpegWasm`（sdk re-export engine-video/web）
+- 错误：embed-video 直接 import `@lokvis/engine-video/web`（会在展示层新增跨层依赖）
+
+豁免范围仅限 re-export / 组装，sdk 不得在 presets 中实现 Engine 逻辑。
+
 ## 类型安全
 
 ### Engine 操作函数的参数签名
@@ -41,6 +53,11 @@ export async function resize(blob: Blob, params: ResizeParams): Promise<Blob>
 原因：Capability 层（plugin-*）从 executor 收到的参数是 `Record<string, unknown>`，
 TypeScript 不允许直接将 interface 类型与 `Record<string, unknown>` 互转。
 Engine 层使用 `Record<string, any>` 后，内部用单次 `as` 断言即可，上游无需断言。
+
+**豁免：engine 包内部原语**。不导出到包公共 API、不被 plugin 层消费的辅助函数
+（如 `engine-image` 的 `compressToTargetSize` / `encodeSmart` / `embedPngDpi`）
+可使用具体接口类型，无需遵循 `Record<string, any>` 约定。这些函数仅在包内部
+调用，不经过 plugin → executor 的参数传递路径。
 
 ### 禁止 `as unknown as` 双断言
 
@@ -105,7 +122,9 @@ EventBus 的 `emit()` 中对 `anyHandlers` 迭代：
 - 框架：Vitest，`globals: false`（显式 import）
 - 位置：`src/__tests__/<module>.test.ts`
 - 中文测试描述
-- 浏览器 API（Canvas / OPFS / IndexedDB）使用 fake 实现；优先用 `@lokvis/browser-adapter` 的 `createFakeAdapter()`（或各接口 fake），避免零散全局 mock（ADR-015）
+- 浏览器 API（Canvas / OPFS / IndexedDB）使用 fake 实现（ADR-015）：
+  - **createFakeAdapter**：被测代码通过依赖注入接收 adapter 实例时（engine 层测试、embed 层测试）
+  - **vi.stubGlobal**：被测代码直接访问模块级全局 API 时（browser-detect 探测 navigator/OffscreenCanvas、adapter 内部 probe 函数访问 createImageBitmap 等），此时 createFakeAdapter 无法拦截模块级函数对全局的直接读取
 - 核心包（runtime / schema / capability / engine-image）需要测试覆盖
 - 各 plugin-* 包（plugin-image / plugin-video / plugin-pdf / plugin-audio / plugin-ai）
   均需 `__tests__/plugin.test.ts` 覆盖：插件常量、installer 注册数、

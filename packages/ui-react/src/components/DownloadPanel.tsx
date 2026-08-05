@@ -17,6 +17,7 @@ import JSZip from 'jszip';
 import { Icon } from '@lokvis/ui-core';
 import { useWorkspaceStore } from '../store/index.js';
 import { formatBytes } from '@lokvis/runtime';
+import { downloadBlob } from '@lokvis/browser-adapter';
 import { useWorkspaceLang } from '../i18n/useWorkspaceLang.js';
 import { useWorkspaceTranslations } from '../i18n/utils.js';
 
@@ -29,18 +30,6 @@ function extFromMime(mime: string): string {
  const sub = mime.split('/')[1] ?? 'bin';
  // image/svg+xml → svg+xml → svg(取 + 前部分)
  return sub.split('+')[0] ?? sub;
-}
-
-/** 触发浏览器下载 */
-function downloadBlob(blob: Blob, filename: string): void {
- const url = URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.href = url;
- a.download = filename;
- document.body.appendChild(a);
- a.click();
- document.body.removeChild(a);
- setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function DownloadPanel({ className = '' }: DownloadPanelProps) {

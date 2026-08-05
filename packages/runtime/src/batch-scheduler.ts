@@ -29,6 +29,8 @@ export interface BatchItemInternal {
   status: BatchItemStatus;
   source: AssetSource;
   workflow: Workflow;
+  /** 已导入的输入 asset(FO-04:视图暴露给 UI 侧做完成后清理) */
+  inputAssetId?: AssetId;
   outputAssetId?: AssetId;
   error?: Error;
   attempts: number;
@@ -117,6 +119,7 @@ export class BatchScheduler {
     let result: WorkflowResult | undefined;
     try {
       inputAssetId = await this.runtime.importAsset(item.source);
+      item.inputAssetId = inputAssetId;
 
       // B1:import 期间可能被 cancel
       if (job.cancelled) {
@@ -126,6 +129,7 @@ export class BatchScheduler {
         void this.runtime.removeAsset(inputAssetId).catch((err) => {
           console.error(`[lokvis] BatchProcessor: cleanup input(${inputAssetId}) on cancel failed:`, err);
         });
+        item.inputAssetId = undefined;
         return;
       }
 
@@ -164,6 +168,7 @@ export class BatchScheduler {
           void this.runtime.removeAsset(inputAssetId).catch((err) => {
             console.error(`[lokvis] BatchProcessor: cleanup input(${inputAssetId}) on retry failed:`, err);
           });
+          item.inputAssetId = undefined;
         }
       } else {
         item.status = 'failed';
@@ -174,6 +179,7 @@ export class BatchScheduler {
           void this.runtime.removeAsset(inputAssetId).catch((err) => {
             console.error(`[lokvis] BatchProcessor: cleanup input(${inputAssetId}) on final fail failed:`, err);
           });
+          item.inputAssetId = undefined;
         }
         this.progress.emitItemFailed(job.id, item.id, item.index, job.items.length, item.error, item.attempts);
         this.progress.emitProgress(job.id, job.completed, job.failed, job.items.length);

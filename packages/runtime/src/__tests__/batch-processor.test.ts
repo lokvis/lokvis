@@ -13,7 +13,7 @@
  * mock 策略:LokvisRuntime 用最小 mock(只实现 importAsset/run/cancel),
  * 其余方法 stub;EventBus 用真实 createEventBus(验证事件正确触发)。
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   BatchProcessor,
   BatchLimitExceededError,
@@ -741,8 +741,17 @@ describe('BatchProcessor 暂停/恢复', () => {
     const pausedJob = bp.get(job.id);
     expect(pausedJob?.status).toBe('paused');
 
-    // 等一段时间,确认无新项完成(暂停后 in-flight 跑完但无新项补入)
-    await new Promise((r) => setTimeout(r, 50));
+    // 确定性等待:in-flight 项完成,确认暂停后无新项补入
+    await vi.waitFor(
+      () => {
+        const j = bp.get(job.id);
+        expect(j!.completed + j!.failed).toBe(4);
+      },
+      { timeout: 2000 }
+    );
+    const midJob = bp.get(job.id);
+    expect(midJob!.completed).toBe(4);
+    expect(midJob!.items.filter((i) => i.status === 'pending').length).toBe(4);
 
     // resume 后应继续完成剩余项
     await bp.resume(job.id);
@@ -775,7 +784,7 @@ describe('BatchProcessor 暂停/恢复', () => {
     runtime.eventBus.on('batch:resumed', (e) => events.push(`resumed:${e.jobId}`));
 
     const job = bp.enqueue({ items: makeItems(4) });
-    await new Promise((r) => setTimeout(r, 5));
+    await bp.waitForItemsStarted(job.id, 1);
     await bp.pause(job.id);
     await bp.resume(job.id);
     await bp.waitForCompletion(job.id);

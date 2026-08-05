@@ -36,6 +36,7 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
+    "@lokvis/browser-adapter": "workspace:*",
     "@lokvis/schema": "workspace:*",
     "@lokvis/i18n": "workspace:*",
     "@lokvis/runtime": "workspace:*",

@@ -114,16 +114,16 @@ export const TOOL_SEO: Record<string, ToolSeo> = {
   },
   'watermark-batch': {
     slug: 'watermark-batch',
-    title: '批量图片加水印 · 并发 4 · 多文件',
+    title: '批量图片加水印 · 并发池 · 多文件',
     description:
-      '本地浏览器批量给多张图片加水印,并发 4 池,逐个进度追踪。文件不上传,隐私安全。',
+      '本地浏览器批量给多张图片加水印,并发池(随计划档位),逐个进度追踪。文件不上传,隐私安全。',
     keywords: ['批量水印', '批量加水印', '并发处理', '本地处理'],
   },
   batch: {
     slug: 'batch',
-    title: '批量图片处理 · 并发 4 · 多 capability',
+    title: '批量图片处理 · 并发池 · 多 capability',
     description:
-      '本地浏览器批量处理多张图片(compress/resize/convert/watermark 等),并发 4 池,进度追踪。文件不上传。',
+      '本地浏览器批量处理多张图片(compress/resize/convert/watermark 等),并发池(随计划档位),进度追踪。文件不上传。',
     keywords: ['批量图片处理', 'batch queue', '并发处理', '本地处理'],
   },
   download: {

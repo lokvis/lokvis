@@ -75,6 +75,7 @@ export async function listWorkflows(
   options: ListOptions = {}
 ): Promise<ListEntry[]> {
   const absRoot = resolve(process.cwd(), rootDir);
+  // exists-check 惯用法(FO-07 豁免):stat 失败即「不存在」,由下方显式报错
   const rootStat = await stat(absRoot).catch(() => null);
   if (!rootStat || !rootStat.isDirectory()) {
     throw new Error(`Directory not found: ${absRoot}`);
@@ -90,6 +91,7 @@ export async function listWorkflows(
 
   async function walk(dir: string, depth: number): Promise<void> {
     if (depth > maxDepth) return;
+    // exists-check 惯用法(FO-07 豁免):目录不可读(权限/竞态删除)按空目录继续遍历
     const files = await readdir(dir, { withFileTypes: true }).catch(() => []);
     for (const ent of files) {
       // 跳过符号链接(避免环);withFileTypes 时 ent.isDirectory() 已排除文件
@@ -111,6 +113,7 @@ export async function listWorkflows(
 /** 尝试将文件解析为 workflow,返回 ListEntry */
 async function tryParseWorkflow(filePath: string, rootDir: string): Promise<ListEntry> {
   const relativePath = relative(rootDir, filePath);
+  // exists-check 惯用法(FO-07 豁免):读取失败记为 invalid 条目,不中断扫描
   const content = await readFile(filePath, 'utf-8').catch(() => null);
   if (content === null) {
     return {

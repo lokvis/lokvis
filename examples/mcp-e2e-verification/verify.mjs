@@ -190,9 +190,9 @@ async function main() {
     process.exitCode = 1;
   } finally {
     // ── 9. 清理资源 ────────────────────────────────────────────
-    if (client) await client.close().catch(() => {});
-    if (sseServer) await sseServer.close().catch(() => {});
-    if (bridge) await bridge.close().catch(() => {});
+    if (client) await client.close().catch((err) => console.debug("client.close failed:", err));
+    if (sseServer) await sseServer.close().catch((err) => console.debug("sseServer.close failed:", err));
+    if (bridge) await bridge.close().catch((err) => console.debug("bridge.close failed:", err));
     await rm(workdir, { recursive: true, force: true });
   }
 }

@@ -99,6 +99,70 @@ export function defaultDeriveOutputMetadata(
   };
 }
 
+/**
+ * AssetType → 默认 fallback MIME/format 映射表(FO-13 共享基建)
+ *
+ * 各 plugin 的 deriveXxxMetadata 此前各自维护 fallback 表,逻辑完全相同:
+ *   const mimeType = outBlob.type || fallback.mimeType;
+ *   const format = mimeType.split('/')[1] ?? fallback.format;
+ *   return { mimeType, size: outBlob.size, format };
+ *
+ * 本表统一提供 fallback,经 deriveOutputMetadata / deriveOutputMetadataWithSource
+ * 导出,消除 plugin-video/audio/pdf/archive/ai 的 ~80 行重复。
+ */
+const FALLBACK_BY_ASSET_TYPE: Record<AssetType, { mimeType: string; format: string }> = {
+  video: { mimeType: 'video/mp4', format: 'mp4' },
+  audio: { mimeType: 'audio/mpeg', format: 'mp3' },
+  image: { mimeType: 'image/png', format: 'png' },
+  pdf: { mimeType: 'application/pdf', format: 'pdf' },
+  text: { mimeType: 'text/plain', format: 'txt' },
+  data: { mimeType: 'application/octet-stream', format: 'bin' },
+  unknown: { mimeType: 'application/octet-stream', format: 'bin' },
+};
+
+/**
+ * 按 AssetType 派生输出元数据(单 Blob 参数版,适用于 merge/split 工厂)
+ *
+ * @example
+ * ```ts
+ * // plugin-audio real-plugin.ts
+ * deriveMetadata: deriveOutputMetadata('audio')
+ * ```
+ */
+export function deriveOutputMetadata(
+  outputType: AssetType
+): (outBlob: Blob) => AssetMetadata {
+  const fallback = FALLBACK_BY_ASSET_TYPE[outputType] ?? FALLBACK_BY_ASSET_TYPE.data;
+  return (outBlob: Blob) => {
+    const mimeType = outBlob.type || fallback.mimeType;
+    const format = mimeType.split('/')[1] ?? fallback.format;
+    return { mimeType, size: outBlob.size, format };
+  };
+}
+
+/**
+ * 按 AssetType 派生输出元数据(双参数版,适用于 createBlobCapabilityImpl)
+ *
+ * 与 deriveOutputMetadata 逻辑相同,但签名匹配 (source, outBlob) => AssetMetadata,
+ * 可直接传给 createBlobCapabilityOptions.deriveMetadata,无需 adapter wrapper。
+ *
+ * @example
+ * ```ts
+ * // plugin-video real-plugin.ts
+ * deriveMetadata: deriveOutputMetadataWithSource(entry.outputType)
+ * ```
+ */
+export function deriveOutputMetadataWithSource(
+  outputType: AssetType
+): (source: Asset, outBlob: Blob) => AssetMetadata {
+  const fallback = FALLBACK_BY_ASSET_TYPE[outputType] ?? FALLBACK_BY_ASSET_TYPE.data;
+  return (_source: Asset, outBlob: Blob) => {
+    const mimeType = outBlob.type || fallback.mimeType;
+    const format = mimeType.split('/')[1] ?? fallback.format;
+    return { mimeType, size: outBlob.size, format };
+  };
+}
+
 /** Blob 能力实现工厂选项 */
 export interface BlobCapabilityOptions {
   /** 对应 Capability 名 */
@@ -324,4 +388,179 @@ export function createSplitCapabilityImpl(
       return outputs;
     },
   };
+}
+
+// ─── 通用操作类型 ──────────────────────────────────────────
+
+/**
+ * 单输入→单输出操作函数签名(Blob → Blob)。
+ *
+ * 各 plugin 此前各自定义 SingleXxxOperation / XxxOperation,签名完全相同。
+ * 统一使用此类型,消除 12+ 处重定义。
+ *
+ * @example
+ * ```ts
+ * // Before (plugin-image):
+ * export type ImageOperation = (blob: Blob, params: Record<string, unknown>, signal?: AbortSignal) => Promise<Blob>;
+ *
+ * // After:
+ * import type { BlobOperation } from '@lokvis/plugin-sdk';
+ * ```
+ */
+export type BlobOperation = (
+  blob: Blob,
+  params: Record<string, unknown>,
+  signal?: AbortSignal
+) => Promise<Blob>;
+
+/**
+ * 多输入→单输出 Merge 操作函数签名(Blob[] → Blob)。
+ *
+ * @example
+ * ```ts
+ * // Before (plugin-pdf):
+ * export type MergePdfOperation = (blobs: Blob[], params: Record<string, unknown>) => Promise<Blob>;
+ *
+ * // After:
+ * import type { MergeOperation } from '@lokvis/plugin-sdk';
+ * ```
+ */
+export type MergeOperation = (
+  blobs: Blob[],
+  params: Record<string, unknown>
+) => Promise<Blob>;
+
+/**
+ * 单输入→多输出 Split 操作函数签名(Blob → Blob[])。
+ *
+ * @example
+ * ```ts
+ * // Before (plugin-pdf):
+ * export type SplitPdfOperation = (blob: Blob, params: Record<string, unknown>) => Promise<Blob[]>;
+ *
+ * // After:
+ * import type { SplitOperation } from '@lokvis/plugin-sdk';
+ * ```
+ */
+export type SplitOperation = (
+  blob: Blob,
+  params: Record<string, unknown>
+) => Promise<Blob[]>;
+
+// ─── 注册样板辅助 ──────────────────────────────────────────
+
+/**
+ * 批量注册能力实现(消除 plugin.ts 中的 for 循环样板)。
+ *
+ * @example
+ * ```ts
+ * // Before:
+ * const impls = buildImageCapabilityImplementations(ctx);
+ * for (const impl of impls) {
+ *   ctx.registerCapability(impl);
+ * }
+ *
+ * // After:
+ * registerImplementations(ctx, buildImageCapabilityImplementations(ctx));
+ * ```
+ */
+export function registerImplementations(
+  ctx: PluginContext,
+  impls: CapabilityImplementation[]
+): void {
+  for (const impl of impls) {
+    ctx.registerCapability(impl);
+  }
+}
+
+/** Engine 描述符接口(仅需 version 字段) */
+export interface EngineDescriptor {
+  version: string;
+}
+
+/**
+ * 检测 engine 是否为 stub 实现(AGENTS.md 约定:version.includes('stub'))。
+ *
+ * @example
+ * ```ts
+ * // Before:
+ * const isStub = IMAGE_ENGINE.version.includes('stub');
+ *
+ * // After:
+ * const isStub = isStubEngine(IMAGE_ENGINE);
+ * ```
+ */
+export function isStubEngine(engine: EngineDescriptor): boolean {
+  return engine.version.includes('stub');
+}
+
+/** Metadata reader 上下文(传给 parse 函数) */
+export interface MetadataReaderContext {
+  log: (level: 'debug' | 'info' | 'warn' | 'error', message: string) => void;
+}
+
+/**
+ * 创建 Blob 元数据读取器(消除 plugin 中重复的 "取 blob → 调 parse" 样板)。
+ *
+ * @param parse 解析函数:(blob, ctx?) => Promise<T | null>
+ * @returns 可直接传给 ctx.registerMetadataReader 的读取器函数
+ *
+ * @example
+ * ```ts
+ * // Before:
+ * ctx.registerMetadataReader<ExifData>(EXIF_READER_NAME, async (asset, readerCtx) => {
+ *   const blob = await ctx.runtime.getAssetBlob(asset);
+ *   return readExifFromBlob(blob, { log: readerCtx.log });
+ * });
+ *
+ * // After:
+ * ctx.registerMetadataReader<ExifData>(
+ *   EXIF_READER_NAME,
+ *   createBlobMetadataReader((blob, ctx) => readExifFromBlob(blob, ctx))
+ * );
+ * ```
+ */
+export function createBlobMetadataReader<T>(
+  parse: (blob: Blob, ctx?: MetadataReaderContext) => Promise<T | null>
+): (asset: Asset, readerCtx: MetadataReaderContext, ctx: PluginContext) => Promise<T | null> {
+  return async (asset, readerCtx, ctx) => {
+    const blob = await ctx.runtime.getAssetBlob(asset);
+    return parse(blob, readerCtx);
+  };
+}
+
+/**
+ * 创建统一的 stub 错误消息。
+ *
+ * @param capability 能力名(如 "image.resize")
+ * @param context 环境上下文(如 "browser engine-video", "pdf-lib engine")
+ * @param options 可选:guidance(替代方案提示),roadmap(未来计划)
+ *
+ * @example
+ * ```ts
+ * // Before:
+ * function stubMessage(capability: string): string {
+ *   return `${capability} not implemented in stub (browser engine-video). ` +
+ *     `Use @lokvis/plugin-video/node for real operations.`;
+ * }
+ *
+ * // After:
+ * const msg = createStubMessage(capability, 'browser engine-video', {
+ *   guidance: 'Use @lokvis/plugin-video/node for real operations.'
+ * });
+ * ```
+ */
+export function createStubMessage(
+  capability: string,
+  context: string,
+  options?: { guidance?: string; roadmap?: string }
+): string {
+  let msg = `Operation "${capability}" is not supported in stub (${context}).`;
+  if (options?.guidance) {
+    msg += ` ${options.guidance}`;
+  }
+  if (options?.roadmap) {
+    msg += ` ${options.roadmap}`;
+  }
+  return msg;
 }

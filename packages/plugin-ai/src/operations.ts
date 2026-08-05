@@ -34,7 +34,9 @@
 import {
   createBlobCapabilityImpl,
   defaultDeriveOutputMetadata,
+  isStubEngine,
 } from '@lokvis/plugin-sdk';
+import type { BlobOperation } from '@lokvis/plugin-sdk';
 import {
   transformersEngine,
   removeBackground as removeBackgroundOp,
@@ -59,14 +61,11 @@ import type {
   PluginContext,
 } from '@lokvis/schema';
 
-/** 单输入 → 单输出 Blob 操作(ocr / caption / background-remove) */
-export type SingleAiOperation = (
-  blob: Blob,
-  params: Record<string, unknown>
-) => Promise<Blob>;
+/** 单输入 → 单输出 Blob 操作(ocr / caption / background-remove,FO-39:复用 plugin-sdk 通用类型) */
+export type SingleAiOperation = BlobOperation;
 
 // ─── 引擎 stub 标识(AGENTS.md 约定:version.includes('stub')) ──
-const transformersIsStub = transformersEngine.version.includes('stub');
+const transformersIsStub = isStubEngine(transformersEngine);
 // cloud-proxy:version 为 '0.1.0'(非 stub),stub 判定纯由 caller 注入决定(见 buildAiCapabilityImplementations)
 
 // ─── Blob 操作:ocr / caption / background-remove ──────────
@@ -102,85 +101,29 @@ function deriveJsonMetadata(outBlob: Blob): AssetMetadata {
 
 // ─── 自定义实现:generate-workflow / optimize-workflow / diagnose-error ──
 // 这三个能力不接受 Asset 输入,不走 createBlobCapabilityImpl 工厂。
+// FO-19:三者除 capability 名与进度文案外逐字相同,合并为统一工厂。
 
 /**
- * ai.generate-workflow 实现:从 params.prompt 生成 workflow,
- * 输出为 data 类型 Asset(workflow JSON)。
+ * params→data 形态的 CapabilityImplementation 工厂(FO-19)。
  *
- * @param isStub 无 caller 时为 true(走 stub),有 caller 时为 false
- * @param operation 实际执行函数(stub 或 createGenerateWorkflowOperation)
+ * 统一 generate-workflow / optimize-workflow / diagnose-error 三个能力的构造逻辑:
+ * 不接受 Asset 输入,执行操作 → JSON.stringify → Blob → createAsset('data')。
  */
-function createGenerateWorkflowImpl(
+function createParamsToDataImpl(
+  capability: string,
+  progressLabel: string,
   isStub: boolean,
-  operation: typeof generateWorkflowStub,
+  operation: (params: Record<string, unknown>) => Promise<unknown>,
   ctx: PluginContext
 ): CapabilityImplementation {
   return {
-    capability: 'ai.generate-workflow',
+    capability,
     engine: 'cloud-proxy',
     status: isStub ? 'stub' : 'stable',
     async execute(_inputs, params, execCtx) {
-      execCtx.onProgress?.(0.1, 'Generating workflow');
-      const workflow = await operation(params);
-      const json = JSON.stringify(workflow, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const outAsset = await ctx.runtime.createAsset(
-        blob,
-        deriveJsonMetadata(blob),
-        'data'
-      );
-      execCtx.onProgress?.(1, 'Done');
-      return [outAsset];
-    },
-  };
-}
-
-/**
- * ai.optimize-workflow 实现:从 params.workflow 优化已有 workflow,
- * 输出为 data 类型 Asset(优化后的 workflow JSON)。
- */
-function createOptimizeWorkflowImpl(
-  isStub: boolean,
-  operation: typeof optimizeWorkflowStub,
-  ctx: PluginContext
-): CapabilityImplementation {
-  return {
-    capability: 'ai.optimize-workflow',
-    engine: 'cloud-proxy',
-    status: isStub ? 'stub' : 'stable',
-    async execute(_inputs, params, execCtx) {
-      execCtx.onProgress?.(0.1, 'Optimizing workflow');
-      const workflow = await operation(params);
-      const json = JSON.stringify(workflow, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const outAsset = await ctx.runtime.createAsset(
-        blob,
-        deriveJsonMetadata(blob),
-        'data'
-      );
-      execCtx.onProgress?.(1, 'Done');
-      return [outAsset];
-    },
-  };
-}
-
-/**
- * ai.diagnose-error 实现(F1 新增):从 params.error 诊断执行错误,
- * 输出为 data 类型 Asset(诊断报告 JSON)。
- */
-function createDiagnoseErrorImpl(
-  isStub: boolean,
-  operation: typeof diagnoseErrorStub,
-  ctx: PluginContext
-): CapabilityImplementation {
-  return {
-    capability: 'ai.diagnose-error',
-    engine: 'cloud-proxy',
-    status: isStub ? 'stub' : 'stable',
-    async execute(_inputs, params, execCtx) {
-      execCtx.onProgress?.(0.1, 'Diagnosing error');
-      const report = await operation(params);
-      const json = JSON.stringify(report, null, 2);
+      execCtx.onProgress?.(0.1, progressLabel);
+      const result = await operation(params);
+      const json = JSON.stringify(result, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const outAsset = await ctx.runtime.createAsset(
         blob,
@@ -263,18 +206,28 @@ export function buildAiCapabilityImplementations(
       ctx
     ),
     // ④ ai.generate-workflow — params→data(无 Asset 输入)
-    createGenerateWorkflowImpl(
+    createParamsToDataImpl(
+      'ai.generate-workflow',
+      'Generating workflow',
       cloudProxyIsStub,
       generateWorkflowOp,
       ctx
     ),
     // ⑤ ai.optimize-workflow — params→data
-    createOptimizeWorkflowImpl(
+    createParamsToDataImpl(
+      'ai.optimize-workflow',
+      'Optimizing workflow',
       cloudProxyIsStub,
       optimizeWorkflowOp,
       ctx
     ),
     // ⑥ ai.diagnose-error — params→data(F1 新增)
-    createDiagnoseErrorImpl(cloudProxyIsStub, diagnoseErrorOp, ctx),
+    createParamsToDataImpl(
+      'ai.diagnose-error',
+      'Diagnosing error',
+      cloudProxyIsStub,
+      diagnoseErrorOp,
+      ctx
+    ),
   ];
 }

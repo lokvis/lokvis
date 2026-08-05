@@ -73,12 +73,12 @@ lokvis plugin create my-plugin
 
 ## Official Plugins
 
-- `@lokvis/plugin-image` — 9 image capabilities (Canvas + createImageBitmap, real)
+- `@lokvis/plugin-image` — 10 image capabilities (Canvas + createImageBitmap, real)
 - `@lokvis/plugin-video` — 7 video capabilities (ffmpeg.wasm planned, stub)
-- `@lokvis/plugin-pdf` — 7 PDF capabilities (pdf-lib planned, stub)
+- `@lokvis/plugin-pdf` — 8 PDF capabilities (pdf-lib planned, stub)
 - `@lokvis/plugin-audio` — 4 audio capabilities (Web Audio API + lamejs planned, stub)
-- `@lokvis/plugin-ai` — 5 AI capabilities (transformers + cloud-proxy planned, stub)
-- `@lokvis/plugin-dev` — 4 developer tools (built-in, real)
+- `@lokvis/plugin-ai` — 6 AI capabilities (transformers + cloud-proxy planned, stub)
+- `@lokvis/plugin-dev` — 9 developer tools (built-in, real)
 
 Stub engines follow a uniform convention: `version` includes `'stub'`, operations throw `not implemented in stub`, and `CapabilityRegistry.resolve()` auto-skips them. The UI surfaces a "Coming Soon" badge for stub-only capabilities so users are not surprised at execution time.
 

@@ -20,6 +20,8 @@
  */
 
 import type { CloudConfig } from './cloud-config.js';
+import { DEFAULT_API_BASE_URL, DEFAULT_UPGRADE_URL } from './cloud-config.js';
+import { cloudFetch } from './internal/cloud-fetch.js';
 
 /** AI 请求超时(60s,AI 推理可能较慢) */
 const AI_FETCH_TIMEOUT_MS = 60_000;
@@ -100,8 +102,8 @@ export class CloudAiClient {
     upgradeUrl?: string;
   }) {
     this.apiKey = options.apiKey;
-    this.apiBaseUrl = options.apiBaseUrl ?? 'https://api.lokvis.com';
-    this.upgradeUrl = options.upgradeUrl ?? 'https://app.lokvis.com/billing';
+    this.apiBaseUrl = options.apiBaseUrl ?? DEFAULT_API_BASE_URL;
+    this.upgradeUrl = options.upgradeUrl ?? DEFAULT_UPGRADE_URL;
   }
 
   /** 是否配置了 API Key(未配置时所有方法直接抛 auth 错误) */
@@ -166,18 +168,16 @@ export class CloudAiClient {
       );
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), AI_FETCH_TIMEOUT_MS);
     let res: Response;
     try {
-      res = await fetch(`${this.apiBaseUrl}${path}`, {
+      res = await cloudFetch({
+        apiBaseUrl: this.apiBaseUrl,
+        apiKey: this.apiKey,
+        path,
         method: 'POST',
-        headers: {
-          'x-api-key': this.apiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
+        body,
+        timeoutMs: AI_FETCH_TIMEOUT_MS,
+        extraHeaders: { 'Content-Type': 'application/json' },
       });
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -190,8 +190,6 @@ export class CloudAiClient {
         `Failed to reach cloud AI: ${err instanceof Error ? err.message : String(err)}`,
         'network'
       );
-    } finally {
-      clearTimeout(timeoutId);
     }
 
     if (!res.ok) {

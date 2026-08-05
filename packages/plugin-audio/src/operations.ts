@@ -27,9 +27,12 @@
 import {
   createBlobCapabilityImpl,
   createMergeCapabilityImpl,
+  deriveOutputMetadata,
+  deriveOutputMetadataWithSource,
+  isStubEngine,
 } from '@lokvis/plugin-sdk';
+import type { BlobOperation, MergeOperation } from '@lokvis/plugin-sdk';
 import type {
-  AssetMetadata,
   AssetType,
   BuiltinCapabilityName,
   CapabilityImplementation,
@@ -43,17 +46,11 @@ import {
   AUDIO_ENGINE,
 } from '@lokvis/engine-audio';
 
-/** 单输入 → 单输出操作(1→1) */
-export type AudioOperation = (
-  blob: Blob,
-  params: Record<string, unknown>
-) => Promise<Blob>;
+/** 单输入 → 单输出操作(1→1,FO-39:复用 plugin-sdk 通用类型) */
+export type AudioOperation = BlobOperation;
 
-/** 多输入 → 单输出操作(N→1,merge) */
-export type MergeAudioOperation = (
-  blobs: Blob[],
-  params: Record<string, unknown>
-) => Promise<Blob>;
+/** 多输入 → 单输出操作(N→1,merge,FO-39:复用 plugin-sdk 通用类型) */
+export type MergeAudioOperation = MergeOperation;
 
 /** 音频能力实现绑定项(capability name → engine + operation + outputType) */
 export interface AudioOperationEntry {
@@ -91,15 +88,13 @@ export const MERGE_OPERATION: {
 };
 
 /** 浏览器版 stub 状态单点推导(AGENTS.md 约定:version 含 'stub') */
-const isStub = AUDIO_ENGINE.version.includes('stub');
+const isStub = isStubEngine(AUDIO_ENGINE);
 
-/** 从输出 Blob 派生 audio 类型 Asset 元数据 */
-export function deriveAudioMetadata(outBlob: Blob): AssetMetadata {
-  const fallback = { mimeType: 'audio/mpeg', format: 'mp3' };
-  const mimeType = outBlob.type || fallback.mimeType;
-  const format = mimeType.split('/')[1] ?? fallback.format;
-  return { mimeType, size: outBlob.size, format };
-}
+/**
+ * 从输出 Blob 派生 audio 类型 Asset 元数据
+ * @deprecated 使用 plugin-sdk 的 deriveOutputMetadata('audio') 代替,此导出仅为向后兼容保留
+ */
+export const deriveAudioMetadata = deriveOutputMetadata('audio');
 
 /**
  * 构造所有音频能力的 CapabilityImplementation(浏览器版,全 stub)
@@ -119,7 +114,7 @@ export function buildAudioCapabilityImplementations(
         outputType: entry.outputType,
         operation: entry.operation,
         isStub,
-        deriveMetadata: (_source, outBlob) => deriveAudioMetadata(outBlob),
+        deriveMetadata: deriveOutputMetadataWithSource(entry.outputType),
       },
       ctx
     );
@@ -132,7 +127,7 @@ export function buildAudioCapabilityImplementations(
       outputType: MERGE_OPERATION.outputType,
       operation: MERGE_OPERATION.operation,
       isStub,
-      deriveMetadata: deriveAudioMetadata,
+      deriveMetadata: deriveOutputMetadata(MERGE_OPERATION.outputType),
     },
     ctx
   );

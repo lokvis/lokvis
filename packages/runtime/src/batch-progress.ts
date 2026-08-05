@@ -40,6 +40,8 @@ export interface BatchItem {
   status: BatchItemStatus;
   source: AssetSource;
   workflow: Workflow;
+  /** 本项导入的输入 asset(FO-04:UI 侧完成后清理用) */
+  inputAssetId?: AssetId;
   outputAssetId?: AssetId;
   error?: Error;
   attempts: number;

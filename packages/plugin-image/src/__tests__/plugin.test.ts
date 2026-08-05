@@ -177,6 +177,12 @@ describe('imageToolsPlugin install', () => {
     await plugin.install(mock.ctx);
     expect(mock.registered.every((i) => i.engine === 'canvas')).toBe(true);
   });
+
+  it('所有注册实现的 status 应为 stable(非 stub)', async () => {
+    const plugin = imageToolsPlugin();
+    await plugin.install(mock.ctx);
+    expect(mock.registered.every((i) => i.status === 'stable')).toBe(true);
+  });
 });
 
 describe('buildImageCapabilityImplementations', () => {

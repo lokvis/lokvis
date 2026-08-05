@@ -19,6 +19,7 @@ import {
   encodeCanvasToBlob,
   get2DContext,
 } from '@lokvis/browser-adapter';
+import { MIME_BY_FORMAT } from '@lokvis/schema';
 import type {
   CompressParams,
   ConvertParams,
@@ -28,15 +29,6 @@ import type {
 } from './types.js';
 
 export const CANVAS_ENGINE_VERSION = '0.1.0';
-
-/** MIME 类型映射 */
-const MIME_BY_FORMAT: Record<ImageOutputFormat, string> = {
-  png: 'image/png',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-  avif: 'image/avif',
-  gif: 'image/gif',
-};
 
 /**
  * Canvas 图像引擎描述符。

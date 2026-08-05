@@ -5,7 +5,7 @@
  * installer 阶段把每个能力映射到 engine-archive 的真实现(fflate)。
  */
 
-import { definePlugin } from '@lokvis/plugin-sdk';
+import { definePlugin, registerImplementations } from '@lokvis/plugin-sdk';
 import { ARCHIVE_CAPABILITIES } from '@lokvis/capability';
 import { ARCHIVE_ENGINE } from '@lokvis/engine-archive';
 import { buildArchiveCapabilityImplementations } from './operations.js';
@@ -39,9 +39,7 @@ export function archiveToolsPlugin() {
     },
     (ctx) => {
       const impls = buildArchiveCapabilityImplementations(ctx);
-      for (const impl of impls) {
-        ctx.registerCapability(impl);
-      }
+      registerImplementations(ctx, impls);
       ctx.log('info', `Registered ${impls.length} archive capabilities`);
     }
   );

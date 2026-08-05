@@ -36,9 +36,8 @@ import {
   formatSize,
 } from './fs-helpers.js';
 import {
-  buildSingleTransformWorkflow,
-  buildMergeWorkflow,
   buildSplitWorkflow,
+  runFileTransform,
 } from './workflow-helpers.js';
 import {
   pdfMergeSchema,
@@ -56,67 +55,31 @@ import { requireToolMeta } from './manual-overrides.js';
 const PDF_MIME = 'application/pdf';
 
 /**
- * 通用 pdf transform 流程:file → importAsset → runtime.run → exportAsset → cleanup。
+ * 通用 pdf transform 流程(FO-18 工厂化)。
  *
- * 走完整 capability 系统(TD-1.1 长期方案),与 image.ts 模式一致。
- * input/output asset 在流程结束后清理(避免 NodeAssetStore 累积)。
- *
- * 页数读取:通过 runtime.readAssetPdfInfo() 读取输出 asset 的页数 ——
- * 走 MetadataReader 依赖反转(plugin-pdf/node 注册 'pdf.read-info' reader,
- * 内部调 engine-pdf 的 getPdfInfo),避免 mcp-server 直接依赖 engine-pdf
- * (五层架构单向依赖,见 A1 修复)。
+ * 页数读取通过 onExported 回调在 cleanup 前完成(走 MetadataReader 依赖反转)。
  */
-async function runPdfTransform(
+function runPdfTransform(
   runtime: LokvisRuntime,
   inputPaths: string[],
   capability: string,
   params: Record<string, unknown>,
   options: { merge: boolean }
 ): Promise<{ outBlob: Blob; pages: number | null }> {
-  // 构造输入 File 并 importAsset
-  const inputAssetIds: string[] = [];
-  for (const p of inputPaths) {
-    const buffer = await readFile(p);
-    // AGENTS.md:Node.js 环境构造 File 对象用标准 API
-    const file = new File([buffer], basename(p), { type: PDF_MIME });
-    const id = await runtime.importAsset({ kind: 'file', file });
-    inputAssetIds.push(id);
-  }
-
-  try {
-    const workflow = options.merge
-      ? buildMergeWorkflow(capability, params, 'pdf', 'pdf')
-      : buildSingleTransformWorkflow(capability, params, 'pdf', 'pdf');
-    const result = await runtime.run(workflow, inputAssetIds);
-    if (result.status !== 'completed' || !result.outputs[0]) {
-      throw new Error(
-        `Workflow ${capability} failed: status=${result.status}` +
-          (result.error ? ` error=${result.error}` : '')
-      );
-    }
-
-    const outAssetId = result.outputs[0];
-    const outBlob = await runtime.exportAsset(outAssetId);
-
-    // 读取输出 asset 的页数(走 MetadataReader,失败时降级为 null,不影响主流程)
-    // reader 未注册 / 解析失败均返回 null
-    const info = await runtime.readAssetPdfInfo(outAssetId);
-    const pages = info?.pages ?? null;
-
-    // 清理 output asset(已导出 Blob,不再需要)。失败仅 warn,不影响主流程结果
-    await runtime.removeAsset(outAssetId).catch((e) => {
-      console.warn('[mcp-server] cleanup output asset failed:', e);
-    });
-
-    return { outBlob, pages };
-  } finally {
-    // 清理所有 input asset(避免 NodeAssetStore 累积)。失败仅 warn,不影响主流程结果
-    for (const id of inputAssetIds) {
-      await runtime.removeAsset(id).catch((e) => {
-        console.warn('[mcp-server] cleanup input asset failed:', e);
-      });
-    }
-  }
+  return runFileTransform({
+    runtime,
+    inputPaths,
+    capability,
+    params,
+    mime: PDF_MIME,
+    category: 'pdf',
+    assetType: 'pdf',
+    merge: options.merge,
+    onExported: async (outAssetId) => {
+      const info = await runtime.readAssetPdfInfo(outAssetId);
+      return { pages: info?.pages ?? null };
+    },
+  }) as Promise<{ outBlob: Blob; pages: number | null }>;
 }
 
 /**

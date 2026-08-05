@@ -121,6 +121,14 @@ describe('videoToolsPlugin 定义', () => {
     expect(plugin.config.permissions).toContain('asset:write');
     expect(plugin.config.permissions).toContain('network:none');
   });
+
+  it('VIDEO_ENGINE.supportedCapabilities 应覆盖全部 7 个声明能力(FO-03)', async () => {
+    const { VIDEO_ENGINE } = await import('@lokvis/engine-video');
+    const plugin = videoToolsPlugin();
+    for (const cap of plugin.config.capabilities) {
+      expect(VIDEO_ENGINE.supportedCapabilities).toContain(cap.name);
+    }
+  });
 });
 
 describe('videoToolsPlugin install', () => {

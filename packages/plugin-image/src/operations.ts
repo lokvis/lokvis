@@ -14,7 +14,8 @@
 
 import type { PluginContext } from '@lokvis/schema';
 import type { BuiltinCapabilityName, CapabilityImplementation } from '@lokvis/schema';
-import { createBlobCapabilityImpl } from '@lokvis/plugin-sdk';
+import { createBlobCapabilityImpl, isStubEngine } from '@lokvis/plugin-sdk';
+import type { BlobOperation } from '@lokvis/plugin-sdk';
 import {
   IMAGE_ENGINE,
   resize as opResize,
@@ -29,12 +30,8 @@ import {
   encodeIco as opEncodeIco,
 } from '@lokvis/engine-image';
 
-/** Capability 名 → 操作函数的映射类型 */
-export type ImageOperation = (
-  blob: Blob,
-  params: Record<string, unknown>,
-  signal?: AbortSignal
-) => Promise<Blob>;
+/** Capability 名 → 操作函数的映射类型(FO-39:复用 plugin-sdk 通用类型) */
+export type ImageOperation = BlobOperation;
 
 /** 图像能力实现绑定项(capability name → engine + operation) */
 export interface ImageOperationEntry {
@@ -48,34 +45,24 @@ export interface ImageOperationEntry {
 
 // ─── 各操作的参数转换 + 调用 ───────────────────────────────
 // engine-image 操作函数已接受 Record<string, unknown>，无需类型断言。
-
-const resizeOp: ImageOperation = (blob, params, signal) => opResize(blob, params, signal);
-const compressOp: ImageOperation = (blob, params, signal) => opCompress(blob, params, signal);
-const convertOp: ImageOperation = (blob, params, signal) => opConvert(blob, params, signal);
-const cropOp: ImageOperation = (blob, params, signal) => opCrop(blob, params, signal);
-const rotateOp: ImageOperation = (blob, params, signal) => opRotate(blob, params, signal);
-const flipOp: ImageOperation = (blob, params, signal) => opFlip(blob, params, signal);
-const watermarkOp: ImageOperation = (blob, params, signal) => opWatermark(blob, params, signal);
-const backgroundOp: ImageOperation = (blob, params, signal) => opSetBackground(blob, params, signal);
-const filterOp: ImageOperation = (blob, params, signal) => opFilter(blob, params, signal);
-const faviconOp: ImageOperation = (blob, params, signal) => opEncodeIco(blob, params, signal);
+// 直接引用 engine 导出,无需零增益透传包装。
 
 /** 全部图像能力实现绑定(operation → engine 映射,能力声明由 generated 提供) */
 export const IMAGE_OPERATION_ENTRIES: ImageOperationEntry[] = [
-  { capability: 'image.resize',      engine: 'canvas', operation: resizeOp },
-  { capability: 'image.compress',    engine: 'canvas', operation: compressOp },
-  { capability: 'image.convert',     engine: 'canvas', operation: convertOp },
-  { capability: 'image.crop',        engine: 'canvas', operation: cropOp },
-  { capability: 'image.rotate',      engine: 'canvas', operation: rotateOp },
-  { capability: 'image.flip',        engine: 'canvas', operation: flipOp },
-  { capability: 'image.watermark',   engine: 'canvas', operation: watermarkOp },
-  { capability: 'image.background',  engine: 'canvas', operation: backgroundOp },
-  { capability: 'image.filter',      engine: 'canvas', operation: filterOp },
-  { capability: 'image.favicon',     engine: 'canvas', operation: faviconOp },
+  { capability: 'image.resize',      engine: 'canvas', operation: opResize },
+  { capability: 'image.compress',    engine: 'canvas', operation: opCompress },
+  { capability: 'image.convert',     engine: 'canvas', operation: opConvert },
+  { capability: 'image.crop',        engine: 'canvas', operation: opCrop },
+  { capability: 'image.rotate',      engine: 'canvas', operation: opRotate },
+  { capability: 'image.flip',        engine: 'canvas', operation: opFlip },
+  { capability: 'image.watermark',   engine: 'canvas', operation: opWatermark },
+  { capability: 'image.background',  engine: 'canvas', operation: opSetBackground },
+  { capability: 'image.filter',      engine: 'canvas', operation: opFilter },
+  { capability: 'image.favicon',     engine: 'canvas', operation: opEncodeIco },
 ];
 
 /** engine-image stub 检测(AGENTS.md 约定:version.includes('stub')) */
-const isStub = IMAGE_ENGINE.version.includes('stub');
+const isStub = isStubEngine(IMAGE_ENGINE);
 
 /**
  * 构造所有图像能力的 CapabilityImplementation

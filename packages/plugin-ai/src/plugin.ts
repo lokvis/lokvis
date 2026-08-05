@@ -15,7 +15,7 @@
  * - 新增 ai.diagnose-error 能力(由 buildAiCapabilityImplementations 桥接)
  */
 
-import { definePlugin } from '@lokvis/plugin-sdk';
+import { definePlugin, registerImplementations } from '@lokvis/plugin-sdk';
 import { AI_CAPABILITIES } from '@lokvis/capability';
 import type { AiCloudCaller } from '@lokvis/engine-ai';
 import { buildAiCapabilityImplementations } from './operations.js';
@@ -76,9 +76,7 @@ export function aiToolsPlugin(options?: { cloudCaller?: AiCloudCaller }) {
     },
     (ctx) => {
       const impls = buildAiCapabilityImplementations(ctx, cloudCaller);
-      for (const impl of impls) {
-        ctx.registerCapability(impl);
-      }
+      registerImplementations(ctx, impls);
       const cloudStatus = cloudCaller
         ? 'cloud-proxy: live (cloudCaller injected)'
         : 'cloud-proxy: stub (no cloudCaller)';

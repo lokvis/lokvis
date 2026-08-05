@@ -46,9 +46,9 @@ vi.mock('../internal/format-support', () => ({
 }));
 
 // wasm 兜底开关 mock:默认关闭,慢速提示专项用例按需 mockReturnValue(true)。
-// 注:useImageConvert 通过 @lokvis/plugin-image(Capability 桥接)访问。
+// 注:useImageConvert 从 @lokvis/sdk/image 导入 wasmEncodersEnabled。
 const wasmEncodersEnabledMock = vi.fn(() => false);
-vi.mock('@lokvis/plugin-image', () => ({
+vi.mock('@lokvis/sdk/image', () => ({
   wasmEncodersEnabled: () => wasmEncodersEnabledMock(),
 }));
 

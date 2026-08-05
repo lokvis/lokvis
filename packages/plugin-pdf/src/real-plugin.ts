@@ -15,7 +15,10 @@ import {
   createMergeCapabilityImpl,
   createSplitCapabilityImpl,
   definePlugin,
+  isStubEngine,
+  registerImplementations,
 } from '@lokvis/plugin-sdk';
+import type { BlobOperation, MergeOperation, SplitOperation } from '@lokvis/plugin-sdk';
 import { PDF_CAPABILITIES } from '@lokvis/capability';
 import type { AssetType, PdfInfo } from '@lokvis/schema';
 import { METADATA_READER_NAMES } from '@lokvis/schema';
@@ -36,7 +39,7 @@ import { derivePdfMetadata } from './operations.js';
 export const PLUGIN_ENGINE_PDF = PDF_ENGINE.name;
 
 /** engine 级 stub 状态单点推导(AGENTS.md 约定:version 含 'stub') */
-const ENGINE_IS_STUB = PDF_ENGINE.version.includes('stub');
+const ENGINE_IS_STUB = isStubEngine(PDF_ENGINE);
 
 /** 元数据读取器名称(单一来源:@lokvis/schema METADATA_READER_NAMES) */
 export const PDF_INFO_READER_NAME = METADATA_READER_NAMES.pdfInfo;
@@ -54,24 +57,14 @@ function resolvePdfStub(capability: string): boolean {
   return ENGINE_IS_STUB || REAL_STUB_CAPABILITIES.has(capability);
 }
 
-/** single 形态的 Blob→Blob 操作签名 */
-type SinglePdfOperation = (
-  blob: Blob,
-  params: Record<string, unknown>,
-  signal?: AbortSignal
-) => Promise<Blob>;
+/** single 形态的 Blob→Blob 操作签名(FO-39:复用 plugin-sdk 通用类型) */
+type SinglePdfOperation = BlobOperation;
 
-/** merge 形态的 Blob[]→Blob 操作签名 */
-type MergePdfOperation = (
-  blobs: Blob[],
-  params: Record<string, unknown>
-) => Promise<Blob>;
+/** merge 形态的 Blob[]→Blob 操作签名(FO-39:复用 plugin-sdk 通用类型) */
+type MergePdfOperation = MergeOperation;
 
-/** split 形态的 Blob→Blob[] 操作签名 */
-type SplitPdfOperation = (
-  blob: Blob,
-  params: Record<string, unknown>
-) => Promise<Blob[]>;
+/** split 形态的 Blob→Blob[] 操作签名(FO-39:复用 plugin-sdk 通用类型) */
+type SplitPdfOperation = SplitOperation;
 
 /** 真实操作绑定项(operation → kind + outputType 映射) */
 interface RealPdfEntry {
@@ -188,9 +181,7 @@ export function buildRealPdfPlugin(options: RealPdfPluginOptions) {
         }
       });
 
-      for (const impl of impls) {
-        ctx.registerCapability(impl);
-      }
+      registerImplementations(ctx, impls);
 
       // PDF 页数查询 reader(供 mcp-server 报告处理结果页数)。
       // 内部调 engine-pdf 的 getPdfInfo,走 MetadataReader 机制避免上层直接依赖 engine-pdf。

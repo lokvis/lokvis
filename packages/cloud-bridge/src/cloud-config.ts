@@ -25,21 +25,21 @@
  * 作为客户端降级限流使用。值需与 cloud 侧 PLAN_ENTITLEMENTS 保持一致,
  * 或通过 LOKVIS_PLAN_QUOTAS_JSON 环境变量覆盖。
  */
-const DEFAULT_PLAN_QUOTAS: Record<string, number> = {
+export const DEFAULT_PLAN_QUOTAS: Record<string, number> = {
   free: 0,
   pro: 0,
   cloud_pro: 10,
   enterprise: Infinity,
 };
 
-/** 默认 cloud API 地址 */
-const DEFAULT_API_BASE_URL = 'https://api.lokvis.com';
+/** 默认 cloud API 地址(FO-06:auth/billing 的 options 缺省也引用此常量) */
+export const DEFAULT_API_BASE_URL = 'https://api.lokvis.com';
 
-/** 默认充值链接 */
-const DEFAULT_UPGRADE_URL = 'https://app.lokvis.com/billing';
+/** 默认充值链接(FO-06:billing 的 options 缺省也引用此常量) */
+export const DEFAULT_UPGRADE_URL = 'https://app.lokvis.com/billing';
 
 /** 默认每次 AI 调用价格(美分) */
-const DEFAULT_PRICE_PER_CALL_CENTS = 1;
+export const DEFAULT_PRICE_PER_CALL_CENTS = 1;
 
 /**
  * 默认 PPP 定价表(最小 fallback)。

@@ -11,8 +11,7 @@
  * 输出:处理后的文件路径 + 元数据(大小变化)
  */
 
-import { resolve, basename } from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import type { LokvisRuntime } from '@lokvis/sdk';
 import type { McpToolResult } from '../server.js';
 import {
@@ -21,10 +20,7 @@ import {
   getFileSize,
   formatSize,
 } from './fs-helpers.js';
-import {
-  buildSingleTransformWorkflow,
-  buildMergeWorkflow,
-} from './workflow-helpers.js';
+import { runFileTransform } from './workflow-helpers.js';
 import {
   audioNormalizeSchema,
   audioTranscodeSchema,
@@ -39,53 +35,25 @@ import { requireToolMeta } from './manual-overrides.js';
 const AUDIO_MIME = 'audio/mpeg';
 
 /**
- * 通用 audio transform 流程:file → importAsset → runtime.run → exportAsset → cleanup。
- *
- * 走完整 capability 系统,与 pdf.ts / image.ts / video.ts 模式一致。
- * input/output asset 在流程结束后清理(避免 NodeAssetStore 累积)。
+ * 通用 audio transform 流程(FO-18 工厂化)。
  */
-async function runAudioTransform(
+function runAudioTransform(
   runtime: LokvisRuntime,
   inputPaths: string[],
   capability: string,
   params: Record<string, unknown>,
   options: { merge: boolean }
 ): Promise<{ outBlob: Blob }> {
-  const inputAssetIds: string[] = [];
-  for (const p of inputPaths) {
-    const buffer = await readFile(p);
-    const file = new File([buffer], basename(p), { type: AUDIO_MIME });
-    const id = await runtime.importAsset({ kind: 'file', file });
-    inputAssetIds.push(id);
-  }
-
-  try {
-    const workflow = options.merge
-      ? buildMergeWorkflow(capability, params, 'audio', 'audio')
-      : buildSingleTransformWorkflow(capability, params, 'audio', 'audio');
-    const result = await runtime.run(workflow, inputAssetIds);
-    if (result.status !== 'completed' || !result.outputs[0]) {
-      throw new Error(
-        `Workflow ${capability} failed: status=${result.status}` +
-          (result.error ? ` error=${result.error}` : '')
-      );
-    }
-
-    const outAssetId = result.outputs[0];
-    const outBlob = await runtime.exportAsset(outAssetId);
-
-    await runtime.removeAsset(outAssetId).catch((e) => {
-      console.warn('[mcp-server] cleanup output asset failed:', e);
-    });
-
-    return { outBlob };
-  } finally {
-    for (const id of inputAssetIds) {
-      await runtime.removeAsset(id).catch((e) => {
-        console.warn('[mcp-server] cleanup input asset failed:', e);
-      });
-    }
-  }
+  return runFileTransform({
+    runtime,
+    inputPaths,
+    capability,
+    params,
+    mime: AUDIO_MIME,
+    category: 'audio',
+    assetType: 'audio',
+    merge: options.merge,
+  });
 }
 
 /**
